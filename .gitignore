@@ -36,3 +36,6 @@ keys/
 
 # Lock file
 package-lock.json
+
+# Deploy guide (local only)
+DEPLOY.md
