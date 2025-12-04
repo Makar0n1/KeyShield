@@ -266,6 +266,37 @@ body {
     line-height: 1.8;
 }
 
+/* Deadline Warning */
+.deadline-warning {
+    max-width: 800px;
+    margin: 60px auto 0;
+    padding: 30px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 2px solid var(--warning);
+    border-radius: 16px;
+    text-align: center;
+}
+
+.deadline-warning h3 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: var(--warning);
+}
+
+.deadline-warning p {
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.8;
+}
+
+.deadline-warning p:last-child {
+    margin-bottom: 0;
+}
+
+.deadline-warning strong {
+    color: var(--text);
+}
+
 /* Pricing Section */
 .pricing {
     padding: 100px 0;
