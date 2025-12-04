@@ -72,8 +72,14 @@ const disputeSchema = new mongoose.Schema({
 disputeSchema.index({ dealId: 1 });
 disputeSchema.index({ status: 1, createdAt: -1 });
 
-// Method to add comment
+// Method to add comment (max 100 comments per dispute)
 disputeSchema.methods.addComment = async function(userId, text, media = []) {
+  const MAX_COMMENTS = 100;
+
+  if (this.comments.length >= MAX_COMMENTS) {
+    throw new Error(`Достигнут лимит комментариев (${MAX_COMMENTS}). Для продолжения свяжитесь с арбитром.`);
+  }
+
   this.comments.push({
     userId,
     text,
