@@ -27,6 +27,33 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../../public')));
 
+// Clean URL routes for pages (no .html extension)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+app.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/terms.html'));
+});
+
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/privacy.html'));
+});
+
+app.get('/offer', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/offer.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/admin.html'));
+});
+
+// Redirect .html URLs to clean URLs
+app.get('*.html', (req, res) => {
+  const cleanPath = req.path.replace('.html', '');
+  res.redirect(301, cleanPath);
+});
+
 // Partner routes (before admin auth)
 app.use('/partner', partnerRoutes);
 
@@ -656,6 +683,11 @@ app.get('/api/admin/platforms/:platformId', adminAuth, async (req, res) => {
   }
 });
 
+// 404 handler - must be last
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, '../../public/not-found.html'));
+});
+
 // Start server
 const startWebServer = async () => {
   try {
@@ -664,7 +696,7 @@ const startWebServer = async () => {
     app.listen(PORT, () => {
       console.log(`\n🌐 Web server started!`);
       console.log(`   URL: http://localhost:${PORT}`);
-      console.log(`   Admin panel: http://localhost:${PORT}/admin.html`);
+      console.log(`   Admin panel: http://localhost:${PORT}/admin`);
       console.log(`   Default admin credentials: admin / admin123`);
       console.log(`   ⚠️  Change credentials in .env: ADMIN_USERNAME and ADMIN_PASSWORD\n`);
     });
