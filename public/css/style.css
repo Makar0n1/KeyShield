@@ -563,4 +563,43 @@ body {
     .pricing-cards {
         grid-template-columns: 1fr;
     }
+
+    .document-nav {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .document-nav a {
+        padding: 10px 15px;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+
+    .document h1 {
+        font-size: 28px;
+    }
+
+    .document h2 {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 480px) {
+    .document-nav {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .document-nav a {
+        text-align: center;
+        border-bottom: none;
+        border-left: 2px solid transparent;
+        padding: 12px 15px;
+    }
+
+    .document-nav a.active,
+    .document-nav a:hover {
+        border-bottom-color: transparent;
+        border-left-color: var(--primary);
+    }
 }
