@@ -565,14 +565,26 @@ body {
     }
 
     .document-nav {
-        flex-wrap: wrap;
-        gap: 10px;
+        flex-direction: column;
+        gap: 0;
+        border-bottom: none;
     }
 
     .document-nav a {
-        padding: 10px 15px;
+        padding: 12px 15px;
         font-size: 14px;
-        white-space: nowrap;
+        text-align: left;
+        border-bottom: none;
+        border-left: 3px solid transparent;
+        background: var(--dark);
+        margin-bottom: 2px;
+    }
+
+    .document-nav a.active,
+    .document-nav a:hover {
+        border-bottom-color: transparent;
+        border-left-color: var(--primary);
+        background: var(--dark-light);
     }
 
     .document h1 {
@@ -581,25 +593,5 @@ body {
 
     .document h2 {
         font-size: 22px;
-    }
-}
-
-@media (max-width: 480px) {
-    .document-nav {
-        flex-direction: column;
-        gap: 5px;
-    }
-
-    .document-nav a {
-        text-align: center;
-        border-bottom: none;
-        border-left: 2px solid transparent;
-        padding: 12px 15px;
-    }
-
-    .document-nav a.active,
-    .document-nav a:hover {
-        border-bottom-color: transparent;
-        border-left-color: var(--primary);
     }
 }
