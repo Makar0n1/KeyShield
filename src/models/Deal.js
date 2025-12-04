@@ -82,7 +82,8 @@ const dealSchema = new mongoose.Schema({
       'completed',
       'dispute',
       'resolved',
-      'cancelled'
+      'cancelled',
+      'expired' // Auto-refunded due to deadline + 12h grace period expiration
     ],
     default: 'created',
     index: true
@@ -171,6 +172,9 @@ dealSchema.index({ uniqueKey: 1, status: 1 });
 
 // Index for platform statistics
 dealSchema.index({ platformId: 1, status: 1 });
+
+// Index for deadline monitor queries
+dealSchema.index({ status: 1, deadline: 1 });
 
 // Static method to generate unique deal ID
 dealSchema.statics.generateDealId = function() {
