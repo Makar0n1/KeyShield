@@ -1,0 +1,220 @@
+const mongoose = require('mongoose');
+const crypto = require('crypto');
+
+const dealSchema = new mongoose.Schema({
+  dealId: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true
+  },
+  creatorRole: {
+    type: String,
+    enum: ['buyer', 'seller'],
+    required: true
+  },
+  buyerId: {
+    type: Number,
+    required: true,
+    index: true
+  },
+  sellerId: {
+    type: Number,
+    required: true,
+    index: true
+  },
+  // Партнерская платформа (наследуется от создателя сделки)
+  platformId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Platform',
+    default: null,
+    index: true
+  },
+  // Код платформы для быстрого доступа
+  platformCode: {
+    type: String,
+    default: null
+  },
+  productName: {
+    type: String,
+    required: true,
+    maxlength: 200
+  },
+  description: {
+    type: String,
+    required: true,
+    maxlength: 5000
+  },
+  asset: {
+    type: String,
+    enum: ['USDT', 'TRX'],
+    required: true,
+    default: 'USDT'
+  },
+  amount: {
+    type: Number,
+    required: true,
+    min: 10
+  },
+  commission: {
+    type: Number,
+    required: true
+  },
+  commissionType: {
+    type: String,
+    enum: ['buyer', 'seller', 'split'],
+    required: true
+  },
+  multisigAddress: {
+    type: String,
+    default: null,
+    index: true
+  },
+  status: {
+    type: String,
+    enum: [
+      'created',
+      'waiting_for_seller_wallet', // Waiting for seller to provide wallet (buyer-created deal)
+      'waiting_for_buyer_wallet', // Waiting for buyer to provide wallet (seller-created deal)
+      'waiting_for_deposit',
+      'locked',
+      'in_progress',
+      'completed',
+      'dispute',
+      'resolved',
+      'cancelled'
+    ],
+    default: 'created',
+    index: true
+  },
+  deadline: {
+    type: Date,
+    required: true
+  },
+  uniqueKey: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true
+  },
+  // SECURITY TODO: These keys should ideally be managed client-side or in secure storage
+  // For MVP, storing references/handles here, but mark for security review
+  buyerKey: {
+    type: String,
+    default: null,
+    select: false // Don't return by default in queries
+  },
+  sellerKey: {
+    type: String,
+    default: null,
+    select: false
+  },
+  arbiterKey: {
+    type: String,
+    default: null,
+    select: false
+  },
+  // Wallet addresses for payouts
+  buyerAddress: {
+    type: String,
+    default: null
+  },
+  sellerAddress: {
+    type: String,
+    default: null
+  },
+  depositTxHash: {
+    type: String,
+    default: null
+  },
+  depositDetectedAt: {
+    type: Date,
+    default: null
+  },
+  actualDepositAmount: {
+    type: Number,
+    default: null
+  },
+  // Operational costs tracking
+  operationalCosts: {
+    activationTrx: { type: Number, default: 0 },        // TRX spent on activation
+    activationUsd: { type: Number, default: 0 },        // USD equivalent of activation
+    payoutFee: { type: Number, default: 0 },            // Fee for payout to seller
+    commissionTransferFee: { type: Number, default: 0 }, // Fee for commission transfer
+    totalCostUsd: { type: Number, default: 0 }          // Total operational cost in USD
+  },
+  completedAt: {
+    type: Date,
+    default: null
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
+});
+
+// Compound index for checking active deals per user
+dealSchema.index({ buyerId: 1, status: 1 });
+dealSchema.index({ sellerId: 1, status: 1 });
+
+// Index for deposit monitor queries (optimized for status + multisigAddress)
+dealSchema.index({ status: 1, multisigAddress: 1 });
+
+// Index for duplicate deal checking
+dealSchema.index({ uniqueKey: 1, status: 1 });
+
+// Index for platform statistics
+dealSchema.index({ platformId: 1, status: 1 });
+
+// Static method to generate unique deal ID
+dealSchema.statics.generateDealId = function() {
+  const randomPart = Math.floor(100000 + Math.random() * 900000);
+  return `DL-${randomPart}`;
+};
+
+// Static method to generate uniqueKey for anti-duplicate
+dealSchema.statics.generateUniqueKey = function(buyerId, sellerId, description) {
+  const data = `${buyerId}${sellerId}${description}`;
+  return crypto.createHash('sha256').update(data).digest('hex');
+};
+
+// Static method to calculate commission
+// Below 300 USDT: flat 15 USDT
+// 300 USDT and above: 5% of amount
+dealSchema.statics.calculateCommission = function(amount) {
+  const THRESHOLD = 300; // USDT
+  const MIN_COMMISSION = 15; // USDT
+  const RATE = 0.05; // 5%
+
+  if (amount < THRESHOLD) {
+    return MIN_COMMISSION;
+  }
+
+  return amount * RATE;
+};
+
+// Method to check if deal is in active state
+dealSchema.methods.isActive = function() {
+  const activeStatuses = ['waiting_for_deposit', 'locked', 'in_progress', 'dispute'];
+  return activeStatuses.includes(this.status);
+};
+
+// Method to check if user is participant
+dealSchema.methods.isParticipant = function(telegramId) {
+  return this.buyerId === telegramId || this.sellerId === telegramId;
+};
+
+// Method to get user role in deal
+dealSchema.methods.getUserRole = function(telegramId) {
+  if (this.buyerId === telegramId) return 'buyer';
+  if (this.sellerId === telegramId) return 'seller';
+  return null;
+};
+
+module.exports = mongoose.model('Deal', dealSchema);

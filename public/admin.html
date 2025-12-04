@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KeyShield Admin Panel</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .login-box {
+      background: #1e293b;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-box h1 {
+      margin-bottom: 30px;
+      font-size: 28px;
+      text-align: center;
+      color: #60a5fa;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 16px;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #60a5fa;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .error {
+      background: #991b1b;
+      color: #fecaca;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .dashboard {
+      display: none;
+      padding: 20px;
+    }
+
+    .dashboard.active {
+      display: block;
+    }
+
+    .header {
+      background: #1e293b;
+      padding: 20px;
+      margin: -20px -20px 20px -20px;
+      border-bottom: 2px solid #334155;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      color: #60a5fa;
+      font-size: 24px;
+    }
+
+    .header .user-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .header .username {
+      color: #cbd5e1;
+    }
+
+    .btn-logout {
+      background: #dc2626;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-logout:hover {
+      background: #b91c1c;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #3b82f6;
+    }
+
+    .stat-card h3 {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #60a5fa;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #334155;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab.active {
+      color: #60a5fa;
+      border-bottom-color: #60a5fa;
+    }
+
+    .tab:hover {
+      color: #e2e8f0;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .table-container {
+      background: #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #0f172a;
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #cbd5e1;
+      border-bottom: 2px solid #334155;
+    }
+
+    td {
+      padding: 15px;
+      border-bottom: 1px solid #334155;
+      color: #e2e8f0;
+    }
+
+    tr:hover {
+      background: #334155;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: #166534;
+      color: #86efac;
+    }
+
+    .badge-warning {
+      background: #854d0e;
+      color: #fde047;
+    }
+
+    .badge-danger {
+      background: #991b1b;
+      color: #fca5a5;
+    }
+
+    .badge-info {
+      background: #1e40af;
+      color: #93c5fd;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #94a3b8;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+
+    .deal-link {
+      color: #60a5fa;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .deal-link:hover {
+      text-decoration: underline;
+    }
+
+    .filters {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .filter-group select {
+      padding: 8px 12px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pagination button {
+      padding: 8px 16px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #1e293b;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+
+    .pagination button:hover {
+      background: #334155;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination button.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-ban {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-ban:hover {
+      background: #b91c1c;
+    }
+
+    .btn-unban {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-unban:hover {
+      background: #059669;
+    }
+
+    .btn-resolve {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-resolve:hover {
+      background: #2563eb;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-content h2 {
+      margin-bottom: 20px;
+      color: #60a5fa;
+    }
+
+    .modal-content textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 100px;
+      margin-bottom: 15px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-secondary {
+      background: #64748b;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    /* Custom scrollbar */
+    .modal-content::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .modal-content::-webkit-scrollbar-track {
+      background: #0f172a;
+      border-radius: 10px;
+    }
+
+    .modal-content::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 10px;
+    }
+
+    .modal-content::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+
+    .btn-success {
+      background: #10b981;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .btn-warning {
+      background: #f59e0b;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-warning:hover {
+      background: #d97706;
+    }
+
+    /* Image Gallery Modal */
+    .gallery-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gallery-modal.active {
+      display: flex;
+    }
+
+    .gallery-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .gallery-image {
+      max-width: 100%;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .gallery-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      color: white;
+      border: none;
+      padding: 20px 15px;
+      cursor: pointer;
+      font-size: 24px;
+      font-weight: bold;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .gallery-nav:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .gallery-prev {
+      left: 20px;
+    }
+
+    .gallery-next {
+      right: 20px;
+    }
+
+    .gallery-counter {
+      margin-top: 15px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-container">
+    <div class="login-box">
+      <h1>🔐 KeyShield Admin</h1>
+      <div id="loginError" class="error" style="display: none;"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="dashboard">
+    <div class="header">
+      <h1>📊 KeyShield Admin Panel</h1>
+      <div class="user-info">
+        <span class="username" id="adminUsername"></span>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Total Deals</h3>
+        <div class="value" id="statTotalDeals">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Active Deals</h3>
+        <div class="value" id="statActiveDeals">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Completed Deals</h3>
+        <div class="value" id="statCompletedDeals">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Open Disputes</h3>
+        <div class="value" id="statOpenDisputes">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Users</h3>
+        <div class="value" id="statTotalUsers">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Total Commission</h3>
+        <div class="value" id="statTotalCommissions">-</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('deals')">Deals</button>
+      <button class="tab" onclick="switchTab('users')">Users</button>
+      <button class="tab" onclick="switchTab('disputes')">Disputes</button>
+      <button class="tab" onclick="switchTab('platforms')">Platforms</button>
+      <button class="tab" onclick="switchTab('logs')">Audit Logs</button>
+    </div>
+
+    <!-- Deals Tab -->
+    <div id="dealsTab" class="tab-content active">
+      <div class="filters">
+        <div class="filter-group">
+          <label>Status</label>
+          <select id="dealStatusFilter" onchange="loadDeals()">
+            <option value="">All</option>
+            <option value="created">Created</option>
+            <option value="waiting_for_seller_wallet">Waiting for Seller Wallet</option>
+            <option value="waiting_for_deposit">Waiting for Deposit</option>
+            <option value="locked">Locked</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="dispute">Dispute</option>
+            <option value="resolved">Resolved</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-container">
+        <div id="dealsLoading" class="loading">Loading deals...</div>
+        <table id="dealsTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>Deal ID</th>
+              <th>Product</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Source</th>
+              <th>Buyer ID</th>
+              <th>Seller ID</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="dealsTableBody"></tbody>
+        </table>
+      </div>
+      <div id="dealsPagination" class="pagination"></div>
+    </div>
+
+    <!-- Users Tab -->
+    <div id="usersTab" class="tab-content">
+      <div class="filters">
+        <div class="filter-group">
+          <label>Filter</label>
+          <select id="userBlacklistedFilter" onchange="loadUsers()">
+            <option value="">All Users</option>
+            <option value="false">Active</option>
+            <option value="true">Banned</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-container">
+        <div id="usersLoading" class="loading">Loading users...</div>
+        <table id="usersTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>Telegram ID</th>
+              <th>Username</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th>Deals as Buyer</th>
+              <th>Deals as Seller</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
+      </div>
+      <div id="usersPagination" class="pagination"></div>
+    </div>
+
+    <!-- Disputes Tab -->
+    <div id="disputesTab" class="tab-content">
+      <div class="filters">
+        <div class="filter-group">
+          <label>Status</label>
+          <select id="disputeStatusFilter" onchange="loadDisputes()">
+            <option value="all">All</option>
+            <option value="open">Open</option>
+            <option value="in_review">In Review</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-container">
+        <div id="disputesLoading" class="loading">Loading disputes...</div>
+        <table id="disputesTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>Deal ID</th>
+              <th>Opened By</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Winner</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="disputesTableBody"></tbody>
+        </table>
+      </div>
+      <div id="disputesPagination" class="pagination"></div>
+    </div>
+
+    <!-- Platforms Tab -->
+    <div id="platformsTab" class="tab-content">
+      <div class="filters" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; color: #60a5fa;">Partner Platforms</h3>
+        <button class="btn-primary" onclick="showCreatePlatformModal()" style="padding: 10px 20px;">+ Create Platform</button>
+      </div>
+      <div class="table-container">
+        <div id="platformsLoading" class="loading">Loading platforms...</div>
+        <table id="platformsTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Channel</th>
+              <th>Login</th>
+              <th>Users</th>
+              <th>Deals</th>
+              <th>Commission</th>
+              <th>Net Profit</th>
+              <th>Platform Earnings</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="platformsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Logs Tab -->
+    <div id="logsTab" class="tab-content">
+      <div class="table-container">
+        <div id="logsLoading" class="loading">Loading logs...</div>
+        <table id="logsTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action</th>
+              <th>User ID</th>
+              <th>Deal ID</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody"></tbody>
+        </table>
+      </div>
+      <div id="logsPagination" class="pagination"></div>
+    </div>
+  </div>
+
+  <!-- Create Platform Modal -->
+  <div id="createPlatformModal" class="modal">
+    <div class="modal-content">
+      <h2>Create New Platform</h2>
+      <div class="form-group">
+        <label>Platform Name</label>
+        <input type="text" id="platformName" placeholder="e.g. Freelance Hub">
+      </div>
+      <div class="form-group">
+        <label>Telegram Channel</label>
+        <input type="text" id="platformChannel" placeholder="e.g. @freelance_hub">
+      </div>
+      <div class="form-group">
+        <label>Login</label>
+        <input type="text" id="platformLogin" placeholder="Login for partner cabinet">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="platformPassword" placeholder="Password">
+      </div>
+      <div class="form-group">
+        <label>Commission %</label>
+        <input type="number" id="platformCommission" value="10" min="0" max="100">
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="closePlatformModal()">Cancel</button>
+        <button class="btn-primary" onclick="createPlatform()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Platform Details Modal -->
+  <div id="platformDetailsModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <h2>Platform Details</h2>
+      <div id="platformDetailsContent" style="margin-top: 20px;">
+        <!-- Content will be loaded dynamically -->
+      </div>
+      <div class="modal-buttons" style="margin-top: 20px;">
+        <button class="btn-secondary" onclick="closePlatformDetailsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dispute Details Modal -->
+  <div id="disputeDetailsModal" class="modal" onclick="closeDisputeDetailsModal(event)">
+    <div class="modal-content" style="max-width: 800px;" onclick="event.stopPropagation()">
+      <h2>Dispute Details</h2>
+      <div id="disputeDetailsContent" style="margin-top: 20px; word-wrap: break-word; overflow-wrap: break-word;">
+        <!-- Content will be loaded dynamically -->
+      </div>
+      <div class="modal-buttons" style="margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn-info" id="returnToProgressBtn" onclick="returnDisputeToProgress()" style="display: none; background: #3b82f6;">Return to In-Progress</button>
+        <button class="btn-warning" id="cancelDisputeBtn" onclick="cancelDispute()" style="display: none;">Cancel Dispute</button>
+        <button class="btn-success" id="resolveBuyerBtn" onclick="resolveDispute('buyer')" style="display: none;">Resolve - Refund Buyer</button>
+        <button class="btn-danger" id="resolveSellerBtn" onclick="resolveDispute('seller')" style="display: none;">Resolve - Release to Seller</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resolve Dispute Modal -->
+  <div id="resolveDisputeModal" class="modal">
+    <div class="modal-content">
+      <h2>Resolve Dispute</h2>
+      <p style="margin-bottom: 15px; color: #94a3b8;">Select the winner of this dispute:</p>
+      <div class="filter-group" style="margin-bottom: 15px;">
+        <label>Winner</label>
+        <select id="disputeWinner" style="width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #e2e8f0;">
+          <option value="buyer">Buyer</option>
+          <option value="seller">Seller</option>
+        </select>
+      </div>
+      <div class="filter-group" style="margin-bottom: 20px;">
+        <label>Arbitrator Note (optional)</label>
+        <textarea id="arbitratorNote" placeholder="Enter any notes about your decision..."></textarea>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="closeResolveModal()">Cancel</button>
+        <button class="btn btn-resolve" onclick="submitDisputeResolution()">Resolve Dispute</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Gallery Modal -->
+  <div id="galleryModal" class="gallery-modal" onclick="closeGallery(event)">
+    <div class="gallery-content" onclick="event.stopPropagation()">
+      <button class="gallery-nav gallery-prev" onclick="prevImage(event)">‹</button>
+      <img id="galleryImage" class="gallery-image" src="" alt="Gallery Image">
+      <button class="gallery-nav gallery-next" onclick="nextImage(event)">›</button>
+      <div class="gallery-counter" id="galleryCounter">1 / 1</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let authCredentials = localStorage.getItem('adminAuth');
+
+    // Check if already logged in
+    if (authCredentials) {
+      showDashboard();
+    }
+
+    // Login form handler
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      // Store Basic Auth credentials
+      const credentials = btoa(`${username}:${password}`);
+
+      try {
+        // Test credentials with stats endpoint
+        const response = await fetch(`${API_BASE}/admin/stats`, {
+          headers: { 'Authorization': `Basic ${credentials}` }
+        });
+
+        if (response.ok) {
+          authCredentials = credentials;
+          localStorage.setItem('adminAuth', credentials);
+          localStorage.setItem('adminUsername', username);
+          showDashboard();
+        } else {
+          showError('Invalid username or password');
+        }
+      } catch (error) {
+        showError('Connection error: ' + error.message);
+      }
+    });
+
+    function showError(message) {
+      const errorDiv = document.getElementById('loginError');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    }
+
+    function showDashboard() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('dashboard').classList.add('active');
+      document.getElementById('adminUsername').textContent = localStorage.getItem('adminUsername');
+      loadDashboardData();
+      loadDeals();
+    }
+
+    function logout() {
+      localStorage.removeItem('adminAuth');
+      localStorage.removeItem('adminUsername');
+      location.reload();
+    }
+
+    async function loadDashboardData() {
+      try {
+        const response = await fetch(`${API_BASE}/admin/stats`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+
+        document.getElementById('statTotalDeals').textContent = data.deals.total;
+        document.getElementById('statActiveDeals').textContent = data.deals.active;
+        document.getElementById('statCompletedDeals').textContent = data.deals.completed;
+        document.getElementById('statOpenDisputes').textContent = data.deals.disputed;
+        document.getElementById('statTotalUsers').textContent = data.users.total;
+        document.getElementById('statTotalCommissions').textContent = parseFloat(data.finance.totalCommission) + ' USDT';
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+      }
+    }
+
+    async function loadDeals(page = 1) {
+      const status = document.getElementById('dealStatusFilter').value;
+      const params = new URLSearchParams({ limit: 50, skip: (page - 1) * 50 });
+      if (status) params.append('status', status);
+
+      document.getElementById('dealsLoading').style.display = 'block';
+      document.getElementById('dealsTable').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/deals?${params}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+
+        renderDealsTable(data.deals);
+        const totalPages = Math.ceil(data.total / 50);
+        renderPagination('deals', { page, pages: totalPages }, loadDeals);
+      } catch (error) {
+        console.error('Failed to load deals:', error);
+      }
+    }
+
+    function renderDealsTable(deals) {
+      const tbody = document.getElementById('dealsTableBody');
+      tbody.innerHTML = '';
+
+      if (deals.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No deals found</td></tr>';
+      } else {
+        deals.forEach(deal => {
+          const source = deal.platformCode || 'direct';
+          const sourceClass = source === 'direct' ? 'badge-secondary' : 'badge-info';
+          const row = `
+            <tr>
+              <td><a href="#" class="deal-link">${deal.dealId}</a></td>
+              <td>${deal.productName}</td>
+              <td>${deal.amount} ${deal.asset}</td>
+              <td>${getStatusBadge(deal.status)}</td>
+              <td><span class="badge ${sourceClass}">${source}</span></td>
+              <td>${deal.buyerId}</td>
+              <td>${deal.sellerId}</td>
+              <td>${new Date(deal.createdAt).toLocaleString()}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      }
+
+      document.getElementById('dealsLoading').style.display = 'none';
+      document.getElementById('dealsTable').style.display = 'table';
+    }
+
+    async function loadUsers(page = 1) {
+      const banned = document.getElementById('userBlacklistedFilter').value;
+      const params = new URLSearchParams({ limit: 50, skip: (page - 1) * 50 });
+      if (banned) params.append('banned', banned);
+
+      document.getElementById('usersLoading').style.display = 'block';
+      document.getElementById('usersTable').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/users?${params}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+
+        renderUsersTable(data.users);
+        const totalPages = Math.ceil(data.total / 50);
+        renderPagination('users', { page, pages: totalPages }, loadUsers);
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      }
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = '';
+
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found</td></tr>';
+      } else {
+        users.forEach(user => {
+          const actionBtn = user.blacklisted
+            ? `<button class="btn-small btn-unban" onclick="toggleUserBan(${user.telegramId}, false)">Unban</button>`
+            : `<button class="btn-small btn-ban" onclick="toggleUserBan(${user.telegramId}, true)">Ban</button>`;
+
+          const source = user.source || 'direct';
+          const sourceClass = source === 'direct' ? 'badge-secondary' : 'badge-info';
+
+          const row = `
+            <tr>
+              <td>${user.telegramId}</td>
+              <td>@${user.username || 'N/A'}</td>
+              <td><span class="badge ${sourceClass}">${source}</span></td>
+              <td>${user.blacklisted ? '<span class="badge badge-danger">Banned</span>' : '<span class="badge badge-success">Active</span>'}</td>
+              <td>${user.dealsAsBuyer || 0}</td>
+              <td>${user.dealsAsSeller || 0}</td>
+              <td>${new Date(user.createdAt).toLocaleString()}</td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      }
+
+      document.getElementById('usersLoading').style.display = 'none';
+      document.getElementById('usersTable').style.display = 'table';
+    }
+
+    async function loadLogs(page = 1) {
+      const params = new URLSearchParams({ limit: 100 });
+
+      document.getElementById('logsLoading').style.display = 'block';
+      document.getElementById('logsTable').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/logs?${params}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+
+        renderLogsTable(data.transactions);
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+      }
+    }
+
+    function renderLogsTable(logs) {
+      const tbody = document.getElementById('logsTableBody');
+      tbody.innerHTML = '';
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">No logs found</td></tr>';
+      } else {
+        logs.forEach(log => {
+          const row = `
+            <tr>
+              <td>${new Date(log.createdAt).toLocaleString()}</td>
+              <td>${log.type}</td>
+              <td>N/A</td>
+              <td>${log.dealId ? log.dealId._id : 'N/A'}</td>
+              <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${log.txHash || log.address || '-'}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      }
+
+      document.getElementById('logsLoading').style.display = 'none';
+      document.getElementById('logsTable').style.display = 'table';
+    }
+
+    function renderPagination(type, pagination, loadFunc) {
+      const container = document.getElementById(`${type}Pagination`);
+      container.innerHTML = '';
+
+      if (pagination.pages <= 1) return;
+
+      // Previous button
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Previous';
+      prevBtn.disabled = pagination.page === 1;
+      prevBtn.onclick = () => loadFunc(pagination.page - 1);
+      container.appendChild(prevBtn);
+
+      // Page info
+      const pageInfo = document.createElement('span');
+      pageInfo.textContent = `Page ${pagination.page} of ${pagination.pages}`;
+      pageInfo.style.padding = '8px 16px';
+      pageInfo.style.color = '#cbd5e1';
+      container.appendChild(pageInfo);
+
+      // Next button
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Next →';
+      nextBtn.disabled = pagination.page === pagination.pages;
+      nextBtn.onclick = () => loadFunc(pagination.page + 1);
+      container.appendChild(nextBtn);
+    }
+
+    function getStatusBadge(status) {
+      const statusMap = {
+        'created': 'info',
+        'waiting_for_seller_wallet': 'warning',
+        'waiting_for_deposit': 'warning',
+        'locked': 'info',
+        'in_progress': 'info',
+        'completed': 'success',
+        'dispute': 'danger',
+        'resolved': 'success',
+        'cancelled': 'danger'
+      };
+
+      const type = statusMap[status] || 'info';
+      return `<span class="badge badge-${type}">${status}</span>`;
+    }
+
+    function switchTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(`${tabName}Tab`).classList.add('active');
+
+      // Load data for the tab
+      if (tabName === 'deals') loadDeals();
+      if (tabName === 'users') loadUsers();
+      if (tabName === 'disputes') loadDisputes();
+      if (tabName === 'platforms') loadPlatforms();
+      if (tabName === 'logs') loadLogs();
+    }
+
+    // Disputes functions
+    async function loadDisputes(page = 1) {
+      const status = document.getElementById('disputeStatusFilter').value;
+      const params = new URLSearchParams({ limit: 50, skip: (page - 1) * 50, status });
+
+      document.getElementById('disputesLoading').style.display = 'block';
+      document.getElementById('disputesTable').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/disputes?${params}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+
+        renderDisputesTable(data.disputes);
+        const totalPages = Math.ceil(data.total / 50);
+        renderPagination('disputes', { page, pages: totalPages }, loadDisputes);
+      } catch (error) {
+        console.error('Failed to load disputes:', error);
+      }
+    }
+
+    function renderDisputesTable(disputes) {
+      const tbody = document.getElementById('disputesTableBody');
+      tbody.innerHTML = '';
+
+      if (!disputes || disputes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No disputes found</td></tr>';
+      } else {
+        disputes.forEach(dispute => {
+          const dealId = dispute.dealId ? (dispute.dealId.dealId || dispute.dealId._id) : 'N/A';
+
+          const viewBtn = `<button class="btn-small" style="background: #3b82f6; color: white; margin-right: 5px;" onclick="viewDisputeDetails('${dispute._id}')">View</button>`;
+          const actionBtn = dispute.status === 'open'
+            ? `<button class="btn-small btn-resolve" onclick="openResolveModal('${dispute._id}')">Resolve</button>`
+            : '-';
+
+          const statusBadge = dispute.status === 'open'
+            ? '<span class="badge badge-warning">Open</span>'
+            : dispute.status === 'in_review'
+            ? '<span class="badge badge-info">In Review</span>'
+            : '<span class="badge badge-success">Resolved</span>';
+
+          const row = `
+            <tr>
+              <td>${dealId}</td>
+              <td>${dispute.openedBy === 'buyer' ? 'Buyer' : 'Seller'}</td>
+              <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${dispute.reasonText || 'N/A'}</td>
+              <td>${statusBadge}</td>
+              <td>${dispute.decision ? (dispute.decision === 'refund_buyer' ? 'Buyer' : 'Seller') : '-'}</td>
+              <td>${new Date(dispute.createdAt).toLocaleString()}</td>
+              <td>${viewBtn}${actionBtn}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      }
+
+      document.getElementById('disputesLoading').style.display = 'none';
+      document.getElementById('disputesTable').style.display = 'table';
+    }
+
+    let currentDisputeId = null;
+
+    function openResolveModal(disputeId) {
+      currentDisputeId = disputeId;
+      document.getElementById('resolveDisputeModal').classList.add('active');
+    }
+
+    function closeResolveModal() {
+      currentDisputeId = null;
+      document.getElementById('resolveDisputeModal').classList.remove('active');
+      document.getElementById('disputeWinner').value = 'buyer';
+      document.getElementById('arbitratorNote').value = '';
+    }
+
+    async function submitDisputeResolution() {
+      if (!currentDisputeId) return;
+
+      const winner = document.getElementById('disputeWinner').value;
+      const note = document.getElementById('arbitratorNote').value;
+
+      // Convert winner to decision format (refund_buyer or release_seller)
+      const decision = winner === 'buyer' ? 'refund_buyer' : 'release_seller';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/resolve`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ winner: decision, note })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('Dispute resolved successfully!');
+          closeResolveModal();
+          loadDisputes();
+          loadDashboardData();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to resolve dispute'));
+        }
+      } catch (error) {
+        console.error('Failed to resolve dispute:', error);
+        alert('Connection error: ' + error.message);
+      }
+    }
+
+    // User ban/unban function
+    async function toggleUserBan(telegramId, banned) {
+      const action = banned ? 'ban' : 'unban';
+      const reason = banned ? prompt('Enter ban reason:') : 'Unbanned by admin';
+
+      if (banned && !reason) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/users/${telegramId}/ban`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ banned, reason })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert(`User ${action}ned successfully!`);
+          loadUsers();
+          loadDashboardData();
+        } else {
+          alert('Error: ' + (data.error || `Failed to ${action} user`));
+        }
+      } catch (error) {
+        console.error(`Failed to ${action} user:`, error);
+        alert('Connection error: ' + error.message);
+      }
+    }
+
+    // View dispute details
+    async function viewDisputeDetails(disputeId) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/disputes/${disputeId}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          alert('Error: ' + data.error);
+          return;
+        }
+
+        const { dispute, buyer, seller } = data;
+        const deal = dispute.dealId;
+
+        // Calculate time since dispute opened
+        const timeSinceDispute = Math.floor((new Date() - new Date(dispute.createdAt)) / 1000 / 60); // minutes
+        const timeStr = timeSinceDispute < 60
+          ? `${timeSinceDispute} min ago`
+          : timeSinceDispute < 1440
+          ? `${Math.floor(timeSinceDispute / 60)} hours ago`
+          : `${Math.floor(timeSinceDispute / 1440)} days ago`;
+
+        let html = `
+          <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #60a5fa; margin-bottom: 15px;">Deal Information</h3>
+            <p><strong>Deal ID:</strong> ${deal.dealId}</p>
+            <p><strong>Product:</strong> ${deal.productName}</p>
+            <p><strong>Description:</strong> ${deal.description || deal.productDescription || 'N/A'}</p>
+            <p><strong>Amount:</strong> ${deal.amount} ${deal.asset}</p>
+            <p><strong>Commission:</strong> ${deal.commission} ${deal.asset}</p>
+            <p><strong>Deal Status:</strong> ${deal.status}</p>
+            <p><strong>Deal Created:</strong> ${new Date(deal.createdAt).toLocaleString()}</p>
+          </div>
+
+          <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #60a5fa; margin-bottom: 15px;">Parties</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <h4 style="color: #10b981; margin-bottom: 10px;">Buyer</h4>
+                <p><strong>ID:</strong> ${deal.buyerId}</p>
+                <p><strong>Username:</strong> @${buyer?.username || 'N/A'}</p>
+                <p><strong>Wallet:</strong> <span style="font-size: 11px; word-break: break-all;">${deal.buyerAddress || 'Not provided'}</span></p>
+              </div>
+              <div>
+                <h4 style="color: #f59e0b; margin-bottom: 10px;">Seller</h4>
+                <p><strong>ID:</strong> ${deal.sellerId}</p>
+                <p><strong>Username:</strong> @${seller?.username || 'N/A'}</p>
+                <p><strong>Wallet:</strong> <span style="font-size: 11px; word-break: break-all;">${deal.sellerAddress || 'Not provided'}</span></p>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #ef4444; margin-bottom: 15px;">Dispute Information</h3>
+            <p><strong>Opened By:</strong> ${dispute.openedBy === deal.buyerId ? 'Buyer' : 'Seller'}</p>
+            <p><strong>Opened:</strong> ${new Date(dispute.createdAt).toLocaleString()} (${timeStr})</p>
+            <p><strong>Status:</strong> ${dispute.status}</p>
+            <p style="margin-top: 15px;"><strong>Reason:</strong></p>
+            <div style="background: #1e293b; padding: 15px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap;">
+              ${dispute.reasonText}
+            </div>
+          </div>
+        `;
+
+        // Add media if present
+        if (dispute.media && dispute.media.length > 0) {
+          const evidenceImages = dispute.media.map(fileId => API_BASE + '/admin/telegram-file/' + fileId);
+
+          html += `
+            <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="color: #60a5fa; margin-bottom: 15px;">Evidence (${dispute.media.length} files)</h3>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+          `;
+          dispute.media.forEach((fileId, index) => {
+            const fileUrl = API_BASE + '/admin/telegram-file/' + fileId;
+            const downloadUrl = API_BASE + '/admin/telegram-file/' + fileId + '?download=true';
+            html += `
+              <div style="background: #1e293b; border-radius: 8px; overflow: hidden; border: 1px solid #334155; position: relative;" class="evidence-item" data-index="` + index + `" data-is-image="true">
+                <img src="` + fileUrl + `"
+                     alt="Evidence ` + (index + 1) + `"
+                     style="width: 100%; height: 200px; object-fit: cover; display: block; cursor: pointer;"
+                     onclick="openGallery(['` + evidenceImages.join("','") + `'], ` + index + `)"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'; this.parentElement.dataset.isImage='false'; this.parentElement.style.cursor='default';">
+                <div style="display: none; width: 100%; height: 200px; align-items: center; justify-content: center; background: #1e293b; color: #60a5fa;">
+                  <a href="` + downloadUrl + `" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">📄</div>
+                    <div style="font-size: 12px;">Click to download</div>
+                  </a>
+                </div>
+                <div style="padding: 10px; color: #94a3b8; font-size: 12px; text-align: center; display: flex; justify-content: space-between; align-items: center;">
+                  <span>Evidence #` + (index + 1) + `</span>
+                  <a href="` + downloadUrl + `" style="color: #3b82f6; text-decoration: none; font-size: 20px;" title="Download">⬇</a>
+                </div>
+              </div>
+            `;
+          });
+          html += `</div></div>`;
+        }
+
+        // Add comments if present
+        if (dispute.comments && dispute.comments.length > 0) {
+          html += `
+            <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="color: #60a5fa; margin-bottom: 15px;">Additional Comments (${dispute.comments.length})</h3>
+          `;
+          dispute.comments.forEach((comment, index) => {
+            const isFromBuyer = comment.userId === deal.buyerId;
+            html += `
+              <div style="background: #1e293b; padding: 15px; border-radius: 6px; margin-bottom: 10px;">
+                <p style="color: ${isFromBuyer ? '#10b981' : '#f59e0b'}; font-weight: bold;">
+                  ${isFromBuyer ? 'Buyer' : 'Seller'} - ${new Date(comment.createdAt).toLocaleString()}
+                </p>
+                <p style="margin-top: 10px; white-space: pre-wrap;">${comment.text}</p>
+            `;
+            if (comment.media && comment.media.length > 0) {
+              const commentImages = comment.media.map(fileId => API_BASE + '/admin/telegram-file/' + fileId);
+              html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">`;
+              comment.media.forEach((fileId, idx) => {
+                const fileUrl = API_BASE + '/admin/telegram-file/' + fileId;
+                const downloadUrl = API_BASE + '/admin/telegram-file/' + fileId + '?download=true';
+                html += `
+                  <div style="background: #0f172a; border-radius: 6px; overflow: hidden; border: 1px solid #334155; position: relative;">
+                    <img src="` + fileUrl + `"
+                         alt="Attachment"
+                         style="width: 100%; height: 150px; object-fit: cover; display: block; cursor: pointer;"
+                         onclick="openGallery(['` + commentImages.join("','") + `'], ` + idx + `)"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div style="display: none; width: 100%; height: 150px; align-items: center; justify-content: center; background: #0f172a; color: #60a5fa;">
+                      <a href="` + downloadUrl + `" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center;">
+                        <div style="font-size: 30px; margin-bottom: 5px;">📄</div>
+                        <div style="font-size: 10px;">Click to download</div>
+                      </a>
+                    </div>
+                    <div style="padding: 5px; color: #94a3b8; font-size: 11px; text-align: center; display: flex; justify-content: space-between; align-items: center;">
+                      <span>File ` + (idx + 1) + `</span>
+                      <a href="` + downloadUrl + `" style="color: #3b82f6; text-decoration: none; font-size: 16px;" title="Download">⬇</a>
+                    </div>
+                  </div>
+                `;
+              });
+              html += `</div>`;
+            }
+            html += `</div>`;
+          });
+          html += `</div>`;
+        }
+
+        document.getElementById('disputeDetailsContent').innerHTML = html;
+        document.getElementById('disputeDetailsModal').classList.add('active');
+
+        // Show action buttons if dispute is open
+        if (dispute.status === 'open') {
+          document.getElementById('returnToProgressBtn').style.display = 'block';
+          document.getElementById('cancelDisputeBtn').style.display = 'block';
+          document.getElementById('resolveBuyerBtn').style.display = 'block';
+          document.getElementById('resolveSellerBtn').style.display = 'block';
+          currentDisputeId = disputeId;
+        } else {
+          document.getElementById('returnToProgressBtn').style.display = 'none';
+          document.getElementById('cancelDisputeBtn').style.display = 'none';
+          document.getElementById('resolveBuyerBtn').style.display = 'none';
+          document.getElementById('resolveSellerBtn').style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Failed to load dispute details:', error);
+        alert('Connection error: ' + error.message);
+      }
+    }
+
+    function closeDisputeDetailsModal(event) {
+      // Close only if clicking on backdrop
+      if (!event || event.target.id === 'disputeDetailsModal') {
+        document.getElementById('disputeDetailsModal').classList.remove('active');
+        currentDisputeId = null;
+      }
+    }
+
+    async function resolveDispute(winner) {
+      if (!currentDisputeId) {
+        alert('No dispute selected');
+        return;
+      }
+
+      const decision = winner === 'buyer' ? 'refund_buyer' : 'release_seller';
+      const confirmMsg = winner === 'buyer'
+        ? 'Resolve dispute and REFUND money to buyer?'
+        : 'Resolve dispute and RELEASE money to seller?';
+
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/resolve`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ winner: decision, note: '' })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          alert('Dispute resolved successfully!');
+          closeDisputeDetailsModal();
+          loadDisputes();
+          loadDashboardData();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to resolve dispute'));
+        }
+      } catch (error) {
+        console.error('Failed to resolve dispute:', error);
+        alert('Connection error: ' + error.message);
+      }
+    }
+
+    async function cancelDispute() {
+      if (!currentDisputeId) {
+        alert('No dispute selected');
+        return;
+      }
+
+      if (!confirm('Cancel this dispute? The deal will return to previous state.')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          alert('Dispute cancelled successfully!');
+          closeDisputeDetailsModal();
+          loadDisputes();
+          loadDashboardData();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to cancel dispute'));
+        }
+      } catch (error) {
+        console.error('Failed to cancel dispute:', error);
+        alert('Connection error: ' + error.message);
+      }
+    }
+
+    async function returnDisputeToProgress() {
+      if (!currentDisputeId) {
+        alert('No dispute selected');
+        return;
+      }
+
+      if (!confirm('Return this dispute to "In Progress"? Both parties will be able to continue working on the deal.')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/return-to-progress`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          alert('Dispute returned to In-Progress successfully! Both parties have been notified.');
+          closeDisputeDetailsModal();
+          loadDisputes();
+          loadDashboardData();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to return dispute to in-progress'));
+        }
+      } catch (error) {
+        console.error('Failed to return dispute to in-progress:', error);
+        alert('Connection error: ' + error.message);
+      }
+    }
+
+    function resolveFromDetails() {
+      closeDisputeDetailsModal();
+      openResolveModal(currentDisputeId);
+    }
+
+    // Image Gallery functionality
+    let galleryImages = [];
+    let currentGalleryIndex = 0;
+
+    function openGallery(images, startIndex = 0) {
+      galleryImages = images;
+      currentGalleryIndex = startIndex;
+      showGalleryImage();
+      document.getElementById('galleryModal').classList.add('active');
+      // Prevent body scroll when gallery is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeGallery(event) {
+      // Close only if clicking on backdrop
+      if (!event || event.target.id === 'galleryModal') {
+        document.getElementById('galleryModal').classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function showGalleryImage() {
+      const img = document.getElementById('galleryImage');
+      const counter = document.getElementById('galleryCounter');
+
+      img.src = galleryImages[currentGalleryIndex];
+      counter.textContent = `${currentGalleryIndex + 1} / ${galleryImages.length}`;
+
+      // Show/hide navigation buttons
+      const prevBtn = document.querySelector('.gallery-prev');
+      const nextBtn = document.querySelector('.gallery-next');
+
+      if (galleryImages.length <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+      } else {
+        prevBtn.style.display = 'block';
+        nextBtn.style.display = 'block';
+      }
+    }
+
+    function prevImage(event) {
+      event.stopPropagation();
+      if (currentGalleryIndex > 0) {
+        currentGalleryIndex--;
+        showGalleryImage();
+      }
+    }
+
+    function nextImage(event) {
+      event.stopPropagation();
+      if (currentGalleryIndex < galleryImages.length - 1) {
+        currentGalleryIndex++;
+        showGalleryImage();
+      }
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('galleryModal');
+      if (modal.classList.contains('active')) {
+        if (e.key === 'Escape') {
+          closeGallery();
+        } else if (e.key === 'ArrowLeft') {
+          prevImage(e);
+        } else if (e.key === 'ArrowRight') {
+          nextImage(e);
+        }
+      }
+    });
+
+    // ============ Platform Management Functions ============
+
+    async function loadPlatforms() {
+      document.getElementById('platformsLoading').style.display = 'block';
+      document.getElementById('platformsTable').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/platforms`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+        renderPlatformsTable(data.platforms);
+      } catch (error) {
+        console.error('Failed to load platforms:', error);
+      }
+    }
+
+    function renderPlatformsTable(platforms) {
+      const tbody = document.getElementById('platformsTableBody');
+      tbody.innerHTML = '';
+
+      if (!platforms || platforms.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="empty">No platforms found. Create your first platform!</td></tr>';
+      } else {
+        platforms.forEach(platform => {
+          const stats = platform.stats || {};
+          const statusBadge = platform.isActive
+            ? '<span class="badge badge-success">Active</span>'
+            : '<span class="badge badge-danger">Inactive</span>';
+
+          const row = `
+            <tr>
+              <td><strong>${platform.code}</strong></td>
+              <td>${platform.name}</td>
+              <td>${platform.telegramChannel}</td>
+              <td>${platform.login}</td>
+              <td>${stats.totalUsers || 0}</td>
+              <td>${stats.totalDeals || 0}</td>
+              <td>${(stats.totalCommission || 0).toFixed(2)} USDT</td>
+              <td>${(stats.netProfit || 0).toFixed(2)} USDT</td>
+              <td style="color: #10b981; font-weight: bold;">${(stats.platformEarnings || 0).toFixed(2)} USDT</td>
+              <td>${statusBadge}</td>
+              <td>
+                <button class="btn-small btn-info" onclick="showPlatformDetails('${platform._id}')" title="View Details">👁</button>
+                <button class="btn-small ${platform.isActive ? 'btn-warning' : 'btn-success'}"
+                        onclick="togglePlatformStatus('${platform._id}', ${!platform.isActive})"
+                        title="${platform.isActive ? 'Deactivate' : 'Activate'}">
+                  ${platform.isActive ? '⏸' : '▶'}
+                </button>
+                <button class="btn-small btn-danger" onclick="deletePlatform('${platform._id}', '${platform.name}')" title="Delete Platform">🗑</button>
+              </td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      }
+
+      document.getElementById('platformsLoading').style.display = 'none';
+      document.getElementById('platformsTable').style.display = 'table';
+    }
+
+    function showCreatePlatformModal() {
+      document.getElementById('createPlatformModal').classList.add('active');
+    }
+
+    function closePlatformModal() {
+      document.getElementById('createPlatformModal').classList.remove('active');
+      // Clear form
+      document.getElementById('platformName').value = '';
+      document.getElementById('platformChannel').value = '';
+      document.getElementById('platformLogin').value = '';
+      document.getElementById('platformPassword').value = '';
+      document.getElementById('platformCommission').value = '10';
+    }
+
+    async function createPlatform() {
+      const name = document.getElementById('platformName').value.trim();
+      const telegramChannel = document.getElementById('platformChannel').value.trim();
+      const login = document.getElementById('platformLogin').value.trim();
+      const password = document.getElementById('platformPassword').value;
+      const commissionPercent = parseInt(document.getElementById('platformCommission').value);
+
+      if (!name || !telegramChannel || !login || !password) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/platforms`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name, telegramChannel, login, password, commissionPercent })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert(`Platform created successfully!\n\nReferral Link:\n${data.platform.referralLink}\n\nLogin: ${login}\nPassword: (as entered)`);
+          closePlatformModal();
+          loadPlatforms();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to create platform'));
+        }
+      } catch (error) {
+        console.error('Error creating platform:', error);
+        alert('Failed to create platform');
+      }
+    }
+
+    async function showPlatformDetails(platformId) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/platforms/${platformId}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        const data = await response.json();
+        const p = data.platform;
+        const stats = p.stats || {};
+
+        const content = `
+          <div style="display: grid; gap: 15px;">
+            <div style="background: #0f172a; padding: 15px; border-radius: 8px;">
+              <h4 style="color: #60a5fa; margin-bottom: 10px;">Platform Info</h4>
+              <p><strong>Name:</strong> ${p.name}</p>
+              <p><strong>Code:</strong> ${p.code}</p>
+              <p><strong>Channel:</strong> ${p.telegramChannel}</p>
+              <p><strong>Login:</strong> ${p.login}</p>
+              <p><strong>Commission:</strong> ${p.commissionPercent}%</p>
+              <p><strong>Status:</strong> ${p.isActive ? '✅ Active' : '❌ Inactive'}</p>
+            </div>
+
+            <div style="background: #0f172a; padding: 15px; border-radius: 8px;">
+              <h4 style="color: #60a5fa; margin-bottom: 10px;">Referral Link</h4>
+              <input type="text" value="${p.referralLink}" readonly
+                     style="width: 100%; padding: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #e2e8f0;"
+                     onclick="this.select(); document.execCommand('copy'); alert('Copied!');">
+            </div>
+
+            <div style="background: #0f172a; padding: 15px; border-radius: 8px;">
+              <h4 style="color: #60a5fa; margin-bottom: 10px;">Statistics</h4>
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                <p>👥 Users: <strong>${stats.totalUsers || 0}</strong></p>
+                <p>📋 Total Deals: <strong>${stats.totalDeals || 0}</strong></p>
+                <p>✅ Completed: <strong>${stats.completedDeals || 0}</strong></p>
+                <p>🔄 Active: <strong>${stats.activeDeals || 0}</strong></p>
+                <p>⚠️ Disputed: <strong>${stats.disputedDeals || 0}</strong></p>
+                <p>❌ Cancelled: <strong>${stats.cancelledDeals || 0}</strong></p>
+              </div>
+            </div>
+
+            <div style="background: #0f172a; padding: 15px; border-radius: 8px;">
+              <h4 style="color: #60a5fa; margin-bottom: 10px;">Finance</h4>
+              <p>💰 Total Volume: <strong>${(stats.totalVolume || 0).toFixed(2)} USDT</strong></p>
+              <p>💵 Commission Earned: <strong>${(stats.totalCommission || 0).toFixed(2)} USDT</strong></p>
+              <p>⛽ TRX Spent: <strong>${(stats.totalTrxSpent || 0).toFixed(2)} TRX (≈${(stats.totalTrxSpentUsdt || 0).toFixed(2)} USDT)</strong></p>
+              <p>📊 Net Profit: <strong style="color: #10b981;">${(stats.netProfit || 0).toFixed(2)} USDT</strong></p>
+              <p>🎯 Platform Earnings (${p.commissionPercent}%): <strong style="color: #f59e0b; font-size: 18px;">${(stats.platformEarnings || 0).toFixed(2)} USDT</strong></p>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('platformDetailsContent').innerHTML = content;
+        document.getElementById('platformDetailsModal').classList.add('active');
+      } catch (error) {
+        console.error('Error loading platform details:', error);
+        alert('Failed to load platform details');
+      }
+    }
+
+    function closePlatformDetailsModal() {
+      document.getElementById('platformDetailsModal').classList.remove('active');
+    }
+
+    async function togglePlatformStatus(platformId, isActive) {
+      const action = isActive ? 'activate' : 'deactivate';
+      if (!confirm(`Are you sure you want to ${action} this platform?`)) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/platforms/${platformId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ isActive })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          loadPlatforms();
+        } else {
+          alert('Error: ' + (data.error || `Failed to ${action} platform`));
+        }
+      } catch (error) {
+        console.error(`Error ${action} platform:`, error);
+        alert(`Failed to ${action} platform`);
+      }
+    }
+
+    async function deletePlatform(platformId, platformName) {
+      const confirmText = `Are you sure you want to PERMANENTLY DELETE the platform "${platformName}"?\n\nThis action cannot be undone!\n\nNote: Users and deals associated with this platform will keep their platform reference but won't be linked to an active platform.`;
+
+      if (!confirm(confirmText)) return;
+
+      // Double confirmation for safety
+      const doubleConfirm = prompt(`Type "${platformName}" to confirm deletion:`);
+      if (doubleConfirm !== platformName) {
+        alert('Deletion cancelled. Platform name did not match.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/platforms/${platformId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${authCredentials}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert(`Platform "${platformName}" has been deleted successfully.`);
+          loadPlatforms();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to delete platform'));
+        }
+      } catch (error) {
+        console.error('Error deleting platform:', error);
+        alert('Failed to delete platform');
+      }
+    }
+  </script>
+</body>
+</html>
