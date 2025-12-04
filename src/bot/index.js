@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
+const deadlineMonitor = require('../services/deadlineMonitor');
 const notificationService = require('../services/notificationService');
 
 // Handlers
@@ -88,6 +89,37 @@ bot.action(/^submit_work:/, submitWork);
 bot.action(/^accept_work:/, acceptWork);
 bot.action(/^open_dispute:/, startDispute);
 
+// Deadline expiration actions (from deadlineMonitor notifications)
+bot.action(/^confirm_work_/, async (ctx) => {
+  const dealId = ctx.callbackQuery.data.replace('confirm_work_', '');
+  await ctx.answerCbQuery();
+  // Reuse acceptWork logic
+  ctx.callbackQuery.data = `accept_work:${dealId}`;
+  await acceptWork(ctx);
+});
+
+bot.action(/^work_done_/, async (ctx) => {
+  const dealId = ctx.callbackQuery.data.replace('work_done_', '');
+  await ctx.answerCbQuery();
+  // Reuse submitWork logic
+  ctx.callbackQuery.data = `submit_work:${dealId}`;
+  await submitWork(ctx);
+});
+
+bot.action(/^open_dispute_/, async (ctx) => {
+  const dealId = ctx.callbackQuery.data.replace('open_dispute_', '');
+  await ctx.answerCbQuery();
+  // Reuse startDispute logic
+  ctx.callbackQuery.data = `open_dispute:${dealId}`;
+  await startDispute(ctx);
+});
+
+bot.action(/^view_deal_/, async (ctx) => {
+  const dealId = ctx.callbackQuery.data.replace('view_deal_', '');
+  await ctx.answerCbQuery();
+  await showDealDetails(ctx, dealId);
+});
+
 // Help menu
 bot.action('help', async (ctx) => {
   await ctx.answerCbQuery();
@@ -160,6 +192,9 @@ const startBot = async () => {
     depositMonitor.setBotInstance(bot);
     depositMonitor.start();
 
+    deadlineMonitor.setBotInstance(bot);
+    deadlineMonitor.start();
+
     notificationService.setBotInstance(bot);
 
     // Start bot
@@ -174,6 +209,7 @@ const startBot = async () => {
     process.once('SIGINT', () => {
       console.log('\n⛔ SIGINT received, shutting down gracefully...');
       depositMonitor.stop();
+      deadlineMonitor.stop();
       bot.stop('SIGINT');
       process.exit(0);
     });
@@ -181,6 +217,7 @@ const startBot = async () => {
     process.once('SIGTERM', () => {
       console.log('\n⛔ SIGTERM received, shutting down gracefully...');
       depositMonitor.stop();
+      deadlineMonitor.stop();
       bot.stop('SIGTERM');
       process.exit(0);
     });
