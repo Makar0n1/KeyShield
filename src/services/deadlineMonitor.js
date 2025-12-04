@@ -15,6 +15,7 @@ const constants = require('../config/constants');
 class DeadlineMonitor {
   constructor() {
     this.isRunning = false;
+    this.isChecking = false; // Prevent overlapping check cycles
     this.interval = null;
     this.botInstance = null;
 
@@ -24,11 +25,19 @@ class DeadlineMonitor {
     // Grace period after deadline: 12 hours
     this.GRACE_PERIOD_MS = 12 * 60 * 60 * 1000;
 
+    // Batch processing settings
+    this.BATCH_SIZE = 5; // Process 5 deals at a time
+    this.BATCH_DELAY = 2000; // 2 seconds between batches
+
     // Track notified deals to avoid duplicate notifications
     this.notifiedDeals = new Set();
 
     // Track deals in refund process to prevent double processing
     this.refundingDeals = new Set();
+
+    // Cleanup interval for memory management
+    this.CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
+    this.cleanupTimer = null;
   }
 
   /**
@@ -58,6 +67,11 @@ class DeadlineMonitor {
     this.interval = setInterval(() => {
       this.checkDeadlines();
     }, this.CHECK_INTERVAL);
+
+    // Start cleanup timer for memory management
+    this.cleanupTimer = setInterval(() => {
+      this.cleanup();
+    }, this.CLEANUP_INTERVAL);
   }
 
   /**
@@ -68,14 +82,52 @@ class DeadlineMonitor {
       clearInterval(this.interval);
       this.interval = null;
     }
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
     this.isRunning = false;
     console.log('⛔ Deadline monitor stopped');
+  }
+
+  /**
+   * Cleanup old entries from tracking Sets to prevent memory leaks
+   */
+  cleanup() {
+    const notifiedBefore = this.notifiedDeals.size;
+    const refundingBefore = this.refundingDeals.size;
+
+    // Keep only last 500 notified deals
+    if (this.notifiedDeals.size > 500) {
+      const arr = Array.from(this.notifiedDeals);
+      this.notifiedDeals = new Set(arr.slice(-500));
+    }
+
+    // refundingDeals should auto-clean via setTimeout, but safety check
+    if (this.refundingDeals.size > 100) {
+      this.refundingDeals.clear();
+    }
+
+    const notifiedAfter = this.notifiedDeals.size;
+    const refundingAfter = this.refundingDeals.size;
+
+    if (notifiedBefore !== notifiedAfter || refundingBefore !== refundingAfter) {
+      console.log(`🧹 DeadlineMonitor cleanup: notified ${notifiedBefore}→${notifiedAfter}, refunding ${refundingBefore}→${refundingAfter}`);
+    }
   }
 
   /**
    * Check all active deals for deadline expiration
    */
   async checkDeadlines() {
+    // Prevent overlapping check cycles
+    if (this.isChecking) {
+      console.log('⏳ Previous deadline check still running, skipping...');
+      return;
+    }
+
+    this.isChecking = true;
+
     try {
       const now = new Date();
 
@@ -90,13 +142,32 @@ class DeadlineMonitor {
         return;
       }
 
-      console.log(`⏰ Checking ${expiredDeals.length} expired deal(s)...`);
+      console.log(`⏰ Checking ${expiredDeals.length} expired deal(s) in batches of ${this.BATCH_SIZE}...`);
 
-      for (const deal of expiredDeals) {
-        await this.processDeal(deal);
+      // Process deals in batches to avoid overwhelming the system
+      for (let i = 0; i < expiredDeals.length; i += this.BATCH_SIZE) {
+        const batch = expiredDeals.slice(i, i + this.BATCH_SIZE);
+        const batchNum = Math.floor(i / this.BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(expiredDeals.length / this.BATCH_SIZE);
+
+        console.log(`📦 Processing deadline batch ${batchNum}/${totalBatches} (${batch.length} deals)...`);
+
+        // Process batch sequentially (refunds need blockchain confirmations)
+        for (const deal of batch) {
+          await this.processDeal(deal);
+        }
+
+        // Delay between batches
+        if (i + this.BATCH_SIZE < expiredDeals.length) {
+          await new Promise(resolve => setTimeout(resolve, this.BATCH_DELAY));
+        }
       }
+
+      console.log(`✅ Deadline check cycle completed for ${expiredDeals.length} deal(s)`);
     } catch (error) {
       console.error('Error in deadline monitor:', error);
+    } finally {
+      this.isChecking = false;
     }
   }
 
