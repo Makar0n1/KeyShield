@@ -88,7 +88,7 @@ body {
 .mobile-menu-wrapper {
     display: none;
     position: fixed;
-    /* top: 69px; Height of header */
+    top: 62.19px;
     left: 0;
     right: 0;
     z-index: 999;
