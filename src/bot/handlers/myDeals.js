@@ -139,6 +139,19 @@ const showDealDetails = async (ctx, dealId) => {
       text += `⏰ *Дедлайн:* ${deal.deadline.toLocaleString('ru-RU')}\n`;
     }
 
+    // Show hint when waiting for wallet
+    if (role === 'seller' && deal.status === 'waiting_for_seller_wallet') {
+      text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `⚠️ *Требуется ваш кошелёк!*\n`;
+      text += `Нажмите кнопку ниже, чтобы указать адрес TRON-кошелька для получения оплаты.`;
+    }
+
+    if (role === 'buyer' && deal.status === 'waiting_for_buyer_wallet') {
+      text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `⚠️ *Требуется ваш кошелёк!*\n`;
+      text += `Нажмите кнопку ниже, чтобы указать адрес TRON-кошелька для возврата средств.`;
+    }
+
     // Show multisig address for waiting_for_deposit
     if (deal.status === 'waiting_for_deposit' && deal.multisigAddress) {
       text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;

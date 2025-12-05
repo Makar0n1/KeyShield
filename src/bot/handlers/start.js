@@ -3,6 +3,31 @@ const Platform = require('../../models/Platform');
 const { mainMenuKeyboard } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 
+// Welcome text for NEW users
+const WELCOME_TEXT = `👋 *Добро пожаловать в KeyShield!*
+
+🛡 *Что умеет этот бот?*
+
+KeyShield — это escrow-сервис для безопасных сделок между покупателями и продавцами в криптовалюте.
+
+✅ *Защита от мошенничества*
+Средства замораживаются на multisig-кошельке, пока сделка не завершена.
+
+✅ *Автоматический контроль*
+Бот сам отслеживает депозиты в блокчейне TRON.
+
+✅ *Справедливый арбитраж*
+При споре — нейтральный арбитр рассмотрит доказательства обеих сторон.
+
+✅ *Анонимность*
+Никакой верификации. Только ваш Telegram и TRON-кошелёк.
+
+💰 *Комиссия:* от 15 USDT или 5%
+📊 *Минимум:* 50 USDT
+💵 *Актив:* USDT (TRC-20)
+
+Нажмите кнопку ниже, чтобы начать!`;
+
 // Main menu text (used in multiple places)
 const MAIN_MENU_TEXT = `🛡 *KeyShield — Безопасные сделки*
 
@@ -120,18 +145,21 @@ const startHandler = async (ctx) => {
     // Reset navigation to main menu
     messageManager.resetNavigation(telegramId);
 
+    // Choose text based on new/returning user
+    const textToShow = isNewUser ? WELCOME_TEXT : MAIN_MENU_TEXT;
+
     // Send new main message
     const keyboard = mainMenuKeyboard();
-    const msg = await ctx.telegram.sendMessage(telegramId, MAIN_MENU_TEXT, {
+    const msg = await ctx.telegram.sendMessage(telegramId, textToShow, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
     });
 
     // Track main message
     messageManager.setMainMessage(telegramId, msg.message_id);
-    messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+    messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
 
-    console.log(`Main menu shown to user ${telegramId}, message ID: ${msg.message_id}`);
+    console.log(`${isNewUser ? 'Welcome' : 'Main menu'} shown to user ${telegramId}, message ID: ${msg.message_id}`);
   } catch (error) {
     console.error('Error in start handler:', error);
   }

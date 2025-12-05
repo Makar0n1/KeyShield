@@ -195,6 +195,25 @@ const myDealsEmptyKeyboard = () => {
 const dealDetailsKeyboard = (dealId, userRole, dealStatus) => {
   const buttons = [];
 
+  // Waiting for wallet - show "Enter Wallet" button
+  if (userRole === 'seller' && dealStatus === 'waiting_for_seller_wallet') {
+    buttons.push([
+      Markup.button.callback('💳 Указать кошелёк', `enter_wallet:${dealId}`)
+    ]);
+    buttons.push([
+      Markup.button.callback('❌ Отклонить сделку', `decline_deal:${dealId}`)
+    ]);
+  }
+
+  if (userRole === 'buyer' && dealStatus === 'waiting_for_buyer_wallet') {
+    buttons.push([
+      Markup.button.callback('💳 Указать кошелёк', `enter_wallet:${dealId}`)
+    ]);
+    buttons.push([
+      Markup.button.callback('❌ Отклонить сделку', `decline_deal:${dealId}`)
+    ]);
+  }
+
   // Action buttons based on role and status
   if (userRole === 'seller' && dealStatus === 'locked') {
     buttons.push([
