@@ -811,7 +811,7 @@
           <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <input type="text" id="exportDealId" placeholder="ID сделки (DL-XXXXXX)"
               style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <input type="text" id="exportDealUserId" placeholder="Telegram ID пользователя"
+            <input type="text" id="exportDealUserId" placeholder="ID или @username"
               style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
           </div>
           <button onclick="exportDealPDF()" style="width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
@@ -822,12 +822,39 @@
         <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
           <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по всем сделкам пользователя</div>
           <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <input type="text" id="exportUserTelegramId" placeholder="Telegram ID пользователя"
+            <input type="text" id="exportUserTelegramId" placeholder="ID или @username"
               style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
           </div>
           <button onclick="exportUserDealsPDF()" style="width: 100%; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
             📥 Скачать все выписки пользователя
           </button>
+        </div>
+      </div>
+
+      <!-- Export Logs -->
+      <div style="margin-top: 20px; background: #0f172a; padding: 15px; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">История экспортов</div>
+          <button onclick="loadExportLogs()" style="padding: 6px 12px; background: #334155; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+            🔄 Обновить
+          </button>
+        </div>
+        <div id="exportLogsContainer" style="max-height: 300px; overflow-y: auto;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <thead>
+              <tr style="color: #94a3b8; text-align: left; border-bottom: 1px solid #334155;">
+                <th style="padding: 8px;">Дата</th>
+                <th style="padding: 8px;">Тип</th>
+                <th style="padding: 8px;">Пользователь</th>
+                <th style="padding: 8px;">Детали</th>
+                <th style="padding: 8px;">Размер</th>
+                <th style="padding: 8px;">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="exportLogsList">
+              <tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Загрузка...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1139,6 +1166,7 @@
       document.getElementById('adminUsername').textContent = localStorage.getItem('adminUsername');
       loadDashboardData();
       loadDeals();
+      loadExportLogs();
     }
 
     function logout() {
@@ -2189,20 +2217,20 @@
 
     async function exportDealPDF() {
       const dealId = document.getElementById('exportDealId').value.trim();
-      const telegramId = document.getElementById('exportDealUserId').value.trim();
+      const userIdentifier = document.getElementById('exportDealUserId').value.trim();
 
       if (!dealId) {
         alert('Введите ID сделки (например: DL-123456)');
         return;
       }
 
-      if (!telegramId) {
-        alert('Введите Telegram ID пользователя');
+      if (!userIdentifier) {
+        alert('Введите Telegram ID или @username пользователя');
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE}/admin/export/deal/${dealId}?telegramId=${telegramId}`, {
+        const response = await fetch(`${API_BASE}/admin/export/deal/${dealId}?userIdentifier=${encodeURIComponent(userIdentifier)}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2222,6 +2250,9 @@
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+
+        // Refresh export logs
+        loadExportLogs();
       } catch (error) {
         console.error('Error exporting deal PDF:', error);
         alert('Ошибка соединения: ' + error.message);
@@ -2229,15 +2260,15 @@
     }
 
     async function exportUserDealsPDF() {
-      const telegramId = document.getElementById('exportUserTelegramId').value.trim();
+      const userIdentifier = document.getElementById('exportUserTelegramId').value.trim();
 
-      if (!telegramId) {
-        alert('Введите Telegram ID пользователя');
+      if (!userIdentifier) {
+        alert('Введите Telegram ID или @username пользователя');
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE}/admin/export/user/${telegramId}`, {
+        const response = await fetch(`${API_BASE}/admin/export/user/${encodeURIComponent(userIdentifier)}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2252,14 +2283,144 @@
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `KeyShield_User_${telegramId}_Deals.pdf`;
+        a.download = `KeyShield_User_${userIdentifier}_Deals.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        // Refresh export logs
+        loadExportLogs();
+      } catch (error) {
+        console.error('Error exporting user deals PDF:', error);
+        alert('Ошибка соединения: ' + error.message);
+      }
+    }
+
+    // ============ Export Logs Functions ============
+
+    async function loadExportLogs() {
+      try {
+        const response = await fetch(`${API_BASE}/admin/export/logs`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load export logs');
+        }
+
+        const data = await response.json();
+        renderExportLogs(data.logs);
+      } catch (error) {
+        console.error('Error loading export logs:', error);
+        document.getElementById('exportLogsList').innerHTML =
+          '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #ef4444;">Ошибка загрузки логов</td></tr>';
+      }
+    }
+
+    function renderExportLogs(logs) {
+      const container = document.getElementById('exportLogsList');
+
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Нет экспортов</td></tr>';
+        return;
+      }
+
+      container.innerHTML = logs.map(log => {
+        const date = new Date(log.createdAt).toLocaleString('ru-RU');
+        const typeLabel = log.exportType === 'single_deal' ? 'Сделка' : 'Все сделки';
+        const typeColor = log.exportType === 'single_deal' ? '#10b981' : '#6366f1';
+        const userInfo = log.targetUsername
+          ? `@${log.targetUsername} (${log.targetUserId})`
+          : log.targetUserId;
+        const details = log.exportType === 'single_deal'
+          ? log.dealId
+          : `${log.dealsCount} сделок`;
+        const fileSize = formatFileSize(log.fileSize);
+
+        return `
+          <tr style="border-bottom: 1px solid #1e293b;">
+            <td style="padding: 8px; color: #94a3b8;">${date}</td>
+            <td style="padding: 8px;"><span style="color: ${typeColor};">${typeLabel}</span></td>
+            <td style="padding: 8px; color: #fff;">${userInfo}</td>
+            <td style="padding: 8px; color: #94a3b8;">${details}</td>
+            <td style="padding: 8px; color: #94a3b8;">${fileSize}</td>
+            <td style="padding: 8px;">
+              <button onclick="downloadExportLog('${log._id}')"
+                style="padding: 4px 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px;">
+                📥
+              </button>
+              <button onclick="deleteExportLog('${log._id}')"
+                style="padding: 4px 8px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    async function downloadExportLog(logId) {
+      try {
+        const response = await fetch(`${API_BASE}/admin/export/download/${logId}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          alert('Ошибка: ' + (errorData.error || 'Файл не найден'));
+          return;
+        }
+
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'export.pdf';
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename=(.+)/);
+          if (match) filename = match[1];
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } catch (error) {
-        console.error('Error exporting user deals PDF:', error);
-        alert('Ошибка соединения: ' + error.message);
+        console.error('Error downloading export:', error);
+        alert('Ошибка скачивания: ' + error.message);
+      }
+    }
+
+    async function deleteExportLog(logId) {
+      if (!confirm('Удалить экспорт и файл?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/export/logs/${logId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          alert('Ошибка: ' + (errorData.error || 'Не удалось удалить'));
+          return;
+        }
+
+        loadExportLogs();
+      } catch (error) {
+        console.error('Error deleting export log:', error);
+        alert('Ошибка удаления: ' + error.message);
       }
     }
   </script>

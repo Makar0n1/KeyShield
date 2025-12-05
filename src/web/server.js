@@ -11,6 +11,7 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Dispute = require('../models/Dispute');
 const Platform = require('../models/Platform');
+const ExportLog = require('../models/ExportLog');
 
 // Import routes
 const partnerRoutes = require('./routes/partner');
@@ -579,16 +580,50 @@ app.get('/api/admin/logs', adminAuth, async (req, res) => {
 
 // ============ Deal Export API (PDF) ============
 
+// Helper: Find user by ID or username
+async function findUserByIdOrUsername(identifier) {
+  if (!identifier) return null;
+
+  // Clean the identifier
+  const cleanId = identifier.toString().trim().replace('@', '');
+
+  // Try as numeric ID first
+  const numericId = parseInt(cleanId);
+  if (!isNaN(numericId) && numericId > 0) {
+    const userById = await User.findOne({ telegramId: numericId }).lean();
+    if (userById) return userById;
+  }
+
+  // Try as username (case-insensitive)
+  const userByUsername = await User.findOne({
+    username: { $regex: new RegExp(`^${cleanId}$`, 'i') }
+  }).lean();
+
+  return userByUsername;
+}
+
 // Export single deal to PDF
 app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
-    const { dealId } = req.params;
-    const { telegramId } = req.query;
+    const fs = require('fs');
+    const fsPromises = require('fs').promises;
+    const pathModule = require('path');
 
-    if (!telegramId) {
-      return res.status(400).json({ error: 'telegramId is required' });
+    const { dealId } = req.params;
+    const { userIdentifier } = req.query;
+
+    if (!userIdentifier) {
+      return res.status(400).json({ error: 'userIdentifier is required (Telegram ID or @username)' });
     }
+
+    // Find user by ID or username
+    const requestingUser = await findUserByIdOrUsername(userIdentifier);
+    if (!requestingUser) {
+      return res.status(404).json({ error: 'User not found. Check Telegram ID or username.' });
+    }
+
+    const telegramId = requestingUser.telegramId;
 
     const deal = await Deal.findOne({ dealId }).lean();
     if (!deal) {
@@ -602,43 +637,52 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     }
 
     // Check if user is participant
-    const isParticipant = deal.buyerId === parseInt(telegramId) || deal.sellerId === parseInt(telegramId);
+    const isParticipant = deal.buyerId === telegramId || deal.sellerId === telegramId;
     if (!isParticipant) {
       return res.status(403).json({ error: 'User is not a participant of this deal' });
     }
 
     // Get user info for both participants
-    const [buyerUser, sellerUser, requestingUser] = await Promise.all([
+    const [buyerUser, sellerUser] = await Promise.all([
       User.findOne({ telegramId: deal.buyerId }).lean(),
-      User.findOne({ telegramId: deal.sellerId }).lean(),
-      User.findOne({ telegramId: parseInt(telegramId) }).lean()
+      User.findOne({ telegramId: deal.sellerId }).lean()
     ]);
 
-    // Generate PDF
+    // Create exports directory if not exists
+    const exportsDir = pathModule.join(__dirname, '../../exports');
+    try {
+      await fsPromises.mkdir(exportsDir, { recursive: true });
+    } catch (err) {
+      // Directory exists
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const fileName = `Deal_${dealId}_${telegramId}_${timestamp}.pdf`;
+    const filePath = pathModule.join(exportsDir, fileName);
+
+    // Generate PDF to file
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_Deal_${dealId}.pdf`);
-
-    doc.pipe(res);
+    const writeStream = fs.createWriteStream(filePath);
+    doc.pipe(writeStream);
 
     // Header
     doc.fontSize(24).fillColor('#6366f1').text('KeyShield', { align: 'center' });
-    doc.fontSize(10).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+    doc.fontSize(10).fillColor('#64748b').text('Secure Cryptocurrency Escrow on TRON', { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(8).text('https://keyshield.me', { align: 'center', link: 'https://keyshield.me' });
 
     doc.moveDown(2);
 
     // Document title
-    doc.fontSize(18).fillColor('#1e293b').text('ВЫПИСКА ПО СДЕЛКЕ', { align: 'center' });
+    doc.fontSize(18).fillColor('#1e293b').text('DEAL STATEMENT', { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(12).fillColor('#64748b').text(`Документ сформирован: ${new Date().toLocaleString('ru-RU')}`, { align: 'center' });
+    doc.fontSize(12).fillColor('#64748b').text(`Generated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC`, { align: 'center' });
 
     doc.moveDown(2);
 
     // Requesting user info
-    doc.fontSize(10).fillColor('#64748b').text('Документ подготовлен для:');
+    doc.fontSize(10).fillColor('#64748b').text('Document prepared for:');
     doc.fontSize(12).fillColor('#1e293b').text(`@${requestingUser?.username || 'Unknown'} (ID: ${telegramId})`);
 
     doc.moveDown(2);
@@ -658,85 +702,85 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     };
 
     // Basic Info
-    drawSection('Основная информация');
-    drawRow('ID сделки:', deal.dealId);
-    drawRow('Название:', deal.productName);
-    drawRow('Описание:', deal.description.substring(0, 200) + (deal.description.length > 200 ? '...' : ''));
+    drawSection('Basic Information');
+    drawRow('Deal ID:', deal.dealId);
+    drawRow('Product:', deal.productName);
+    drawRow('Description:', deal.description.substring(0, 200) + (deal.description.length > 200 ? '...' : ''));
 
     // Status with color
     const statusNames = {
-      completed: 'Успешно завершена',
-      resolved: 'Решена арбитром',
-      expired: 'Истёк срок (авто-возврат)',
-      cancelled: 'Отменена'
+      completed: 'Completed Successfully',
+      resolved: 'Resolved by Arbitrator',
+      expired: 'Expired (Auto-refund)',
+      cancelled: 'Cancelled'
     };
-    drawRow('Статус:', statusNames[deal.status] || deal.status);
+    drawRow('Status:', statusNames[deal.status] || deal.status);
 
     // Participants
-    drawSection('Участники сделки');
-    const userRole = deal.buyerId === parseInt(telegramId) ? 'Покупатель' : 'Продавец';
-    drawRow('Ваша роль:', userRole);
-    drawRow('Покупатель:', `@${buyerUser?.username || 'Unknown'} (ID: ${deal.buyerId})`);
-    drawRow('Продавец:', `@${sellerUser?.username || 'Unknown'} (ID: ${deal.sellerId})`);
-    drawRow('Создатель сделки:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец');
+    drawSection('Deal Participants');
+    const userRole = deal.buyerId === telegramId ? 'Buyer' : 'Seller';
+    drawRow('Your Role:', userRole);
+    drawRow('Buyer:', `@${buyerUser?.username || 'Unknown'} (ID: ${deal.buyerId})`);
+    drawRow('Seller:', `@${sellerUser?.username || 'Unknown'} (ID: ${deal.sellerId})`);
+    drawRow('Deal Creator:', deal.creatorRole === 'buyer' ? 'Buyer' : 'Seller');
 
     // Financial Info
-    drawSection('Финансовая информация');
-    drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`);
-    drawRow('Комиссия:', `${deal.commission} ${deal.asset}`);
+    drawSection('Financial Information');
+    drawRow('Deal Amount:', `${deal.amount} ${deal.asset}`);
+    drawRow('Commission:', `${deal.commission} ${deal.asset}`);
 
-    const commissionTypeNames = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам (50/50)' };
-    drawRow('Комиссию платит:', commissionTypeNames[deal.commissionType]);
+    const commissionTypeNames = { buyer: 'Buyer', seller: 'Seller', split: 'Split 50/50' };
+    drawRow('Commission Paid By:', commissionTypeNames[deal.commissionType]);
 
     let depositAmount = deal.amount;
     if (deal.commissionType === 'buyer') depositAmount += deal.commission;
     else if (deal.commissionType === 'split') depositAmount += deal.commission / 2;
-    drawRow('Сумма депозита:', `${depositAmount.toFixed(2)} ${deal.asset}`);
+    drawRow('Deposit Amount:', `${depositAmount.toFixed(2)} ${deal.asset}`);
 
     let sellerPayout = deal.amount;
     if (deal.commissionType === 'seller') sellerPayout -= deal.commission;
     else if (deal.commissionType === 'split') sellerPayout -= deal.commission / 2;
-    drawRow('Выплата продавцу:', `${sellerPayout.toFixed(2)} ${deal.asset}`);
+    drawRow('Seller Payout:', `${sellerPayout.toFixed(2)} ${deal.asset}`);
 
     if (deal.actualDepositAmount) {
-      drawRow('Фактический депозит:', `${deal.actualDepositAmount} ${deal.asset}`);
+      drawRow('Actual Deposit:', `${deal.actualDepositAmount} ${deal.asset}`);
     }
 
     // Wallet addresses
-    drawSection('Адреса кошельков');
-    drawRow('Multisig адрес:', deal.multisigAddress || 'N/A');
-    drawRow('Кошелёк покупателя:', deal.buyerAddress || 'N/A');
-    drawRow('Кошелёк продавца:', deal.sellerAddress || 'N/A');
+    drawSection('Wallet Addresses');
+    drawRow('Multisig Address:', deal.multisigAddress || 'N/A');
+    drawRow('Buyer Wallet:', deal.buyerAddress || 'N/A');
+    drawRow('Seller Wallet:', deal.sellerAddress || 'N/A');
 
     // Blockchain Info
     if (deal.depositTxHash) {
-      drawSection('Информация блокчейна');
-      drawRow('Хеш депозита:', deal.depositTxHash);
+      drawSection('Blockchain Information');
+      drawRow('Deposit TX Hash:', deal.depositTxHash);
       doc.fontSize(8).fillColor('#6366f1').text(
-        `Проверить на TronScan: https://tronscan.org/#/transaction/${deal.depositTxHash}`,
+        `Verify on TronScan: https://tronscan.org/#/transaction/${deal.depositTxHash}`,
         { link: `https://tronscan.org/#/transaction/${deal.depositTxHash}` }
       );
     }
 
     // Dates
-    drawSection('Даты');
-    drawRow('Создана:', new Date(deal.createdAt).toLocaleString('ru-RU'));
+    drawSection('Timeline');
+    drawRow('Created:', new Date(deal.createdAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
 
     const deadlineHours = Math.round((new Date(deal.deadline) - new Date(deal.createdAt)) / (1000 * 60 * 60));
-    drawRow('Срок выполнения:', `${deadlineHours} часов`);
-    drawRow('Дедлайн:', new Date(deal.deadline).toLocaleString('ru-RU'));
+    drawRow('Deadline Period:', `${deadlineHours} hours`);
+    drawRow('Deadline:', new Date(deal.deadline).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
 
     if (deal.depositDetectedAt) {
-      drawRow('Депозит обнаружен:', new Date(deal.depositDetectedAt).toLocaleString('ru-RU'));
+      drawRow('Deposit Detected:', new Date(deal.depositDetectedAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
     }
     if (deal.completedAt) {
-      drawRow('Завершена:', new Date(deal.completedAt).toLocaleString('ru-RU'));
+      drawRow('Completed:', new Date(deal.completedAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
     }
 
     // Partner info if exists
     if (deal.platformCode) {
-      drawSection('Партнёрская информация');
-      drawRow('Код платформы:', deal.platformCode);
+      drawSection('Partner Information');
+      drawRow('Platform Code:', deal.platformCode);
     }
 
     // Footer
@@ -744,15 +788,42 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
     doc.moveDown(1);
     doc.fontSize(8).fillColor('#64748b').text(
-      'Данный документ сформирован автоматически системой KeyShield и является официальной выпиской по сделке.',
+      'This document was automatically generated by KeyShield and serves as an official deal statement.',
       { align: 'center' }
     );
     doc.moveDown(0.5);
-    doc.text('KeyShield не является финансовой организацией. Мы предоставляем технологическую платформу для безопасного обмена криптовалютой.', { align: 'center' });
+    doc.text('KeyShield is not a financial institution. We provide a technology platform for secure cryptocurrency exchange.', { align: 'center' });
     doc.moveDown(1);
-    doc.fontSize(10).fillColor('#6366f1').text('© 2025 KeyShield. Все права защищены.', { align: 'center' });
+    doc.fontSize(10).fillColor('#6366f1').text('(c) 2025 KeyShield. All rights reserved.', { align: 'center' });
 
     doc.end();
+
+    // Wait for file to be written
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+
+    // Get file size
+    const stats = await fsPromises.stat(filePath);
+
+    // Log the export
+    await ExportLog.create({
+      exportType: 'single_deal',
+      targetUserId: telegramId,
+      targetUsername: requestingUser?.username || null,
+      dealId: deal.dealId,
+      dealsCount: 1,
+      fileName,
+      filePath,
+      fileSize: stats.size
+    });
+
+    // Send file to client
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_Deal_${dealId}.pdf`);
+    res.sendFile(filePath);
+
   } catch (error) {
     console.error('Error exporting deal:', error);
     res.status(500).json({ error: error.message });
@@ -760,20 +831,27 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
 });
 
 // Export all deals for a user to PDF
-app.get('/api/admin/export/user/:telegramId', adminAuth, async (req, res) => {
+app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
-    const { telegramId } = req.params;
+    const fs = require('fs');
+    const fsPromises = require('fs').promises;
+    const pathModule = require('path');
 
-    const user = await User.findOne({ telegramId: parseInt(telegramId) }).lean();
+    const { userIdentifier } = req.params;
+
+    // Find user by ID or username
+    const user = await findUserByIdOrUsername(userIdentifier);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found. Check Telegram ID or username.' });
     }
+
+    const telegramId = user.telegramId;
 
     // Get all exportable deals for this user
     const exportableStatuses = ['completed', 'resolved', 'expired'];
     const deals = await Deal.find({
-      $or: [{ buyerId: parseInt(telegramId) }, { sellerId: parseInt(telegramId) }],
+      $or: [{ buyerId: telegramId }, { sellerId: telegramId }],
       status: { $in: exportableStatuses }
     }).sort({ createdAt: -1 }).lean();
 
@@ -781,41 +859,51 @@ app.get('/api/admin/export/user/:telegramId', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'No exportable deals found for this user' });
     }
 
-    // Generate PDF
+    // Create exports directory if not exists
+    const exportsDir = pathModule.join(__dirname, '../../exports');
+    try {
+      await fsPromises.mkdir(exportsDir, { recursive: true });
+    } catch (err) {
+      // Directory exists
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const fileName = `UserDeals_${telegramId}_${timestamp}.pdf`;
+    const filePath = pathModule.join(exportsDir, fileName);
+
+    // Generate PDF to file
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_User_${telegramId}_Deals.pdf`);
-
-    doc.pipe(res);
+    const writeStream = fs.createWriteStream(filePath);
+    doc.pipe(writeStream);
 
     // Header
     doc.fontSize(24).fillColor('#6366f1').text('KeyShield', { align: 'center' });
-    doc.fontSize(10).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+    doc.fontSize(10).fillColor('#64748b').text('Secure Cryptocurrency Escrow on TRON', { align: 'center' });
     doc.moveDown(2);
 
     // Document title
-    doc.fontSize(18).fillColor('#1e293b').text('ВЫПИСКА ПО ВСЕМ СДЕЛКАМ', { align: 'center' });
+    doc.fontSize(18).fillColor('#1e293b').text('USER DEALS STATEMENT', { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(12).fillColor('#64748b').text(`Документ сформирован: ${new Date().toLocaleString('ru-RU')}`, { align: 'center' });
+    doc.fontSize(12).fillColor('#64748b').text(`Generated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC`, { align: 'center' });
 
     doc.moveDown(2);
 
     // User info
-    doc.fontSize(14).fillColor('#6366f1').text('Пользователь');
+    doc.fontSize(14).fillColor('#6366f1').text('User Information');
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
     doc.moveDown(0.5);
     doc.fontSize(10).fillColor('#64748b').text('Username:', { continued: true });
     doc.fillColor('#1e293b').text(`  @${user.username || 'Unknown'}`);
     doc.fontSize(10).fillColor('#64748b').text('Telegram ID:', { continued: true });
     doc.fillColor('#1e293b').text(`  ${telegramId}`);
-    doc.fontSize(10).fillColor('#64748b').text('Всего сделок в выписке:', { continued: true });
+    doc.fontSize(10).fillColor('#64748b').text('Total Deals in Statement:', { continued: true });
     doc.fillColor('#1e293b').text(`  ${deals.length}`);
 
     // Calculate totals
     let totalAsBuyer = 0, totalAsSeller = 0, totalCommission = 0;
     deals.forEach(deal => {
-      if (deal.buyerId === parseInt(telegramId)) {
+      if (deal.buyerId === telegramId) {
         totalAsBuyer += deal.amount;
       } else {
         totalAsSeller += deal.amount;
@@ -824,18 +912,18 @@ app.get('/api/admin/export/user/:telegramId', adminAuth, async (req, res) => {
     });
 
     doc.moveDown(1);
-    doc.fontSize(10).fillColor('#64748b').text('Сумма как покупатель:', { continued: true });
+    doc.fontSize(10).fillColor('#64748b').text('Total as Buyer:', { continued: true });
     doc.fillColor('#1e293b').text(`  ${totalAsBuyer.toFixed(2)} USDT`);
-    doc.fontSize(10).fillColor('#64748b').text('Сумма как продавец:', { continued: true });
+    doc.fontSize(10).fillColor('#64748b').text('Total as Seller:', { continued: true });
     doc.fillColor('#1e293b').text(`  ${totalAsSeller.toFixed(2)} USDT`);
 
     doc.moveDown(2);
 
     // Deals list
     const statusNames = {
-      completed: 'Завершена',
-      resolved: 'Арбитраж',
-      expired: 'Истёк срок'
+      completed: 'Completed',
+      resolved: 'Arbitrated',
+      expired: 'Expired'
     };
 
     deals.forEach((deal, index) => {
@@ -844,15 +932,15 @@ app.get('/api/admin/export/user/:telegramId', adminAuth, async (req, res) => {
         doc.addPage();
       }
 
-      const userRole = deal.buyerId === parseInt(telegramId) ? 'Покупатель' : 'Продавец';
+      const userRole = deal.buyerId === telegramId ? 'Buyer' : 'Seller';
 
-      doc.fontSize(12).fillColor('#6366f1').text(`${index + 1}. ${deal.dealId} — ${deal.productName.substring(0, 40)}${deal.productName.length > 40 ? '...' : ''}`);
+      doc.fontSize(12).fillColor('#6366f1').text(`${index + 1}. ${deal.dealId} - ${deal.productName.substring(0, 40)}${deal.productName.length > 40 ? '...' : ''}`);
       doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
       doc.moveDown(0.3);
 
       doc.fontSize(9).fillColor('#64748b');
-      doc.text(`Роль: ${userRole} | Сумма: ${deal.amount} ${deal.asset} | Статус: ${statusNames[deal.status]}`);
-      doc.text(`Дата: ${new Date(deal.createdAt).toLocaleDateString('ru-RU')} | Multisig: ${deal.multisigAddress?.substring(0, 20)}...`);
+      doc.text(`Role: ${userRole} | Amount: ${deal.amount} ${deal.asset} | Status: ${statusNames[deal.status]}`);
+      doc.text(`Date: ${new Date(deal.createdAt).toISOString().substring(0, 10)} | Multisig: ${deal.multisigAddress?.substring(0, 20)}...`);
 
       if (deal.depositTxHash) {
         doc.text(`TX: ${deal.depositTxHash.substring(0, 30)}...`);
@@ -866,15 +954,116 @@ app.get('/api/admin/export/user/:telegramId', adminAuth, async (req, res) => {
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
     doc.moveDown(1);
     doc.fontSize(8).fillColor('#64748b').text(
-      'Данный документ является официальной выпиской по всем завершённым сделкам пользователя в системе KeyShield.',
+      'This document is an official statement of all completed deals for this user in the KeyShield system.',
       { align: 'center' }
     );
     doc.moveDown(1);
-    doc.fontSize(10).fillColor('#6366f1').text('© 2025 KeyShield. Все права защищены.', { align: 'center' });
+    doc.fontSize(10).fillColor('#6366f1').text('(c) 2025 KeyShield. All rights reserved.', { align: 'center' });
 
     doc.end();
+
+    // Wait for file to be written
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+    });
+
+    // Get file size
+    const stats = await fsPromises.stat(filePath);
+
+    // Log the export
+    await ExportLog.create({
+      exportType: 'all_user_deals',
+      targetUserId: telegramId,
+      targetUsername: user.username || null,
+      dealId: null,
+      dealsCount: deals.length,
+      fileName,
+      filePath,
+      fileSize: stats.size
+    });
+
+    // Send file to client
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_User_${telegramId}_Deals.pdf`);
+    res.sendFile(filePath);
+
   } catch (error) {
     console.error('Error exporting user deals:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get export logs
+app.get('/api/admin/export/logs', adminAuth, async (req, res) => {
+  try {
+    const { limit = 50, skip = 0 } = req.query;
+
+    const logs = await ExportLog.find()
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(parseInt(skip))
+      .lean();
+
+    const total = await ExportLog.countDocuments();
+
+    res.json({ logs, total });
+  } catch (error) {
+    console.error('Error fetching export logs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Download exported PDF by log ID
+app.get('/api/admin/export/download/:logId', adminAuth, async (req, res) => {
+  try {
+    const { logId } = req.params;
+
+    const exportLog = await ExportLog.findById(logId);
+    if (!exportLog) {
+      return res.status(404).json({ error: 'Export log not found' });
+    }
+
+    // Check if file exists
+    const fs = require('fs');
+    if (!fs.existsSync(exportLog.filePath)) {
+      return res.status(404).json({ error: 'File no longer exists' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${exportLog.fileName}`);
+    res.sendFile(exportLog.filePath);
+
+  } catch (error) {
+    console.error('Error downloading export:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete export log and file
+app.delete('/api/admin/export/logs/:logId', adminAuth, async (req, res) => {
+  try {
+    const { logId } = req.params;
+
+    const exportLog = await ExportLog.findById(logId);
+    if (!exportLog) {
+      return res.status(404).json({ error: 'Export log not found' });
+    }
+
+    // Try to delete the file
+    const fs = require('fs').promises;
+    try {
+      await fs.unlink(exportLog.filePath);
+    } catch (err) {
+      console.log(`Could not delete file: ${err.message}`);
+    }
+
+    // Delete the log
+    await ExportLog.findByIdAndDelete(logId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting export log:', error);
     res.status(500).json({ error: error.message });
   }
 });

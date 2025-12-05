@@ -22,6 +22,9 @@ Thumbs.db
 uploads/
 media/
 
+# PDF exports
+exports/
+
 # Production
 dist/
 build/
