@@ -87,8 +87,10 @@ body {
 /* Mobile Menu Wrapper */
 .mobile-menu-wrapper {
     display: none;
-    position: sticky;
+    position: fixed;
     top: 69px; /* Height of header */
+    left: 0;
+    right: 0;
     z-index: 999;
     background: var(--dark);
     border-bottom: 1px solid var(--border);
@@ -613,6 +615,10 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+    body {
+        padding-top: 40px; /* Space for fixed mobile menu */
+    }
+
     .nav-menu {
         display: none;
     }
@@ -623,6 +629,9 @@ body {
 
     .btn {
         padding: 8px 12px;
+    }
+    .hero {
+        padding: 60px 0;
     }
 
     .hero-title {
