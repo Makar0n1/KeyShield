@@ -577,6 +577,308 @@ app.get('/api/admin/logs', adminAuth, async (req, res) => {
   }
 });
 
+// ============ Deal Export API (PDF) ============
+
+// Export single deal to PDF
+app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const { dealId } = req.params;
+    const { telegramId } = req.query;
+
+    if (!telegramId) {
+      return res.status(400).json({ error: 'telegramId is required' });
+    }
+
+    const deal = await Deal.findOne({ dealId }).lean();
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+
+    // Only export completed deals (completed, resolved, expired, cancelled with deposit)
+    const exportableStatuses = ['completed', 'resolved', 'expired'];
+    if (!exportableStatuses.includes(deal.status)) {
+      return res.status(400).json({ error: 'Only completed/resolved/expired deals can be exported' });
+    }
+
+    // Check if user is participant
+    const isParticipant = deal.buyerId === parseInt(telegramId) || deal.sellerId === parseInt(telegramId);
+    if (!isParticipant) {
+      return res.status(403).json({ error: 'User is not a participant of this deal' });
+    }
+
+    // Get user info for both participants
+    const [buyerUser, sellerUser, requestingUser] = await Promise.all([
+      User.findOne({ telegramId: deal.buyerId }).lean(),
+      User.findOne({ telegramId: deal.sellerId }).lean(),
+      User.findOne({ telegramId: parseInt(telegramId) }).lean()
+    ]);
+
+    // Generate PDF
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_Deal_${dealId}.pdf`);
+
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(24).fillColor('#6366f1').text('KeyShield', { align: 'center' });
+    doc.fontSize(10).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(8).text('https://keyshield.me', { align: 'center', link: 'https://keyshield.me' });
+
+    doc.moveDown(2);
+
+    // Document title
+    doc.fontSize(18).fillColor('#1e293b').text('ВЫПИСКА ПО СДЕЛКЕ', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(12).fillColor('#64748b').text(`Документ сформирован: ${new Date().toLocaleString('ru-RU')}`, { align: 'center' });
+
+    doc.moveDown(2);
+
+    // Requesting user info
+    doc.fontSize(10).fillColor('#64748b').text('Документ подготовлен для:');
+    doc.fontSize(12).fillColor('#1e293b').text(`@${requestingUser?.username || 'Unknown'} (ID: ${telegramId})`);
+
+    doc.moveDown(2);
+
+    // Deal info section
+    const drawSection = (title) => {
+      doc.moveDown(1);
+      doc.fontSize(14).fillColor('#6366f1').text(title);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
+      doc.moveDown(0.5);
+    };
+
+    const drawRow = (label, value) => {
+      doc.fontSize(10).fillColor('#64748b').text(label, { continued: true });
+      doc.fontSize(10).fillColor('#1e293b').text(`  ${value}`);
+      doc.moveDown(0.3);
+    };
+
+    // Basic Info
+    drawSection('Основная информация');
+    drawRow('ID сделки:', deal.dealId);
+    drawRow('Название:', deal.productName);
+    drawRow('Описание:', deal.description.substring(0, 200) + (deal.description.length > 200 ? '...' : ''));
+
+    // Status with color
+    const statusNames = {
+      completed: 'Успешно завершена',
+      resolved: 'Решена арбитром',
+      expired: 'Истёк срок (авто-возврат)',
+      cancelled: 'Отменена'
+    };
+    drawRow('Статус:', statusNames[deal.status] || deal.status);
+
+    // Participants
+    drawSection('Участники сделки');
+    const userRole = deal.buyerId === parseInt(telegramId) ? 'Покупатель' : 'Продавец';
+    drawRow('Ваша роль:', userRole);
+    drawRow('Покупатель:', `@${buyerUser?.username || 'Unknown'} (ID: ${deal.buyerId})`);
+    drawRow('Продавец:', `@${sellerUser?.username || 'Unknown'} (ID: ${deal.sellerId})`);
+    drawRow('Создатель сделки:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец');
+
+    // Financial Info
+    drawSection('Финансовая информация');
+    drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`);
+    drawRow('Комиссия:', `${deal.commission} ${deal.asset}`);
+
+    const commissionTypeNames = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам (50/50)' };
+    drawRow('Комиссию платит:', commissionTypeNames[deal.commissionType]);
+
+    let depositAmount = deal.amount;
+    if (deal.commissionType === 'buyer') depositAmount += deal.commission;
+    else if (deal.commissionType === 'split') depositAmount += deal.commission / 2;
+    drawRow('Сумма депозита:', `${depositAmount.toFixed(2)} ${deal.asset}`);
+
+    let sellerPayout = deal.amount;
+    if (deal.commissionType === 'seller') sellerPayout -= deal.commission;
+    else if (deal.commissionType === 'split') sellerPayout -= deal.commission / 2;
+    drawRow('Выплата продавцу:', `${sellerPayout.toFixed(2)} ${deal.asset}`);
+
+    if (deal.actualDepositAmount) {
+      drawRow('Фактический депозит:', `${deal.actualDepositAmount} ${deal.asset}`);
+    }
+
+    // Wallet addresses
+    drawSection('Адреса кошельков');
+    drawRow('Multisig адрес:', deal.multisigAddress || 'N/A');
+    drawRow('Кошелёк покупателя:', deal.buyerAddress || 'N/A');
+    drawRow('Кошелёк продавца:', deal.sellerAddress || 'N/A');
+
+    // Blockchain Info
+    if (deal.depositTxHash) {
+      drawSection('Информация блокчейна');
+      drawRow('Хеш депозита:', deal.depositTxHash);
+      doc.fontSize(8).fillColor('#6366f1').text(
+        `Проверить на TronScan: https://tronscan.org/#/transaction/${deal.depositTxHash}`,
+        { link: `https://tronscan.org/#/transaction/${deal.depositTxHash}` }
+      );
+    }
+
+    // Dates
+    drawSection('Даты');
+    drawRow('Создана:', new Date(deal.createdAt).toLocaleString('ru-RU'));
+
+    const deadlineHours = Math.round((new Date(deal.deadline) - new Date(deal.createdAt)) / (1000 * 60 * 60));
+    drawRow('Срок выполнения:', `${deadlineHours} часов`);
+    drawRow('Дедлайн:', new Date(deal.deadline).toLocaleString('ru-RU'));
+
+    if (deal.depositDetectedAt) {
+      drawRow('Депозит обнаружен:', new Date(deal.depositDetectedAt).toLocaleString('ru-RU'));
+    }
+    if (deal.completedAt) {
+      drawRow('Завершена:', new Date(deal.completedAt).toLocaleString('ru-RU'));
+    }
+
+    // Partner info if exists
+    if (deal.platformCode) {
+      drawSection('Партнёрская информация');
+      drawRow('Код платформы:', deal.platformCode);
+    }
+
+    // Footer
+    doc.moveDown(3);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
+    doc.moveDown(1);
+    doc.fontSize(8).fillColor('#64748b').text(
+      'Данный документ сформирован автоматически системой KeyShield и является официальной выпиской по сделке.',
+      { align: 'center' }
+    );
+    doc.moveDown(0.5);
+    doc.text('KeyShield не является финансовой организацией. Мы предоставляем технологическую платформу для безопасного обмена криптовалютой.', { align: 'center' });
+    doc.moveDown(1);
+    doc.fontSize(10).fillColor('#6366f1').text('© 2025 KeyShield. Все права защищены.', { align: 'center' });
+
+    doc.end();
+  } catch (error) {
+    console.error('Error exporting deal:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Export all deals for a user to PDF
+app.get('/api/admin/export/user/:telegramId', adminAuth, async (req, res) => {
+  try {
+    const PDFDocument = require('pdfkit');
+    const { telegramId } = req.params;
+
+    const user = await User.findOne({ telegramId: parseInt(telegramId) }).lean();
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all exportable deals for this user
+    const exportableStatuses = ['completed', 'resolved', 'expired'];
+    const deals = await Deal.find({
+      $or: [{ buyerId: parseInt(telegramId) }, { sellerId: parseInt(telegramId) }],
+      status: { $in: exportableStatuses }
+    }).sort({ createdAt: -1 }).lean();
+
+    if (deals.length === 0) {
+      return res.status(404).json({ error: 'No exportable deals found for this user' });
+    }
+
+    // Generate PDF
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_User_${telegramId}_Deals.pdf`);
+
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(24).fillColor('#6366f1').text('KeyShield', { align: 'center' });
+    doc.fontSize(10).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+    doc.moveDown(2);
+
+    // Document title
+    doc.fontSize(18).fillColor('#1e293b').text('ВЫПИСКА ПО ВСЕМ СДЕЛКАМ', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(12).fillColor('#64748b').text(`Документ сформирован: ${new Date().toLocaleString('ru-RU')}`, { align: 'center' });
+
+    doc.moveDown(2);
+
+    // User info
+    doc.fontSize(14).fillColor('#6366f1').text('Пользователь');
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
+    doc.moveDown(0.5);
+    doc.fontSize(10).fillColor('#64748b').text('Username:', { continued: true });
+    doc.fillColor('#1e293b').text(`  @${user.username || 'Unknown'}`);
+    doc.fontSize(10).fillColor('#64748b').text('Telegram ID:', { continued: true });
+    doc.fillColor('#1e293b').text(`  ${telegramId}`);
+    doc.fontSize(10).fillColor('#64748b').text('Всего сделок в выписке:', { continued: true });
+    doc.fillColor('#1e293b').text(`  ${deals.length}`);
+
+    // Calculate totals
+    let totalAsBuyer = 0, totalAsSeller = 0, totalCommission = 0;
+    deals.forEach(deal => {
+      if (deal.buyerId === parseInt(telegramId)) {
+        totalAsBuyer += deal.amount;
+      } else {
+        totalAsSeller += deal.amount;
+      }
+      totalCommission += deal.commission;
+    });
+
+    doc.moveDown(1);
+    doc.fontSize(10).fillColor('#64748b').text('Сумма как покупатель:', { continued: true });
+    doc.fillColor('#1e293b').text(`  ${totalAsBuyer.toFixed(2)} USDT`);
+    doc.fontSize(10).fillColor('#64748b').text('Сумма как продавец:', { continued: true });
+    doc.fillColor('#1e293b').text(`  ${totalAsSeller.toFixed(2)} USDT`);
+
+    doc.moveDown(2);
+
+    // Deals list
+    const statusNames = {
+      completed: 'Завершена',
+      resolved: 'Арбитраж',
+      expired: 'Истёк срок'
+    };
+
+    deals.forEach((deal, index) => {
+      // Check if we need a new page
+      if (doc.y > 650) {
+        doc.addPage();
+      }
+
+      const userRole = deal.buyerId === parseInt(telegramId) ? 'Покупатель' : 'Продавец';
+
+      doc.fontSize(12).fillColor('#6366f1').text(`${index + 1}. ${deal.dealId} — ${deal.productName.substring(0, 40)}${deal.productName.length > 40 ? '...' : ''}`);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
+      doc.moveDown(0.3);
+
+      doc.fontSize(9).fillColor('#64748b');
+      doc.text(`Роль: ${userRole} | Сумма: ${deal.amount} ${deal.asset} | Статус: ${statusNames[deal.status]}`);
+      doc.text(`Дата: ${new Date(deal.createdAt).toLocaleDateString('ru-RU')} | Multisig: ${deal.multisigAddress?.substring(0, 20)}...`);
+
+      if (deal.depositTxHash) {
+        doc.text(`TX: ${deal.depositTxHash.substring(0, 30)}...`);
+      }
+
+      doc.moveDown(1);
+    });
+
+    // Footer
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
+    doc.moveDown(1);
+    doc.fontSize(8).fillColor('#64748b').text(
+      'Данный документ является официальной выпиской по всем завершённым сделкам пользователя в системе KeyShield.',
+      { align: 'center' }
+    );
+    doc.moveDown(1);
+    doc.fontSize(10).fillColor('#6366f1').text('© 2025 KeyShield. Все права защищены.', { align: 'center' });
+
+    doc.end();
+  } catch (error) {
+    console.error('Error exporting user deals:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ Platform Management API ============
 
 // Get all platforms

@@ -210,44 +210,45 @@ class DealService {
       initialStatus = buyerAddress ? 'waiting_for_deposit' : 'waiting_for_buyer_wallet';
     }
 
-    // Get platform info - check BOTH participants (chain reaction: if any is partner-referred, deal is partner's)
+    // Get platform info - check BOTH participants
+    // PRIORITY: Buyer's platform wins (buyer brings money to the service)
+    // Chain reaction: non-partner user becomes partner-referred when dealing with partner user
     const [buyer, seller] = await Promise.all([
       User.findOne({ telegramId: buyerId }),
       User.findOne({ telegramId: sellerId })
     ]);
 
-    // Priority: if either participant has a platform, use it (first found)
-    // Chain reaction: non-partner user becomes partner-referred when dealing with partner user
     let platformId = null;
     let platformCode = null;
 
+    // Buyer's platform has priority (buyer deposits money)
     if (buyer?.platformId) {
       platformId = buyer.platformId;
       platformCode = buyer.platformCode;
 
-      // Chain reaction: link seller to this platform if not already linked
+      // Chain reaction: link seller to buyer's platform if seller has no platform
       if (seller && !seller.platformId) {
         const Platform = require('../models/Platform');
         seller.platformId = buyer.platformId;
         seller.platformCode = buyer.platformCode;
         await seller.save();
-        // Update platform stats
         await Platform.findByIdAndUpdate(buyer.platformId, {
           $inc: { 'stats.totalUsers': 1 }
         });
         console.log(`🔗 Chain reaction: User ${sellerId} linked to platform ${buyer.platformCode} via deal with ${buyerId}`);
       }
+      // If both have different platforms - buyer wins, no chain reaction needed
     } else if (seller?.platformId) {
+      // Buyer has no platform, use seller's
       platformId = seller.platformId;
       platformCode = seller.platformCode;
 
-      // Chain reaction: link buyer to this platform if not already linked
+      // Chain reaction: link buyer to seller's platform
       if (buyer && !buyer.platformId) {
         const Platform = require('../models/Platform');
         buyer.platformId = seller.platformId;
         buyer.platformCode = seller.platformCode;
         await buyer.save();
-        // Update platform stats
         await Platform.findByIdAndUpdate(seller.platformId, {
           $inc: { 'stats.totalUsers': 1 }
         });

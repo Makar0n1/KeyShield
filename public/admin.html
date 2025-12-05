@@ -797,6 +797,41 @@
       </div>
     </div>
 
+    <!-- PDF Export Section -->
+    <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="color: #10b981; margin-bottom: 15px;">📄 Экспорт выписки (PDF)</h3>
+      <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">
+        Формирование официальной выписки по сделке или всем сделкам пользователя.
+        Экспортируются только завершённые сделки (completed, resolved, expired).
+      </p>
+      <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Export single deal -->
+        <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по сделке</div>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="exportDealId" placeholder="ID сделки (DL-XXXXXX)"
+              style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            <input type="text" id="exportDealUserId" placeholder="Telegram ID пользователя"
+              style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
+          </div>
+          <button onclick="exportDealPDF()" style="width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+            📥 Скачать выписку по сделке
+          </button>
+        </div>
+        <!-- Export all user deals -->
+        <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по всем сделкам пользователя</div>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="exportUserTelegramId" placeholder="Telegram ID пользователя"
+              style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
+          </div>
+          <button onclick="exportUserDealsPDF()" style="width: 100%; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+            📥 Скачать все выписки пользователя
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('deals')">Deals</button>
@@ -2147,6 +2182,84 @@
       } catch (error) {
         console.error('Error deleting platform:', error);
         alert('Failed to delete platform');
+      }
+    }
+
+    // ============ PDF Export Functions ============
+
+    async function exportDealPDF() {
+      const dealId = document.getElementById('exportDealId').value.trim();
+      const telegramId = document.getElementById('exportDealUserId').value.trim();
+
+      if (!dealId) {
+        alert('Введите ID сделки (например: DL-123456)');
+        return;
+      }
+
+      if (!telegramId) {
+        alert('Введите Telegram ID пользователя');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/export/deal/${dealId}?telegramId=${telegramId}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          alert('Ошибка: ' + (errorData.error || 'Не удалось создать PDF'));
+          return;
+        }
+
+        // Download the PDF
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `KeyShield_Deal_${dealId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error exporting deal PDF:', error);
+        alert('Ошибка соединения: ' + error.message);
+      }
+    }
+
+    async function exportUserDealsPDF() {
+      const telegramId = document.getElementById('exportUserTelegramId').value.trim();
+
+      if (!telegramId) {
+        alert('Введите Telegram ID пользователя');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/admin/export/user/${telegramId}`, {
+          headers: { 'Authorization': `Basic ${authCredentials}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          alert('Ошибка: ' + (errorData.error || 'Не удалось создать PDF'));
+          return;
+        }
+
+        // Download the PDF
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `KeyShield_User_${telegramId}_Deals.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error exporting user deals PDF:', error);
+        alert('Ошибка соединения: ' + error.message);
       }
     }
   </script>
