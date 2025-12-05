@@ -805,7 +805,7 @@
       <div class="stat-card">
         <h3>Finished Deals</h3>
         <div class="value" id="statFinishedDeals">-</div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Completed + Resolved</div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Completed + Resolved + Expired</div>
       </div>
       <div class="stat-card">
         <h3>Open Disputes</h3>
@@ -822,12 +822,12 @@
     </div>
 
     <!-- Finance Stats -->
-    <div class="collapsible-section">
-      <div class="section-header" onclick="toggleSection(this)">
+    <div class="collapsible-section" id="section-finance">
+      <div class="section-header collapsed" onclick="toggleSection(this, 'finance')">
         <h3 style="color: #60a5fa;">💰 Финансовая статистика</h3>
         <span class="section-toggle">▼</span>
       </div>
-      <div class="section-content">
+      <div class="section-content collapsed">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
         <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
           <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Валовая выручка (комиссии)</div>
@@ -854,12 +854,12 @@
     </div>
 
     <!-- Partner Payouts Stats -->
-    <div class="collapsible-section">
-      <div class="section-header" onclick="toggleSection(this)">
+    <div class="collapsible-section" id="section-partners">
+      <div class="section-header collapsed" onclick="toggleSection(this, 'partners')">
         <h3 style="color: #a855f7;">👥 Партнерские выплаты</h3>
         <span class="section-toggle">▼</span>
       </div>
-      <div class="section-content">
+      <div class="section-content collapsed">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
           <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #a855f7;">
             <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Активных партнеров</div>
@@ -885,12 +885,12 @@
     </div>
 
     <!-- PDF Export Section -->
-    <div class="collapsible-section">
-      <div class="section-header" onclick="toggleSection(this)">
+    <div class="collapsible-section" id="section-export">
+      <div class="section-header collapsed" onclick="toggleSection(this, 'export')">
         <h3 style="color: #10b981;">📄 Экспорт выписки (PDF)</h3>
         <span class="section-toggle">▼</span>
       </div>
-      <div class="section-content">
+      <div class="section-content collapsed">
         <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">
           Формирование официальной выписки по сделке или всем сделкам пользователя.
           Экспортируются только завершённые сделки (completed, resolved, expired).
@@ -1273,6 +1273,7 @@
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('dashboard').classList.add('active');
       document.getElementById('adminUsername').textContent = localStorage.getItem('adminUsername');
+      initCollapsibleSections();
       loadDashboardData();
       loadDeals();
       loadExportLogs();
@@ -1355,10 +1356,36 @@
 
     const PAGE_SIZE = 20;
 
-    // Toggle collapsible sections
-    function toggleSection(header) {
+    // Toggle section and save state to localStorage
+    function toggleSection(header, sectionId) {
       header.classList.toggle('collapsed');
       header.nextElementSibling.classList.toggle('collapsed');
+
+      // Save state to localStorage
+      const isCollapsed = header.classList.contains('collapsed');
+      localStorage.setItem(`admin_section_${sectionId}`, isCollapsed ? 'collapsed' : 'expanded');
+    }
+
+    // Initialize collapsed sections from localStorage (default: collapsed)
+    function initCollapsibleSections() {
+      const sections = ['finance', 'partners', 'export'];
+      sections.forEach(sectionId => {
+        const section = document.getElementById(`section-${sectionId}`);
+        if (!section) return;
+
+        const header = section.querySelector('.section-header');
+        const content = section.querySelector('.section-content');
+        const savedState = localStorage.getItem(`admin_section_${sectionId}`);
+
+        // Default is collapsed, only expand if explicitly saved as 'expanded'
+        if (savedState === 'expanded') {
+          header.classList.remove('collapsed');
+          content.classList.remove('collapsed');
+        } else {
+          header.classList.add('collapsed');
+          content.classList.add('collapsed');
+        }
+      });
     }
 
     async function loadDeals(page = 1) {
