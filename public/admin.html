@@ -350,6 +350,83 @@
       border-color: #3b82f6;
     }
 
+    /* Collapsible sections */
+    .collapsible-section {
+      background: #1e293b;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .section-header:hover {
+      background: #334155;
+    }
+
+    .section-header h3 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-toggle {
+      font-size: 12px;
+      color: #64748b;
+      transition: transform 0.3s;
+    }
+
+    .section-header.collapsed .section-toggle {
+      transform: rotate(-90deg);
+    }
+
+    .section-content {
+      padding: 0 20px 20px 20px;
+      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+      overflow: hidden;
+    }
+
+    .section-content.collapsed {
+      max-height: 0 !important;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    /* Search box */
+    .search-box {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-input {
+      padding: 8px 12px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 14px;
+      min-width: 200px;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #60a5fa;
+    }
+
+    .search-input::placeholder {
+      color: #64748b;
+    }
+
     .btn-small {
       padding: 6px 12px;
       font-size: 12px;
@@ -745,9 +822,13 @@
     </div>
 
     <!-- Finance Stats -->
-    <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="color: #60a5fa; margin-bottom: 15px;">💰 Финансовая статистика</h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+    <div class="collapsible-section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <h3 style="color: #60a5fa;">💰 Финансовая статистика</h3>
+        <span class="section-toggle">▼</span>
+      </div>
+      <div class="section-content">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
         <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
           <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Валовая выручка (комиссии)</div>
           <div style="font-size: 24px; font-weight: bold; color: #10b981;" id="statGrossRevenue">-</div>
@@ -768,93 +849,108 @@
           <div style="font-size: 28px; font-weight: bold; color: #60a5fa;" id="statNetProfit">-</div>
           <div style="font-size: 11px; color: #64748b;">Комиссии − Расходы TRX</div>
         </div>
+        </div>
       </div>
     </div>
 
     <!-- Partner Payouts Stats -->
-    <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="color: #a855f7; margin-bottom: 15px;">👥 Партнерские выплаты</h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #a855f7;">
-          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Активных партнеров</div>
-          <div style="font-size: 24px; font-weight: bold; color: #a855f7;" id="statPartnerCount">-</div>
-          <div style="font-size: 11px; color: #64748b;">С завершенными сделками</div>
-        </div>
-        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #f97316;">
-          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">К выплате партнерам</div>
-          <div style="font-size: 24px; font-weight: bold; color: #f97316;" id="statPartnerPayouts">-</div>
-          <div style="font-size: 11px; color: #64748b;">% от чистой прибыли по сделкам</div>
-        </div>
-        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e;">
-          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Чистейшая прибыль</div>
-          <div style="font-size: 28px; font-weight: bold; color: #22c55e;" id="statPureProfit">-</div>
-          <div style="font-size: 11px; color: #64748b;">На кошелек сервиса</div>
-        </div>
+    <div class="collapsible-section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <h3 style="color: #a855f7;">👥 Партнерские выплаты</h3>
+        <span class="section-toggle">▼</span>
       </div>
-      <div id="partnerDetailsContainer" style="margin-top: 15px; display: none;">
-        <div style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Детали по партнерам:</div>
-        <div id="partnerDetailsList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+      <div class="section-content">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #a855f7;">
+            <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Активных партнеров</div>
+            <div style="font-size: 24px; font-weight: bold; color: #a855f7;" id="statPartnerCount">-</div>
+            <div style="font-size: 11px; color: #64748b;">С завершенными сделками</div>
+          </div>
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #f97316;">
+            <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">К выплате партнерам</div>
+            <div style="font-size: 24px; font-weight: bold; color: #f97316;" id="statPartnerPayouts">-</div>
+            <div style="font-size: 11px; color: #64748b;">% от чистой прибыли по сделкам</div>
+          </div>
+          <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e;">
+            <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Чистейшая прибыль</div>
+            <div style="font-size: 28px; font-weight: bold; color: #22c55e;" id="statPureProfit">-</div>
+            <div style="font-size: 11px; color: #64748b;">На кошелек сервиса</div>
+          </div>
+        </div>
+        <div id="partnerDetailsContainer" style="margin-top: 15px; display: none;">
+          <div style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Детали по партнерам:</div>
+          <div id="partnerDetailsList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+        </div>
       </div>
     </div>
 
     <!-- PDF Export Section -->
-    <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3 style="color: #10b981; margin-bottom: 15px;">📄 Экспорт выписки (PDF)</h3>
-      <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">
-        Формирование официальной выписки по сделке или всем сделкам пользователя.
-        Экспортируются только завершённые сделки (completed, resolved, expired).
-      </p>
-      <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-        <!-- Export single deal -->
-        <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
-          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по сделке</div>
-          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <input type="text" id="exportDealId" placeholder="ID сделки (DL-XXXXXX)"
-              style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
-            <input type="text" id="exportDealUserId" placeholder="ID или @username"
-              style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
-          </div>
-          <button onclick="exportDealPDF()" style="width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-            📥 Скачать выписку по сделке
-          </button>
-        </div>
-        <!-- Export all user deals -->
-        <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
-          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по всем сделкам пользователя</div>
-          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <input type="text" id="exportUserTelegramId" placeholder="ID или @username"
-              style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
-          </div>
-          <button onclick="exportUserDealsPDF()" style="width: 100%; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-            📥 Скачать все выписки пользователя
-          </button>
-        </div>
+    <div class="collapsible-section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <h3 style="color: #10b981;">📄 Экспорт выписки (PDF)</h3>
+        <span class="section-toggle">▼</span>
       </div>
-
-      <!-- Export Logs -->
-      <div style="margin-top: 20px; background: #0f172a; padding: 15px; border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">История экспортов</div>
-          <button onclick="loadExportLogs()" style="padding: 6px 12px; background: #334155; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-            🔄 Обновить
-          </button>
+      <div class="section-content">
+        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">
+          Формирование официальной выписки по сделке или всем сделкам пользователя.
+          Экспортируются только завершённые сделки (completed, resolved, expired).
+        </p>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+          <!-- Export single deal -->
+          <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
+            <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по сделке</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+              <input type="text" id="exportDealId" placeholder="ID сделки (DL-XXXXXX)"
+                style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
+              <input type="text" id="exportDealUserId" placeholder="ID или @username"
+                style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            </div>
+            <button onclick="exportDealPDF()" style="width: 100%; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              📥 Скачать выписку по сделке
+            </button>
+          </div>
+          <!-- Export all user deals -->
+          <div style="flex: 1; min-width: 300px; background: #0f172a; padding: 15px; border-radius: 8px;">
+            <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;">Выписка по всем сделкам пользователя</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+              <input type="text" id="exportUserTelegramId" placeholder="ID или @username"
+                style="flex: 1; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #fff;">
+            </div>
+            <button onclick="exportUserDealsPDF()" style="width: 100%; padding: 10px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+              📥 Скачать все выписки пользователя
+            </button>
+          </div>
         </div>
-        <div id="exportLogsContainer" style="max-height: 300px; overflow-y: auto;">
-          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-            <thead>
-              <tr style="color: #94a3b8; text-align: left; border-bottom: 1px solid #334155;">
-                <th style="padding: 8px;">Дата</th>
-                <th style="padding: 8px;">Тип</th>
-                <th style="padding: 8px;">Пользователь</th>
-                <th style="padding: 8px;">Детали</th>
-                <th style="padding: 8px;">Размер</th>
-                <th style="padding: 8px;">Действия</th>
-              </tr>
-            </thead>
-            <tbody id="exportLogsList">
-              <tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Загрузка...</td></tr>
-            </tbody>
-          </table>
+
+        <!-- Export Logs -->
+        <div style="margin-top: 20px; background: #0f172a; padding: 15px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">История экспортов</div>
+            <div class="search-box">
+              <input type="text" id="exportLogsSearch" class="search-input" placeholder="Поиск по ID или username..." onkeyup="filterExportLogs()">
+              <button onclick="loadExportLogs()" style="padding: 6px 12px; background: #334155; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                🔄
+              </button>
+            </div>
+          </div>
+          <div id="exportLogsContainer" style="max-height: 400px; overflow-y: auto;">
+            <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+              <thead>
+                <tr style="color: #94a3b8; text-align: left; border-bottom: 1px solid #334155;">
+                  <th style="padding: 8px;">Дата</th>
+                  <th style="padding: 8px;">Тип</th>
+                  <th style="padding: 8px;">Пользователь</th>
+                  <th style="padding: 8px;">Детали</th>
+                  <th style="padding: 8px;">Размер</th>
+                  <th style="padding: 8px;">Действия</th>
+                </tr>
+              </thead>
+              <tbody id="exportLogsList">
+                <tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Загрузка...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="exportLogsPagination" class="pagination" style="margin-top: 15px;"></div>
         </div>
       </div>
     </div>
@@ -884,7 +980,12 @@
             <option value="dispute">Dispute</option>
             <option value="resolved">Resolved</option>
             <option value="cancelled">Cancelled</option>
+            <option value="expired">Expired</option>
           </select>
+        </div>
+        <div class="filter-group">
+          <label>Search</label>
+          <input type="text" id="dealSearchInput" class="search-input" placeholder="Deal ID, Buyer/Seller ID..." onkeyup="handleDealSearch(event)">
         </div>
       </div>
       <div class="table-container">
@@ -918,6 +1019,10 @@
             <option value="false">Active</option>
             <option value="true">Banned</option>
           </select>
+        </div>
+        <div class="filter-group">
+          <label>Search</label>
+          <input type="text" id="userSearchInput" class="search-input" placeholder="Telegram ID or @username..." onkeyup="handleUserSearch(event)">
         </div>
       </div>
       <div class="table-container">
@@ -976,9 +1081,12 @@
 
     <!-- Platforms Tab -->
     <div id="platformsTab" class="tab-content">
-      <div class="filters" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="filters" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <h3 style="margin: 0; color: #60a5fa;">Partner Platforms</h3>
-        <button class="btn-primary" onclick="showCreatePlatformModal()" style="padding: 10px 20px;">+ Create Platform</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="text" id="platformSearchInput" class="search-input" placeholder="Search by name or code..." onkeyup="filterPlatforms()">
+          <button class="btn-primary" onclick="showCreatePlatformModal()" style="padding: 10px 20px;">+ Create Platform</button>
+        </div>
       </div>
       <div class="table-container">
         <div id="platformsLoading" class="loading">Loading platforms...</div>
@@ -1001,6 +1109,7 @@
           <tbody id="platformsTableBody"></tbody>
         </table>
       </div>
+      <div id="platformsPagination" class="pagination"></div>
     </div>
 
     <!-- Logs Tab -->
@@ -1244,10 +1353,20 @@
       }
     }
 
+    const PAGE_SIZE = 20;
+
+    // Toggle collapsible sections
+    function toggleSection(header) {
+      header.classList.toggle('collapsed');
+      header.nextElementSibling.classList.toggle('collapsed');
+    }
+
     async function loadDeals(page = 1) {
       const status = document.getElementById('dealStatusFilter').value;
-      const params = new URLSearchParams({ limit: 50, skip: (page - 1) * 50 });
+      const search = document.getElementById('dealSearchInput').value.trim();
+      const params = new URLSearchParams({ limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE });
       if (status) params.append('status', status);
+      if (search) params.append('search', search);
 
       document.getElementById('dealsLoading').style.display = 'block';
       document.getElementById('dealsTable').style.display = 'none';
@@ -1260,11 +1379,17 @@
         const data = await response.json();
 
         renderDealsTable(data.deals);
-        const totalPages = Math.ceil(data.total / 50);
+        const totalPages = Math.ceil(data.total / PAGE_SIZE);
         renderPagination('deals', { page, pages: totalPages }, loadDeals);
       } catch (error) {
         console.error('Failed to load deals:', error);
       }
+    }
+
+    let dealSearchTimeout;
+    function handleDealSearch(event) {
+      clearTimeout(dealSearchTimeout);
+      dealSearchTimeout = setTimeout(() => loadDeals(1), 300);
     }
 
     function renderDealsTable(deals) {
@@ -1299,8 +1424,10 @@
 
     async function loadUsers(page = 1) {
       const banned = document.getElementById('userBlacklistedFilter').value;
-      const params = new URLSearchParams({ limit: 50, skip: (page - 1) * 50 });
+      const search = document.getElementById('userSearchInput').value.trim();
+      const params = new URLSearchParams({ limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE });
       if (banned) params.append('banned', banned);
+      if (search) params.append('search', search);
 
       document.getElementById('usersLoading').style.display = 'block';
       document.getElementById('usersTable').style.display = 'none';
@@ -1313,11 +1440,17 @@
         const data = await response.json();
 
         renderUsersTable(data.users);
-        const totalPages = Math.ceil(data.total / 50);
+        const totalPages = Math.ceil(data.total / PAGE_SIZE);
         renderPagination('users', { page, pages: totalPages }, loadUsers);
       } catch (error) {
         console.error('Failed to load users:', error);
       }
+    }
+
+    let userSearchTimeout;
+    function handleUserSearch(event) {
+      clearTimeout(userSearchTimeout);
+      userSearchTimeout = setTimeout(() => loadUsers(1), 300);
     }
 
     function renderUsersTable(users) {
@@ -1356,7 +1489,7 @@
     }
 
     async function loadLogs(page = 1) {
-      const params = new URLSearchParams({ limit: 100 });
+      const params = new URLSearchParams({ limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE });
 
       document.getElementById('logsLoading').style.display = 'block';
       document.getElementById('logsTable').style.display = 'none';
@@ -1369,6 +1502,8 @@
         const data = await response.json();
 
         renderLogsTable(data.transactions);
+        const totalPages = Math.ceil((data.total || data.transactions?.length || 0) / PAGE_SIZE);
+        renderPagination('logs', { page, pages: totalPages }, loadLogs);
       } catch (error) {
         console.error('Failed to load logs:', error);
       }
@@ -1464,7 +1599,7 @@
     // Disputes functions
     async function loadDisputes(page = 1) {
       const status = document.getElementById('disputeStatusFilter').value;
-      const params = new URLSearchParams({ limit: 50, skip: (page - 1) * 50, status });
+      const params = new URLSearchParams({ limit: PAGE_SIZE, skip: (page - 1) * PAGE_SIZE, status });
 
       document.getElementById('disputesLoading').style.display = 'block';
       document.getElementById('disputesTable').style.display = 'none';
@@ -1477,7 +1612,7 @@
         const data = await response.json();
 
         renderDisputesTable(data.disputes);
-        const totalPages = Math.ceil(data.total / 50);
+        const totalPages = Math.ceil(data.total / PAGE_SIZE);
         renderPagination('disputes', { page, pages: totalPages }, loadDisputes);
       } catch (error) {
         console.error('Failed to load disputes:', error);
@@ -1977,6 +2112,9 @@
 
     // ============ Platform Management Functions ============
 
+    let allPlatforms = [];
+    let platformsPage = 1;
+
     async function loadPlatforms() {
       document.getElementById('platformsLoading').style.display = 'block';
       document.getElementById('platformsTable').style.display = 'none';
@@ -1987,10 +2125,35 @@
         });
 
         const data = await response.json();
-        renderPlatformsTable(data.platforms);
+        allPlatforms = data.platforms || [];
+        platformsPage = 1;
+        filterPlatforms();
       } catch (error) {
         console.error('Failed to load platforms:', error);
       }
+    }
+
+    function filterPlatforms() {
+      const search = document.getElementById('platformSearchInput').value.toLowerCase().trim();
+      let filtered = allPlatforms;
+
+      if (search) {
+        filtered = allPlatforms.filter(p =>
+          p.name.toLowerCase().includes(search) ||
+          p.code.toLowerCase().includes(search) ||
+          p.login.toLowerCase().includes(search)
+        );
+      }
+
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+      const start = (platformsPage - 1) * PAGE_SIZE;
+      const paginated = filtered.slice(start, start + PAGE_SIZE);
+
+      renderPlatformsTable(paginated);
+      renderPagination('platforms', { page: platformsPage, pages: totalPages }, (page) => {
+        platformsPage = page;
+        filterPlatforms();
+      });
     }
 
     function renderPlatformsTable(platforms) {
@@ -2299,6 +2462,9 @@
 
     // ============ Export Logs Functions ============
 
+    let allExportLogs = [];
+    let exportLogsPage = 1;
+
     async function loadExportLogs() {
       try {
         const response = await fetch(`${API_BASE}/admin/export/logs`, {
@@ -2310,12 +2476,37 @@
         }
 
         const data = await response.json();
-        renderExportLogs(data.logs);
+        allExportLogs = data.logs || [];
+        exportLogsPage = 1;
+        filterExportLogs();
       } catch (error) {
         console.error('Error loading export logs:', error);
         document.getElementById('exportLogsList').innerHTML =
           '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #ef4444;">Ошибка загрузки логов</td></tr>';
       }
+    }
+
+    function filterExportLogs() {
+      const search = document.getElementById('exportLogsSearch').value.toLowerCase().trim();
+      let filtered = allExportLogs;
+
+      if (search) {
+        filtered = allExportLogs.filter(log =>
+          (log.dealId && log.dealId.toLowerCase().includes(search)) ||
+          (log.targetUsername && log.targetUsername.toLowerCase().includes(search)) ||
+          String(log.targetUserId).includes(search)
+        );
+      }
+
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+      const start = (exportLogsPage - 1) * PAGE_SIZE;
+      const paginated = filtered.slice(start, start + PAGE_SIZE);
+
+      renderExportLogs(paginated);
+      renderPagination('exportLogs', { page: exportLogsPage, pages: totalPages }, (page) => {
+        exportLogsPage = page;
+        filterExportLogs();
+      });
     }
 
     function renderExportLogs(logs) {
