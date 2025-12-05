@@ -210,10 +210,50 @@ class DealService {
       initialStatus = buyerAddress ? 'waiting_for_deposit' : 'waiting_for_buyer_wallet';
     }
 
-    // Get creator's platform info
-    const creator = await User.findOne({ telegramId: creatorRole === 'buyer' ? buyerId : sellerId });
-    const platformId = creator?.platformId || null;
-    const platformCode = creator?.platformCode || null;
+    // Get platform info - check BOTH participants (chain reaction: if any is partner-referred, deal is partner's)
+    const [buyer, seller] = await Promise.all([
+      User.findOne({ telegramId: buyerId }),
+      User.findOne({ telegramId: sellerId })
+    ]);
+
+    // Priority: if either participant has a platform, use it (first found)
+    // Chain reaction: non-partner user becomes partner-referred when dealing with partner user
+    let platformId = null;
+    let platformCode = null;
+
+    if (buyer?.platformId) {
+      platformId = buyer.platformId;
+      platformCode = buyer.platformCode;
+
+      // Chain reaction: link seller to this platform if not already linked
+      if (seller && !seller.platformId) {
+        const Platform = require('../models/Platform');
+        seller.platformId = buyer.platformId;
+        seller.platformCode = buyer.platformCode;
+        await seller.save();
+        // Update platform stats
+        await Platform.findByIdAndUpdate(buyer.platformId, {
+          $inc: { 'stats.totalUsers': 1 }
+        });
+        console.log(`🔗 Chain reaction: User ${sellerId} linked to platform ${buyer.platformCode} via deal with ${buyerId}`);
+      }
+    } else if (seller?.platformId) {
+      platformId = seller.platformId;
+      platformCode = seller.platformCode;
+
+      // Chain reaction: link buyer to this platform if not already linked
+      if (buyer && !buyer.platformId) {
+        const Platform = require('../models/Platform');
+        buyer.platformId = seller.platformId;
+        buyer.platformCode = seller.platformCode;
+        await buyer.save();
+        // Update platform stats
+        await Platform.findByIdAndUpdate(seller.platformId, {
+          $inc: { 'stats.totalUsers': 1 }
+        });
+        console.log(`🔗 Chain reaction: User ${buyerId} linked to platform ${seller.platformCode} via deal with ${sellerId}`);
+      }
+    }
 
     // Create deal record
     const deal = new Deal({
