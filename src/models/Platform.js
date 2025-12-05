@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const priceService = require('../services/priceService');
 
 const platformSchema = new mongoose.Schema({
   // Уникальный код платформы для реферальной ссылки
@@ -180,11 +181,12 @@ platformSchema.methods.updateStats = async function() {
     'escrowWallet.address': { $exists: true }
   });
 
-  const TRX_ACTIVATION_COST = 1.1; // TRX за активацию
-  this.stats.totalTrxSpent = trxDeals * TRX_ACTIVATION_COST;
+  // Fixed TRX cost per deal (activation + transfers)
+  const TRX_PER_DEAL = 16.1;
+  this.stats.totalTrxSpent = trxDeals * TRX_PER_DEAL;
 
-  // Конвертация TRX в USDT (примерный курс, в реальности нужно брать с биржи)
-  const TRX_TO_USDT = 0.12; // ~$0.12 за 1 TRX
+  // Get current TRX price from CoinGecko
+  const TRX_TO_USDT = await priceService.getTrxPrice();
   this.stats.totalTrxSpentUsdt = this.stats.totalTrxSpent * TRX_TO_USDT;
 
   // Чистая прибыль

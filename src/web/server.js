@@ -3,6 +3,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const connectDB = require('../config/database');
 const notificationService = require('../services/notificationService');
+const priceService = require('../services/priceService');
 const { Telegraf } = require('telegraf');
 
 // Import models
@@ -437,8 +438,8 @@ app.post('/api/admin/disputes/:disputeId/return-to-progress', adminAuth, async (
 // Get statistics
 app.get('/api/admin/stats', adminAuth, async (req, res) => {
   try {
-    // TRX to USDT exchange rate
-    const TRX_TO_USDT = 0.28;
+    // Get current TRX price from CoinGecko (cached for 5 min)
+    const TRX_TO_USDT = await priceService.getTrxPrice();
     // Fixed TRX cost per completed deal (activation + transfers)
     const TRX_PER_DEAL = 16.1;
 

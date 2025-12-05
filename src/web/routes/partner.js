@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const Platform = require('../../models/Platform');
 const User = require('../../models/User');
 const Deal = require('../../models/Deal');
+const priceService = require('../../services/priceService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'partner-secret-key-change-in-production';
 const BOT_USERNAME = process.env.BOT_USERNAME || 'KeyShieldBot';
@@ -130,7 +131,10 @@ router.get('/dashboard', authenticatePartner, async (req, res) => {
     // Referral link
     const referralLink = platform.getReferralLink(BOT_USERNAME);
 
-    res.send(getDashboardPage(platform, recentDeals, usersCount, dealsByStatus, dailyStats, referralLink));
+    // Get current TRX price
+    const trxRate = await priceService.getTrxPrice();
+
+    res.send(getDashboardPage(platform, recentDeals, usersCount, dealsByStatus, dailyStats, referralLink, trxRate));
   } catch (error) {
     console.error('Partner dashboard error:', error);
     res.status(500).send('Internal server error');
@@ -380,7 +384,7 @@ function getLoginPage(error) {
   `;
 }
 
-function getDashboardPage(platform, recentDeals, usersCount, dealsByStatus, dailyStats, referralLink) {
+function getDashboardPage(platform, recentDeals, usersCount, dealsByStatus, dailyStats, referralLink, trxRate = 0.28) {
   const stats = platform.stats;
 
   // Format status counts
@@ -803,6 +807,7 @@ function getDashboardPage(platform, recentDeals, usersCount, dealsByStatus, dail
           </div>
           <div class="stat-value">${formatMoney(stats.totalTrxSpent)} TRX</div>
           <div class="stat-label">≈ ${formatMoney(stats.totalTrxSpentUsdt)} USDT на активацию</div>
+          <div class="stat-label" style="font-size: 10px; color: #64748b; margin-top: 5px;">Курс: 1 TRX = ${trxRate.toFixed(4)} USDT</div>
         </div>
       </div>
     </div>
