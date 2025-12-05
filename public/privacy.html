@@ -9,7 +9,7 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://keyshield.me/privacy">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=4">
+    <link rel="stylesheet" href="/css/style.css?v=5">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -31,16 +31,18 @@
         </div>
     </header>
 
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-        <span class="arrow">▼</span> Меню
-    </button>
-    <nav class="mobile-nav" id="mobileNav">
-        <ul>
-            <li><a href="/">Главная</a></li>
-            <li><a href="/terms" class="active">Документы</a></li>
-        </ul>
-    </nav>
+    <!-- Mobile Menu -->
+    <div class="mobile-menu-wrapper">
+        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+            <span class="arrow">▼</span> Меню
+        </button>
+        <nav class="mobile-nav" id="mobileNav">
+            <ul>
+                <li><a href="/">Главная</a></li>
+                <li><a href="/terms" class="active">Документы</a></li>
+            </ul>
+        </nav>
+    </div>
 
     <section class="document">
         <div class="container">

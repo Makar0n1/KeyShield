@@ -84,13 +84,22 @@ body {
     color: var(--primary);
 }
 
+/* Mobile Menu Wrapper */
+.mobile-menu-wrapper {
+    display: none;
+    position: sticky;
+    top: 69px; /* Height of header */
+    z-index: 999;
+    background: var(--dark);
+    border-bottom: 1px solid var(--border);
+}
+
 /* Mobile Menu Toggle */
 .mobile-menu-toggle {
-    display: none;
+    display: block;
     width: 100%;
     background: var(--dark);
     border: none;
-    border-top: 1px solid var(--border);
     padding: 10px;
     color: var(--text-muted);
     cursor: pointer;
@@ -113,9 +122,8 @@ body {
 }
 
 .mobile-nav {
-    display: none;
+    display: block;
     background: var(--dark);
-    border-top: 1px solid var(--border);
     overflow: hidden;
     max-height: 0;
     transition: max-height 0.3s ease-out;
@@ -156,6 +164,7 @@ body {
 .btn {
     display: inline-block;
     padding: 12px 24px;
+    gap: 5px;
     border-radius: 8px;
     font-weight: 600;
     text-decoration: none;
@@ -608,8 +617,7 @@ body {
         display: none;
     }
 
-    .mobile-menu-toggle,
-    .mobile-nav {
+    .mobile-menu-wrapper {
         display: block;
     }
 

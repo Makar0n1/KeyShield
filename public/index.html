@@ -14,7 +14,7 @@
     <meta property="og:url" content="https://keyshield.me/">
     <meta property="og:image" content="https://keyshield.me/images/logo.png">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=4">
+    <link rel="stylesheet" href="/css/style.css?v=5">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -41,18 +41,20 @@
         </div>
     </header>
 
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-        <span class="arrow">▼</span> Меню
-    </button>
-    <nav class="mobile-nav" id="mobileNav">
-        <ul>
-            <li><a href="#features">Возможности</a></li>
-            <li><a href="#how-it-works">Как работает</a></li>
-            <li><a href="#pricing">Цены</a></li>
-            <li><a href="/terms">Документы</a></li>
-        </ul>
-    </nav>
+    <!-- Mobile Menu -->
+    <div class="mobile-menu-wrapper">
+        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+            <span class="arrow">▼</span> Меню
+        </button>
+        <nav class="mobile-nav" id="mobileNav">
+            <ul>
+                <li><a href="#features">Возможности</a></li>
+                <li><a href="#how-it-works">Как работает</a></li>
+                <li><a href="#pricing">Цены</a></li>
+                <li><a href="/terms">Документы</a></li>
+            </ul>
+        </nav>
+    </div>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -255,6 +257,16 @@
             nav.classList.toggle('open');
             btn.classList.toggle('open');
         }
+
+        // Close menu when clicking anchor links
+        document.querySelectorAll('.mobile-nav a[href^="#"]').forEach(link => {
+            link.addEventListener('click', () => {
+                const nav = document.getElementById('mobileNav');
+                const btn = document.querySelector('.mobile-menu-toggle');
+                nav.classList.remove('open');
+                btn.classList.remove('open');
+            });
+        });
     </script>
 </body>
 </html>
