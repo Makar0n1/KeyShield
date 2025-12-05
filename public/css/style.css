@@ -60,6 +60,12 @@ body {
     font-size: 32px;
 }
 
+.logo-img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+}
+
 .nav-menu {
     display: flex;
     list-style: none;
