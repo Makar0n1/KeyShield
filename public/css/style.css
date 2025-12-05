@@ -694,4 +694,7 @@ body {
     .document h2 {
         font-size: 22px;
     }
+    .header {
+        padding: 5px 0;
+    } 
 }
