@@ -153,8 +153,14 @@ platformSchema.methods.updateStats = async function() {
     switch (stat._id) {
       case 'completed':
         this.stats.completedDeals = stat.count;
+        // Partner commission from completed deals
         this.stats.totalCommission += stat.commission || 0;
         break;
+      case 'resolved':
+        // Partner commission from resolved deals too
+        this.stats.totalCommission += stat.commission || 0;
+        break;
+      // NOTE: 'expired' deals do NOT count for partner commission!
       case 'cancelled':
         this.stats.cancelledDeals = stat.count;
         break;

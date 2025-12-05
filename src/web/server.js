@@ -455,9 +455,10 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     const totalUsers = await User.countDocuments();
     const bannedUsers = await User.countDocuments({ blacklisted: true });
 
-    // Calculate finances from completed and resolved deals (where we earned commission)
+    // Calculate finances from completed, resolved AND expired deals (where we earned commission)
+    // Expired deals also have commission (penalty fee for buyer refund)
     const finishedDeals = await Deal.find({
-      status: { $in: ['completed', 'resolved'] }
+      status: { $in: ['completed', 'resolved', 'expired'] }
     }).lean();
 
     const totalVolume = finishedDeals.reduce((sum, deal) => sum + deal.amount, 0);
@@ -470,16 +471,19 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     // Net profit = commission - TRX expenses in USDT
     const netProfit = totalCommission - totalTrxSpentUsdt;
 
-    // Calculate partner payouts
+    // Calculate partner payouts (ONLY completed/resolved - expired deals don't count for partners!)
     const Platform = require('../models/Platform');
     const activePlatforms = await Platform.find({ isActive: true }).lean();
+
+    // Filter out expired deals for partner calculations
+    const partnerEligibleDeals = finishedDeals.filter(d => d.status !== 'expired');
 
     let totalPartnerPayouts = 0;
     const partnerDetails = [];
 
     for (const platform of activePlatforms) {
-      // Get finished deals for this platform
-      const platformDeals = finishedDeals.filter(d =>
+      // Get partner-eligible deals for this platform (no expired!)
+      const platformDeals = partnerEligibleDeals.filter(d =>
         d.platformId && d.platformId.toString() === platform._id.toString()
       );
 

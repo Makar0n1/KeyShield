@@ -59,19 +59,13 @@ const exportLogSchema = new mongoose.Schema({
   // Expiration date (1 year from creation)
   expiresAt: {
     type: Date,
-    required: true,
+    default: () => {
+      const oneYear = new Date();
+      oneYear.setFullYear(oneYear.getFullYear() + 1);
+      return oneYear;
+    },
     index: true
   }
-});
-
-// Auto-set expiration date to 1 year from creation
-exportLogSchema.pre('save', function(next) {
-  if (!this.expiresAt) {
-    const oneYear = new Date();
-    oneYear.setFullYear(oneYear.getFullYear() + 1);
-    this.expiresAt = oneYear;
-  }
-  next();
 });
 
 // TTL index for automatic cleanup after 1 year
