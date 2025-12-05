@@ -615,9 +615,6 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
-    body {
-        padding-top: 40px; /* Space for fixed mobile menu */
-    }
 
     .nav-menu {
         display: none;
