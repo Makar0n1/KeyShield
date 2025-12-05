@@ -927,7 +927,7 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
             <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">История экспортов</div>
             <div class="search-box">
-              <input type="text" id="exportLogsSearch" class="search-input" placeholder="Поиск по ID или username..." onkeyup="filterExportLogs()">
+              <input type="text" id="exportLogsSearch" class="search-input" placeholder="Поиск по номеру выписки, ID или username..." onkeyup="filterExportLogs()">
               <button onclick="loadExportLogs()" style="padding: 6px 12px; background: #334155; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
                 🔄
               </button>
@@ -938,6 +938,7 @@
               <thead>
                 <tr style="color: #94a3b8; text-align: left; border-bottom: 1px solid #334155;">
                   <th style="padding: 8px;">Дата</th>
+                  <th style="padding: 8px;">Номер выписки</th>
                   <th style="padding: 8px;">Тип</th>
                   <th style="padding: 8px;">Пользователь</th>
                   <th style="padding: 8px;">Детали</th>
@@ -946,7 +947,7 @@
                 </tr>
               </thead>
               <tbody id="exportLogsList">
-                <tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Загрузка...</td></tr>
+                <tr><td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">Загрузка...</td></tr>
               </tbody>
             </table>
           </div>
@@ -2534,11 +2535,16 @@
       let filtered = allExportLogs;
 
       if (search) {
-        filtered = allExportLogs.filter(log =>
-          (log.dealId && log.dealId.toLowerCase().includes(search)) ||
-          (log.targetUsername && log.targetUsername.toLowerCase().includes(search)) ||
-          String(log.targetUserId).includes(search)
-        );
+        filtered = allExportLogs.filter(log => {
+          // Extract statement number from fileName
+          const statementMatch = log.fileName?.match(/(\d{8}-[A-Z0-9]+)\.pdf$/i);
+          const statementNumber = statementMatch ? statementMatch[1].toLowerCase() : '';
+          return (log.dealId && log.dealId.toLowerCase().includes(search)) ||
+            (log.targetUsername && log.targetUsername.toLowerCase().includes(search)) ||
+            String(log.targetUserId).includes(search) ||
+            (log.fileName && log.fileName.toLowerCase().includes(search)) ||
+            statementNumber.includes(search);
+        });
       }
 
       const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -2556,12 +2562,15 @@
       const container = document.getElementById('exportLogsList');
 
       if (!logs || logs.length === 0) {
-        container.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">Нет экспортов</td></tr>';
+        container.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">Нет экспортов</td></tr>';
         return;
       }
 
       container.innerHTML = logs.map(log => {
         const date = new Date(log.createdAt).toLocaleString('ru-RU');
+        // Extract statement number from fileName (e.g., KeyShield_User_mamlyga_Deals_20251205-Z5GEC8.pdf)
+        const statementMatch = log.fileName?.match(/(\d{8}-[A-Z0-9]+)\.pdf$/i);
+        const statementNumber = statementMatch ? statementMatch[1] : '-';
         const typeLabel = log.exportType === 'single_deal' ? 'Сделка' : 'Все сделки';
         const typeColor = log.exportType === 'single_deal' ? '#10b981' : '#6366f1';
         const userInfo = log.targetUsername
@@ -2575,6 +2584,7 @@
         return `
           <tr style="border-bottom: 1px solid #1e293b;">
             <td style="padding: 8px; color: #94a3b8;">${date}</td>
+            <td style="padding: 8px; color: #6366f1; font-family: monospace;">${statementNumber}</td>
             <td style="padding: 8px;"><span style="color: ${typeColor};">${typeLabel}</span></td>
             <td style="padding: 8px; color: #fff;">${userInfo}</td>
             <td style="padding: 8px; color: #94a3b8;">${details}</td>
