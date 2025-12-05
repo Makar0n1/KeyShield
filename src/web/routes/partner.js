@@ -324,6 +324,31 @@ function getLoginPage(error) {
       color: #ef4444;
       border-radius: 10px;
     }
+
+    /* Responsive layout for partner login */
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+
+      .login-card {
+        padding: 24px 18px;
+        max-width: 360px;
+        border-radius: 16px;
+      }
+
+      .login-logo {
+        margin-bottom: 20px;
+      }
+
+      .login-logo i {
+        font-size: 40px;
+      }
+
+      .login-logo h1 {
+        font-size: 20px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -589,6 +614,84 @@ function getDashboardPage(platform, recentDeals, usersCount, dealsByStatus, dail
       border-radius: 20px;
       font-size: 13px;
     }
+          /* Responsive layout for partner dashboard */
+    @media (max-width: 992px) {
+      .navbar .container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .navbar .d-flex {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .container.py-4 {
+        padding-top: 16px !important;
+        padding-bottom: 24px !important;
+      }
+
+      .referral-box {
+        padding: 16px;
+      }
+
+      .referral-link {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .referral-link input {
+        font-size: 13px;
+      }
+
+      .btn-copy {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .stat-card {
+        padding: 16px;
+        margin-bottom: 8px;
+      }
+
+      .profit-card,
+      .commission-card {
+        padding: 18px;
+      }
+
+      .tab-content {
+        margin-top: 16px;
+      }
+
+      .table-responsive {
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .navbar-brand {
+        font-size: 18px;
+      }
+
+      .referral-box h5 {
+        font-size: 16px;
+      }
+
+      .stat-card .stat-value {
+        font-size: 24px;
+      }
+    }
+
   </style>
 </head>
 <body>
