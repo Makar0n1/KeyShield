@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Условия использования - KeyShield</title>
+    <title>Условия использования KeyShield - Правила пользования escrow сервисом</title>
+    <meta name="description" content="Условия использования escrow сервиса KeyShield. Правила проведения сделок, комиссии, арбитраж споров, ответственность сторон.">
+    <meta name="keywords" content="условия использования, escrow, эскроу, правила, KeyShield, TRON, USDT">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://keyshield.me/terms">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=3">
+    <link rel="stylesheet" href="/css/style.css?v=4">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -26,6 +30,17 @@
             </nav>
         </div>
     </header>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+        <span class="arrow">▼</span> Меню
+    </button>
+    <nav class="mobile-nav" id="mobileNav">
+        <ul>
+            <li><a href="/">Главная</a></li>
+            <li><a href="/terms" class="active">Документы</a></li>
+        </ul>
+    </nav>
 
     <section class="document">
         <div class="container">
@@ -248,5 +263,14 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        function toggleMobileMenu() {
+            const nav = document.getElementById('mobileNav');
+            const btn = document.querySelector('.mobile-menu-toggle');
+            nav.classList.toggle('open');
+            btn.classList.toggle('open');
+        }
+    </script>
 </body>
 </html>

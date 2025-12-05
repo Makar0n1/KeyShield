@@ -84,6 +84,74 @@ body {
     color: var(--primary);
 }
 
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+    display: none;
+    width: 100%;
+    background: var(--dark);
+    border: none;
+    border-top: 1px solid var(--border);
+    padding: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.mobile-menu-toggle:hover {
+    color: var(--primary);
+    background: var(--dark-light);
+}
+
+.mobile-menu-toggle .arrow {
+    display: inline-block;
+    transition: transform 0.3s;
+}
+
+.mobile-menu-toggle.open .arrow {
+    transform: rotate(180deg);
+}
+
+.mobile-nav {
+    display: none;
+    background: var(--dark);
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease-out;
+}
+
+.mobile-nav.open {
+    max-height: 300px;
+}
+
+.mobile-nav ul {
+    list-style: none;
+    padding: 10px 0;
+}
+
+.mobile-nav ul li {
+    border-bottom: 1px solid var(--border);
+}
+
+.mobile-nav ul li:last-child {
+    border-bottom: none;
+}
+
+.mobile-nav ul a {
+    display: block;
+    padding: 12px 20px;
+    color: var(--text);
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.mobile-nav ul a:hover,
+.mobile-nav ul a.active {
+    color: var(--primary);
+    background: var(--dark-light);
+}
+
 /* Buttons */
 .btn {
     display: inline-block;
@@ -538,6 +606,11 @@ body {
 @media (max-width: 768px) {
     .nav-menu {
         display: none;
+    }
+
+    .mobile-menu-toggle,
+    .mobile-nav {
+        display: block;
     }
 
     .btn {
