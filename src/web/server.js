@@ -851,7 +851,7 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(filePath);
 
   } catch (error) {
@@ -1132,7 +1132,7 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(filePath);
 
   } catch (error) {
