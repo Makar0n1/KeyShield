@@ -424,10 +424,10 @@ const handleAmount = async (ctx, session, text) => {
 // STEP 7: CREATOR WALLET
 // ============================================
 
-const handleCreatorWallet = async (ctx, session, text) => {
+const handleCreatorWallet = async (ctx, session, inputText) => {
   const telegramId = ctx.from.id;
   const blockchainService = require('../../services/blockchain');
-  const address = text.trim();
+  const address = inputText.trim();
 
   if (!blockchainService.isValidAddress(address)) {
     const errorText = `❌ *Неверный адрес*
