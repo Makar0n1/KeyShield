@@ -2430,12 +2430,20 @@
           return;
         }
 
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `KeyShield_Deal_${dealId}.pdf`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+          if (match) filename = match[1];
+        }
+
         // Download the PDF
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `KeyShield_Deal_${dealId}.pdf`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2468,12 +2476,20 @@
           return;
         }
 
+        // Get filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `KeyShield_User_${userIdentifier}_Deals.pdf`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?([^";\n]+)"?/);
+          if (match) filename = match[1];
+        }
+
         // Download the PDF
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `KeyShield_User_${userIdentifier}_Deals.pdf`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
