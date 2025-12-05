@@ -1,7 +1,37 @@
 const User = require('../../models/User');
 const Platform = require('../../models/Platform');
-const { mainMenuKeyboard, persistentKeyboard } = require('../keyboards/main');
+const { mainMenuKeyboard } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+
+// Main menu text (used in multiple places)
+const MAIN_MENU_TEXT = `🛡 *KeyShield — Безопасные сделки*
+
+Защищённый escrow-сервис для сделок между покупателями и продавцами.
+
+🔐 *Мультисиг-кошельки*
+Средства хранятся на защищённом кошельке с мультиподписью 2-из-3.
+
+⚡️ *Автоматический контроль*
+Система автоматически отслеживает депозиты в блокчейне TRON.
+
+⚖️ *Арбитраж споров*
+При конфликте — нейтральный арбитр рассмотрит доказательства.
+
+💰 *Комиссия:* от 15 USDT или 5%
+📊 *Минимум:* 50 USDT
+💵 *Актив:* USDT (TRC-20)
+
+Выберите действие:`;
+
+// Ban screen text
+const BAN_SCREEN_TEXT = `🚫 *Аккаунт заблокирован*
+
+Ваш аккаунт заблокирован из-за нарушения правил сервиса.
+
+Если вы считаете, что блокировка ошибочна, обратитесь в поддержку:
+
+📧 support@keyshield.io
+💬 @keyshield_support`;
 
 /**
  * /start command handler
@@ -13,9 +43,6 @@ const startHandler = async (ctx) => {
     const telegramId = ctx.from.id;
     const username = ctx.from.username;
     const firstName = ctx.from.first_name;
-
-    // Delete the /start command if user is already on main menu
-    await messageManager.deleteCommandIfOnScreen(ctx, 'main_menu');
 
     // Parse referral code from start parameter
     let platformId = null;
@@ -71,66 +98,42 @@ const startHandler = async (ctx) => {
       // Update user info if changed
       user.username = username;
       user.firstName = firstName;
-
-      // ВАЖНО: Не меняем платформу если пользователь уже зарегистрирован!
-      // Первая платформа навсегда
-
       await user.save();
     }
 
     // Check if user is banned
     if (user.blacklisted) {
-      return ctx.reply(
-        '🚫 *Ваш аккаунт заблокирован*\n\n' +
-        'Вы не можете использовать этот сервис. Если считаете, что это ошибка, обратитесь в поддержку.',
-        { parse_mode: 'Markdown' }
-      );
+      // Delete old bot message if exists
+      await messageManager.deleteMainMessage(ctx, telegramId);
+
+      // Send ban screen (no keyboard)
+      const msg = await ctx.telegram.sendMessage(telegramId, BAN_SCREEN_TEXT, {
+        parse_mode: 'Markdown'
+      });
+      messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
     }
 
-    // Welcome message
-    const welcomeText = `
-👋 *Добро пожаловать в KeyShield Multisig Escrow!*
-
-Безопасный криптовалютный эскроу на основе мультиподписи TRON.
-
-🔐 *Что это такое?*
-Мы НЕ храним ваши средства на кастодиальном кошельке. Для каждой сделки создаётся отдельный multisig-адрес с 3 ключами:
-• Покупатель (1 подпись)
-• Продавец (1 подпись)
-• Арбитр (1 подпись)
-
-Для перемещения средств нужны *любые 2 подписи из 3*.
-
-✅ Арбитр *не может* украсть средства в одиночку
-✅ Покупатель и продавец могут завершить сделку без арбитра
-✅ При споре арбитр + победитель подписывают транзакцию
-
-📊 *Поддерживаемые активы:*
-• USDT (TRC-20)
-
-💰 *Комиссия:* 5% (минимум 15 USDT)
-
-Выберите действие:
-    `.trim();
-
-    // Clear any old temp messages
-    await messageManager.clearTempMessages(ctx, telegramId);
+    // Delete old bot message if exists (to ensure clean state)
+    await messageManager.deleteMainMessage(ctx, telegramId);
 
     // Reset navigation to main menu
     messageManager.resetNavigation(telegramId);
 
-    // Send or edit main message
-    const messageId = await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      welcomeText,
-      mainMenuKeyboard()
-    );
+    // Send new main message
+    const keyboard = mainMenuKeyboard();
+    const msg = await ctx.telegram.sendMessage(telegramId, MAIN_MENU_TEXT, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard.reply_markup
+    });
 
-    console.log(`Main menu shown to user ${telegramId}, message ID: ${messageId}`);
+    // Track main message
+    messageManager.setMainMessage(telegramId, msg.message_id);
+    messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+
+    console.log(`Main menu shown to user ${telegramId}, message ID: ${msg.message_id}`);
   } catch (error) {
     console.error('Error in start handler:', error);
-    ctx.reply('❌ Произошла ошибка. Попробуйте ещё раз позже.');
   }
 };
 
@@ -143,42 +146,44 @@ const mainMenuHandler = async (ctx) => {
 
     const telegramId = ctx.from.id;
 
-    const text = `
-👋 *Добро пожаловать в KeyShield Multisig Escrow!*
-
-Безопасный криптовалютный эскроу на основе мультиподписи TRON.
-
-🔐 *Что это такое?*
-Мы НЕ храним ваши средства на кастодиальном кошельке. Для каждой сделки создаётся отдельный multisig-адрес с 3 ключами:
-• Покупатель (1 подпись)
-• Продавец (1 подпись)
-• Арбитр (1 подпись)
-
-Для перемещения средств нужны *любые 2 подписи из 3*.
-
-✅ Арбитр *не может* украсть средства в одиночку
-✅ Покупатель и продавец могут завершить сделку без арбитра
-✅ При споре арбитр + победитель подписывают транзакцию
-
-📊 *Поддерживаемые активы:*
-• USDT (TRC-20)
-
-💰 *Комиссия:* 5% (минимум 15 USDT)
-
-Выберите действие:
-    `.trim();
-
     // Reset navigation to main menu
     messageManager.resetNavigation(telegramId);
 
-    // Edit the message
-    await messageManager.sendOrEdit(ctx, telegramId, text, mainMenuKeyboard());
+    // Show main menu
+    const keyboard = mainMenuKeyboard();
+    await messageManager.editMainMessage(ctx, telegramId, MAIN_MENU_TEXT, keyboard);
+    messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
   } catch (error) {
     console.error('Error in main menu handler:', error);
   }
 };
 
+/**
+ * Back button handler - returns to previous screen
+ */
+const backHandler = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+
+    // Try to go back
+    const previousScreen = await messageManager.goBack(ctx, telegramId);
+
+    // If no previous screen, show main menu
+    if (!previousScreen) {
+      const keyboard = mainMenuKeyboard();
+      await messageManager.editMainMessage(ctx, telegramId, MAIN_MENU_TEXT, keyboard);
+      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+    }
+  } catch (error) {
+    console.error('Error in back handler:', error);
+  }
+};
+
 module.exports = {
   startHandler,
-  mainMenuHandler
+  mainMenuHandler,
+  backHandler,
+  MAIN_MENU_TEXT
 };

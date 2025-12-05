@@ -1,9 +1,19 @@
 const disputeService = require('../../services/disputeService');
 const dealService = require('../../services/dealService');
-const { backToMainMenu } = require('../keyboards/main');
+const {
+  mainMenuButton,
+  backButton,
+  disputeMediaKeyboard,
+  disputeOpenedKeyboard
+} = require('../keyboards/main');
+const messageManager = require('../utils/messageManager');
 
 // Store temporary dispute data
 const disputeSessions = new Map();
+
+// ============================================
+// START DISPUTE
+// ============================================
 
 /**
  * Start dispute process
@@ -18,48 +28,61 @@ const startDispute = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      return ctx.reply('❌ Сделка не найдена.');
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      return;
     }
 
     if (!deal.isParticipant(telegramId)) {
-      return ctx.reply('❌ Вы не являетесь участником этой сделки.');
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Вы не являетесь участником этой сделки.', keyboard);
+      return;
     }
 
     // Check if dispute already exists
     const existingDispute = await disputeService.getDisputeByDealId(dealId);
     if (existingDispute) {
-      return ctx.editMessageText(
-        '⚠️ *Спор уже открыт*\n\n' +
-        'По этой сделке уже есть активный спор. Арбитр рассмотрит его в ближайшее время.',
-        {
-          parse_mode: 'Markdown',
-          ...backToMainMenu()
-        }
-      );
+      const text = `⚠️ *Спор уже открыт*
+
+По этой сделке уже есть активный спор.
+Арбитр рассмотрит его в ближайшее время.`;
+
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'dispute_exists', text, keyboard);
+      return;
     }
 
     // Initialize dispute session
     disputeSessions.set(telegramId, {
       dealId,
-      step: 'reason'
+      step: 'reason',
+      media: []
     });
 
-    await ctx.editMessageText(
-      '⚠️ *Открытие спора*\n\n' +
-      `Сделка: \`${dealId}\`\n\n` +
-      'Опишите суть проблемы:\n' +
-      '• Что пошло не так?\n' +
-      '• Какие условия не выполнены?\n' +
-      '• Ваши ожидания?\n\n' +
-      '📎 После отправки текста вы сможете прикрепить фото/видео/файлы.\n\n' +
-      'Отправьте описание проблемы или /cancel для отмены.',
-      { parse_mode: 'Markdown' }
-    );
+    const text = `⚠️ *Открытие спора*
+
+🆔 Сделка: \`${dealId}\`
+📦 ${deal.productName}
+
+Опишите суть проблемы:
+• Что пошло не так?
+• Какие условия не выполнены?
+• Ваши ожидания?
+
+📎 После отправки текста вы сможете прикрепить доказательства.
+
+_Минимум 20 символов_`;
+
+    const keyboard = backButton();
+    await messageManager.navigateToScreen(ctx, telegramId, `dispute_${dealId}`, text, keyboard);
   } catch (error) {
     console.error('Error starting dispute:', error);
-    ctx.reply('❌ Произошла ошибка.');
   }
 };
+
+// ============================================
+// HANDLE DISPUTE TEXT INPUT
+// ============================================
 
 /**
  * Handle dispute text input
@@ -70,44 +93,61 @@ const handleDisputeInput = async (ctx) => {
     const session = disputeSessions.get(telegramId);
 
     if (!session) {
-      return;
+      return false;
     }
 
-    if (ctx.message.text === '/cancel') {
-      disputeSessions.delete(telegramId);
-      return ctx.reply('❌ Открытие спора отменено.', backToMainMenu());
-    }
+    // Delete user message
+    await messageManager.deleteUserMessage(ctx);
 
     if (session.step === 'reason') {
       const text = ctx.message.text.trim();
 
       if (text.length < 20) {
-        return ctx.reply('❌ Описание слишком короткое. Минимум 20 символов. Попробуйте ещё раз.');
+        const errorText = `❌ *Описание слишком короткое*
+
+Минимум 20 символов. Пожалуйста, опишите проблему подробнее.
+
+Текущая длина: ${text.length} символов`;
+
+        const keyboard = backButton();
+        await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+        return true;
       }
 
+      // Save reason and move to media step
       session.reasonText = text;
-      session.media = [];
       session.step = 'media';
       disputeSessions.set(telegramId, session);
 
-      await ctx.reply(
-        '📎 *Прикрепите доказательства*\n\n' +
-        'Можете отправить:\n' +
-        '• Скриншоты\n' +
-        '• Видео\n' +
-        '• Документы\n' +
-        '• Голосовые сообщения\n\n' +
-        'Отправьте файлы или напишите /done когда закончите.',
-        { parse_mode: 'Markdown' }
-      );
-    } else if (session.step === 'media' && ctx.message.text === '/done') {
-      await finalizeDispute(ctx, session);
+      const mediaText = `📎 *Прикрепите доказательства*
+
+🆔 Сделка: \`${session.dealId}\`
+
+Отправьте файлы для подтверждения:
+• Скриншоты переписки
+• Фото/видео товара
+• Документы
+• Голосовые сообщения
+
+_Добавлено файлов: ${session.media.length}_
+
+Нажмите *"Отправить спор"* когда закончите.`;
+
+      const keyboard = disputeMediaKeyboard(session.dealId);
+      await messageManager.editMainMessage(ctx, telegramId, mediaText, keyboard);
+      return true;
     }
+
+    return true;
   } catch (error) {
     console.error('Error handling dispute input:', error);
-    ctx.reply('❌ Произошла ошибка.');
+    return false;
   }
 };
+
+// ============================================
+// HANDLE MEDIA ATTACHMENTS
+// ============================================
 
 /**
  * Handle media attachments for dispute
@@ -118,8 +158,11 @@ const handleDisputeMedia = async (ctx) => {
     const session = disputeSessions.get(telegramId);
 
     if (!session || session.step !== 'media') {
-      return;
+      return false;
     }
+
+    // Delete user message (media)
+    await messageManager.deleteUserMessage(ctx);
 
     // Get file_id based on message type
     let fileId;
@@ -140,7 +183,7 @@ const handleDisputeMedia = async (ctx) => {
     }
 
     if (fileId) {
-      // Store file_id (in production, download and upload to S3)
+      // Store file_id
       session.media.push({
         fileId,
         type: fileType
@@ -148,31 +191,71 @@ const handleDisputeMedia = async (ctx) => {
 
       disputeSessions.set(telegramId, session);
 
-      await ctx.reply(
-        `✅ Файл ${session.media.length} добавлен.\n\n` +
-        'Можете отправить ещё или напишите /done для завершения.'
-      );
+      // Update screen with new count
+      const mediaText = `📎 *Прикрепите доказательства*
+
+🆔 Сделка: \`${session.dealId}\`
+
+Отправьте файлы для подтверждения:
+• Скриншоты переписки
+• Фото/видео товара
+• Документы
+• Голосовые сообщения
+
+✅ *Добавлено файлов: ${session.media.length}*
+
+Нажмите *"Отправить спор"* когда закончите.`;
+
+      const keyboard = disputeMediaKeyboard(session.dealId);
+      await messageManager.editMainMessage(ctx, telegramId, mediaText, keyboard);
+      return true;
     }
+
+    return false;
   } catch (error) {
     console.error('Error handling dispute media:', error);
+    return false;
   }
 };
 
+// ============================================
+// FINALIZE DISPUTE
+// ============================================
+
 /**
- * Finalize and create dispute
+ * Handle finalize dispute button
  */
-const finalizeDispute = async (ctx, session) => {
+const finalizeDisputeHandler = async (ctx) => {
   try {
+    await ctx.answerCbQuery();
+
+    const dealId = ctx.callbackQuery.data.split(':')[1];
     const telegramId = ctx.from.id;
 
-    await ctx.reply('⏳ Создаём спор...');
+    const session = disputeSessions.get(telegramId);
+
+    if (!session || session.dealId !== dealId) {
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сессия спора не найдена. Начните заново.', keyboard);
+      return;
+    }
+
+    if (!session.reasonText) {
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Описание проблемы отсутствует. Начните заново.', keyboard);
+      disputeSessions.delete(telegramId);
+      return;
+    }
+
+    // Show loading
+    await messageManager.editMainMessage(ctx, telegramId, '⏳ *Создаём спор...*', {});
 
     // Create dispute
     const dispute = await disputeService.openDispute(
       session.dealId,
       telegramId,
       session.reasonText,
-      session.media.map(m => m.fileId) // In production, these would be S3 URLs
+      session.media.map(m => m.fileId)
     );
 
     // Clean up session
@@ -180,38 +263,79 @@ const finalizeDispute = async (ctx, session) => {
 
     const deal = await dealService.getDealById(session.dealId);
 
-    await ctx.reply(
-      '✅ *Спор открыт*\n\n' +
-      `ID сделки: \`${session.dealId}\`\n\n` +
-      'Арбитр получил уведомление и рассмотрит вашу жалобу в ближайшее время.\n\n' +
-      'Вы получите уведомление о решении.',
-      {
-        parse_mode: 'Markdown',
-        ...backToMainMenu()
-      }
-    );
+    // Show success to initiator (final screen)
+    const successText = `✅ *Спор открыт*
+
+🆔 Сделка: \`${session.dealId}\`
+📦 ${deal.productName}
+
+📎 Прикреплено файлов: ${session.media.length}
+
+Арбитр получил уведомление и рассмотрит вашу жалобу в ближайшее время.
+
+Вы получите уведомление о решении.`;
+
+    const successKeyboard = mainMenuButton();
+    await messageManager.showFinalScreen(ctx, telegramId, 'dispute_opened', successText, successKeyboard);
 
     // Notify the other party
     const otherPartyId = deal.buyerId === telegramId ? deal.sellerId : deal.buyerId;
-    await ctx.telegram.sendMessage(
-      otherPartyId,
-      `⚠️ *Открыт спор*\n\n` +
-      `По сделке \`${session.dealId}\` открыт спор.\n\n` +
-      `Арбитр рассмотрит жалобу и вынесет решение.`,
-      { parse_mode: 'Markdown' }
-    );
+    const role = deal.buyerId === telegramId ? 'Покупатель' : 'Продавец';
 
-    // TODO: Notify admin/arbiter via admin panel or special channel
+    const otherText = `⚠️ *Открыт спор*
+
+🆔 Сделка: \`${session.dealId}\`
+📦 ${deal.productName}
+
+${role} открыл спор по данной сделке.
+Арбитр рассмотрит жалобу и вынесет решение.
+
+Вы можете предоставить свои доказательства, обратившись в поддержку.`;
+
+    const otherKeyboard = disputeOpenedKeyboard(session.dealId);
+    await messageManager.showNotification(ctx, otherPartyId, otherText, otherKeyboard);
+
     console.log(`⚠️ New dispute opened for deal ${session.dealId} by user ${telegramId}`);
   } catch (error) {
     console.error('Error finalizing dispute:', error);
     disputeSessions.delete(ctx.from.id);
-    ctx.reply(`❌ Ошибка при создании спора: ${error.message}`);
+
+    const keyboard = mainMenuButton();
+    await messageManager.showFinalScreen(ctx, ctx.from.id, 'error', `❌ Ошибка при создании спора: ${error.message}`, keyboard);
   }
+};
+
+// ============================================
+// GET/CHECK DISPUTE SESSION
+// ============================================
+
+/**
+ * Check if user has active dispute session
+ */
+const hasDisputeSession = (telegramId) => {
+  return disputeSessions.has(telegramId);
+};
+
+/**
+ * Get dispute session
+ */
+const getDisputeSession = (telegramId) => {
+  return disputeSessions.get(telegramId);
+};
+
+/**
+ * Clear dispute session
+ */
+const clearDisputeSession = (telegramId) => {
+  disputeSessions.delete(telegramId);
 };
 
 module.exports = {
   startDispute,
   handleDisputeInput,
-  handleDisputeMedia
+  handleDisputeMedia,
+  finalizeDisputeHandler,
+  hasDisputeSession,
+  getDisputeSession,
+  clearDisputeSession
 };

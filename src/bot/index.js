@@ -5,9 +5,10 @@ const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
 const deadlineMonitor = require('../services/deadlineMonitor');
 const notificationService = require('../services/notificationService');
+const messageManager = require('./utils/messageManager');
 
 // Handlers
-const { startHandler, mainMenuHandler } = require('./handlers/start');
+const { startHandler, mainMenuHandler, backHandler } = require('./handlers/start');
 const {
   startCreateDeal,
   handleCreateDealInput,
@@ -16,7 +17,8 @@ const {
   handleCommissionSelection,
   handleRoleSelection,
   confirmCreateDeal,
-  cancelCreateDeal
+  hasCreateDealSession,
+  clearCreateDealSession
 } = require('./handlers/createDeal');
 const {
   showMyDeals,
@@ -27,17 +29,25 @@ const {
 const {
   startDispute,
   handleDisputeInput,
-  handleDisputeMedia
+  handleDisputeMedia,
+  finalizeDisputeHandler,
+  hasDisputeSession,
+  clearDisputeSession
 } = require('./handlers/dispute');
 const {
+  showHelp,
   howItWorks,
   rulesAndFees,
   support
 } = require('./handlers/help');
 const {
+  enterWalletHandler,
   handleSellerWalletInput,
   handleBuyerWalletInput,
-  handleDepositWarningConfirmation
+  handleDepositWarningConfirmation,
+  showDepositAddress,
+  declineDeal,
+  cancelDeal
 } = require('./handlers/provideWallet');
 
 // Initialize bot
@@ -46,7 +56,6 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 // Error handling
 bot.catch((err, ctx) => {
   console.error('Bot error:', err);
-  ctx.reply('❌ Произошла ошибка. Попробуйте позже или обратитесь в поддержку.');
 });
 
 // ============================================
@@ -55,16 +64,28 @@ bot.catch((err, ctx) => {
 
 bot.command('start', startHandler);
 
-bot.command('cancel', (ctx) => {
-  ctx.reply('❌ Действие отменено.', require('./keyboards/main').backToMainMenu());
+// /cancel - clear sessions and show main menu
+bot.command('cancel', async (ctx) => {
+  const telegramId = ctx.from.id;
+
+  // Delete user message
+  await messageManager.deleteUserMessage(ctx);
+
+  // Clear any active sessions
+  clearCreateDealSession(telegramId);
+  clearDisputeSession(telegramId);
+
+  // Show main menu
+  await mainMenuHandler(ctx);
 });
 
 // ============================================
 // CALLBACK QUERIES (Inline buttons)
 // ============================================
 
-// Main menu
+// Navigation
 bot.action('main_menu', mainMenuHandler);
+bot.action('back', backHandler);
 
 // Create deal flow
 bot.action('create_deal', startCreateDeal);
@@ -73,8 +94,6 @@ bot.action(/^asset:/, handleAssetSelection);
 bot.action(/^deadline:/, handleDeadlineSelection);
 bot.action(/^commission:/, handleCommissionSelection);
 bot.action('confirm:create_deal', confirmCreateDeal);
-bot.action('cancel_create_deal', cancelCreateDeal);
-bot.action('cancel:create_deal', cancelCreateDeal);
 
 // My deals
 bot.action('my_deals', showMyDeals);
@@ -88,28 +107,30 @@ bot.action(/^view_deal:/, async (ctx) => {
 bot.action(/^submit_work:/, submitWork);
 bot.action(/^accept_work:/, acceptWork);
 bot.action(/^open_dispute:/, startDispute);
+bot.action(/^finalize_dispute:/, finalizeDisputeHandler);
+
+// Wallet & deposit actions
+bot.action(/^enter_wallet:/, enterWalletHandler);
+bot.action(/^confirm_deposit_warning:/, handleDepositWarningConfirmation);
+bot.action(/^show_deposit:/, showDepositAddress);
+bot.action(/^decline_deal:/, declineDeal);
+bot.action(/^cancel_deal:/, cancelDeal);
 
 // Deadline expiration actions (from deadlineMonitor notifications)
 bot.action(/^confirm_work_/, async (ctx) => {
   const dealId = ctx.callbackQuery.data.replace('confirm_work_', '');
-  await ctx.answerCbQuery();
-  // Reuse acceptWork logic
   ctx.callbackQuery.data = `accept_work:${dealId}`;
   await acceptWork(ctx);
 });
 
 bot.action(/^work_done_/, async (ctx) => {
   const dealId = ctx.callbackQuery.data.replace('work_done_', '');
-  await ctx.answerCbQuery();
-  // Reuse submitWork logic
   ctx.callbackQuery.data = `submit_work:${dealId}`;
   await submitWork(ctx);
 });
 
 bot.action(/^open_dispute_/, async (ctx) => {
   const dealId = ctx.callbackQuery.data.replace('open_dispute_', '');
-  await ctx.answerCbQuery();
-  // Reuse startDispute logic
   ctx.callbackQuery.data = `open_dispute:${dealId}`;
   await startDispute(ctx);
 });
@@ -121,63 +142,63 @@ bot.action(/^view_deal_/, async (ctx) => {
 });
 
 // Help menu
-bot.action('help', async (ctx) => {
-  await ctx.answerCbQuery();
-  const userId = ctx.from.id;
-  const messageManager = require('./utils/messageManager');
-  const { helpMenuKeyboard } = require('./keyboards/main');
-
-  messageManager.navigateTo(userId, 'help');
-
-  await messageManager.sendOrEdit(
-    ctx,
-    userId,
-    'ℹ️ *Помощь*\n\nВыберите раздел:',
-    helpMenuKeyboard()
-  );
-});
-
-// Help sections
+bot.action('help', showHelp);
 bot.action('how_it_works', howItWorks);
 bot.action('rules', rulesAndFees);
 bot.action('support', support);
-
-// Deposit confirmation
-bot.action('confirm_deposit_warning', handleDepositWarningConfirmation);
 
 // ============================================
 // TEXT MESSAGES
 // ============================================
 
 bot.on('text', async (ctx) => {
+  const telegramId = ctx.from.id;
   const text = ctx.message.text.trim();
 
   // Handle wallet input (both seller and buyer)
-  await handleSellerWalletInput(ctx);
-  await handleBuyerWalletInput(ctx);
+  // These return true if they handled the message
+  if (await handleSellerWalletInput(ctx)) return;
+  if (await handleBuyerWalletInput(ctx)) return;
 
   // Handle deal creation flow
-  await handleCreateDealInput(ctx);
+  if (hasCreateDealSession(telegramId)) {
+    await handleCreateDealInput(ctx);
+    return;
+  }
 
   // Handle dispute flow
-  await handleDisputeInput(ctx);
+  if (hasDisputeSession(telegramId)) {
+    await handleDisputeInput(ctx);
+    return;
+  }
 
   // Check if it's a deal ID
   if (text.match(/^DL-\d+$/i)) {
+    await messageManager.deleteUserMessage(ctx);
     await showDealDetails(ctx, text.toUpperCase());
     return;
   }
 
-  // If no handler processed it, show hint
-  // (but only if not in any flow - check would be more sophisticated)
-  // For now, just ignore unknown messages
+  // Unknown message - just delete it to keep chat clean
+  await messageManager.deleteUserMessage(ctx);
 });
 
 // ============================================
 // MEDIA MESSAGES (for dispute evidence)
 // ============================================
 
-bot.on(['photo', 'video', 'document', 'voice'], handleDisputeMedia);
+bot.on(['photo', 'video', 'document', 'voice'], async (ctx) => {
+  const telegramId = ctx.from.id;
+
+  // Handle dispute media
+  if (hasDisputeSession(telegramId)) {
+    await handleDisputeMedia(ctx);
+    return;
+  }
+
+  // Unknown media - just delete it
+  await messageManager.deleteUserMessage(ctx);
+});
 
 // ============================================
 // START BOT

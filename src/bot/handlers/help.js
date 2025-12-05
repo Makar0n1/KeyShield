@@ -1,6 +1,41 @@
-const { backToMainMenu, helpMenuKeyboard } = require('../keyboards/main');
-const { Markup } = require('telegraf');
+const {
+  helpMenuKeyboard,
+  helpSectionKeyboard
+} = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+
+// ============================================
+// HELP MENU
+// ============================================
+
+/**
+ * Help menu handler
+ */
+const showHelp = async (ctx) => {
+  try {
+    const isCallbackQuery = !!ctx.callbackQuery;
+    if (isCallbackQuery) await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+
+    const text = `ℹ️ *Помощь*
+
+Выберите раздел:
+
+📖 *Как это работает* — принцип работы escrow
+💰 *Правила и комиссии* — тарифы и условия
+🆘 *Поддержка* — контакты и FAQ`;
+
+    const keyboard = helpMenuKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'help', text, keyboard);
+  } catch (error) {
+    console.error('Error in showHelp:', error);
+  }
+};
+
+// ============================================
+// HOW IT WORKS
+// ============================================
 
 /**
  * How it works handler
@@ -9,10 +44,9 @@ const howItWorks = async (ctx) => {
   try {
     await ctx.answerCbQuery();
 
-    const userId = ctx.from.id;
+    const telegramId = ctx.from.id;
 
-    const text = `
-ℹ️ *Как работает KeyShield?*
+    const text = `ℹ️ *Как работает KeyShield?*
 
 🔐 *Принцип работы:*
 
@@ -35,8 +69,8 @@ const howItWorks = async (ctx) => {
 Продавец выполняет работу.
 
 5️⃣ *Завершение*
-• *Без споров:* Покупатель принимает → обе стороны подписывают → деньги продавцу
-• *Со спором:* Арбитр принимает решение → арбитр + победитель подписывают
+• *Без споров:* Покупатель принимает → деньги продавцу
+• *Со спором:* Арбитр принимает решение
 
 ✅ *Преимущества:*
 • Никто не может украсть средства в одиночку
@@ -46,26 +80,18 @@ const howItWorks = async (ctx) => {
 
 ⚠️ *Важно:*
 • Оба участника должны запустить бота
-• Можно иметь только 1 активную сделку
-• Проигрыш 3 споров подряд = автобан
-    `.trim();
+• Проигрыш 3 споров подряд = автобан`;
 
-    // Track navigation
-    messageManager.navigateTo(userId, 'how_it_works');
-
-    await messageManager.sendOrEdit(
-      ctx,
-      userId,
-      text,
-      Markup.inlineKeyboard([
-        [Markup.button.callback('⬅️ Назад', 'help')],
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-      ])
-    );
+    const keyboard = helpSectionKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'how_it_works', text, keyboard);
   } catch (error) {
-    console.error('Error in how it works:', error);
+    console.error('Error in howItWorks:', error);
   }
 };
+
+// ============================================
+// RULES AND FEES
+// ============================================
 
 /**
  * Rules and fees handler
@@ -74,13 +100,12 @@ const rulesAndFees = async (ctx) => {
   try {
     await ctx.answerCbQuery();
 
-    const userId = ctx.from.id;
+    const telegramId = ctx.from.id;
 
-    const text = `
-💰 *Правила и комиссии*
+    const text = `💰 *Правила и комиссии*
 
 💵 *Комиссия сервиса:*
-• Менее 300 USDT: фиксированная комиссия *15 USDT*
+• Менее 300 USDT: фиксированная *15 USDT*
 • От 300 USDT: *5%* от суммы сделки
 
 *Почему 15 USDT минимум?*
@@ -89,9 +114,6 @@ const rulesAndFees = async (ctx) => {
 • Комиссии за транзакции TRON: ~2-3 USDT
 • Комиссия за перевод: ~1 USDT
 • *Итого:* ~$8-10 операционных расходов
-• *Чистая прибыль сервиса:* всего $5-7 с каждой сделки
-
-Мы не зарабатываем на маленьких сделках, но они важны для доверия!
 
 *Кто платит комиссию?*
 При создании сделки выбирается:
@@ -101,50 +123,30 @@ const rulesAndFees = async (ctx) => {
 
 📋 *Правила использования:*
 
-1️⃣ *Один активный deal*
-У каждого пользователя может быть только одна активная сделка. Завершите текущую перед созданием новой.
-
-2️⃣ *Оба должны быть в боте*
+1️⃣ *Оба должны быть в боте*
 Нельзя создать сделку с пользователем, который ещё не запустил бота.
 
-3️⃣ *Минимальная сумма*
-50 USDT
+2️⃣ *Минимальная сумма:* 50 USDT
 
-4️⃣ *Споры*
+3️⃣ *Споры*
 • Любая сторона может открыть спор
 • Арбитр принимает финальное решение
 • Решение необратимо
 
 ⚠️ *Система банов:*
 • 3 проигрыша подряд = автобан
-• Выигрыш 1 спора = счётчик сбрасывается
-• Админ может забанить вручную за нарушения
+• Выигрыш 1 спора = счётчик сбрасывается`;
 
-🚫 *Забаненный пользователь:*
-• Не может создавать сделки
-• Не может быть исполнителем
-• Текущие сделки завершаются
-
-📞 *Поддержка:*
-По всем вопросам: @YourSupportUsername
-    `.trim();
-
-    // Track navigation
-    messageManager.navigateTo(userId, 'rules');
-
-    await messageManager.sendOrEdit(
-      ctx,
-      userId,
-      text,
-      Markup.inlineKeyboard([
-        [Markup.button.callback('⬅️ Назад', 'help')],
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-      ])
-    );
+    const keyboard = helpSectionKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'rules', text, keyboard);
   } catch (error) {
-    console.error('Error in rules and fees:', error);
+    console.error('Error in rulesAndFees:', error);
   }
 };
+
+// ============================================
+// SUPPORT
+// ============================================
 
 /**
  * Support handler
@@ -153,15 +155,14 @@ const support = async (ctx) => {
   try {
     await ctx.answerCbQuery();
 
-    const userId = ctx.from.id;
+    const telegramId = ctx.from.id;
 
-    const text = `
-🆘 *Поддержка*
+    const text = `🆘 *Поддержка*
 
 Если у вас возникли проблемы или вопросы:
 
 📧 Email: support@keyshield.io
-💬 Telegram: @YourSupportUsername
+💬 Telegram: @keyshield\\_support
 
 ⏰ Время ответа: обычно в течение 24 часов
 
@@ -177,27 +178,17 @@ const support = async (ctx) => {
 Обычно 1-3 дня.
 
 ❓ *Безопасно ли это?*
-Да. Мультиподпись гарантирует, что никто не может украсть средства в одиночку, включая сервис.
-    `.trim();
+Да. Мультиподпись гарантирует, что никто не может украсть средства в одиночку, включая сервис.`;
 
-    // Track navigation
-    messageManager.navigateTo(userId, 'support');
-
-    await messageManager.sendOrEdit(
-      ctx,
-      userId,
-      text,
-      Markup.inlineKeyboard([
-        [Markup.button.callback('⬅️ Назад', 'help')],
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-      ])
-    );
+    const keyboard = helpSectionKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'support', text, keyboard);
   } catch (error) {
     console.error('Error in support:', error);
   }
 };
 
 module.exports = {
+  showHelp,
   howItWorks,
   rulesAndFees,
   support

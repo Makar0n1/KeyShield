@@ -1,25 +1,28 @@
 const dealService = require('../../services/dealService');
 const User = require('../../models/User');
+const Deal = require('../../models/Deal');
 const { Markup } = require('telegraf');
 const {
+  roleSelectionKeyboard,
   assetSelectionKeyboard,
   commissionTypeKeyboard,
   deadlineKeyboard,
-  confirmationKeyboard,
-  backToMainMenu,
-  cancelDealButton,
-  cancelActiveDealButton
+  dealConfirmationKeyboard,
+  dealCreatedKeyboard,
+  backButton,
+  mainMenuButton,
+  newDealNotificationKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+const { MAIN_MENU_TEXT } = require('./start');
 
-// Store temporary deal creation data (in production, use Redis or session storage)
+// Store temporary deal creation data
 const createDealSessions = new Map();
 
-// Session cleanup configuration
+// Session cleanup
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
-// Cleanup old/abandoned sessions periodically
 setInterval(() => {
   const now = Date.now();
   let cleanedCount = 0;
@@ -38,101 +41,114 @@ setInterval(() => {
 
 console.log('🧹 Deal sessions cleanup interval started (every 10 min)');
 
-/**
- * Start deal creation process
- */
+// ============================================
+// STEP 1: START DEAL CREATION
+// ============================================
+
 const startCreateDeal = async (ctx) => {
   try {
-    // Check if this is a callback query or text message
     const isCallbackQuery = !!ctx.callbackQuery;
-
-    if (isCallbackQuery) {
-      await ctx.answerCbQuery();
-    }
+    if (isCallbackQuery) await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-
-    // Delete command if already creating a deal
-    if (!isCallbackQuery) {
-      await messageManager.deleteCommandIfOnScreen(ctx, 'create_deal');
-    }
-
-    // Track navigation
-    messageManager.navigateTo(telegramId, 'create_deal');
 
     // Check if user is banned
     const user = await User.findOne({ telegramId });
     if (user?.blacklisted) {
-      return messageManager.sendOrEdit(
-        ctx,
-        telegramId,
-        '🚫 Вы не можете создавать сделки, так как ваш аккаунт заблокирован.',
-        backToMainMenu()
-      );
+      const text = '🚫 Вы не можете создавать сделки, так как ваш аккаунт заблокирован.';
+      const keyboard = mainMenuButton();
+      await messageManager.navigateToScreen(ctx, telegramId, 'banned', text, keyboard);
+      return;
     }
 
     // Check if user already has an active deal
     if (await dealService.hasActiveDeal(telegramId)) {
-      const message = '⚠️ *У вас уже есть активная сделка*\n\n' +
+      const text = '⚠️ *У вас уже есть активная сделка*\n\n' +
         'Завершите или отмените текущую сделку перед созданием новой.';
-
-      return messageManager.sendOrEdit(ctx, telegramId, message, backToMainMenu());
+      const keyboard = mainMenuButton();
+      await messageManager.navigateToScreen(ctx, telegramId, 'has_active_deal', text, keyboard);
+      return;
     }
 
-    // Initialize session with role selection and timestamp
+    // Initialize session
     createDealSessions.set(telegramId, {
       step: 'role_selection',
       data: {},
       createdAt: Date.now()
     });
 
-    const message = '📝 *Создание сделки - Шаг 1/9*\n\n' +
-      '👤 Выберите вашу роль в сделке:';
+    const text = `📝 *Создание сделки*
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      message,
-      Markup.inlineKeyboard([
-        [Markup.button.callback('💵 Я покупатель', 'role:buyer')],
-        [Markup.button.callback('🛠 Я продавец', 'role:seller')],
-        [Markup.button.callback('❌ Отмена', 'cancel_create_deal')]
-      ])
-    );
+*Шаг 1 из 8: Выберите вашу роль*
+
+Покупатель — вносит депозит и получает товар/услугу.
+
+Продавец — выполняет работу и получает оплату после подтверждения.`;
+
+    const keyboard = roleSelectionKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_role', text, keyboard);
   } catch (error) {
     console.error('Error starting deal creation:', error);
-    await messageManager.sendOrEdit(
-      ctx,
-      ctx.from.id,
-      '❌ Произошла ошибка. Попробуйте ещё раз.',
-      backToMainMenu()
-    );
   }
 };
 
-/**
- * Handle text input during deal creation
- */
+// ============================================
+// STEP 2: ROLE SELECTION
+// ============================================
+
+const handleRoleSelection = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const session = createDealSessions.get(telegramId);
+
+    if (!session || session.step !== 'role_selection') return;
+
+    const role = ctx.callbackQuery.data.split(':')[1];
+    session.data.creatorRole = role;
+    session.step = 'counterparty_username';
+    createDealSessions.set(telegramId, session);
+
+    const counterpartyLabel = role === 'buyer' ? 'продавца' : 'покупателя';
+
+    const text = `📝 *Создание сделки*
+
+*Шаг 2 из 8: Укажите ${counterpartyLabel}*
+
+Введите Telegram username в формате @username
+
+⚠️ Второй участник должен уже запустить бота!`;
+
+    const keyboard = backButton();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_username', text, keyboard);
+  } catch (error) {
+    console.error('Error handling role selection:', error);
+  }
+};
+
+// ============================================
+// TEXT INPUT HANDLER
+// ============================================
+
 const handleCreateDealInput = async (ctx) => {
   try {
     const telegramId = ctx.from.id;
     const session = createDealSessions.get(telegramId);
 
-    if (!session) {
-      return; // Not in deal creation flow
-    }
+    if (!session) return;
 
     const text = ctx.message.text.trim();
 
-    // Handle cancel
+    // Delete user's message immediately
+    await messageManager.deleteUserMessage(ctx);
+
+    // Handle /cancel
     if (text === '/cancel') {
       createDealSessions.delete(telegramId);
-      return messageManager.sendOrEdit(
-        ctx,
-        telegramId,
-        '❌ Создание сделки отменено.',
-        backToMainMenu()
-      );
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'cancelled', '❌ Создание сделки отменено.', keyboard);
+      return;
     }
 
     switch (session.step) {
@@ -161,76 +177,69 @@ const handleCreateDealInput = async (ctx) => {
     }
   } catch (error) {
     console.error('Error handling deal creation input:', error);
-    await messageManager.sendOrEdit(
-      ctx,
-      ctx.from.id,
-      '❌ Произошла ошибка. Попробуйте ещё раз.',
-      cancelDealButton()
-    );
   }
 };
 
-/**
- * Handle counterparty username input (seller or buyer depending on role)
- */
+// ============================================
+// STEP 2b: COUNTERPARTY USERNAME
+// ============================================
+
 const handleCounterpartyUsername = async (ctx, session, text) => {
   const telegramId = ctx.from.id;
   const creatorRole = session.data.creatorRole;
-
-  // Extract username
   const username = text.replace('@', '');
 
   // Check if trying to create deal with themselves
   if (username.toLowerCase() === ctx.from.username?.toLowerCase()) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Вы не можете создать сделку с самим собой!\n\nОтправьте другой @username или /cancel для отмены.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Ошибка*
+
+Вы не можете создать сделку с самим собой!
+
+Введите другой @username:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
-  // Find counterparty by username
+  // Find counterparty
   const counterparty = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
-
   const counterpartyLabel = creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
 
   if (!counterparty) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ *Пользователь не найден*\n\n' +
-      `Пользователь @${username} ещё не запустил бота.\n` +
-      'Попросите его отправить /start боту, затем попробуйте снова.\n\n' +
-      'Отправьте другой @username или /cancel для отмены.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Пользователь не найден*
+
+Пользователь @${username} ещё не запустил бота.
+Попросите его отправить /start боту.
+
+Введите другой @username:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
-  // Check if counterparty is banned
   if (counterparty.blacklisted) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Этот пользователь заблокирован и не может участвовать в сделках.\n\n' +
-      'Отправьте другой @username или /cancel для отмены.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Пользователь заблокирован*
+
+Этот пользователь не может участвовать в сделках.
+
+Введите другой @username:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
-  // Check if counterparty has active deals
   if (await dealService.hasActiveDeal(counterparty.telegramId)) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '⚠️ У этого пользователя уже есть активная сделка.\n' +
-      'Он должен завершить её перед участием в новой.\n\n' +
-      'Отправьте другой @username или /cancel для отмены.',
-      cancelDealButton()
-    );
+    const errorText = `⚠️ *У пользователя есть активная сделка*
+
+@${username} должен завершить текущую сделку.
+
+Введите другой @username:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
-  // Assign roles based on creator role
+  // Assign roles
   if (creatorRole === 'buyer') {
     session.data.buyerId = telegramId;
     session.data.sellerId = counterparty.telegramId;
@@ -244,82 +253,98 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
   session.step = 'product_name';
   createDealSessions.set(telegramId, session);
 
-  await messageManager.sendOrEdit(
-    ctx,
-    telegramId,
-    `✅ ${counterpartyLabel} найден!\n\n` +
-    '📝 *Шаг 3/9: Название работы*\n\n' +
-    'Укажите краткое название работы (например: "Логотип для сайта", "Перевод статьи")\n\n' +
-    'Отправьте название или /cancel для отмены.',
-    cancelDealButton()
-  );
+  const successText = `✅ ${counterpartyLabel} найден: @${counterparty.username}
+
+📝 *Создание сделки*
+
+*Шаг 3 из 8: Название*
+
+Введите краткое название товара или услуги.
+(от 5 до 200 символов)
+
+Пример: "Разработка логотипа"`;
+
+  const keyboard = backButton();
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_name', successText, keyboard);
 };
 
-/**
- * Handle product name input
- */
+// ============================================
+// STEP 3: PRODUCT NAME
+// ============================================
+
 const handleProductName = async (ctx, session, text) => {
   const telegramId = ctx.from.id;
 
   if (text.length < 5 || text.length > 200) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Название должно быть от 5 до 200 символов. Попробуйте ещё раз.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Ошибка*
+
+Название должно быть от 5 до 200 символов.
+Сейчас: ${text.length} символов.
+
+Введите название:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
   session.data.productName = text;
   session.step = 'description';
   createDealSessions.set(telegramId, session);
 
-  await messageManager.sendOrEdit(
-    ctx,
-    telegramId,
-    '📝 *Шаг 4/9: Подробное описание*\n\n' +
-    'Опишите подробно условия работы:\n' +
-    '• Что именно нужно сделать\n' +
-    '• Требования к результату\n' +
-    '• Формат сдачи\n' +
-    '• Любые важные детали\n\n' +
-    '⚠️ *Важно:* Это описание будет использовано арбитром при разрешении споров!\n\n' +
-    'Отправьте описание или /cancel для отмены.',
-    cancelDealButton()
-  );
+  const successText = `📝 *Создание сделки*
+
+*Шаг 4 из 8: Описание*
+
+Опишите подробно условия работы:
+• Что именно нужно сделать
+• Требования к результату
+• Формат сдачи
+
+⚠️ Это описание будет использовано арбитром при спорах!
+
+(от 20 до 5000 символов)`;
+
+  const keyboard = backButton();
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_description', successText, keyboard);
 };
 
-/**
- * Handle description input
- */
+// ============================================
+// STEP 4: DESCRIPTION
+// ============================================
+
 const handleDescription = async (ctx, session, text) => {
   const telegramId = ctx.from.id;
 
   if (text.length < 20 || text.length > 5000) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Описание должно быть от 20 до 5000 символов. Попробуйте ещё раз.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Ошибка*
+
+Описание должно быть от 20 до 5000 символов.
+Сейчас: ${text.length} символов.
+
+Введите описание:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
   session.data.description = text;
   session.step = 'asset';
   createDealSessions.set(telegramId, session);
 
-  await messageManager.sendOrEdit(
-    ctx,
-    telegramId,
-    '💰 *Шаг 5/9: Выбор актива*\n\n' +
-    'Выберите актив для сделки:',
-    assetSelectionKeyboard()
-  );
+  const successText = `📝 *Создание сделки*
+
+*Шаг 5 из 8: Выбор актива*
+
+Выберите криптовалюту для сделки:`;
+
+  const keyboard = assetSelectionKeyboard();
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_asset', successText, keyboard);
 };
 
-/**
- * Handle asset selection
- */
+// ============================================
+// STEP 5: ASSET SELECTION
+// ============================================
+
 const handleAssetSelection = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -327,43 +352,49 @@ const handleAssetSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = createDealSessions.get(telegramId);
 
-    if (!session || session.step !== 'asset') {
-      return;
-    }
+    if (!session || session.step !== 'asset') return;
 
     const asset = ctx.callbackQuery.data.split(':')[1];
     session.data.asset = asset;
     session.step = 'amount';
     createDealSessions.set(telegramId, session);
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      `💰 *Шаг 6/9: Сумма сделки*\n\n` +
-      `Укажите сумму в ${asset}.\n\n` +
-      `⚠️ Минимальная сумма: 50 ${asset}\n\n` +
-      'Отправьте сумму (только число) или /cancel для отмены.',
-      cancelDealButton()
-    );
+    const text = `📝 *Создание сделки*
+
+*Шаг 6 из 8: Сумма*
+
+Введите сумму сделки в ${asset}.
+
+⚠️ Минимальная сумма: 50 ${asset}
+
+Комиссия сервиса:
+• До 300 USDT — 15 USDT
+• От 300 USDT — 5%`;
+
+    const keyboard = backButton();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_amount', text, keyboard);
   } catch (error) {
     console.error('Error handling asset selection:', error);
   }
 };
 
-/**
- * Handle amount input
- */
+// ============================================
+// STEP 6: AMOUNT
+// ============================================
+
 const handleAmount = async (ctx, session, text) => {
   const telegramId = ctx.from.id;
   const amount = parseFloat(text);
 
   if (isNaN(amount) || amount < 50) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Неверная сумма. Минимум: 50 USDT. Попробуйте ещё раз.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Ошибка*
+
+Неверная сумма. Минимум: 50 USDT.
+
+Введите сумму:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
   session.data.amount = amount;
@@ -371,44 +402,48 @@ const handleAmount = async (ctx, session, text) => {
   createDealSessions.set(telegramId, session);
 
   const creatorRole = session.data.creatorRole;
-  const roleLabel = creatorRole === 'buyer' ? 'покупателя' : 'продавца';
+  const walletPurpose = creatorRole === 'buyer'
+    ? 'для возврата средств при отмене/споре'
+    : 'для получения оплаты';
 
-  await messageManager.sendOrEdit(
-    ctx,
-    telegramId,
-    `💼 *Шаг 7/9: Кошелёк ${roleLabel}*\n\n` +
-    `Укажите адрес TRON кошелька ${roleLabel} для ${creatorRole === 'buyer' ? 'возврата средств при отмене/споре' : 'получения оплаты'}.\n\n` +
-    '⚠️ Адрес должен начинаться с буквы T и содержать 34 символа.\n\n' +
-    'Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj\n\n' +
-    'Отправьте адрес или /cancel для отмены.',
-    cancelDealButton()
-  );
+  const successText = `📝 *Создание сделки*
+
+*Шаг 7 из 8: Ваш кошелёк*
+
+Введите адрес TRON-кошелька (TRC-20) ${walletPurpose}.
+
+Формат: начинается с T, 34 символа
+
+Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj`;
+
+  const keyboard = backButton();
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', successText, keyboard);
 };
 
-/**
- * Handle creator wallet input (buyer or seller who is creating the deal)
- */
+// ============================================
+// STEP 7: CREATOR WALLET
+// ============================================
+
 const handleCreatorWallet = async (ctx, session, text) => {
   const telegramId = ctx.from.id;
   const blockchainService = require('../../services/blockchain');
   const address = text.trim();
 
-  // Validate TRON address
   if (!blockchainService.isValidAddress(address)) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Неверный адрес кошелька!\n\n' +
-      'Адрес должен начинаться с T и содержать 34 символа.\n' +
-      'Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj\n\n' +
-      'Попробуйте ещё раз или /cancel для отмены.',
-      cancelDealButton()
-    );
+    const errorText = `❌ *Неверный адрес*
+
+Адрес должен начинаться с T и содержать 34 символа.
+
+Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj
+
+Введите адрес:`;
+    const keyboard = backButton();
+    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    return;
   }
 
   // Store wallet based on creator role
-  const creatorRole = session.data.creatorRole;
-  if (creatorRole === 'buyer') {
+  if (session.data.creatorRole === 'buyer') {
     session.data.buyerAddress = address;
   } else {
     session.data.sellerAddress = address;
@@ -417,55 +452,26 @@ const handleCreatorWallet = async (ctx, session, text) => {
   session.step = 'commission';
   createDealSessions.set(telegramId, session);
 
-  await messageManager.sendOrEdit(
-    ctx,
-    telegramId,
-    '💰 *Шаг 7/9: Комиссия*\n\n' +
-    'Кто будет оплачивать комиссию сервиса?',
-    commissionTypeKeyboard()
-  );
+  const { amount, asset } = session.data;
+  const commission = Deal.calculateCommission(amount);
+
+  const text = `📝 *Создание сделки*
+
+*Шаг 8 из 8: Комиссия*
+
+Сумма сделки: ${amount} ${asset}
+Комиссия сервиса: ${commission} ${asset}
+
+Кто оплачивает комиссию?`;
+
+  const keyboard = commissionTypeKeyboard(amount, asset);
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_commission', text, keyboard);
 };
 
-/**
- * Handle seller wallet input
- */
-const handleSellerWallet = async (ctx, session, text) => {
-  const telegramId = ctx.from.id;
-  const blockchainService = require('../../services/blockchain');
-  const address = text.trim();
+// ============================================
+// STEP 8: COMMISSION SELECTION
+// ============================================
 
-  // Validate TRON address
-  if (!blockchainService.isValidAddress(address)) {
-    return messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Неверный адрес кошелька!\n\n' +
-      'Адрес должен начинаться с T и содержать 34 символа.\n' +
-      'Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj\n\n' +
-      'Попробуйте ещё раз или /cancel для отмены.',
-      cancelDealButton()
-    );
-  }
-
-  session.data.sellerAddress = address;
-  session.step = 'deadline';
-  createDealSessions.set(telegramId, session);
-
-  await messageManager.sendOrEdit(
-    ctx,
-    telegramId,
-    '⏰ *Шаг 8/9: Срок выполнения*\n\n' +
-    'Выберите срок выполнения работы:',
-    deadlineKeyboard()
-  );
-};
-
-/**
- * Handle deadline selection
- */
-/**
- * Handle commission type selection
- */
 const handleCommissionSelection = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -473,30 +479,31 @@ const handleCommissionSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = createDealSessions.get(telegramId);
 
-    if (!session || session.step !== 'commission') {
-      return;
-    }
+    if (!session || session.step !== 'commission') return;
 
     const commissionType = ctx.callbackQuery.data.split(':')[1];
     session.data.commissionType = commissionType;
     session.step = 'deadline';
     createDealSessions.set(telegramId, session);
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '⏰ *Шаг 8/9: Срок выполнения*\n\n' +
-      'Выберите срок выполнения работы:',
-      deadlineKeyboard()
-    );
+    const text = `📝 *Создание сделки*
+
+*Выберите срок выполнения*
+
+После истечения срока обе стороны получат уведомление.
+Через 12 часов после дедлайна — автовозврат покупателю.`;
+
+    const keyboard = deadlineKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_deadline', text, keyboard);
   } catch (error) {
     console.error('Error handling commission selection:', error);
   }
 };
 
-/**
- * Handle deadline selection and show confirmation
- */
+// ============================================
+// STEP 9: DEADLINE SELECTION
+// ============================================
+
 const handleDeadlineSelection = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -504,9 +511,7 @@ const handleDeadlineSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = createDealSessions.get(telegramId);
 
-    if (!session || session.step !== 'deadline') {
-      return;
-    }
+    if (!session || session.step !== 'deadline') return;
 
     const hours = parseInt(ctx.callbackQuery.data.split(':')[1]);
     session.data.deadlineHours = hours;
@@ -514,7 +519,6 @@ const handleDeadlineSelection = async (ctx) => {
     createDealSessions.set(telegramId, session);
 
     const { data } = session;
-    const Deal = require('../../models/Deal');
     const commission = Deal.calculateCommission(data.amount);
 
     let commissionText;
@@ -523,69 +527,42 @@ const handleDeadlineSelection = async (ctx) => {
     } else if (data.commissionType === 'seller') {
       commissionText = `Продавец платит ${commission.toFixed(2)} ${data.asset}`;
     } else {
-      commissionText = `Каждый платит по ${(commission / 2).toFixed(2)} ${data.asset}`;
+      commissionText = `50/50 — по ${(commission / 2).toFixed(2)} ${data.asset}`;
     }
 
-    // Determine counterparty label and username based on creator role
-    const counterpartyLabel = data.creatorRole === 'buyer' ? 'Исполнитель' : 'Заказчик';
+    const counterpartyLabel = data.creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
     const counterpartyUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '✅ *Подтверждение сделки*\n\n' +
-      `📦 *Название:* ${data.productName}\n` +
-      `📝 *Описание:* ${data.description.substring(0, 200)}${data.description.length > 200 ? '...' : ''}\n\n` +
-      `👤 *${counterpartyLabel}:* @${counterpartyUsername}\n` +
-      `💰 *Сумма:* ${data.amount} ${data.asset}\n` +
-      `⏰ *Срок:* ${data.deadlineHours} часов\n` +
-      `💸 *Комиссия:* ${commissionText}\n\n` +
-      'Всё верно?',
-      confirmationKeyboard('create_deal')
-    );
+    const deadlineText = hours < 24 ? `${hours} часов` :
+      hours === 24 ? '24 часа' :
+        hours === 48 ? '48 часов' :
+          `${Math.floor(hours / 24)} дней`;
+
+    const text = `✅ *Подтверждение сделки*
+
+📦 *Название:* ${data.productName}
+
+📝 *Описание:*
+${data.description.substring(0, 200)}${data.description.length > 200 ? '...' : ''}
+
+👤 *${counterpartyLabel}:* @${counterpartyUsername}
+💰 *Сумма:* ${data.amount} ${data.asset}
+💸 *Комиссия:* ${commissionText}
+⏰ *Срок:* ${deadlineText}
+
+Всё верно?`;
+
+    const keyboard = dealConfirmationKeyboard();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_confirm', text, keyboard);
   } catch (error) {
-    console.error('Error handling commission selection:', error);
+    console.error('Error handling deadline selection:', error);
   }
 };
 
-/**
- * Handle role selection
- */
-const handleRoleSelection = async (ctx) => {
-  try {
-    await ctx.answerCbQuery();
+// ============================================
+// CONFIRM AND CREATE DEAL
+// ============================================
 
-    const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
-
-    if (!session || session.step !== 'role_selection') {
-      return;
-    }
-
-    const role = ctx.callbackQuery.data.split(':')[1];
-    session.data.creatorRole = role;
-    session.step = 'counterparty_username';
-    createDealSessions.set(telegramId, session);
-
-    const counterpartyLabel = role === 'buyer' ? 'продавца' : 'покупателя';
-
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      `📝 *Создание сделки - Шаг 2/9*\n\n` +
-      `👤 Укажите Telegram username ${counterpartyLabel} в формате @username\n\n` +
-      `⚠️ *Важно:* Второй участник должен уже запустить бота хотя бы один раз!\n\n` +
-      'Отправьте @username или /cancel для отмены.',
-      cancelDealButton()
-    );
-  } catch (error) {
-    console.error('Error handling role selection:', error);
-  }
-};
-
-/**
- * Confirm and create deal
- */
 const confirmCreateDeal = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -593,11 +570,10 @@ const confirmCreateDeal = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = createDealSessions.get(telegramId);
 
-    if (!session || session.step !== 'confirm') {
-      return;
-    }
+    if (!session || session.step !== 'confirm') return;
 
-    await messageManager.sendOrEdit(ctx, telegramId, '⏳ Создаём сделку и multisig-кошелёк...', {});
+    // Show loading
+    await messageManager.editMainMessage(ctx, telegramId, '⏳ Создаём сделку и multisig-кошелёк...', {});
 
     const result = await dealService.createDeal(session.data);
     const { deal, wallet } = result;
@@ -605,102 +581,92 @@ const confirmCreateDeal = async (ctx) => {
     // Clean up session
     createDealSessions.delete(telegramId);
 
-    // Calculate deposit amount based on who pays commission
-    const commissionBreakdown = dealService.getCommissionBreakdown(deal);
+    // Calculate amounts
+    const commission = deal.commission;
     let depositAmount = deal.amount;
-    let depositNote = '';
 
     if (deal.commissionType === 'buyer') {
-      depositAmount = deal.amount + deal.commission;
-      depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+      depositAmount = deal.amount + commission;
     } else if (deal.commissionType === 'split') {
-      const halfCommission = deal.commission / 2;
-      depositAmount = deal.amount + halfCommission;
-      depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+      depositAmount = deal.amount + (commission / 2);
     }
 
-    // Calculate seller's payout
     let sellerPayout = deal.amount;
-    let payoutNote = '';
-
     if (deal.commissionType === 'seller') {
-      sellerPayout = deal.amount - deal.commission;
-      payoutNote = `\n💰 Вы получите: ${sellerPayout} ${deal.asset} (минус комиссия ${deal.commission})`;
+      sellerPayout = deal.amount - commission;
     } else if (deal.commissionType === 'split') {
-      const halfCommission = deal.commission / 2;
-      sellerPayout = deal.amount - halfCommission;
-      payoutNote = `\n💰 Вы получите: ${sellerPayout.toFixed(2)} ${deal.asset} (минус 50% комиссии)`;
-    } else {
-      payoutNote = `\n💰 Вы получите: ${sellerPayout} ${deal.asset} (комиссия оплачена покупателем)`;
+      sellerPayout = deal.amount - (commission / 2);
     }
 
-    // Handle notifications based on who created the deal
+    // ========== NOTIFY CREATOR ==========
     if (deal.creatorRole === 'buyer') {
-      // Buyer created deal - seller needs to provide wallet
-      // Notify buyer (waiting for seller wallet)
-      await messageManager.sendOrEdit(
-        ctx,
-        deal.buyerId,
-        `✅ *Сделка создана!*\n\n` +
-        `🆔 ID сделки: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n` +
-        `💰 Сумма сделки: ${deal.amount} ${deal.asset}\n` +
-        `📊 Комиссия: ${deal.commission} ${deal.asset}\n` +
-        `💸 *К оплате: ${depositAmount} ${deal.asset}*${depositNote}\n\n` +
-        `⏳ Ожидаем, пока продавец укажет свой кошелек.\n` +
-        `После этого вы получите адрес для депозита.\n\n` +
-        `Продавец получил уведомление.`,
-        backToMainMenu()
-      );
+      // Buyer created - waiting for seller wallet
+      const creatorText = `✅ *Сделка создана!*
 
-      // Notify seller to provide wallet
-      await messageManager.sendOrEdit(
-        ctx,
-        deal.sellerId,
-        `📬 *Новая сделка создана!*\n\n` +
-        `🆔 ID: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n` +
-        `💰 Сумма: ${deal.amount} ${deal.asset}\n` +
-        `📊 Комиссия: ${deal.commission} ${deal.asset}${payoutNote}\n` +
-        `👤 Заказчик: @${ctx.from.username}\n\n` +
-        `⚠️ *ВАЖНО:* Укажите адрес вашего TRON кошелька для получения оплаты.\n\n` +
-        `Отправьте адрес кошелька (начинается с T, 34 символа).\n` +
-        `Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj`,
-        cancelActiveDealButton(deal.dealId)
-      );
+🆔 ID: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+📊 Комиссия: ${commission} ${deal.asset}
+💸 К оплате: ${depositAmount} ${deal.asset}
+
+⏳ *Статус:* Ожидание кошелька продавца
+
+Продавец получил уведомление и должен указать свой кошелёк.
+После этого вы получите адрес для депозита.`;
+
+      const creatorKeyboard = dealCreatedKeyboard(deal.dealId);
+      await messageManager.showFinalScreen(ctx, deal.buyerId, 'deal_created', creatorText, creatorKeyboard);
+
+      // Notify seller
+      const sellerText = `📬 *Новая сделка!*
+
+🆔 ID: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+📝 ${deal.description.substring(0, 200)}${deal.description.length > 200 ? '...' : ''}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+💸 Вы получите: ${sellerPayout} ${deal.asset}
+👤 Покупатель: @${ctx.from.username}
+
+Для участия укажите ваш TRON-кошелёк.`;
+
+      const sellerKeyboard = newDealNotificationKeyboard(deal.dealId);
+      await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
     } else {
-      // Seller created deal - buyer needs to provide wallet and deposit
-      // Notify seller (waiting for buyer wallet and deposit)
-      await messageManager.sendOrEdit(
-        ctx,
-        deal.sellerId,
-        `✅ *Сделка создана!*\n\n` +
-        `🆔 ID сделки: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n` +
-        `💰 Сумма сделки: ${deal.amount} ${deal.asset}\n` +
-        `📊 Комиссия: ${deal.commission} ${deal.asset}${payoutNote}\n\n` +
-        `⏳ Ожидаем, пока покупатель укажет свой кошелек и внесет депозит.\n` +
-        `После подтверждения депозита можете приступать к работе.\n\n` +
-        `Покупатель получил уведомление.`,
-        backToMainMenu()
-      );
+      // Seller created - waiting for buyer wallet
+      const creatorText = `✅ *Сделка создана!*
 
-      // Notify buyer to provide wallet
-      await messageManager.sendOrEdit(
-        ctx,
-        deal.buyerId,
-        `📬 *Новая сделка ждёт вас!*\n\n` +
-        `🆔 ID: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n` +
-        `💰 Сумма: ${deal.amount} ${deal.asset}\n` +
-        `📊 Комиссия: ${deal.commission} ${deal.asset}\n` +
-        `💸 *К оплате: ${depositAmount} ${deal.asset}*${depositNote}\n` +
-        `👤 Продавец: @${ctx.from.username}\n\n` +
-        `⚠️ *ВАЖНО:* Укажите адрес вашего TRON кошелька для возврата средств при отмене/споре.\n\n` +
-        `Отправьте адрес кошелька (начинается с T, 34 символа).\n` +
-        `Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj`,
-        cancelActiveDealButton(deal.dealId)
-      );
+🆔 ID: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+💸 Вы получите: ${sellerPayout} ${deal.asset}
+
+⏳ *Статус:* Ожидание кошелька покупателя
+
+Покупатель получил уведомление и должен указать кошелёк и внести депозит.`;
+
+      const creatorKeyboard = dealCreatedKeyboard(deal.dealId);
+      await messageManager.showFinalScreen(ctx, deal.sellerId, 'deal_created', creatorText, creatorKeyboard);
+
+      // Notify buyer
+      const buyerText = `📬 *Новая сделка!*
+
+🆔 ID: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+📝 ${deal.description.substring(0, 200)}${deal.description.length > 200 ? '...' : ''}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+💸 К оплате: ${depositAmount} ${deal.asset}
+👤 Продавец: @${ctx.from.username}
+
+Для участия укажите ваш TRON-кошелёк.`;
+
+      const buyerKeyboard = newDealNotificationKeyboard(deal.dealId);
+      await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
     }
 
     console.log(`✅ Deal ${deal.dealId} created by ${telegramId}`);
@@ -709,33 +675,48 @@ const confirmCreateDeal = async (ctx) => {
 
     createDealSessions.delete(ctx.from.id);
 
-    await messageManager.sendOrEdit(
-      ctx,
-      ctx.from.id,
-      `❌ *Ошибка при создании сделки*\n\n${error.message}`,
-      backToMainMenu()
-    );
+    const errorText = `❌ *Ошибка при создании сделки*
+
+${error.message}`;
+
+    const keyboard = mainMenuButton();
+    await messageManager.showFinalScreen(ctx, ctx.from.id, 'error', errorText, keyboard);
   }
 };
 
-/**
- * Cancel deal creation
- */
+// ============================================
+// CANCEL DEAL CREATION
+// ============================================
+
 const cancelCreateDeal = async (ctx) => {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
     createDealSessions.delete(telegramId);
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      '❌ Создание сделки отменено.',
-      backToMainMenu()
-    );
+    const keyboard = mainMenuButton();
+    await messageManager.showFinalScreen(ctx, telegramId, 'cancelled', '❌ Создание сделки отменено.', keyboard);
   } catch (error) {
     console.error('Error canceling deal creation:', error);
   }
+};
+
+// ============================================
+// SESSION HELPERS
+// ============================================
+
+/**
+ * Check if user has active create deal session
+ */
+const hasCreateDealSession = (telegramId) => {
+  return createDealSessions.has(telegramId);
+};
+
+/**
+ * Clear create deal session
+ */
+const clearCreateDealSession = (telegramId) => {
+  createDealSessions.delete(telegramId);
 };
 
 module.exports = {
@@ -746,5 +727,8 @@ module.exports = {
   handleCommissionSelection,
   handleRoleSelection,
   confirmCreateDeal,
-  cancelCreateDeal
+  cancelCreateDeal,
+  hasCreateDealSession,
+  clearCreateDealSession,
+  createDealSessions
 };

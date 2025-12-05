@@ -1,37 +1,59 @@
 const dealService = require('../../services/dealService');
-const { dealActionKeyboard, backToMainMenu } = require('../keyboards/main');
+const {
+  myDealsKeyboard,
+  myDealsEmptyKeyboard,
+  dealDetailsKeyboard,
+  mainMenuButton,
+  finalScreenKeyboard,
+  workSubmittedKeyboard,
+  getStatusIcon
+} = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+const { MAIN_MENU_TEXT } = require('./start');
 
-/**
- * Show user's deals
- */
+// ============================================
+// STATUS HELPERS
+// ============================================
+
+function getStatusText(status) {
+  const statusMap = {
+    'created': 'Создана',
+    'waiting_for_seller_wallet': '⏳ Ожидание кошелька продавца',
+    'waiting_for_buyer_wallet': '⏳ Ожидание кошелька покупателя',
+    'waiting_for_deposit': '💳 Ожидание депозита',
+    'locked': '🔒 Депозит заблокирован',
+    'in_progress': '⚡ Работа выполнена',
+    'completed': '✅ Завершена',
+    'dispute': '⚠️ Спор',
+    'resolved': '⚖️ Решена',
+    'cancelled': '❌ Отменена',
+    'expired': '⌛ Истекла'
+  };
+  return statusMap[status] || status;
+}
+
+// ============================================
+// MY DEALS LIST
+// ============================================
+
 const showMyDeals = async (ctx) => {
   try {
-    // Check if this is a callback query (inline button) or text message (custom keyboard)
     const isCallbackQuery = !!ctx.callbackQuery;
-
-    if (isCallbackQuery) {
-      await ctx.answerCbQuery();
-    }
+    if (isCallbackQuery) await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-
-    // Delete command if already on my_deals screen
-    if (!isCallbackQuery) {
-      await messageManager.deleteCommandIfOnScreen(ctx, 'my_deals');
-    }
-
-    // Track navigation
-    messageManager.navigateTo(telegramId, 'my_deals');
-
     const deals = await dealService.getUserDeals(telegramId);
 
     if (deals.length === 0) {
-      const message = '📋 *Мои сделки*\n\n' +
-        'У вас пока нет сделок.\n\n' +
-        'Создайте новую сделку через главное меню!';
+      const text = `📋 *Мои сделки*
 
-      return messageManager.sendOrEdit(ctx, telegramId, message, backToMainMenu());
+У вас пока нет сделок.
+
+Создайте первую сделку, чтобы начать!`;
+
+      const keyboard = myDealsEmptyKeyboard();
+      await messageManager.navigateToScreen(ctx, telegramId, 'my_deals', text, keyboard);
+      return;
     }
 
     // Format deals list
@@ -39,104 +61,107 @@ const showMyDeals = async (ctx) => {
 
     for (const deal of deals.slice(0, 10)) {
       const role = deal.getUserRole(telegramId);
-      const statusEmoji = {
-        'waiting_for_deposit': '⏳',
-        'locked': '🔒',
-        'in_progress': '⚙️',
-        'completed': '✅',
-        'dispute': '⚠️',
-        'resolved': '✅',
-        'cancelled': '❌'
-      }[deal.status] || '📦';
+      const statusIcon = getStatusIcon(deal.status);
+      const statusText = getStatusText(deal.status);
 
-      const statusText = {
-        'waiting_for_deposit': 'Ожидание депозита',
-        'locked': 'Средства заморожены',
-        'in_progress': 'В работе',
-        'completed': 'Завершена',
-        'dispute': 'Спор',
-        'resolved': 'Решена',
-        'cancelled': 'Отменена'
-      }[deal.status] || deal.status;
-
-      text += `${statusEmoji} \`${deal.dealId}\` — ${deal.productName}\n`;
-      text += `   Роль: ${role === 'buyer' ? 'Покупатель' : 'Продавец'}\n`;
-      text += `   Статус: ${statusText}\n`;
-      text += `   Сумма: ${deal.amount} ${deal.asset}\n\n`;
+      text += `${statusIcon} \`${deal.dealId}\`\n`;
+      text += `📦 ${deal.productName}\n`;
+      text += `👤 ${role === 'buyer' ? 'Покупатель' : 'Продавец'}\n`;
+      text += `💰 ${deal.amount} ${deal.asset}\n`;
+      text += `📊 ${statusText}\n\n`;
     }
 
-    text += '\nОтправьте ID сделки (например, `DL-123456`) для подробностей.';
-
-    await messageManager.sendOrEdit(ctx, telegramId, text, backToMainMenu());
+    const keyboard = myDealsKeyboard(deals);
+    await messageManager.navigateToScreen(ctx, telegramId, 'my_deals', text, keyboard);
   } catch (error) {
     console.error('Error showing deals:', error);
-    ctx.reply('❌ Произошла ошибка при загрузке сделок.');
   }
 };
 
-/**
- * Show specific deal details
- */
+// ============================================
+// DEAL DETAILS
+// ============================================
+
 const showDealDetails = async (ctx, dealId) => {
   try {
     const telegramId = ctx.from.id;
+
+    // Delete user message if text input
+    if (ctx.message) {
+      await messageManager.deleteUserMessage(ctx);
+    }
+
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      return ctx.reply('❌ Сделка не найдена.');
+      const text = '❌ *Сделка не найдена*\n\nПроверьте ID сделки.';
+      const keyboard = mainMenuButton();
+      await messageManager.editMainMessage(ctx, telegramId, text, keyboard);
+      return;
     }
 
     if (!deal.isParticipant(telegramId)) {
-      return ctx.reply('❌ Вы не являетесь участником этой сделки.');
+      const text = '❌ *Доступ запрещён*\n\nВы не являетесь участником этой сделки.';
+      const keyboard = mainMenuButton();
+      await messageManager.editMainMessage(ctx, telegramId, text, keyboard);
+      return;
     }
-
-    // Track navigation
-    messageManager.navigateTo(telegramId, `deal_${dealId}`);
 
     const role = deal.getUserRole(telegramId);
     const commission = dealService.getCommissionBreakdown(deal);
 
-    let text = `📦 *Сделка ${deal.dealId}*\n\n`;
-    text += `*Название:* ${deal.productName}\n`;
-    text += `*Описание:* ${deal.description}\n\n`;
-    text += `*Ваша роль:* ${role === 'buyer' ? 'Покупатель 💵' : 'Продавец 🛠'}\n`;
-    text += `*Вторая сторона:* ${role === 'buyer' ? 'Продавец' : 'Покупатель'} (ID: ${role === 'buyer' ? deal.sellerId : deal.buyerId})\n\n`;
-    text += `*Сумма:* ${deal.amount} ${deal.asset}\n`;
-    text += `*Комиссия:* ${deal.commission} ${deal.asset}\n`;
+    let text = `📋 *Сделка ${deal.dealId}*\n\n`;
+    text += `📦 *Название:* ${deal.productName}\n\n`;
+    text += `📝 *Описание:*\n${deal.description.substring(0, 300)}${deal.description.length > 300 ? '...' : ''}\n\n`;
+
+    text += `👤 *Ваша роль:* ${role === 'buyer' ? 'Покупатель' : 'Продавец'}\n`;
+
+    // Get counterparty username
+    const User = require('../../models/User');
+    const counterpartyId = role === 'buyer' ? deal.sellerId : deal.buyerId;
+    const counterparty = await User.findOne({ telegramId: counterpartyId });
+    const counterpartyUsername = counterparty?.username || `ID: ${counterpartyId}`;
+
+    text += `🤝 *${role === 'buyer' ? 'Продавец' : 'Покупатель'}:* @${counterpartyUsername}\n\n`;
+
+    text += `💰 *Сумма:* ${deal.amount} ${deal.asset}\n`;
+    text += `💸 *Комиссия:* ${deal.commission} ${deal.asset}\n`;
 
     if (role === 'buyer') {
-      text += `*Вы платите комиссию:* ${commission.buyerPays} ${deal.asset}\n`;
+      text += `📥 *Вы платите:* ${deal.amount + commission.buyerPays} ${deal.asset}\n`;
     } else {
-      text += `*Вы платите комиссию:* ${commission.sellerPays} ${deal.asset}\n`;
+      text += `📤 *Вы получите:* ${deal.amount - commission.sellerPays} ${deal.asset}\n`;
     }
 
-    text += `\n*Статус:* ${getStatusText(deal.status)}\n`;
-    text += `*Срок:* ${deal.deadline.toLocaleString('ru-RU')}\n\n`;
+    text += `\n📊 *Статус:* ${getStatusText(deal.status)}\n`;
 
-    if (deal.status === 'waiting_for_deposit') {
-      text += `🔐 *Адрес депозита:*\n\`${deal.multisigAddress}\`\n\n`;
-      text += `[Проверить на TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
+    if (deal.deadline) {
+      text += `⏰ *Дедлайн:* ${deal.deadline.toLocaleString('ru-RU')}\n`;
     }
 
+    // Show multisig address for waiting_for_deposit
+    if (deal.status === 'waiting_for_deposit' && deal.multisigAddress) {
+      text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `🔐 *Escrow-адрес:*\n\`${deal.multisigAddress}\`\n`;
+      text += `\n[Проверить на TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
+    }
+
+    // Show deposit TX
     if (deal.depositTxHash) {
-      text += `\n✅ Депозит: [${deal.depositTxHash.substring(0, 10)}...](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
+      text += `\n\n✅ *Депозит:* [Транзакция](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
     }
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      text,
-      dealActionKeyboard(deal.dealId, role, deal.status)
-    );
+    const keyboard = dealDetailsKeyboard(deal.dealId, role, deal.status);
+    await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}`, text, keyboard);
   } catch (error) {
     console.error('Error showing deal details:', error);
-    ctx.reply('❌ Произошла ошибка.');
   }
 };
 
-/**
- * Submit work (seller action)
- */
+// ============================================
+// SUBMIT WORK (SELLER)
+// ============================================
+
 const submitWork = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -146,38 +171,43 @@ const submitWork = async (ctx) => {
 
     const deal = await dealService.submitWork(dealId, telegramId);
 
-    await messageManager.sendOrEdit(
-      ctx,
-      telegramId,
-      `✅ *Работа отмечена как выполненная*\n\n` +
-      `Покупатель получил уведомление и может принять работу или открыть спор.`,
-      backToMainMenu()
-    );
+    // Show confirmation to seller
+    const sellerText = `✅ *Работа отмечена как выполненная*
 
-    // Notify buyer (use main message with inline button to view deal)
-    const { Markup } = require('telegraf');
-    await messageManager.sendOrEdit(
-      ctx,
-      deal.buyerId,
-      `📬 *Сделка ${deal.dealId}*\n\n` +
-      `Продавец отметил работу как выполненную.\n\n` +
-      `Пожалуйста, проверьте результат и примите работу или откройте спор, если есть проблемы.`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback(`📦 Просмотр сделки ${deal.dealId}`, `view_deal:${deal.dealId}`)],
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-      ])
-    );
+Сделка: \`${deal.dealId}\`
+
+Покупатель получил уведомление и может:
+• Принять работу
+• Открыть спор
+
+Ожидайте решения покупателя.`;
+
+    const sellerKeyboard = mainMenuButton();
+    await messageManager.showFinalScreen(ctx, telegramId, 'work_submitted', sellerText, sellerKeyboard);
+
+    // Notify buyer with notification
+    const buyerText = `📬 *Работа выполнена!*
+
+Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Продавец отметил работу как выполненную.
+
+Проверьте результат и выберите действие:`;
+
+    const buyerKeyboard = workSubmittedKeyboard(deal.dealId);
+    await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
+
   } catch (error) {
     console.error('Error submitting work:', error);
     await ctx.answerCbQuery('❌ Ошибка');
-    ctx.reply(`❌ ${error.message}`);
   }
 };
 
-/**
- * Accept work (buyer action)
- * This triggers automatic payout to seller with commission deduction
- */
+// ============================================
+// ACCEPT WORK (BUYER)
+// ============================================
+
 const acceptWork = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -185,66 +215,65 @@ const acceptWork = async (ctx) => {
     const dealId = ctx.callbackQuery.data.split(':')[1];
     const telegramId = ctx.from.id;
 
-    await ctx.editMessageText(
-      `✅ *Принятие работы*\n\n` +
-      `Создаём транзакцию для перевода средств продавцу...\n\n` +
-      `⏳ Подождите...`,
-      { parse_mode: 'Markdown' }
-    );
+    // Show loading
+    await messageManager.editMainMessage(ctx, telegramId, '⏳ *Принятие работы*\n\nСоздаём транзакцию для перевода средств продавцу...', {});
 
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      return ctx.reply('❌ Сделка не найдена.');
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      return;
     }
 
     if (deal.buyerId !== telegramId) {
-      return ctx.reply('❌ Только покупатель может принять работу.');
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Только покупатель может принять работу.', keyboard);
+      return;
     }
 
     if (deal.status !== 'in_progress') {
-      return ctx.reply(`❌ Невозможно принять работу в статусе: ${deal.status}`);
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', `❌ Невозможно принять работу в статусе: ${getStatusText(deal.status)}`, keyboard);
+      return;
     }
 
-    // Import blockchain service and transaction model
+    // Import services
     const blockchainService = require('../../services/blockchain');
     const Transaction = require('../../models/Transaction');
+    const Deal = require('../../models/Deal');
+    const MultisigWallet = require('../../models/MultisigWallet');
 
     // Calculate amounts
     const commissionBreakdown = dealService.getCommissionBreakdown(deal);
     const sellerAmount = deal.amount - commissionBreakdown.sellerPays;
     const serviceAmount = deal.commission;
 
-    // Get seller address from deal
-    const Deal = require('../../models/Deal');
+    // Get seller address
     const fullDeal = await Deal.findOne({ dealId }).select('+sellerKey +sellerAddress');
-
-    // Use stored address if available, otherwise derive from private key
     let sellerAddress = fullDeal.sellerAddress;
     if (!sellerAddress && fullDeal.sellerKey) {
       sellerAddress = blockchainService.privateKeyToAddress(fullDeal.sellerKey);
     }
 
     if (!sellerAddress) {
-      throw new Error('Seller address not found. Seller must provide their USDT wallet address.');
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Адрес продавца не найден.', keyboard);
+      return;
     }
 
-    console.log(`💰 Seller address for payout: ${sellerAddress}`);
-
-    // Get multisig wallet private key
-    const MultisigWallet = require('../../models/MultisigWallet');
+    // Get multisig wallet
     const wallet = await MultisigWallet.findOne({ dealId: deal._id }).select('+privateKey');
-
     if (!wallet || !wallet.privateKey) {
-      throw new Error('Multisig wallet private key not found');
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Ключ кошелька не найден.', keyboard);
+      return;
     }
-
-    console.log(`🔑 Using multisig wallet key for address: ${wallet.address}`);
 
     try {
-      // Create transaction to seller
       console.log(`💸 Creating payout for deal ${dealId}: ${sellerAmount} ${deal.asset} to seller`);
 
+      // Create and send transaction to seller
       const sellerTx = await blockchainService.createReleaseTransaction(
         deal.multisigAddress,
         sellerAddress,
@@ -252,14 +281,11 @@ const acceptWork = async (ctx) => {
         deal.asset
       );
 
-      // Sign with multisig wallet private key
       const signedSellerTx = await blockchainService.signTransaction(sellerTx, wallet.privateKey);
-
-      // Broadcast transaction
       const sellerResult = await blockchainService.broadcastTransaction(signedSellerTx);
 
       if (!sellerResult.success) {
-        throw new Error(`Failed to send to seller: ${sellerResult.message}`);
+        throw new Error(`Не удалось отправить средства продавцу: ${sellerResult.message}`);
       }
 
       // Log transaction
@@ -276,10 +302,8 @@ const acceptWork = async (ctx) => {
       sellerTransaction.generateExplorerLink();
       await sellerTransaction.save();
 
-      // Create transaction to service wallet for commission
+      // Send commission to service wallet
       if (serviceAmount > 0) {
-        console.log(`💰 Sending commission: ${serviceAmount} ${deal.asset} to service wallet`);
-
         const serviceTx = await blockchainService.createReleaseTransaction(
           deal.multisigAddress,
           process.env.SERVICE_WALLET_ADDRESS,
@@ -309,69 +333,63 @@ const acceptWork = async (ctx) => {
       // Update deal status
       await dealService.updateDealStatus(dealId, 'completed', telegramId);
 
-      // Notify buyer
-      await ctx.telegram.sendMessage(
-        telegramId,
-        `✅ *Работа принята!*\n\n` +
-        `Сделка ${dealId} завершена.\n\n` +
-        `💸 Продавцу отправлено: ${sellerAmount} ${deal.asset}\n` +
-        `💰 Комиссия сервиса: ${serviceAmount} ${deal.asset}\n\n` +
-        `[Транзакция продавцу](https://tronscan.org/#/transaction/${sellerResult.txHash})`,
-        { parse_mode: 'Markdown' }
-      );
+      // Notify buyer (final screen)
+      const buyerText = `✅ *Сделка завершена!*
 
-      // Notify seller
-      await ctx.telegram.sendMessage(
-        deal.sellerId,
-        `🎉 *Работа принята!*\n\n` +
-        `Сделка ${dealId} завершена успешно!\n\n` +
-        `💰 Вам отправлено: ${sellerAmount} ${deal.asset}\n` +
-        `🎯 Комиссия удержана: ${commissionBreakdown.sellerPays} ${deal.asset}\n\n` +
-        `[Проверить транзакцию](https://tronscan.org/#/transaction/${sellerResult.txHash})`,
-        { parse_mode: 'Markdown' }
-      );
+Сделка: \`${dealId}\`
+📦 ${deal.productName}
+
+💸 Продавцу отправлено: ${sellerAmount} ${deal.asset}
+💰 Комиссия: ${serviceAmount} ${deal.asset}
+
+[Транзакция](https://tronscan.org/#/transaction/${sellerResult.txHash})
+
+Спасибо за использование KeyShield!`;
+
+      const buyerKeyboard = finalScreenKeyboard();
+      await messageManager.showFinalScreen(ctx, telegramId, 'deal_completed', buyerText, buyerKeyboard);
+
+      // Notify seller (final screen)
+      const sellerText = `🎉 *Оплата получена!*
+
+Сделка: \`${dealId}\`
+📦 ${deal.productName}
+
+💰 Вам отправлено: ${sellerAmount} ${deal.asset}
+
+[Проверить транзакцию](https://tronscan.org/#/transaction/${sellerResult.txHash})
+
+Средства поступят в течение нескольких минут.
+
+Спасибо за использование KeyShield!`;
+
+      const sellerKeyboard = finalScreenKeyboard();
+      await messageManager.showFinalScreen(ctx, deal.sellerId, 'deal_completed', sellerText, sellerKeyboard);
 
       console.log(`✅ Deal ${dealId} completed successfully`);
 
     } catch (error) {
       console.error(`Error processing payout for deal ${dealId}:`, error);
 
-      await ctx.telegram.sendMessage(
-        telegramId,
-        `❌ *Ошибка при выплате*\n\n` +
-        `${error.message}\n\n` +
-        `Обратитесь к администратору.`,
-        { parse_mode: 'Markdown' }
-      );
+      const errorText = `❌ *Ошибка при выплате*
+
+${error.message}
+
+Обратитесь в поддержку.`;
+
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, keyboard);
     }
 
   } catch (error) {
     console.error('Error accepting work:', error);
-    ctx.reply(`❌ Произошла ошибка: ${error.message}`);
   }
 };
-
-/**
- * Helper: Get status text in Russian
- */
-function getStatusText(status) {
-  const statusMap = {
-    'created': 'Создана',
-    'waiting_for_deposit': '⏳ Ожидание депозита',
-    'locked': '🔒 Средства заморожены',
-    'in_progress': '⚙️ В работе',
-    'completed': '✅ Завершена',
-    'dispute': '⚠️ Спор',
-    'resolved': '✅ Решена',
-    'cancelled': '❌ Отменена'
-  };
-
-  return statusMap[status] || status;
-}
 
 module.exports = {
   showMyDeals,
   showDealDetails,
   submitWork,
-  acceptWork
+  acceptWork,
+  getStatusText
 };
