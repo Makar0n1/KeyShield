@@ -820,13 +820,14 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
       y = drawRow('Код платформы:', deal.platformCode, y);
     }
 
-    // Footer
-    doc.rect(0, 800, 595, 42).fill('#f8fafc');
-    doc.fontSize(8).fillColor('#64748b').text(
-      'Документ сформирован автоматически системой KeyShield. KeyShield не является финансовой организацией.',
-      50, 810, { align: 'center', width: 495 }
-    );
-    doc.fontSize(9).fillColor('#6366f1').text('© 2025 KeyShield', 50, 825, { align: 'center', width: 495 });
+    // Footer - only at bottom of current page if content fits
+    const footerY = 780;
+    if (y < footerY) {
+      doc.fontSize(9).fillColor('#94a3b8').text(
+        'Документ сформирован автоматически системой KeyShield.',
+        50, footerY, { align: 'center', width: 495 }
+      );
+    }
 
     doc.end();
 
@@ -1091,15 +1092,20 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
         y = drawRow('Код платформы:', deal.platformCode, y);
       }
 
-      // Footer
-      doc.rect(0, 800, 595, 42).fill('#f8fafc');
-      doc.fontSize(8).fillColor('#64748b').text(
-        'Документ сформирован автоматически системой KeyShield.',
-        50, 810, { align: 'center', width: 495 }
-      );
-      doc.fontSize(9).fillColor('#94a3b8').text(
+      // Footer - only on last deal page, if content fits
+      const isLastDeal = i === deals.length - 1;
+      const footerY = 780;
+      if (isLastDeal && y < footerY) {
+        doc.fontSize(9).fillColor('#94a3b8').text(
+          'Документ сформирован автоматически системой KeyShield.',
+          50, footerY, { align: 'center', width: 495 }
+        );
+      }
+
+      // Page number in corner
+      doc.fontSize(8).fillColor('#94a3b8').text(
         `Страница ${i + 2} из ${totalPages}`,
-        50, 825, { align: 'center', width: 495 }
+        450, 50, { align: 'right', width: 95 }
       );
     }
 
