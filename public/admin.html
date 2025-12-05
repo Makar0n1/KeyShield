@@ -771,6 +771,32 @@
       </div>
     </div>
 
+    <!-- Partner Payouts Stats -->
+    <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="color: #a855f7; margin-bottom: 15px;">👥 Партнерские выплаты</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #a855f7;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Активных партнеров</div>
+          <div style="font-size: 24px; font-weight: bold; color: #a855f7;" id="statPartnerCount">-</div>
+          <div style="font-size: 11px; color: #64748b;">С завершенными сделками</div>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #f97316;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">К выплате партнерам</div>
+          <div style="font-size: 24px; font-weight: bold; color: #f97316;" id="statPartnerPayouts">-</div>
+          <div style="font-size: 11px; color: #64748b;">% от чистой прибыли по сделкам</div>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Чистейшая прибыль</div>
+          <div style="font-size: 28px; font-weight: bold; color: #22c55e;" id="statPureProfit">-</div>
+          <div style="font-size: 11px; color: #64748b;">На кошелек сервиса</div>
+        </div>
+      </div>
+      <div id="partnerDetailsContainer" style="margin-top: 15px; display: none;">
+        <div style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Детали по партнерам:</div>
+        <div id="partnerDetailsList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('deals')">Deals</button>
@@ -1120,6 +1146,36 @@
         const netProfitEl = document.getElementById('statNetProfit');
         netProfitEl.textContent = netProfit.toFixed(2) + ' USDT';
         netProfitEl.style.color = netProfit >= 0 ? '#10b981' : '#ef4444';
+
+        // Partner stats
+        if (data.partners) {
+          const partnerCount = data.partners.count || 0;
+          const partnerPayouts = parseFloat(data.partners.totalPayouts) || 0;
+          const pureProfit = parseFloat(data.partners.pureProfit) || 0;
+
+          document.getElementById('statPartnerCount').textContent = partnerCount;
+          document.getElementById('statPartnerPayouts').textContent = partnerPayouts.toFixed(2) + ' USDT';
+
+          const pureProfitEl = document.getElementById('statPureProfit');
+          pureProfitEl.textContent = pureProfit.toFixed(2) + ' USDT';
+          pureProfitEl.style.color = pureProfit >= 0 ? '#22c55e' : '#ef4444';
+
+          // Show partner details if any
+          if (data.partners.details && data.partners.details.length > 0) {
+            document.getElementById('partnerDetailsContainer').style.display = 'block';
+            const detailsList = document.getElementById('partnerDetailsList');
+            detailsList.innerHTML = data.partners.details.map(p => `
+              <div style="background: #1e293b; padding: 10px 15px; border-radius: 6px; border: 1px solid #334155;">
+                <div style="color: #a855f7; font-weight: bold;">${p.name} (${p.code})</div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 5px;">
+                  ${p.deals} сделок • ${p.percent}% • <span style="color: #f97316;">${p.payout.toFixed(2)} USDT</span>
+                </div>
+              </div>
+            `).join('');
+          } else {
+            document.getElementById('partnerDetailsContainer').style.display = 'none';
+          }
+        }
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       }

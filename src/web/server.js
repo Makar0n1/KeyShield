@@ -469,6 +469,42 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     // Net profit = commission - TRX expenses in USDT
     const netProfit = totalCommission - totalTrxSpentUsdt;
 
+    // Calculate partner payouts
+    const Platform = require('../models/Platform');
+    const activePlatforms = await Platform.find({ isActive: true }).lean();
+
+    let totalPartnerPayouts = 0;
+    const partnerDetails = [];
+
+    for (const platform of activePlatforms) {
+      // Get finished deals for this platform
+      const platformDeals = finishedDeals.filter(d =>
+        d.platformId && d.platformId.toString() === platform._id.toString()
+      );
+
+      if (platformDeals.length > 0) {
+        const platformCommission = platformDeals.reduce((sum, deal) => sum + deal.commission, 0);
+        const platformTrxCost = platformDeals.length * TRX_PER_DEAL * TRX_TO_USDT;
+        const platformNetProfit = platformCommission - platformTrxCost;
+        const platformPayout = platformNetProfit * (platform.commissionPercent / 100);
+
+        totalPartnerPayouts += platformPayout > 0 ? platformPayout : 0;
+
+        partnerDetails.push({
+          name: platform.name,
+          code: platform.code,
+          deals: platformDeals.length,
+          commission: platformCommission,
+          netProfit: platformNetProfit,
+          percent: platform.commissionPercent,
+          payout: platformPayout > 0 ? platformPayout : 0
+        });
+      }
+    }
+
+    // Pure profit = net profit - partner payouts (what goes to service wallet)
+    const pureProfit = netProfit - totalPartnerPayouts;
+
     // Recent activity
     const recentDeals = await Deal.find()
       .sort({ createdAt: -1 })
@@ -504,6 +540,12 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
         netProfit: netProfit.toFixed(2),
         trxRate: TRX_TO_USDT,
         trxPerDeal: TRX_PER_DEAL
+      },
+      partners: {
+        count: activePlatforms.length,
+        totalPayouts: totalPartnerPayouts.toFixed(2),
+        pureProfit: pureProfit.toFixed(2),
+        details: partnerDetails
       },
       recent: {
         deals: recentDeals,
