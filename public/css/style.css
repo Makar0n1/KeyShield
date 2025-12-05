@@ -84,12 +84,6 @@ body {
     color: var(--primary);
 }
 
-@media (max-width: 768px) {
-    .btn {
-        padding: 8px 12px;
-    }
-}
-
 /* Buttons */
 .btn {
     display: inline-block;
@@ -544,6 +538,10 @@ body {
 @media (max-width: 768px) {
     .nav-menu {
         display: none;
+    }
+
+    .btn {
+        padding: 8px 12px;
     }
 
     .hero-title {
