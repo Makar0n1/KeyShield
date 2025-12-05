@@ -621,7 +621,6 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
       return res.status(400).json({ error: 'userIdentifier is required (Telegram ID or @username)' });
     }
 
-    // Find user by ID or username
     const requestingUser = await findUserByIdOrUsername(userIdentifier);
     if (!requestingUser) {
       return res.status(404).json({ error: 'User not found. Check Telegram ID or username.' });
@@ -634,195 +633,210 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Deal not found' });
     }
 
-    // Only export completed deals (completed, resolved, expired, cancelled with deposit)
     const exportableStatuses = ['completed', 'resolved', 'expired'];
     if (!exportableStatuses.includes(deal.status)) {
       return res.status(400).json({ error: 'Only completed/resolved/expired deals can be exported' });
     }
 
-    // Check if user is participant
     const isParticipant = deal.buyerId === telegramId || deal.sellerId === telegramId;
     if (!isParticipant) {
       return res.status(403).json({ error: 'User is not a participant of this deal' });
     }
 
-    // Get user info for both participants
     const [buyerUser, sellerUser] = await Promise.all([
       User.findOne({ telegramId: deal.buyerId }).lean(),
       User.findOne({ telegramId: deal.sellerId }).lean()
     ]);
 
-    // Create exports directory if not exists
     const exportsDir = pathModule.join(__dirname, '../../exports');
-    try {
-      await fsPromises.mkdir(exportsDir, { recursive: true });
-    } catch (err) {
-      // Directory exists
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const fileName = `Deal_${dealId}_${telegramId}_${timestamp}.pdf`;
-    const filePath = pathModule.join(exportsDir, fileName);
-
-    // Generate PDF to file
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
-    const writeStream = fs.createWriteStream(filePath);
-    doc.pipe(writeStream);
-
-    // Register Roboto font for Russian text
-    const fontPath = pathModule.join(__dirname, '../../public/fonts/Roboto.ttf');
-    doc.registerFont('Roboto', fontPath);
-    doc.font('Roboto');
+    try { await fsPromises.mkdir(exportsDir, { recursive: true }); } catch (err) {}
 
     // Generate unique statement number
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     const statementNumber = `${dateStr}-${random}`;
 
-    // Header
-    doc.fontSize(24).fillColor('#6366f1').text('KeyShield', { align: 'center' });
-    doc.fontSize(10).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+    const fileName = `KeyShield_${statementNumber}.pdf`;
+    const filePath = pathModule.join(exportsDir, fileName);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const writeStream = fs.createWriteStream(filePath);
+    doc.pipe(writeStream);
+
+    const fontPath = pathModule.join(__dirname, '../../public/fonts/Roboto.ttf');
+    doc.registerFont('Roboto', fontPath);
+    doc.font('Roboto');
+
+    // ===== TITLE PAGE =====
+    // Decorative top line
+    doc.rect(0, 0, 595, 8).fill('#6366f1');
+
+    // Logo area
+    doc.moveDown(4);
+    doc.fontSize(42).fillColor('#6366f1').text('KeyShield', { align: 'center' });
+    doc.fontSize(14).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+
+    doc.moveDown(4);
+
+    // Statement number box
+    doc.rect(150, doc.y, 295, 80).fillAndStroke('#f8fafc', '#e2e8f0');
     doc.moveDown(0.5);
-    doc.fontSize(8).text('https://keyshield.me', { align: 'center', link: 'https://keyshield.me' });
+    doc.fontSize(12).fillColor('#64748b').text('ВЫПИСКА', { align: 'center' });
+    doc.fontSize(28).fillColor('#1e293b').text(`№${statementNumber}`, { align: 'center' });
 
-    doc.moveDown(2);
+    doc.moveDown(4);
 
-    // Document title with unique number
-    doc.fontSize(18).fillColor('#1e293b').text(`ВЫПИСКА №${statementNumber}`, { align: 'center' });
-    doc.fontSize(14).fillColor('#64748b').text(`по сделке ${deal.dealId}`, { align: 'center' });
-    doc.moveDown(0.5);
-    doc.fontSize(12).fillColor('#64748b').text(`Сформировано: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC`, { align: 'center' });
+    // Document info
+    doc.fontSize(11).fillColor('#64748b').text('Тип документа:', { align: 'center' });
+    doc.fontSize(14).fillColor('#1e293b').text('Выписка по сделке', { align: 'center' });
 
-    doc.moveDown(2);
+    doc.moveDown(1);
+    doc.fontSize(11).fillColor('#64748b').text('Сделка:', { align: 'center' });
+    doc.fontSize(14).fillColor('#6366f1').text(deal.dealId, { align: 'center' });
 
-    // Requesting user info
-    doc.fontSize(10).fillColor('#64748b').text('Документ подготовлен для:');
-    doc.fontSize(12).fillColor('#1e293b').text(`@${requestingUser?.username || 'Неизвестно'} (ID: ${telegramId})`);
+    doc.moveDown(1);
+    doc.fontSize(11).fillColor('#64748b').text('Подготовлено для:', { align: 'center' });
+    doc.fontSize(14).fillColor('#1e293b').text(`@${requestingUser?.username || 'Неизвестно'} (ID: ${telegramId})`, { align: 'center' });
 
-    doc.moveDown(2);
+    doc.moveDown(1);
+    doc.fontSize(11).fillColor('#64748b').text('Дата формирования:', { align: 'center' });
+    doc.fontSize(12).fillColor('#1e293b').text(new Date().toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', { align: 'center' });
 
-    // Deal info section
-    const drawSection = (title) => {
-      doc.moveDown(1);
-      doc.fontSize(14).fillColor('#6366f1').text(title);
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
-      doc.moveDown(0.5);
-    };
+    // Footer on title page
+    doc.fontSize(9).fillColor('#94a3b8').text('https://keyshield.me', 50, 750, { align: 'center', link: 'https://keyshield.me' });
+    doc.rect(0, 834, 595, 8).fill('#6366f1');
 
-    const drawRow = (label, value) => {
-      doc.fontSize(10).fillColor('#64748b').text(label, { continued: true });
-      doc.fontSize(10).fillColor('#1e293b').text(`  ${value}`);
-      doc.moveDown(0.3);
-    };
+    // ===== DEAL PAGE =====
+    doc.addPage();
 
-    // Basic Info
-    drawSection('Основная информация');
-    drawRow('ID сделки:', deal.dealId);
-    drawRow('Товар/услуга:', deal.productName);
-    drawRow('Описание:', deal.description.substring(0, 200) + (deal.description.length > 200 ? '...' : ''));
+    // Header bar
+    doc.rect(0, 0, 595, 40).fill('#6366f1');
+    doc.fontSize(14).fillColor('#ffffff').text(`Выписка №${statementNumber}`, 50, 12);
+    doc.fontSize(10).fillColor('#c7d2fe').text(deal.dealId, 450, 14);
 
-    // Status with color
+    doc.moveDown(3);
+
     const statusNames = {
       completed: 'Успешно завершена',
       resolved: 'Решена арбитром',
       expired: 'Истекла (авто-возврат)',
       cancelled: 'Отменена'
     };
-    drawRow('Статус:', statusNames[deal.status] || deal.status);
+    const statusColors = {
+      completed: '#10b981',
+      resolved: '#f59e0b',
+      expired: '#ef4444',
+      cancelled: '#64748b'
+    };
+
+    // Deal header with status
+    doc.fontSize(18).fillColor('#1e293b').text(deal.productName, 50, 60);
+    doc.fontSize(10).fillColor(statusColors[deal.status] || '#64748b').text(statusNames[deal.status] || deal.status, 50, 82);
+
+    doc.moveDown(3);
+
+    // Helper function for sections
+    const drawSection = (title, yPos) => {
+      doc.rect(50, yPos, 495, 24).fill('#f1f5f9');
+      doc.fontSize(11).fillColor('#475569').text(title, 60, yPos + 6);
+      return yPos + 30;
+    };
+
+    const drawRow = (label, value, y) => {
+      doc.fontSize(10).fillColor('#64748b').text(label, 60, y);
+      doc.fontSize(10).fillColor('#1e293b').text(value, 200, y);
+      return y + 18;
+    };
+
+    let y = 110;
+
+    // Basic Info
+    y = drawSection('Основная информация', y);
+    y = drawRow('ID сделки:', deal.dealId, y);
+    y = drawRow('Описание:', deal.description.substring(0, 60) + (deal.description.length > 60 ? '...' : ''), y);
+    y += 10;
 
     // Participants
-    drawSection('Участники сделки');
+    y = drawSection('Участники', y);
     const userRole = deal.buyerId === telegramId ? 'Покупатель' : 'Продавец';
-    drawRow('Ваша роль:', userRole);
-    drawRow('Покупатель:', `@${buyerUser?.username || 'Неизвестно'} (ID: ${deal.buyerId})`);
-    drawRow('Продавец:', `@${sellerUser?.username || 'Неизвестно'} (ID: ${deal.sellerId})`);
-    drawRow('Инициатор сделки:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец');
+    y = drawRow('Ваша роль:', userRole, y);
+    y = drawRow('Покупатель:', `@${buyerUser?.username || 'N/A'} (${deal.buyerId})`, y);
+    y = drawRow('Продавец:', `@${sellerUser?.username || 'N/A'} (${deal.sellerId})`, y);
+    y = drawRow('Инициатор:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец', y);
+    y += 10;
 
-    // Financial Info
-    drawSection('Финансовая информация');
-    drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`);
-    drawRow('Комиссия:', `${deal.commission} ${deal.asset}`);
+    // Financial
+    y = drawSection('Финансы', y);
+    y = drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`, y);
+    y = drawRow('Комиссия:', `${deal.commission} ${deal.asset}`, y);
+    const commTypes = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам 50/50' };
+    y = drawRow('Комиссию платит:', commTypes[deal.commissionType], y);
 
-    const commissionTypeNames = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам 50/50' };
-    drawRow('Комиссию оплачивает:', commissionTypeNames[deal.commissionType]);
+    let depositAmt = deal.amount;
+    if (deal.commissionType === 'buyer') depositAmt += deal.commission;
+    else if (deal.commissionType === 'split') depositAmt += deal.commission / 2;
+    y = drawRow('Сумма депозита:', `${depositAmt.toFixed(2)} ${deal.asset}`, y);
 
-    let depositAmount = deal.amount;
-    if (deal.commissionType === 'buyer') depositAmount += deal.commission;
-    else if (deal.commissionType === 'split') depositAmount += deal.commission / 2;
-    drawRow('Сумма депозита:', `${depositAmount.toFixed(2)} ${deal.asset}`);
+    let sellerAmt = deal.amount;
+    if (deal.commissionType === 'seller') sellerAmt -= deal.commission;
+    else if (deal.commissionType === 'split') sellerAmt -= deal.commission / 2;
+    y = drawRow('Выплата продавцу:', `${sellerAmt.toFixed(2)} ${deal.asset}`, y);
+    y += 10;
 
-    let sellerPayout = deal.amount;
-    if (deal.commissionType === 'seller') sellerPayout -= deal.commission;
-    else if (deal.commissionType === 'split') sellerPayout -= deal.commission / 2;
-    drawRow('Выплата продавцу:', `${sellerPayout.toFixed(2)} ${deal.asset}`);
+    // Wallets
+    y = drawSection('Кошельки', y);
+    y = drawRow('Multisig:', deal.multisigAddress || 'Н/Д', y);
+    y = drawRow('Покупатель:', deal.buyerAddress || 'Н/Д', y);
+    y = drawRow('Продавец:', deal.sellerAddress || 'Н/Д', y);
+    y += 10;
 
-    if (deal.actualDepositAmount) {
-      drawRow('Фактический депозит:', `${deal.actualDepositAmount} ${deal.asset}`);
-    }
-
-    // Wallet addresses
-    drawSection('Адреса кошельков');
-    drawRow('Multisig адрес:', deal.multisigAddress || 'Н/Д');
-    drawRow('Кошелёк покупателя:', deal.buyerAddress || 'Н/Д');
-    drawRow('Кошелёк продавца:', deal.sellerAddress || 'Н/Д');
-
-    // Blockchain Info
+    // Blockchain
     if (deal.depositTxHash) {
-      drawSection('Блокчейн информация');
-      drawRow('TX хеш депозита:', deal.depositTxHash);
+      y = drawSection('Блокчейн', y);
+      y = drawRow('TX депозита:', deal.depositTxHash.substring(0, 40) + '...', y);
       doc.fontSize(8).fillColor('#6366f1').text(
-        `Проверить на TronScan: https://tronscan.org/#/transaction/${deal.depositTxHash}`,
-        { link: `https://tronscan.org/#/transaction/${deal.depositTxHash}` }
+        'Проверить на TronScan',
+        60, y, { link: `https://tronscan.org/#/transaction/${deal.depositTxHash}` }
       );
+      y += 20;
     }
 
-    // Dates
-    drawSection('Хронология');
-    drawRow('Создана:', new Date(deal.createdAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
-
-    const deadlineHours = Math.round((new Date(deal.deadline) - new Date(deal.createdAt)) / (1000 * 60 * 60));
-    drawRow('Срок выполнения:', `${deadlineHours} часов`);
-    drawRow('Дедлайн:', new Date(deal.deadline).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
-
+    // Timeline
+    y = drawSection('Хронология', y);
+    y = drawRow('Создана:', new Date(deal.createdAt).toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', y);
+    const deadlineHrs = Math.round((new Date(deal.deadline) - new Date(deal.createdAt)) / 3600000);
+    y = drawRow('Дедлайн:', `${deadlineHrs}ч (${new Date(deal.deadline).toLocaleString('ru-RU', { timeZone: 'UTC' })} UTC)`, y);
     if (deal.depositDetectedAt) {
-      drawRow('Депозит обнаружен:', new Date(deal.depositDetectedAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
+      y = drawRow('Депозит:', new Date(deal.depositDetectedAt).toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', y);
     }
     if (deal.completedAt) {
-      drawRow('Завершена:', new Date(deal.completedAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
+      y = drawRow('Завершена:', new Date(deal.completedAt).toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', y);
     }
 
-    // Partner info if exists
+    // Partner
     if (deal.platformCode) {
-      drawSection('Партнёрская информация');
-      drawRow('Код платформы:', deal.platformCode);
+      y += 10;
+      y = drawSection('Партнёр', y);
+      y = drawRow('Код платформы:', deal.platformCode, y);
     }
 
     // Footer
-    doc.moveDown(3);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
-    doc.moveDown(1);
+    doc.rect(0, 800, 595, 42).fill('#f8fafc');
     doc.fontSize(8).fillColor('#64748b').text(
-      'Этот документ был автоматически сформирован системой KeyShield и является официальной выпиской по сделке.',
-      { align: 'center' }
+      'Документ сформирован автоматически системой KeyShield. KeyShield не является финансовой организацией.',
+      50, 810, { align: 'center', width: 495 }
     );
-    doc.moveDown(0.5);
-    doc.text('KeyShield не является финансовой организацией. Мы предоставляем технологическую платформу для безопасного обмена криптовалютой.', { align: 'center' });
-    doc.moveDown(1);
-    doc.fontSize(10).fillColor('#6366f1').text('© 2025 KeyShield. Все права защищены.', { align: 'center' });
+    doc.fontSize(9).fillColor('#6366f1').text('© 2025 KeyShield', 50, 825, { align: 'center', width: 495 });
 
     doc.end();
 
-    // Wait for file to be written
     await new Promise((resolve, reject) => {
       writeStream.on('finish', resolve);
       writeStream.on('error', reject);
     });
 
-    // Get file size
     const stats = await fsPromises.stat(filePath);
 
-    // Log the export
     await ExportLog.create({
       exportType: 'single_deal',
       targetUserId: telegramId,
@@ -834,9 +848,8 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
       fileSize: stats.size
     });
 
-    // Send file to client
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_Deal_${dealId}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
     res.sendFile(filePath);
 
   } catch (error) {
@@ -855,7 +868,6 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
 
     const { userIdentifier } = req.params;
 
-    // Find user by ID or username
     const user = await findUserByIdOrUsername(userIdentifier);
     if (!user) {
       return res.status(404).json({ error: 'User not found. Check Telegram ID or username.' });
@@ -863,7 +875,6 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
 
     const telegramId = user.telegramId;
 
-    // Get all exportable deals for this user
     const exportableStatuses = ['completed', 'resolved', 'expired'];
     const deals = await Deal.find({
       $or: [{ buyerId: telegramId }, { sellerId: telegramId }],
@@ -874,59 +885,24 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
       return res.status(404).json({ error: 'No exportable deals found for this user' });
     }
 
-    // Create exports directory if not exists
     const exportsDir = pathModule.join(__dirname, '../../exports');
-    try {
-      await fsPromises.mkdir(exportsDir, { recursive: true });
-    } catch (err) {
-      // Directory exists
-    }
+    try { await fsPromises.mkdir(exportsDir, { recursive: true }); } catch (err) {}
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const fileName = `UserDeals_${telegramId}_${timestamp}.pdf`;
+    // Generate unique statement number
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const statementNumber = `${dateStr}-${random}`;
+
+    const fileName = `KeyShield_${statementNumber}.pdf`;
     const filePath = pathModule.join(exportsDir, fileName);
 
-    // Generate PDF to file
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const writeStream = fs.createWriteStream(filePath);
     doc.pipe(writeStream);
 
-    // Register Roboto font for Russian text
     const fontPath = pathModule.join(__dirname, '../../public/fonts/Roboto.ttf');
     doc.registerFont('Roboto', fontPath);
     doc.font('Roboto');
-
-    // Generate unique statement number (timestamp + random)
-    const generateStatementNumber = () => {
-      const date = new Date();
-      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-      return `${dateStr}-${random}`;
-    };
-
-    // Helper functions for drawing
-    const drawSection = (title) => {
-      doc.moveDown(1);
-      doc.fontSize(14).fillColor('#6366f1').text(title);
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
-      doc.moveDown(0.5);
-    };
-
-    const drawRow = (label, value) => {
-      doc.fontSize(10).fillColor('#64748b').text(label, { continued: true });
-      doc.fontSize(10).fillColor('#1e293b').text(`  ${value}`);
-      doc.moveDown(0.3);
-    };
-
-    const statusNames = {
-      completed: 'Успешно завершена',
-      resolved: 'Решена арбитром',
-      expired: 'Истекла (авто-возврат)',
-      cancelled: 'Отменена'
-    };
-
-    const commissionTypeNames = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам 50/50' };
 
     // Get all participants info
     const allUserIds = [...new Set(deals.flatMap(d => [d.buyerId, d.sellerId]))];
@@ -934,144 +910,208 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
     const usersMap = {};
     allUsers.forEach(u => { usersMap[u.telegramId] = u; });
 
-    // Generate full statement for each deal
+    // Calculate totals
+    let totalAsBuyer = 0, totalAsSeller = 0, totalVolume = 0;
+    deals.forEach(deal => {
+      totalVolume += deal.amount;
+      if (deal.buyerId === telegramId) totalAsBuyer += deal.amount;
+      else totalAsSeller += deal.amount;
+    });
+
+    const statusNames = {
+      completed: 'Успешно завершена',
+      resolved: 'Решена арбитром',
+      expired: 'Истекла (авто-возврат)',
+      cancelled: 'Отменена'
+    };
+    const statusColors = {
+      completed: '#10b981',
+      resolved: '#f59e0b',
+      expired: '#ef4444',
+      cancelled: '#64748b'
+    };
+    const commTypes = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам 50/50' };
+
+    // ===== TITLE PAGE =====
+    doc.rect(0, 0, 595, 8).fill('#6366f1');
+
+    doc.moveDown(4);
+    doc.fontSize(42).fillColor('#6366f1').text('KeyShield', { align: 'center' });
+    doc.fontSize(14).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+
+    doc.moveDown(4);
+
+    // Statement number box
+    doc.rect(150, doc.y, 295, 80).fillAndStroke('#f8fafc', '#e2e8f0');
+    doc.moveDown(0.5);
+    doc.fontSize(12).fillColor('#64748b').text('ВЫПИСКА', { align: 'center' });
+    doc.fontSize(28).fillColor('#1e293b').text(`№${statementNumber}`, { align: 'center' });
+
+    doc.moveDown(4);
+
+    // Document info
+    doc.fontSize(11).fillColor('#64748b').text('Тип документа:', { align: 'center' });
+    doc.fontSize(14).fillColor('#1e293b').text('Выписка по сделкам пользователя', { align: 'center' });
+
+    doc.moveDown(1);
+    doc.fontSize(11).fillColor('#64748b').text('Пользователь:', { align: 'center' });
+    doc.fontSize(14).fillColor('#6366f1').text(`@${user.username || 'Неизвестно'} (ID: ${telegramId})`, { align: 'center' });
+
+    doc.moveDown(1);
+    doc.fontSize(11).fillColor('#64748b').text('Количество сделок:', { align: 'center' });
+    doc.fontSize(14).fillColor('#1e293b').text(`${deals.length}`, { align: 'center' });
+
+    doc.moveDown(1);
+    doc.fontSize(11).fillColor('#64748b').text('Дата формирования:', { align: 'center' });
+    doc.fontSize(12).fillColor('#1e293b').text(new Date().toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', { align: 'center' });
+
+    // Summary stats box
+    doc.moveDown(2);
+    doc.rect(100, doc.y, 395, 70).fillAndStroke('#f1f5f9', '#e2e8f0');
+    const statsY = doc.y + 10;
+    doc.fontSize(10).fillColor('#64748b').text('Общий объём:', 120, statsY);
+    doc.fontSize(12).fillColor('#1e293b').text(`${totalVolume.toFixed(2)} USDT`, 220, statsY);
+    doc.fontSize(10).fillColor('#64748b').text('Как покупатель:', 120, statsY + 20);
+    doc.fontSize(12).fillColor('#1e293b').text(`${totalAsBuyer.toFixed(2)} USDT`, 220, statsY + 20);
+    doc.fontSize(10).fillColor('#64748b').text('Как продавец:', 120, statsY + 40);
+    doc.fontSize(12).fillColor('#1e293b').text(`${totalAsSeller.toFixed(2)} USDT`, 220, statsY + 40);
+
+    // Footer on title page
+    doc.fontSize(9).fillColor('#94a3b8').text('https://keyshield.me', 50, 750, { align: 'center', link: 'https://keyshield.me' });
+    doc.rect(0, 834, 595, 8).fill('#6366f1');
+
+    // ===== DEAL PAGES =====
+    const totalPages = deals.length + 1; // +1 for title page
+
     for (let i = 0; i < deals.length; i++) {
       const deal = deals[i];
-      const statementNumber = generateStatementNumber();
       const buyerUser = usersMap[deal.buyerId];
       const sellerUser = usersMap[deal.sellerId];
 
-      // New page for each deal (except first)
-      if (i > 0) {
-        doc.addPage();
-      }
+      doc.addPage();
 
-      // Header
-      doc.fontSize(24).fillColor('#6366f1').text('KeyShield', { align: 'center' });
-      doc.fontSize(10).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
-      doc.moveDown(0.5);
-      doc.fontSize(8).text('https://keyshield.me', { align: 'center', link: 'https://keyshield.me' });
+      // Header bar
+      doc.rect(0, 0, 595, 40).fill('#6366f1');
+      doc.fontSize(14).fillColor('#ffffff').text(`Выписка №${statementNumber}`, 50, 12);
+      doc.fontSize(10).fillColor('#c7d2fe').text(`Сделка ${i + 1} из ${deals.length}`, 420, 14);
 
-      doc.moveDown(2);
+      // Deal header
+      doc.fontSize(18).fillColor('#1e293b').text(deal.productName, 50, 60);
+      doc.fontSize(10).fillColor(statusColors[deal.status] || '#64748b').text(statusNames[deal.status] || deal.status, 50, 82);
+      doc.fontSize(10).fillColor('#6366f1').text(deal.dealId, 400, 82);
 
-      // Document title with unique number
-      doc.fontSize(18).fillColor('#1e293b').text(`ВЫПИСКА №${statementNumber}`, { align: 'center' });
-      doc.fontSize(14).fillColor('#64748b').text(`по сделке ${deal.dealId}`, { align: 'center' });
-      doc.moveDown(0.5);
-      doc.fontSize(12).fillColor('#64748b').text(`Сформировано: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC`, { align: 'center' });
+      // Helper functions
+      const drawSection = (title, yPos) => {
+        doc.rect(50, yPos, 495, 24).fill('#f1f5f9');
+        doc.fontSize(11).fillColor('#475569').text(title, 60, yPos + 6);
+        return yPos + 30;
+      };
 
-      doc.moveDown(2);
+      const drawRow = (label, value, y) => {
+        doc.fontSize(10).fillColor('#64748b').text(label, 60, y);
+        doc.fontSize(10).fillColor('#1e293b').text(String(value), 200, y);
+        return y + 18;
+      };
 
-      // Requesting user info
-      doc.fontSize(10).fillColor('#64748b').text('Документ подготовлен для:');
-      doc.fontSize(12).fillColor('#1e293b').text(`@${user.username || 'Неизвестно'} (ID: ${telegramId})`);
-
-      doc.moveDown(2);
+      let y = 110;
 
       // Basic Info
-      drawSection('Основная информация');
-      drawRow('ID сделки:', deal.dealId);
-      drawRow('Товар/услуга:', deal.productName);
-      drawRow('Описание:', deal.description.substring(0, 200) + (deal.description.length > 200 ? '...' : ''));
-      drawRow('Статус:', statusNames[deal.status] || deal.status);
+      y = drawSection('Основная информация', y);
+      y = drawRow('ID сделки:', deal.dealId, y);
+
+      // Handle long descriptions
+      const desc = deal.description || '';
+      if (desc.length > 80) {
+        y = drawRow('Описание:', desc.substring(0, 80) + '...', y);
+      } else {
+        y = drawRow('Описание:', desc || 'Н/Д', y);
+      }
+      y += 10;
 
       // Participants
-      drawSection('Участники сделки');
+      y = drawSection('Участники', y);
       const userRole = deal.buyerId === telegramId ? 'Покупатель' : 'Продавец';
-      drawRow('Ваша роль:', userRole);
-      drawRow('Покупатель:', `@${buyerUser?.username || 'Неизвестно'} (ID: ${deal.buyerId})`);
-      drawRow('Продавец:', `@${sellerUser?.username || 'Неизвестно'} (ID: ${deal.sellerId})`);
-      drawRow('Инициатор сделки:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец');
+      y = drawRow('Ваша роль:', userRole, y);
+      y = drawRow('Покупатель:', `@${buyerUser?.username || 'N/A'} (${deal.buyerId})`, y);
+      y = drawRow('Продавец:', `@${sellerUser?.username || 'N/A'} (${deal.sellerId})`, y);
+      y = drawRow('Инициатор:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец', y);
+      y += 10;
 
-      // Financial Info
-      drawSection('Финансовая информация');
-      drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`);
-      drawRow('Комиссия:', `${deal.commission} ${deal.asset}`);
-      drawRow('Комиссию оплачивает:', commissionTypeNames[deal.commissionType]);
+      // Financial
+      y = drawSection('Финансы', y);
+      y = drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`, y);
+      y = drawRow('Комиссия:', `${deal.commission} ${deal.asset}`, y);
+      y = drawRow('Комиссию платит:', commTypes[deal.commissionType], y);
 
-      let depositAmount = deal.amount;
-      if (deal.commissionType === 'buyer') depositAmount += deal.commission;
-      else if (deal.commissionType === 'split') depositAmount += deal.commission / 2;
-      drawRow('Сумма депозита:', `${depositAmount.toFixed(2)} ${deal.asset}`);
+      let depositAmt = deal.amount;
+      if (deal.commissionType === 'buyer') depositAmt += deal.commission;
+      else if (deal.commissionType === 'split') depositAmt += deal.commission / 2;
+      y = drawRow('Сумма депозита:', `${depositAmt.toFixed(2)} ${deal.asset}`, y);
 
-      let sellerPayout = deal.amount;
-      if (deal.commissionType === 'seller') sellerPayout -= deal.commission;
-      else if (deal.commissionType === 'split') sellerPayout -= deal.commission / 2;
-      drawRow('Выплата продавцу:', `${sellerPayout.toFixed(2)} ${deal.asset}`);
+      let sellerAmt = deal.amount;
+      if (deal.commissionType === 'seller') sellerAmt -= deal.commission;
+      else if (deal.commissionType === 'split') sellerAmt -= deal.commission / 2;
+      y = drawRow('Выплата продавцу:', `${sellerAmt.toFixed(2)} ${deal.asset}`, y);
+      y += 10;
 
-      if (deal.actualDepositAmount) {
-        drawRow('Фактический депозит:', `${deal.actualDepositAmount} ${deal.asset}`);
-      }
+      // Wallets
+      y = drawSection('Кошельки', y);
+      y = drawRow('Multisig:', deal.multisigAddress || 'Н/Д', y);
+      y = drawRow('Покупатель:', deal.buyerAddress || 'Н/Д', y);
+      y = drawRow('Продавец:', deal.sellerAddress || 'Н/Д', y);
+      y += 10;
 
-      // Wallet addresses
-      drawSection('Адреса кошельков');
-      drawRow('Multisig адрес:', deal.multisigAddress || 'Н/Д');
-      drawRow('Кошелёк покупателя:', deal.buyerAddress || 'Н/Д');
-      drawRow('Кошелёк продавца:', deal.sellerAddress || 'Н/Д');
-
-      // Blockchain Info
+      // Blockchain
       if (deal.depositTxHash) {
-        drawSection('Блокчейн информация');
-        drawRow('TX хеш депозита:', deal.depositTxHash);
+        y = drawSection('Блокчейн', y);
+        y = drawRow('TX депозита:', deal.depositTxHash.substring(0, 40) + '...', y);
         doc.fontSize(8).fillColor('#6366f1').text(
-          `Проверить на TronScan: https://tronscan.org/#/transaction/${deal.depositTxHash}`,
-          { link: `https://tronscan.org/#/transaction/${deal.depositTxHash}` }
+          'Проверить на TronScan',
+          60, y, { link: `https://tronscan.org/#/transaction/${deal.depositTxHash}` }
         );
+        y += 20;
       }
 
-      // Dates
-      drawSection('Хронология');
-      drawRow('Создана:', new Date(deal.createdAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
-
-      const deadlineHours = Math.round((new Date(deal.deadline) - new Date(deal.createdAt)) / (1000 * 60 * 60));
-      drawRow('Срок выполнения:', `${deadlineHours} часов`);
-      drawRow('Дедлайн:', new Date(deal.deadline).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
-
+      // Timeline
+      y = drawSection('Хронология', y);
+      y = drawRow('Создана:', new Date(deal.createdAt).toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', y);
+      const deadlineHrs = Math.round((new Date(deal.deadline) - new Date(deal.createdAt)) / 3600000);
+      y = drawRow('Дедлайн:', `${deadlineHrs}ч (${new Date(deal.deadline).toLocaleString('ru-RU', { timeZone: 'UTC' })} UTC)`, y);
       if (deal.depositDetectedAt) {
-        drawRow('Депозит обнаружен:', new Date(deal.depositDetectedAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
+        y = drawRow('Депозит:', new Date(deal.depositDetectedAt).toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', y);
       }
       if (deal.completedAt) {
-        drawRow('Завершена:', new Date(deal.completedAt).toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
+        y = drawRow('Завершена:', new Date(deal.completedAt).toLocaleString('ru-RU', { timeZone: 'UTC' }) + ' UTC', y);
       }
 
-      // Partner info if exists
+      // Partner
       if (deal.platformCode) {
-        drawSection('Партнёрская информация');
-        drawRow('Код платформы:', deal.platformCode);
+        y += 10;
+        y = drawSection('Партнёр', y);
+        y = drawRow('Код платформы:', deal.platformCode, y);
       }
 
       // Footer
-      doc.moveDown(3);
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke();
-      doc.moveDown(1);
+      doc.rect(0, 800, 595, 42).fill('#f8fafc');
       doc.fontSize(8).fillColor('#64748b').text(
-        'Этот документ был автоматически сформирован системой KeyShield и является официальной выпиской по сделке.',
-        { align: 'center' }
+        'Документ сформирован автоматически системой KeyShield.',
+        50, 810, { align: 'center', width: 495 }
       );
-      doc.moveDown(0.5);
-      doc.text('KeyShield не является финансовой организацией. Мы предоставляем технологическую платформу для безопасного обмена криптовалютой.', { align: 'center' });
-      doc.moveDown(1);
-      doc.fontSize(10).fillColor('#6366f1').text('© 2025 KeyShield. Все права защищены.', { align: 'center' });
-
-      // Page number
-      doc.fontSize(8).fillColor('#94a3b8').text(
-        `Страница ${i + 1} из ${deals.length}`,
-        50, 780, { align: 'center' }
+      doc.fontSize(9).fillColor('#94a3b8').text(
+        `Страница ${i + 2} из ${totalPages}`,
+        50, 825, { align: 'center', width: 495 }
       );
     }
 
     doc.end();
 
-    // Wait for file to be written
     await new Promise((resolve, reject) => {
       writeStream.on('finish', resolve);
       writeStream.on('error', reject);
     });
 
-    // Get file size
     const stats = await fsPromises.stat(filePath);
 
-    // Log the export
     await ExportLog.create({
       exportType: 'all_user_deals',
       targetUserId: telegramId,
@@ -1083,9 +1123,8 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
       fileSize: stats.size
     });
 
-    // Send file to client
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=KeyShield_User_${telegramId}_Deals.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
     res.sendFile(filePath);
 
   } catch (error) {
