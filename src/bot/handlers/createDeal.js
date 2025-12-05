@@ -414,7 +414,7 @@ const handleAmount = async (ctx, session, text) => {
 
 Формат: начинается с T, 34 символа
 
-Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj`;
+Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
 
   const keyboard = backButton();
   await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', successText, keyboard);
@@ -434,7 +434,7 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
 
 Адрес должен начинаться с T и содержать 34 символа.
 
-Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj
+Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj
 
 Введите адрес:`;
     const keyboard = backButton();
