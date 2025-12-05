@@ -656,7 +656,8 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     const statementNumber = `${dateStr}-${random}`;
 
-    const fileName = `KeyShield_${statementNumber}.pdf`;
+    const safeUsername = (requestingUser?.username || String(telegramId)).replace(/[^a-zA-Z0-9_]/g, '');
+    const fileName = `KeyShield_User_${safeUsername}_Deal_${statementNumber}.pdf`;
     const filePath = pathModule.join(exportsDir, fileName);
 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -894,7 +895,8 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     const statementNumber = `${dateStr}-${random}`;
 
-    const fileName = `KeyShield_${statementNumber}.pdf`;
+    const safeUsername = (user.username || String(telegramId)).replace(/[^a-zA-Z0-9_]/g, '');
+    const fileName = `KeyShield_User_${safeUsername}_Deals_${statementNumber}.pdf`;
     const filePath = pathModule.join(exportsDir, fileName);
 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
