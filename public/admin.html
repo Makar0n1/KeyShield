@@ -726,8 +726,9 @@
         <div class="value" id="statActiveDeals">-</div>
       </div>
       <div class="stat-card">
-        <h3>Completed Deals</h3>
-        <div class="value" id="statCompletedDeals">-</div>
+        <h3>Finished Deals</h3>
+        <div class="value" id="statFinishedDeals">-</div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 5px;">Completed + Resolved</div>
       </div>
       <div class="stat-card">
         <h3>Open Disputes</h3>
@@ -738,8 +739,35 @@
         <div class="value" id="statTotalUsers">-</div>
       </div>
       <div class="stat-card">
-        <h3>Total Commission</h3>
-        <div class="value" id="statTotalCommissions">-</div>
+        <h3>Total Volume</h3>
+        <div class="value" id="statTotalVolume">-</div>
+      </div>
+    </div>
+
+    <!-- Finance Stats -->
+    <div style="background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3 style="color: #60a5fa; margin-bottom: 15px;">💰 Финансовая статистика</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Валовая выручка (комиссии)</div>
+          <div style="font-size: 24px; font-weight: bold; color: #10b981;" id="statGrossRevenue">-</div>
+          <div style="font-size: 11px; color: #64748b;">15 USDT или 5% от суммы</div>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Расходы TRX</div>
+          <div style="font-size: 24px; font-weight: bold; color: #ef4444;" id="statTrxExpenses">-</div>
+          <div style="font-size: 11px; color: #64748b;" id="statTrxDetails">16.1 TRX × 0 сделок</div>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Расходы в USDT</div>
+          <div style="font-size: 24px; font-weight: bold; color: #f59e0b;" id="statUsdtExpenses">-</div>
+          <div style="font-size: 11px; color: #64748b;" id="statTrxRate">Курс: 1 TRX = 0.28 USDT</div>
+        </div>
+        <div style="background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #60a5fa;">
+          <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase;">Чистая прибыль</div>
+          <div style="font-size: 28px; font-weight: bold; color: #60a5fa;" id="statNetProfit">-</div>
+          <div style="font-size: 11px; color: #64748b;">Комиссии − Расходы TRX</div>
+        </div>
       </div>
     </div>
 
@@ -1066,12 +1094,32 @@
 
         const data = await response.json();
 
+        // Deals stats
         document.getElementById('statTotalDeals').textContent = data.deals.total;
         document.getElementById('statActiveDeals').textContent = data.deals.active;
-        document.getElementById('statCompletedDeals').textContent = data.deals.completed;
+        document.getElementById('statFinishedDeals').textContent = data.deals.finished;
         document.getElementById('statOpenDisputes').textContent = data.deals.disputed;
         document.getElementById('statTotalUsers').textContent = data.users.total;
-        document.getElementById('statTotalCommissions').textContent = parseFloat(data.finance.totalCommission) + ' USDT';
+        document.getElementById('statTotalVolume').textContent = parseFloat(data.finance.totalVolume).toLocaleString() + ' USDT';
+
+        // Finance stats
+        const grossRevenue = parseFloat(data.finance.totalCommission);
+        const trxSpent = parseFloat(data.finance.totalTrxSpent);
+        const trxSpentUsdt = parseFloat(data.finance.totalTrxSpentUsdt);
+        const netProfit = parseFloat(data.finance.netProfit);
+        const trxRate = data.finance.trxRate;
+        const trxPerDeal = data.finance.trxPerDeal;
+
+        document.getElementById('statGrossRevenue').textContent = grossRevenue.toFixed(2) + ' USDT';
+        document.getElementById('statTrxExpenses').textContent = trxSpent.toFixed(1) + ' TRX';
+        document.getElementById('statTrxDetails').textContent = `${trxPerDeal} TRX × ${data.deals.finished} сделок`;
+        document.getElementById('statUsdtExpenses').textContent = trxSpentUsdt.toFixed(2) + ' USDT';
+        document.getElementById('statTrxRate').textContent = `Курс: 1 TRX = ${trxRate} USDT`;
+
+        // Net profit with color coding
+        const netProfitEl = document.getElementById('statNetProfit');
+        netProfitEl.textContent = netProfit.toFixed(2) + ' USDT';
+        netProfitEl.style.color = netProfit >= 0 ? '#10b981' : '#ef4444';
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       }

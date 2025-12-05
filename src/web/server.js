@@ -436,24 +436,38 @@ app.post('/api/admin/disputes/:disputeId/return-to-progress', adminAuth, async (
 // Get statistics
 app.get('/api/admin/stats', adminAuth, async (req, res) => {
   try {
+    // TRX to USDT exchange rate
+    const TRX_TO_USDT = 0.28;
+    // Fixed TRX cost per completed deal (activation + transfers)
+    const TRX_PER_DEAL = 16.1;
+
     const totalDeals = await Deal.countDocuments();
     const activeDeals = await Deal.countDocuments({
       status: { $in: ['waiting_for_deposit', 'locked', 'in_progress'] }
     });
     const completedDeals = await Deal.countDocuments({ status: 'completed' });
     const disputedDeals = await Deal.countDocuments({ status: 'dispute' });
+    const resolvedDeals = await Deal.countDocuments({ status: 'resolved' });
+    const cancelledDeals = await Deal.countDocuments({ status: 'cancelled' });
+    const expiredDeals = await Deal.countDocuments({ status: 'expired' });
 
     const totalUsers = await User.countDocuments();
     const bannedUsers = await User.countDocuments({ blacklisted: true });
 
-    // Calculate total volume and commission
-    const deals = await Deal.find({ status: 'completed' }).lean();
-    const totalVolume = deals.reduce((sum, deal) => sum + deal.amount, 0);
-    const totalCommission = deals.reduce((sum, deal) => sum + deal.commission, 0);
-    const totalOperationalCosts = deals.reduce((sum, deal) => {
-      return sum + (deal.operationalCosts?.totalCostUsd || 0);
-    }, 0);
-    const netProfit = totalCommission - totalOperationalCosts;
+    // Calculate finances from completed and resolved deals (where we earned commission)
+    const finishedDeals = await Deal.find({
+      status: { $in: ['completed', 'resolved'] }
+    }).lean();
+
+    const totalVolume = finishedDeals.reduce((sum, deal) => sum + deal.amount, 0);
+    const totalCommission = finishedDeals.reduce((sum, deal) => sum + deal.commission, 0);
+
+    // Calculate TRX expenses: 16.1 TRX per finished deal
+    const totalTrxSpent = finishedDeals.length * TRX_PER_DEAL;
+    const totalTrxSpentUsdt = totalTrxSpent * TRX_TO_USDT;
+
+    // Net profit = commission - TRX expenses in USDT
+    const netProfit = totalCommission - totalTrxSpentUsdt;
 
     // Recent activity
     const recentDeals = await Deal.find()
@@ -472,7 +486,11 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
         total: totalDeals,
         active: activeDeals,
         completed: completedDeals,
-        disputed: disputedDeals
+        disputed: disputedDeals,
+        resolved: resolvedDeals,
+        cancelled: cancelledDeals,
+        expired: expiredDeals,
+        finished: finishedDeals.length
       },
       users: {
         total: totalUsers,
@@ -481,8 +499,11 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
       finance: {
         totalVolume: totalVolume.toFixed(2),
         totalCommission: totalCommission.toFixed(2),
-        totalOperationalCosts: totalOperationalCosts.toFixed(2),
-        netProfit: netProfit.toFixed(2)
+        totalTrxSpent: totalTrxSpent.toFixed(2),
+        totalTrxSpentUsdt: totalTrxSpentUsdt.toFixed(2),
+        netProfit: netProfit.toFixed(2),
+        trxRate: TRX_TO_USDT,
+        trxPerDeal: TRX_PER_DEAL
       },
       recent: {
         deals: recentDeals,
