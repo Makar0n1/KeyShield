@@ -50,7 +50,6 @@ body {
 .logo {
     display: flex;
     align-items: center;
-    gap: 10px;
     font-size: 24px;
     font-weight: 700;
     color: var(--primary);
@@ -83,6 +82,12 @@ body {
 .nav-menu a:hover,
 .nav-menu a.active {
     color: var(--primary);
+}
+
+@media (max-width: 768px) {
+    .btn {
+        padding: 8px 12px;
+    }
 }
 
 /* Buttons */
