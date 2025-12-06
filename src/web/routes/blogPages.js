@@ -644,7 +644,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 router.get('/', async (req, res) => {
   try {
     const { page = 1, sort = 'newest', q } = req.query;
-    const settings = await BlogSettings.get() || {};
+    const settings = await BlogSettings.getSettings() || {};
 
     let result;
     let total = 0;
