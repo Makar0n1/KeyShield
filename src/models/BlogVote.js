@@ -53,44 +53,30 @@ blogVoteSchema.index(
 // Индекс для подсчёта голосов
 blogVoteSchema.index({ targetType: 1, targetId: 1, voteType: 1 });
 
-// Статический метод: добавить или изменить голос
+// Статический метод: добавить или изменить голос (оптимизировано - 1 запрос)
 blogVoteSchema.statics.vote = async function(targetType, targetId, voteType, visitorId, ipAddress) {
-  // Проверяем существующий голос
-  const existingVote = await this.findOne({
-    targetType,
-    targetId,
-    visitorId
-  });
+  const filter = { targetType, targetId, visitorId };
+
+  // Используем findOneAndDelete для проверки и удаления за один запрос
+  const existingVote = await this.findOneAndDelete(filter);
 
   if (existingVote) {
     if (existingVote.voteType === voteType) {
-      // Тот же тип голоса - удаляем (toggle)
-      await this.findByIdAndDelete(existingVote._id);
+      // Тот же тип - голос удалён (toggle off)
       return { action: 'removed', voteType };
     } else {
-      // Другой тип - меняем
-      const oldVoteType = existingVote.voteType;
-      await this.findByIdAndUpdate(existingVote._id, {
-        voteType,
-        ipAddress
-      });
-      return { action: 'changed', oldVoteType, voteType };
+      // Другой тип - создаём новый голос
+      await this.create({ targetType, targetId, voteType, visitorId, ipAddress });
+      return { action: 'changed', oldVoteType: existingVote.voteType, voteType };
     }
   } else {
-    // Новый голос - используем findOneAndUpdate с upsert для атомарности
+    // Новый голос
     try {
-      await this.create({
-        targetType,
-        targetId,
-        voteType,
-        visitorId,
-        ipAddress
-      });
+      await this.create({ targetType, targetId, voteType, visitorId, ipAddress });
       return { action: 'added', voteType };
     } catch (err) {
-      // Если duplicate key error - значит голос уже есть (race condition)
       if (err.code === 11000) {
-        // Повторно вызываем vote для обработки существующего голоса
+        // Race condition - повторить
         return this.vote(targetType, targetId, voteType, visitorId, ipAddress);
       }
       throw err;
@@ -98,38 +84,43 @@ blogVoteSchema.statics.vote = async function(targetType, targetId, voteType, vis
   }
 };
 
-// Статический метод: обновить счётчики лайков/дизлайков для поста
+// Статический метод: обновить счётчики (оптимизировано - 1 aggregation + 1 update)
 blogVoteSchema.statics.updatePostVotes = async function(postId) {
   const BlogPost = mongoose.model('BlogPost');
 
-  const [likesResult, dislikesResult] = await Promise.all([
-    this.countDocuments({ targetType: 'post', targetId: postId, voteType: 'like' }),
-    this.countDocuments({ targetType: 'post', targetId: postId, voteType: 'dislike' })
+  // Одна агрегация вместо двух countDocuments
+  const results = await this.aggregate([
+    { $match: { targetType: 'post', targetId: postId } },
+    { $group: { _id: '$voteType', count: { $sum: 1 } } }
   ]);
 
-  await BlogPost.findByIdAndUpdate(postId, {
-    likes: likesResult,
-    dislikes: dislikesResult
+  const counts = { likes: 0, dislikes: 0 };
+  results.forEach(r => {
+    if (r._id === 'like') counts.likes = r.count;
+    if (r._id === 'dislike') counts.dislikes = r.count;
   });
 
-  return { likes: likesResult, dislikes: dislikesResult };
+  await BlogPost.findByIdAndUpdate(postId, counts);
+  return counts;
 };
 
-// Статический метод: обновить счётчики лайков/дизлайков для комментария
+// Статический метод: обновить счётчики комментария (оптимизировано)
 blogVoteSchema.statics.updateCommentVotes = async function(commentId) {
   const BlogComment = mongoose.model('BlogComment');
 
-  const [likesResult, dislikesResult] = await Promise.all([
-    this.countDocuments({ targetType: 'comment', targetId: commentId, voteType: 'like' }),
-    this.countDocuments({ targetType: 'comment', targetId: commentId, voteType: 'dislike' })
+  const results = await this.aggregate([
+    { $match: { targetType: 'comment', targetId: commentId } },
+    { $group: { _id: '$voteType', count: { $sum: 1 } } }
   ]);
 
-  await BlogComment.findByIdAndUpdate(commentId, {
-    likes: likesResult,
-    dislikes: dislikesResult
+  const counts = { likes: 0, dislikes: 0 };
+  results.forEach(r => {
+    if (r._id === 'like') counts.likes = r.count;
+    if (r._id === 'dislike') counts.dislikes = r.count;
   });
 
-  return { likes: likesResult, dislikes: dislikesResult };
+  await BlogComment.findByIdAndUpdate(commentId, counts);
+  return counts;
 };
 
 // Статический метод: получить голос пользователя
