@@ -1263,7 +1263,7 @@
 
       try {
         // Test credentials with stats endpoint
-        const response = await fetch(`${API_BASE}/admin/stats`, {
+        const response = await fetch(`${API_BASE}/api/admin/stats`, {
           headers: { 'Authorization': `Basic ${credentials}` }
         });
 
@@ -1304,7 +1304,7 @@
 
     async function loadDashboardData() {
       try {
-        const response = await fetch(`${API_BASE}/admin/stats`, {
+        const response = await fetch(`${API_BASE}/api/admin/stats`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -1414,7 +1414,7 @@
       document.getElementById('dealsTable').style.display = 'none';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/deals?${params}`, {
+        const response = await fetch(`${API_BASE}/api/admin/deals?${params}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -1475,7 +1475,7 @@
       document.getElementById('usersTable').style.display = 'none';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/users?${params}`, {
+        const response = await fetch(`${API_BASE}/api/admin/users?${params}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -1537,7 +1537,7 @@
       document.getElementById('logsTable').style.display = 'none';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/logs?${params}`, {
+        const response = await fetch(`${API_BASE}/api/admin/logs?${params}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -1647,7 +1647,7 @@
       document.getElementById('disputesTable').style.display = 'none';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/disputes?${params}`, {
+        const response = await fetch(`${API_BASE}/api/admin/disputes?${params}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -1728,7 +1728,7 @@
       content.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b;">Загрузка...</div>';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/deals?search=${dealId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/deals?search=${dealId}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
         const data = await response.json();
@@ -1982,7 +1982,7 @@
       const decision = winner === 'buyer' ? 'refund_buyer' : 'release_seller';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/resolve`, {
+        const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/resolve`, {
           method: 'POST',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2015,7 +2015,7 @@
       if (banned && !reason) return;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/users/${telegramId}/ban`, {
+        const response = await fetch(`${API_BASE}/api/admin/users/${telegramId}/ban`, {
           method: 'POST',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2042,7 +2042,7 @@
     // View dispute details
     async function viewDisputeDetails(disputeId) {
       try {
-        const response = await fetch(`${API_BASE}/admin/disputes/${disputeId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/disputes/${disputeId}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2233,7 +2233,7 @@
       if (!confirm(confirmMsg)) return;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/resolve`, {
+        const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/resolve`, {
           method: 'POST',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2270,7 +2270,7 @@
       if (!confirm('Cancel this dispute? The deal will return to previous state.')) return;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/cancel`, {
+        const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/cancel`, {
           method: 'POST',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2306,7 +2306,7 @@
       if (!confirm('Return this dispute to "In Progress"? Both parties will be able to continue working on the deal.')) return;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/disputes/${currentDisputeId}/return-to-progress`, {
+        const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/return-to-progress`, {
           method: 'POST',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2419,7 +2419,7 @@
       document.getElementById('platformsTable').style.display = 'none';
 
       try {
-        const response = await fetch(`${API_BASE}/admin/platforms`, {
+        const response = await fetch(`${API_BASE}/api/admin/platforms`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2526,7 +2526,7 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE}/admin/platforms`, {
+        const response = await fetch(`${API_BASE}/api/admin/platforms`, {
           method: 'POST',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2552,7 +2552,7 @@
 
     async function showPlatformDetails(platformId) {
       try {
-        const response = await fetch(`${API_BASE}/admin/platforms/${platformId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/platforms/${platformId}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2619,7 +2619,7 @@
       if (!confirm(`Are you sure you want to ${action} this platform?`)) return;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/platforms/${platformId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/platforms/${platformId}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Basic ${authCredentials}`,
@@ -2654,7 +2654,7 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE}/admin/platforms/${platformId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/platforms/${platformId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Basic ${authCredentials}`
@@ -2692,7 +2692,7 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE}/admin/export/deal/${dealId}?userIdentifier=${encodeURIComponent(userIdentifier)}`, {
+        const response = await fetch(`${API_BASE}/api/admin/export/deal/${dealId}?userIdentifier=${encodeURIComponent(userIdentifier)}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2738,7 +2738,7 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE}/admin/export/user/${encodeURIComponent(userIdentifier)}`, {
+        const response = await fetch(`${API_BASE}/api/admin/export/user/${encodeURIComponent(userIdentifier)}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2782,7 +2782,7 @@
 
     async function loadExportLogs() {
       try {
-        const response = await fetch(`${API_BASE}/admin/export/logs`, {
+        const response = await fetch(`${API_BASE}/api/admin/export/logs`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2885,7 +2885,7 @@
 
     async function downloadExportLog(logId) {
       try {
-        const response = await fetch(`${API_BASE}/admin/export/download/${logId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/export/download/${logId}`, {
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
 
@@ -2921,7 +2921,7 @@
       if (!confirm('Удалить экспорт и файл?')) return;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/export/logs/${logId}`, {
+        const response = await fetch(`${API_BASE}/api/admin/export/logs/${logId}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Basic ${authCredentials}` }
         });
