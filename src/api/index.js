@@ -23,6 +23,9 @@ const blogPublicRoutes = require('../web/routes/blogPublic');
 const app = express();
 const PORT = process.env.API_PORT || 3000;
 
+// Trust proxy (nginx)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: false // Allow inline scripts for admin panel
