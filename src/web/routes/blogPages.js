@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 
 // Models
 const BlogSettings = require('../../models/BlogSettings');
@@ -7,6 +8,7 @@ const BlogCategory = require('../../models/BlogCategory');
 const BlogTag = require('../../models/BlogTag');
 const BlogPost = require('../../models/BlogPost');
 const BlogComment = require('../../models/BlogComment');
+const BlogView = require('../../models/BlogView');
 
 // Helper functions for rendering
 const escapeHtml = (str) => {
@@ -26,6 +28,102 @@ const formatDate = (date) => {
 const stripHtml = (html) => {
   if (!html) return '';
   return html.replace(/<[^>]*>/g, '').trim();
+};
+
+// Generate visitor fingerprint from request
+const getVisitorId = (req) => {
+  const data = [
+    req.ip,
+    req.headers['user-agent'] || '',
+    req.headers['accept-language'] || ''
+  ].join('|');
+  return crypto.createHash('md5').update(data).digest('hex');
+};
+
+// Auto-generate excerpt from content (150 chars)
+const generateExcerpt = (content, summary, maxLength = 150) => {
+  if (summary && summary.trim()) {
+    return summary.length > maxLength ? summary.substring(0, maxLength) + '...' : summary;
+  }
+  const text = stripHtml(content);
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+};
+
+// Extract headings for Table of Contents
+const extractTOC = (content) => {
+  const headingRegex = /<h([2-4])[^>]*(?:id="([^"]*)")?[^>]*>(.*?)<\/h\1>/gi;
+  const toc = [];
+  let match;
+  let index = 0;
+
+  while ((match = headingRegex.exec(content)) !== null) {
+    const level = parseInt(match[1]);
+    const existingId = match[2];
+    const text = stripHtml(match[3]);
+    const id = existingId || `heading-${index}`;
+    toc.push({ level, text, id, index });
+    index++;
+  }
+
+  return toc;
+};
+
+// Add IDs to headings in content
+const addHeadingIds = (content) => {
+  let index = 0;
+  return content.replace(/<h([2-4])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, text) => {
+    if (attrs.includes('id="')) {
+      return match;
+    }
+    const id = `heading-${index++}`;
+    return `<h${level} id="${id}"${attrs}>${text}</h${level}>`;
+  });
+};
+
+// Insert interlinks between paragraphs
+const insertInterlinks = (content, relatedPosts, currentPostId) => {
+  if (!relatedPosts || relatedPosts.length === 0) return content;
+
+  // Filter out current post and get max 2 posts for interlinking
+  const postsForLinks = relatedPosts
+    .filter(p => p._id.toString() !== currentPostId?.toString())
+    .slice(0, 2);
+
+  if (postsForLinks.length === 0) return content;
+
+  // Find paragraph positions
+  const paragraphs = content.split('</p>');
+  if (paragraphs.length < 4) return content;
+
+  // Insert links after ~1/3 and ~2/3 of content
+  const positions = [
+    Math.floor(paragraphs.length / 3),
+    Math.floor(paragraphs.length * 2 / 3)
+  ];
+
+  let result = [];
+  let linkIndex = 0;
+
+  paragraphs.forEach((p, i) => {
+    result.push(p);
+    if (i < paragraphs.length - 1) {
+      result.push('</p>');
+    }
+
+    if (positions.includes(i) && linkIndex < postsForLinks.length) {
+      const post = postsForLinks[linkIndex];
+      const interlink = `
+        <div class="interlink-box">
+          <span class="interlink-label">Читайте также:</span>
+          <a href="/blog/${post.slug}" class="interlink-title">${escapeHtml(post.title)}</a>
+        </div>
+      `;
+      result.push(interlink);
+      linkIndex++;
+    }
+  });
+
+  return result.join('');
 };
 
 // Generate sidebar HTML
@@ -57,22 +155,35 @@ function renderSidebar(data, currentPath = '') {
         <h3 class="widget-title">📁 Категории</h3>
         <ul class="category-list">
           ${categories.map(cat => `
-            <li class="${currentPath === '/blog/category/' + cat.slug ? 'active' : ''}">
-              <a href="/blog/category/${cat.slug}">${escapeHtml(cat.name)}</a>
+            <li class="${currentPath === '/category/' + cat.slug ? 'active' : ''}">
+              <a href="/category/${cat.slug}">${escapeHtml(cat.name)}</a>
               <span class="count">${cat.postsCount}</span>
             </li>
           `).join('')}
         </ul>
       </div>
 
-      <!-- Recent Posts -->
+      <!-- Recent Posts with thumbnails -->
       <div class="sidebar-widget">
         <h3 class="widget-title">📝 Последние статьи</h3>
-        <ul class="recent-posts">
+        <ul class="recent-posts-list">
           ${recentPosts.map(post => `
-            <li>
-              <a href="/blog/${post.slug}">${escapeHtml(post.title)}</a>
-              <span class="date">${formatDate(post.publishedAt)}</span>
+            <li class="recent-post-item">
+              <a href="/blog/${post.slug}" class="recent-post-link">
+                ${post.coverImage ? `
+                  <div class="recent-post-thumb">
+                    <img src="${post.coverImage}" alt="${escapeHtml(post.title)}" loading="lazy">
+                  </div>
+                ` : `
+                  <div class="recent-post-thumb recent-post-thumb-empty">
+                    <span>📄</span>
+                  </div>
+                `}
+                <div class="recent-post-info">
+                  <span class="recent-post-title">${escapeHtml(post.title)}</span>
+                  <span class="recent-post-date">${formatDate(post.publishedAt)}</span>
+                </div>
+              </a>
             </li>
           `).join('')}
         </ul>
@@ -95,6 +206,8 @@ function renderSidebar(data, currentPath = '') {
 
 // Generate post card HTML
 function renderPostCard(post) {
+  const excerpt = generateExcerpt(post.content, post.summary, 150);
+
   return `
     <article class="post-card">
       <a href="/blog/${post.slug}" class="post-card-link">
@@ -109,14 +222,65 @@ function renderPostCard(post) {
             <span class="post-date">${formatDate(post.publishedAt)}</span>
           </div>
           <h2 class="post-card-title">${escapeHtml(post.title)}</h2>
-          ${post.summary ? `<p class="post-card-summary">${escapeHtml(post.summary)}</p>` : ''}
+          <p class="post-card-summary">${escapeHtml(excerpt)}</p>
           <div class="post-card-footer">
+            <span class="post-stats">👁 ${post.views || 0}</span>
             <span class="post-stats">👍 ${post.likes || 0}</span>
             <span class="post-stats">💬 ${post.commentsCount || 0}</span>
           </div>
         </div>
       </a>
     </article>
+  `;
+}
+
+// Generate related posts HTML
+function renderRelatedPosts(posts) {
+  if (!posts || posts.length === 0) return '';
+
+  return `
+    <section class="related-posts">
+      <h2 class="related-posts-title">Похожие статьи</h2>
+      <div class="related-posts-grid">
+        ${posts.map(post => `
+          <a href="/blog/${post.slug}" class="related-post-card">
+            ${post.coverImage ? `
+              <div class="related-post-image">
+                <img src="${post.coverImage}" alt="${escapeHtml(post.title)}" loading="lazy">
+              </div>
+            ` : ''}
+            <div class="related-post-content">
+              <h3 class="related-post-title">${escapeHtml(post.title)}</h3>
+              <span class="related-post-date">${formatDate(post.publishedAt)}</span>
+            </div>
+          </a>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+// Generate Table of Contents HTML
+function renderTOC(toc) {
+  if (!toc || toc.length === 0) return '';
+
+  return `
+    <div class="toc-wrapper">
+      <button class="toc-toggle" onclick="toggleTOC()">
+        <span class="toc-toggle-icon">📑</span>
+        <span class="toc-toggle-text">Содержание</span>
+        <span class="toc-toggle-arrow">▼</span>
+      </button>
+      <nav class="toc-content" id="tocContent">
+        <ul class="toc-list">
+          ${toc.map(item => `
+            <li class="toc-item toc-level-${item.level}">
+              <a href="#${item.id}">${escapeHtml(item.text)}</a>
+            </li>
+          `).join('')}
+        </ul>
+      </nav>
+    </div>
   `;
 }
 
@@ -159,12 +323,12 @@ function generateBlogSchema(settings) {
   };
 }
 
-function generateArticleSchema(post, comments = []) {
+function generateArticleSchema(post, comments = [], toc = []) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
     'headline': post.title,
-    'description': post.seoDescription || post.summary,
+    'description': post.seoDescription || post.summary || stripHtml(post.content).substring(0, 160),
     'image': post.coverImage || '',
     'datePublished': post.publishedAt,
     'dateModified': post.updatedAt,
@@ -183,10 +347,50 @@ function generateArticleSchema(post, comments = []) {
     'mainEntityOfPage': {
       '@type': 'WebPage',
       '@id': post.canonical || `https://keyshield.me/blog/${post.slug}`
-    }
+    },
+    'interactionStatistic': [
+      {
+        '@type': 'InteractionCounter',
+        'interactionType': 'https://schema.org/LikeAction',
+        'userInteractionCount': post.likes || 0
+      },
+      {
+        '@type': 'InteractionCounter',
+        'interactionType': 'https://schema.org/ViewAction',
+        'userInteractionCount': post.views || 0
+      },
+      {
+        '@type': 'InteractionCounter',
+        'interactionType': 'https://schema.org/CommentAction',
+        'userInteractionCount': post.commentsCount || 0
+      }
+    ]
   };
 
-  // Add comments if any
+  // Add aggregate rating if has likes
+  if (post.likes > 0 || post.dislikes > 0) {
+    const total = (post.likes || 0) + (post.dislikes || 0);
+    const rating = total > 0 ? ((post.likes || 0) / total * 4 + 1).toFixed(1) : 5;
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      'ratingValue': rating,
+      'bestRating': '5',
+      'worstRating': '1',
+      'ratingCount': total
+    };
+  }
+
+  // Add TOC
+  if (toc && toc.length > 0) {
+    schema.hasPart = toc.map((item, i) => ({
+      '@type': 'WebPageElement',
+      'name': item.text,
+      'url': `https://keyshield.me/blog/${post.slug}#${item.id}`,
+      'position': i + 1
+    }));
+  }
+
+  // Add comments
   if (comments.length > 0) {
     schema.comment = comments.map(c => ({
       '@type': 'Comment',
@@ -194,6 +398,7 @@ function generateArticleSchema(post, comments = []) {
       'dateCreated': c.createdAt,
       'text': c.content
     }));
+    schema.commentCount = comments.length;
   }
 
   return schema;
@@ -246,7 +451,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="stylesheet" href="/css/style.css?v=11">
-  <link rel="stylesheet" href="/css/blog.css?v=3">
+  <link rel="stylesheet" href="/css/blog.css?v=4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -350,65 +555,79 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       </div>
     </div>
   </footer>
-
   <script src="/js/main.js"></script>
   <script>
-    // Visitor ID for voting
-    function getVisitorId() {
-      let id = localStorage.getItem('visitorId');
-      if (!id) {
-        id = 'v_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-        localStorage.setItem('visitorId', id);
+    // TOC toggle
+    function toggleTOC() {
+      const content = document.getElementById('tocContent');
+      const arrow = document.querySelector('.toc-toggle-arrow');
+      if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        arrow.textContent = '▼';
+      } else {
+        content.classList.add('open');
+        arrow.textContent = '▲';
       }
-      return id;
     }
 
-    // Vote on post/comment
+    // Category description toggle
+    function toggleCategoryDescription() {
+      const desc = document.getElementById('categoryDescription');
+      const btn = document.querySelector('.category-desc-toggle');
+      if (desc.classList.contains('expanded')) {
+        desc.classList.remove('expanded');
+        btn.textContent = 'Читать далее';
+      } else {
+        desc.classList.add('expanded');
+        btn.textContent = 'Свернуть';
+      }
+    }
+
+    // Voting with fingerprint
     async function vote(type, id, voteType) {
       try {
-        const endpoint = type === 'post'
-          ? '/api/blog/posts/' + id + '/vote'
-          : '/api/blog/comments/' + id + '/vote';
-
-        const res = await fetch(endpoint, {
+        const res = await fetch('/api/blog/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ voteType, visitorId: getVisitorId() })
+          body: JSON.stringify({ type, id, voteType })
         });
         const data = await res.json();
         if (data.success) {
-          // Update UI
-          const likesEl = document.getElementById(type + '-likes-' + id);
-          const dislikesEl = document.getElementById(type + '-dislikes-' + id);
-          if (likesEl) likesEl.textContent = data.votes.likes;
-          if (dislikesEl) dislikesEl.textContent = data.votes.dislikes;
+          document.getElementById(type + '-likes-' + id).textContent = data.likes;
+          document.getElementById(type + '-dislikes-' + id).textContent = data.dislikes;
         }
       } catch (err) {
         console.error('Vote error:', err);
       }
     }
 
-    // Submit comment
-    async function submitComment(e, slug) {
-      e.preventDefault();
-      const form = e.target;
-      const name = form.querySelector('[name="authorName"]').value;
-      const email = form.querySelector('[name="authorEmail"]').value;
-      const content = form.querySelector('[name="content"]').value;
-      const honeypot = form.querySelector('[name="website"]').value;
+    // Comment submission
+    async function submitComment(event, postSlug) {
+      event.preventDefault();
+      const form = event.target;
+      const formData = new FormData(form);
+
+      // Honeypot check
+      if (formData.get('website')) {
+        return;
+      }
 
       try {
-        const res = await fetch('/api/blog/posts/' + slug + '/comments', {
+        const res = await fetch('/api/blog/posts/' + postSlug + '/comments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ authorName: name, authorEmail: email, content, honeypot })
+          body: JSON.stringify({
+            authorName: formData.get('authorName'),
+            authorEmail: formData.get('authorEmail'),
+            content: formData.get('content')
+          })
         });
         const data = await res.json();
         if (data.success) {
           alert('Комментарий отправлен на модерацию!');
           form.reset();
         } else {
-          alert(data.error || 'Ошибка');
+          alert(data.error || 'Ошибка отправки комментария');
         }
       } catch (err) {
         alert('Ошибка соединения');
@@ -419,36 +638,34 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 </html>`;
 }
 
-// ==========================================
-// ROUTES
-// ==========================================
+// ===================== ROUTES =====================
 
 // GET /blog - Main blog page
 router.get('/', async (req, res) => {
   try {
     const { page = 1, sort = 'newest', q } = req.query;
-    const settings = await BlogSettings.getSettings();
-    const sidebarData = await getSidebarData();
+    const settings = await BlogSettings.get() || {};
 
-    let posts, total, totalPages;
+    let result;
+    let total = 0;
 
     if (q) {
       // Search
-      posts = await BlogPost.search(q, 20);
+      const posts = await BlogPost.search(q, 20);
+      result = { posts, total: posts.length, page: 1, totalPages: 1 };
       total = posts.length;
-      totalPages = 1;
     } else {
-      const result = await BlogPost.getPublished({
+      result = await BlogPost.getPublished({
         page: parseInt(page),
         limit: 6,
         sort
       });
-      posts = result.posts;
       total = result.total;
-      totalPages = result.totalPages;
     }
 
-    // Filters HTML
+    const { posts, totalPages } = result;
+    const sidebarData = await getSidebarData();
+
     const filtersHtml = `
       <div class="blog-filters">
         <a href="/blog?sort=newest" class="filter-btn ${sort === 'newest' ? 'active' : ''}">Новые</a>
@@ -457,7 +674,6 @@ router.get('/', async (req, res) => {
       </div>
     `;
 
-    // Posts grid
     const postsHtml = posts.length > 0
       ? `<div class="posts-grid">${posts.map(renderPostCard).join('')}</div>`
       : `<div class="empty-state">Статьи не найдены</div>`;
@@ -497,80 +713,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /blog/category/:slug - Category page
-router.get('/category/:slug', async (req, res) => {
-  try {
-    const { page = 1, sort = 'newest' } = req.query;
-    const category = await BlogCategory.findOne({ slug: req.params.slug }).lean();
-
-    if (!category) {
-      return res.status(404).send('Категория не найдена');
-    }
-
-    const result = await BlogPost.getPublished({
-      page: parseInt(page),
-      limit: 6,
-      sort,
-      category: category._id
-    });
-
-    const sidebarData = await getSidebarData();
-
-    const breadcrumbs = [
-      { name: 'Главная', url: '/' },
-      { name: 'Блог', url: '/blog' },
-      { name: category.name, url: `/blog/category/${category.slug}` }
-    ];
-
-    const filtersHtml = `
-      <div class="blog-filters">
-        <a href="/blog/category/${category.slug}?sort=newest" class="filter-btn ${sort === 'newest' ? 'active' : ''}">Новые</a>
-        <a href="/blog/category/${category.slug}?sort=popular" class="filter-btn ${sort === 'popular' ? 'active' : ''}">Популярные</a>
-        <a href="/blog/category/${category.slug}?sort=oldest" class="filter-btn ${sort === 'oldest' ? 'active' : ''}">Старые</a>
-      </div>
-    `;
-
-    const postsHtml = result.posts.length > 0
-      ? `<div class="posts-grid">${result.posts.map(renderPostCard).join('')}</div>`
-      : `<div class="empty-state">В этой категории пока нет статей</div>`;
-
-    const content = `
-      ${category.description ? `<div class="category-description">${category.description}</div>` : ''}
-      ${filtersHtml}
-      ${postsHtml}
-      ${renderPagination(parseInt(page), result.totalPages, `/blog/category/${category.slug}`)}
-    `;
-
-    const schemas = [
-      generateBreadcrumbSchema(breadcrumbs),
-      {
-        '@context': 'https://schema.org',
-        '@type': 'CollectionPage',
-        'name': category.name,
-        'description': category.seoDescription || stripHtml(category.description),
-        'url': category.canonical || `https://keyshield.me/blog/category/${category.slug}`
-      }
-    ];
-
-    res.send(renderPage({
-      title: category.seoTitle || `${category.name} - Блог KeyShield`,
-      description: category.seoDescription || `Статьи в категории ${category.name}`,
-      canonical: category.canonical || `https://keyshield.me/blog/category/${category.slug}`,
-      ogImage: category.coverImage,
-      schemas,
-      breadcrumbs,
-      heroTitle: category.name,
-      heroImage: category.coverImage,
-      heroDescription: null,
-      content,
-      sidebar: renderSidebar(sidebarData, `/blog/category/${category.slug}`)
-    }));
-  } catch (error) {
-    console.error('Error rendering category page:', error);
-    res.status(500).send('Internal server error');
-  }
-});
-
 // GET /blog/:slug - Post page
 router.get('/:slug', async (req, res) => {
   try {
@@ -585,8 +727,36 @@ router.get('/:slug', async (req, res) => {
       return res.status(404).send('Статья не найдена');
     }
 
-    // Increment views
-    BlogPost.findByIdAndUpdate(post._id, { $inc: { views: 1 } }).exec();
+    // Track unique views
+    const visitorId = getVisitorId(req);
+    try {
+      const BlogView = require('../../models/BlogView');
+      await BlogView.trackView(post._id, visitorId, req.ip);
+    } catch (e) {
+      // Fallback: just increment
+      BlogPost.findByIdAndUpdate(post._id, { $inc: { views: 1 } }).exec();
+    }
+
+    // Get related posts (same category, popular first, then recent)
+    const relatedPosts = await BlogPost.find({
+      _id: { $ne: post._id },
+      status: 'published',
+      category: post.category?._id
+    })
+      .select('title slug coverImage publishedAt views likes')
+      .sort({ likes: -1, views: -1, publishedAt: -1 })
+      .limit(4)
+      .lean();
+
+    // Get posts for interlinking (oldest popular posts from same category + most popular overall)
+    const interlinkPosts = await BlogPost.find({
+      _id: { $ne: post._id },
+      status: 'published'
+    })
+      .select('title slug')
+      .sort({ publishedAt: 1, likes: -1 })
+      .limit(5)
+      .lean();
 
     const [comments, sidebarData] = await Promise.all([
       BlogComment.getByPost(post._id),
@@ -596,21 +766,36 @@ router.get('/:slug', async (req, res) => {
     const breadcrumbs = [
       { name: 'Главная', url: '/' },
       { name: 'Блог', url: '/blog' },
-      { name: post.category?.name || 'Категория', url: `/blog/category/${post.category?.slug}` },
+      { name: post.category?.name || 'Категория', url: `/category/${post.category?.slug}` },
       { name: post.title, url: `/blog/${post.slug}` }
     ];
+
+    // Extract TOC and add heading IDs
+    const toc = extractTOC(post.content);
+    let processedContent = addHeadingIds(post.content);
+
+    // Insert interlinks
+    processedContent = insertInterlinks(processedContent, interlinkPosts, post._id);
 
     // Article content
     const articleHtml = `
       <article class="post-article">
         <div class="post-meta">
-          ${post.category ? `<a href="/blog/category/${post.category.slug}" class="post-category-link">${escapeHtml(post.category.name)}</a>` : ''}
+          ${post.category ? `<a href="/category/${post.category.slug}" class="post-category-link">${escapeHtml(post.category.name)}</a>` : ''}
           <span class="post-date">${formatDate(post.publishedAt)}</span>
           <span class="post-views">👁 ${post.views || 0} просмотров</span>
         </div>
 
+        ${post.coverImage ? `
+          <div class="post-cover-image">
+            <img src="${post.coverImage}" alt="${escapeHtml(post.coverImageAlt || post.title)}">
+          </div>
+        ` : ''}
+
+        ${renderTOC(toc)}
+
         <div class="post-content">
-          ${post.content}
+          ${processedContent}
         </div>
 
         ${post.tags && post.tags.length > 0 ? `
@@ -643,6 +828,8 @@ router.get('/:slug', async (req, res) => {
           </div>
         ` : ''}
       </article>
+
+      ${renderRelatedPosts(relatedPosts)}
 
       <!-- Comments -->
       <section class="comments-section">
@@ -698,8 +885,8 @@ router.get('/:slug', async (req, res) => {
     `;
 
     const schemas = [
-      generateBreadcrumbSchema(breadcrumbs),
-      generateArticleSchema(post, comments)
+      generateBreadcrumbSchema(breadcrumbs.map(b => ({ ...b, url: b.url.startsWith('http') ? b.url : `https://keyshield.me${b.url}` }))),
+      generateArticleSchema(post, comments, toc)
     ];
 
     if (post.faq && post.faq.length > 0) {
@@ -708,7 +895,7 @@ router.get('/:slug', async (req, res) => {
 
     res.send(renderPage({
       title: post.seoTitle || post.title,
-      description: post.seoDescription || post.summary || stripHtml(post.content).substring(0, 160),
+      description: post.seoDescription || generateExcerpt(post.content, post.summary, 160),
       canonical: post.canonical || `https://keyshield.me/blog/${post.slug}`,
       ogImage: post.coverImage,
       schemas,

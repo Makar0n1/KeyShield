@@ -30,3 +30,29 @@ const observer = new IntersectionObserver((entries) => {
 document.querySelectorAll('.feature-card, .step, .pricing-card').forEach(el => {
     observer.observe(el);
 });
+
+// Toggle Table of Contents
+function toggleTOC() {
+    const wrapper = document.querySelector('.toc-wrapper');
+    if (wrapper) {
+        wrapper.classList.toggle('open');
+    }
+}
+
+// Toggle Category Description
+function toggleCategoryDescription() {
+    const wrapper = document.querySelector('.category-description-wrapper');
+    if (wrapper) {
+        wrapper.classList.toggle('open');
+    }
+}
+
+// Toggle mobile menu
+function toggleMobileMenu() {
+    const nav = document.getElementById('mobileNav');
+    const toggle = document.querySelector('.mobile-menu-toggle');
+    if (nav && toggle) {
+        nav.classList.toggle('active');
+        toggle.classList.toggle('active');
+    }
+}

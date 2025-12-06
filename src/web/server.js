@@ -19,6 +19,7 @@ const partnerRoutes = require('./routes/partner');
 const blogAdminRoutes = require('./routes/blog');
 const blogPublicRoutes = require('./routes/blogPublic');
 const blogPages = require('./routes/blogPages');
+const categoryPages = require('./routes/categoryPages');
 const tagPages = require('./routes/tagPages');
 
 const app = express();
@@ -93,6 +94,7 @@ app.use('/api/blog', blogPublicRoutes);
 
 // Blog pages (SSR)
 app.use('/blog', blogPages);
+app.use('/category', categoryPages);
 app.use('/tag', tagPages);
 
 // Basic auth for admin panel

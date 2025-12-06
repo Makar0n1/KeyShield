@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 // Models
-const BlogTag = require('../../models/BlogTag');
-const BlogPost = require('../../models/BlogPost');
 const BlogCategory = require('../../models/BlogCategory');
+const BlogPost = require('../../models/BlogPost');
+const BlogTag = require('../../models/BlogTag');
 
 // Helper functions
 const escapeHtml = (str) => {
@@ -61,7 +61,7 @@ function renderSidebar(data, currentPath = '') {
         <h3 class="widget-title">📁 Категории</h3>
         <ul class="category-list">
           ${categories.map(cat => `
-            <li>
+            <li class="${currentPath === '/category/' + cat.slug ? 'active' : ''}">
               <a href="/category/${cat.slug}">${escapeHtml(cat.name)}</a>
               <span class="count">${cat.postsCount}</span>
             </li>
@@ -97,7 +97,7 @@ function renderSidebar(data, currentPath = '') {
           <h3 class="widget-title">🏷️ Теги</h3>
           <div class="tag-cloud">
             ${tags.map(tag => `
-              <a href="/tag/${tag.slug}" class="tag-link ${currentPath === '/tag/' + tag.slug ? 'active' : ''}">${escapeHtml(tag.name)}</a>
+              <a href="/tag/${tag.slug}" class="tag-link">${escapeHtml(tag.name)}</a>
             `).join('')}
           </div>
         </div>
@@ -160,6 +160,33 @@ function renderPagination(currentPage, totalPages, baseUrl) {
 
   html += '</div>';
   return html;
+}
+
+// Collapsible category description (max 500 chars preview)
+function renderCategoryDescription(description) {
+  if (!description) return '';
+
+  const maxPreview = 500;
+  const text = description;
+
+  if (text.length <= maxPreview) {
+    return `<div class="category-description">${text}</div>`;
+  }
+
+  const preview = text.substring(0, maxPreview);
+  const rest = text.substring(maxPreview);
+
+  return `
+    <div class="category-description-wrapper">
+      <button class="category-description-toggle" onclick="toggleCategoryDescription()">
+        <span>${preview}...</span>
+        <span class="toggle-arrow">▼</span>
+      </button>
+      <div class="category-description-full" id="categoryDescFull">
+        <div class="category-description-full-content">${rest}</div>
+      </div>
+    </div>
+  `;
 }
 
 // Page layout
@@ -281,25 +308,33 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     </div>
   </footer>
   <script src="/js/main.js"></script>
+  <script>
+    function toggleCategoryDescription() {
+      const wrapper = document.querySelector('.category-description-wrapper');
+      if (wrapper) {
+        wrapper.classList.toggle('open');
+      }
+    }
+  </script>
 </body>
 </html>`;
 }
 
-// GET /tag/:slug - Tag page
+// GET /category/:slug - Category page
 router.get('/:slug', async (req, res) => {
   try {
     const { page = 1, sort = 'newest' } = req.query;
-    const tag = await BlogTag.findOne({ slug: req.params.slug }).lean();
+    const category = await BlogCategory.findOne({ slug: req.params.slug }).lean();
 
-    if (!tag) {
-      return res.status(404).send('Тег не найден');
+    if (!category) {
+      return res.status(404).send('Категория не найдена');
     }
 
     const result = await BlogPost.getPublished({
       page: parseInt(page),
       limit: 6,
       sort,
-      tag: tag._id
+      category: category._id
     });
 
     const sidebarData = await getSidebarData();
@@ -307,26 +342,26 @@ router.get('/:slug', async (req, res) => {
     const breadcrumbs = [
       { name: 'Главная', url: '/' },
       { name: 'Блог', url: '/blog' },
-      { name: `#${tag.name}`, url: `/tag/${tag.slug}` }
+      { name: category.name, url: `/category/${category.slug}` }
     ];
 
     const filtersHtml = `
       <div class="blog-filters">
-        <a href="/tag/${tag.slug}?sort=newest" class="filter-btn ${sort === 'newest' ? 'active' : ''}">Новые</a>
-        <a href="/tag/${tag.slug}?sort=popular" class="filter-btn ${sort === 'popular' ? 'active' : ''}">Популярные</a>
-        <a href="/tag/${tag.slug}?sort=oldest" class="filter-btn ${sort === 'oldest' ? 'active' : ''}">Старые</a>
+        <a href="/category/${category.slug}?sort=newest" class="filter-btn ${sort === 'newest' ? 'active' : ''}">Новые</a>
+        <a href="/category/${category.slug}?sort=popular" class="filter-btn ${sort === 'popular' ? 'active' : ''}">Популярные</a>
+        <a href="/category/${category.slug}?sort=oldest" class="filter-btn ${sort === 'oldest' ? 'active' : ''}">Старые</a>
       </div>
     `;
 
     const postsHtml = result.posts.length > 0
       ? `<div class="posts-grid">${result.posts.map(renderPostCard).join('')}</div>`
-      : `<div class="empty-state">Статьи с этим тегом не найдены</div>`;
+      : `<div class="empty-state">Статьи в этой категории не найдены</div>`;
 
     const content = `
-      ${tag.description ? `<div class="tag-description">${tag.description}</div>` : ''}
+      ${renderCategoryDescription(category.description)}
       ${filtersHtml}
       ${postsHtml}
-      ${renderPagination(parseInt(page), result.totalPages, `/tag/${tag.slug}`)}
+      ${renderPagination(parseInt(page), result.totalPages, `/category/${category.slug}`)}
     `;
 
     const schemas = [
@@ -343,27 +378,27 @@ router.get('/:slug', async (req, res) => {
       {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        'name': `#${tag.name}`,
-        'description': tag.seoDescription || `Статьи с тегом ${tag.name}`,
-        'url': tag.canonical || `https://keyshield.me/tag/${tag.slug}`
+        'name': category.name,
+        'description': category.seoDescription || `Статьи в категории ${category.name}`,
+        'url': category.canonical || `https://keyshield.me/category/${category.slug}`
       }
     ];
 
     res.send(renderPage({
-      title: tag.seoTitle || `#${tag.name} - Блог KeyShield`,
-      description: tag.seoDescription || `Статьи с тегом ${tag.name}`,
-      canonical: tag.canonical || `https://keyshield.me/tag/${tag.slug}`,
-      ogImage: tag.coverImage,
+      title: category.seoTitle || `${category.name} - Блог KeyShield`,
+      description: category.seoDescription || `Статьи в категории ${category.name}`,
+      canonical: category.canonical || `https://keyshield.me/category/${category.slug}`,
+      ogImage: category.coverImage,
       schemas,
       breadcrumbs,
-      heroTitle: `#${tag.name}`,
-      heroImage: tag.coverImage,
+      heroTitle: category.name,
+      heroImage: category.coverImage,
       heroDescription: null,
       content,
-      sidebar: renderSidebar(sidebarData, `/tag/${tag.slug}`)
+      sidebar: renderSidebar(sidebarData, `/category/${category.slug}`)
     }));
   } catch (error) {
-    console.error('Error rendering tag page:', error);
+    console.error('Error rendering category page:', error);
     res.status(500).send('Internal server error');
   }
 });
