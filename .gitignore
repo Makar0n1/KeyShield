@@ -21,7 +21,7 @@ Thumbs.db
 # Uploads (if storing locally)
 uploads/
 media/
-
+public/uploads
 # PDF exports
 exports/
 
