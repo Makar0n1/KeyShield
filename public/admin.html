@@ -1287,6 +1287,8 @@
       errorDiv.style.display = 'block';
     }
 
+    const PAGE_SIZE = 20;
+
     function showDashboard() {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('dashboard').classList.add('active');
@@ -1371,8 +1373,6 @@
         console.error('Failed to load dashboard data:', error);
       }
     }
-
-    const PAGE_SIZE = 20;
 
     // Toggle section and save state to localStorage
     function toggleSection(header, sectionId) {
