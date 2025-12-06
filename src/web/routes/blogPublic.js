@@ -114,13 +114,9 @@ router.post('/vote', async (req, res) => {
     const visitorId = clientVisitorId;
 
     if (type === 'post') {
-      const post = await BlogPost.findById(id);
-      if (!post) {
-        return res.status(404).json({ error: 'Post not found' });
-      }
-
-      await BlogVote.vote('post', post._id, voteType, visitorId, ipAddress);
-      const votes = await BlogVote.updatePostVotes(post._id);
+      // Голосование + инкремент за 2 запроса вместо 5
+      const result = await BlogVote.vote('post', id, voteType, visitorId, ipAddress);
+      const votes = await BlogVote.updatePostVotesIncrement(id, result.delta);
 
       res.json({
         success: true,
@@ -128,13 +124,9 @@ router.post('/vote', async (req, res) => {
         dislikes: votes.dislikes
       });
     } else {
-      const comment = await BlogComment.findById(id);
-      if (!comment) {
-        return res.status(404).json({ error: 'Comment not found' });
-      }
-
-      await BlogVote.vote('comment', comment._id, voteType, visitorId, ipAddress);
-      const votes = await BlogVote.updateCommentVotes(comment._id);
+      // Голосование + инкремент за 2 запроса
+      const result = await BlogVote.vote('comment', id, voteType, visitorId, ipAddress);
+      const votes = await BlogVote.updateCommentVotesIncrement(id, result.delta);
 
       res.json({
         success: true,
