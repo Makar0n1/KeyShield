@@ -102,6 +102,10 @@ const blogPostSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  shares: {
+    type: Number,
+    default: 0
+  },
 
   // FAQ блоки для Schema.org FAQPage
   faq: [{

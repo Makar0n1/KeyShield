@@ -94,7 +94,7 @@ router.get('/posts/:slug', async (req, res) => {
 // POST /api/blog/vote - universal vote endpoint for posts and comments
 router.post('/vote', async (req, res) => {
   try {
-    const { type, id, voteType } = req.body;
+    const { type, id, voteType, visitorId: clientVisitorId } = req.body;
 
     if (!type || !['post', 'comment'].includes(type)) {
       return res.status(400).json({ error: 'Invalid type' });
@@ -105,10 +105,13 @@ router.post('/vote', async (req, res) => {
     if (!voteType || !['like', 'dislike'].includes(voteType)) {
       return res.status(400).json({ error: 'Invalid vote type' });
     }
+    if (!clientVisitorId) {
+      return res.status(400).json({ error: 'Visitor ID required' });
+    }
 
     const ipAddress = req.ip || req.connection.remoteAddress || '';
-    // Use IP as visitorId for simplicity
-    const visitorId = ipAddress;
+    // Use client fingerprint as visitorId for uniqueness
+    const visitorId = clientVisitorId;
 
     if (type === 'post') {
       const post = await BlogPost.findById(id);
@@ -141,6 +144,29 @@ router.post('/vote', async (req, res) => {
     }
   } catch (error) {
     console.error('Error voting:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/blog/share - track share clicks
+router.post('/share', async (req, res) => {
+  try {
+    const { postId } = req.body;
+
+    if (!postId) {
+      return res.status(400).json({ error: 'Post ID required' });
+    }
+
+    const post = await BlogPost.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    await BlogPost.findByIdAndUpdate(postId, { $inc: { shares: 1 } });
+
+    res.json({ success: true, shares: (post.shares || 0) + 1 });
+  } catch (error) {
+    console.error('Error tracking share:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
