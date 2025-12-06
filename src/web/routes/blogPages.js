@@ -498,10 +498,10 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
   <!-- Load full CSS asynchronously -->
   <link rel="preload" href="/css/style.css?v=15" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=13" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=14" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
     <link rel="stylesheet" href="/css/style.css?v=15">
-    <link rel="stylesheet" href="/css/blog.css?v=13">
+    <link rel="stylesheet" href="/css/blog.css?v=14">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->
@@ -821,6 +821,11 @@ router.get('/', async (req, res) => {
         <a href="/blog?sort=newest" class="filter-btn ${sort === 'newest' ? 'active' : ''}">Новые</a>
         <a href="/blog?sort=popular" class="filter-btn ${sort === 'popular' ? 'active' : ''}">Популярные</a>
         <a href="/blog?sort=oldest" class="filter-btn ${sort === 'oldest' ? 'active' : ''}">Старые</a>
+        <select class="filter-select" onchange="window.location.href=this.value">
+          <option value="/blog?sort=newest" ${sort === 'newest' ? 'selected' : ''}>Новые</option>
+          <option value="/blog?sort=popular" ${sort === 'popular' ? 'selected' : ''}>Популярные</option>
+          <option value="/blog?sort=oldest" ${sort === 'oldest' ? 'selected' : ''}>Старые</option>
+        </select>
       </div>
     `;
 
