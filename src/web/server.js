@@ -16,6 +16,10 @@ const ExportLog = require('../models/ExportLog');
 
 // Import routes
 const partnerRoutes = require('./routes/partner');
+const blogAdminRoutes = require('./routes/blog');
+const blogPublicRoutes = require('./routes/blogPublic');
+const blogPages = require('./routes/blogPages');
+const tagPages = require('./routes/tagPages');
 
 const app = express();
 const PORT = process.env.WEB_PORT || 3000;
@@ -50,6 +54,10 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../../public/admin.html'));
 });
 
+app.get('/admin/blog', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/admin-blog.html'));
+});
+
 // Redirect .html URLs to clean URLs
 app.get('*.html', (req, res) => {
   const cleanPath = req.path.replace('.html', '');
@@ -58,6 +66,13 @@ app.get('*.html', (req, res) => {
 
 // Partner routes (before admin auth)
 app.use('/partner', partnerRoutes);
+
+// Public blog API (no auth required)
+app.use('/api/blog', blogPublicRoutes);
+
+// Blog pages (SSR)
+app.use('/blog', blogPages);
+app.use('/tag', tagPages);
 
 // Basic auth for admin panel
 const adminAuth = (req, res, next) => {
@@ -88,6 +103,9 @@ const adminAuth = (req, res, next) => {
 };
 
 // API Routes for Admin Panel
+
+// Blog admin routes (protected by adminAuth)
+app.use('/api/admin/blog', adminAuth, blogAdminRoutes);
 
 // Get all deals with filters
 app.get('/api/admin/deals', adminAuth, async (req, res) => {
