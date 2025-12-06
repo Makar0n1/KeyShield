@@ -35,6 +35,19 @@ const generateExcerpt = (content, summary, maxLength = 150) => {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 };
 
+// Format large numbers (1000 -> 1K, 1000000 -> 1M)
+const formatNumber = (num) => {
+  if (num === null || num === undefined) return '0';
+  num = parseInt(num) || 0;
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  }
+  return num.toString();
+};
+
 // Sidebar data
 async function getSidebarData() {
   const [categories, tags, recentPosts] = await Promise.all([
@@ -125,9 +138,9 @@ function renderPostCard(post) {
           <h2 class="post-card-title">${escapeHtml(post.title)}</h2>
           <p class="post-card-summary">${escapeHtml(excerpt)}</p>
           <div class="post-card-footer">
-            <span class="post-stats">👁 ${post.views || 0}</span>
-            <span class="post-stats">👍 ${post.likes || 0}</span>
-            <span class="post-stats">💬 ${post.commentsCount || 0}</span>
+            <span class="post-stats">👁 ${formatNumber(post.views)}</span>
+            <span class="post-stats">👍 ${formatNumber(post.likes)}</span>
+            <span class="post-stats">💬 ${formatNumber(post.commentsCount)}</span>
           </div>
         </div>
       </a>
@@ -227,11 +240,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=13" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=11" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=14" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=12" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=13">
-    <link rel="stylesheet" href="/css/blog.css?v=11">
+    <link rel="stylesheet" href="/css/style.css?v=14">
+    <link rel="stylesheet" href="/css/blog.css?v=12">
   </noscript>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">

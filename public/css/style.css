@@ -100,7 +100,7 @@ body {
 .mobile-menu-toggle {
     display: block;
     width: 100%;
-    background: var(--dark);
+    background: transparent;
     border: none;
     padding: 10px;
     color: var(--text-muted);
@@ -111,7 +111,7 @@ body {
 
 .mobile-menu-toggle:hover {
     color: var(--primary);
-    background: var(--dark-light);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .mobile-menu-toggle .arrow {

@@ -49,6 +49,19 @@ const generateExcerpt = (content, summary, maxLength = 150) => {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 };
 
+// Format large numbers (1000 -> 1K, 1000000 -> 1M)
+const formatNumber = (num) => {
+  if (num === null || num === undefined) return '0';
+  num = parseInt(num) || 0;
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  }
+  return num.toString();
+};
+
 // Extract headings for Table of Contents (includes H1 from hero title)
 const extractTOC = (content, heroTitle = null) => {
   const toc = [];
@@ -231,9 +244,9 @@ function renderPostCard(post) {
           <h2 class="post-card-title">${escapeHtml(post.title)}</h2>
           <p class="post-card-summary">${escapeHtml(excerpt)}</p>
           <div class="post-card-footer">
-            <span class="post-stats">👁 ${post.views || 0}</span>
-            <span class="post-stats">👍 ${post.likes || 0}</span>
-            <span class="post-stats">💬 ${post.commentsCount || 0}</span>
+            <span class="post-stats">👁 ${formatNumber(post.views)}</span>
+            <span class="post-stats">👍 ${formatNumber(post.likes)}</span>
+            <span class="post-stats">💬 ${formatNumber(post.commentsCount)}</span>
           </div>
         </div>
       </a>
@@ -484,11 +497,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=13" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=11" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=14" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=12" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=13">
-    <link rel="stylesheet" href="/css/blog.css?v=11">
+    <link rel="stylesheet" href="/css/style.css?v=14">
+    <link rel="stylesheet" href="/css/blog.css?v=12">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->
@@ -920,7 +933,7 @@ router.get('/:slug', async (req, res) => {
         <div class="post-meta">
           ${post.category ? `<a href="/category/${post.category.slug}" class="post-category-link">${escapeHtml(post.category.name)}</a>` : ''}
           <span class="post-date">${formatDate(post.publishedAt)}</span>
-          <span class="post-views">👁 ${post.views || 0} просмотров</span>
+          <span class="post-views">👁 ${formatNumber(post.views)}</span>
         </div>
 
         ${post.coverImage ? `
@@ -947,14 +960,14 @@ router.get('/:slug', async (req, res) => {
         <div class="post-actions">
           <div class="post-voting">
             <button onclick="vote('post', '${post._id}', 'like')" class="vote-btn vote-like">
-              👍 <span id="post-likes-${post._id}">${post.likes || 0}</span>
+              👍 <span id="post-likes-${post._id}">${formatNumber(post.likes)}</span>
             </button>
             <button onclick="vote('post', '${post._id}', 'dislike')" class="vote-btn vote-dislike">
-              👎 <span id="post-dislikes-${post._id}">${post.dislikes || 0}</span>
+              👎 <span id="post-dislikes-${post._id}">${formatNumber(post.dislikes)}</span>
             </button>
           </div>
           <div class="post-share">
-            <span class="share-label">Поделиться (<span id="post-shares-${post._id}">${post.shares || 0}</span>):</span>
+            <span class="share-label">Поделиться (<span id="post-shares-${post._id}">${formatNumber(post.shares)}</span>):</span>
             <button onclick="trackShare('${post._id}', 'https://t.me/share/url?url=${encodeURIComponent(`https://keyshield.me/blog/${post.slug}`)}&text=${encodeURIComponent(post.title)}')" class="share-btn share-telegram" title="Поделиться в Telegram">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
             </button>

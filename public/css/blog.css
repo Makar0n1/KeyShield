@@ -1454,13 +1454,70 @@
     padding: 20px;
   }
 
+  /* TOC mobile fix - scrollable content */
+  .toc-wrapper.open .toc-content {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .toc-list {
+    padding: 0 15px 15px;
+  }
+
+  .toc-item a {
+    font-size: 0.85rem;
+    padding: 6px 0;
+  }
+
+  .toc-level-2 {
+    padding-left: 12px;
+  }
+
+  .toc-level-3 {
+    padding-left: 24px;
+  }
+
+  .toc-level-4 {
+    padding-left: 36px;
+  }
+
+  /* Post actions mobile fix - single row */
+  .post-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
   .post-voting {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
   .vote-btn {
-    padding: 10px 20px;
-    font-size: 0.9rem;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    gap: 5px;
+    min-width: auto;
+    flex-shrink: 0;
+  }
+
+  .post-share {
+    gap: 6px;
+  }
+
+  .share-label {
+    display: none;
+  }
+
+  .share-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .share-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
   .recent-post-thumb {
