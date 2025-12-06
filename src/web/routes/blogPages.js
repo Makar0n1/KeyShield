@@ -812,11 +812,11 @@ router.get('/:slug', async (req, res) => {
 
         <!-- Voting -->
         <div class="post-voting">
-          <button onclick="vote('post', '${post.slug}', 'like')" class="vote-btn vote-like">
-            👍 <span id="post-likes-${post.slug}">${post.likes || 0}</span>
+          <button onclick="vote('post', '${post._id}', 'like')" class="vote-btn vote-like">
+            👍 <span id="post-likes-${post._id}">${post.likes || 0}</span>
           </button>
-          <button onclick="vote('post', '${post.slug}', 'dislike')" class="vote-btn vote-dislike">
-            👎 <span id="post-dislikes-${post.slug}">${post.dislikes || 0}</span>
+          <button onclick="vote('post', '${post._id}', 'dislike')" class="vote-btn vote-dislike">
+            👎 <span id="post-dislikes-${post._id}">${post.dislikes || 0}</span>
           </button>
         </div>
 
