@@ -78,13 +78,22 @@ app.use('/tag', tagPages);
 const adminAuth = (req, res, next) => {
   const auth = req.headers['authorization'];
 
+  // Check if it's an API request
+  const isApiRequest = req.path.startsWith('/api/') || req.xhr || req.headers.accept?.includes('application/json');
+
   if (!auth) {
     res.setHeader('WWW-Authenticate', 'Basic');
+    if (isApiRequest) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     return res.status(401).send('Authentication required');
   }
 
   const [scheme, credentials] = auth.split(' ');
   if (scheme !== 'Basic') {
+    if (isApiRequest) {
+      return res.status(401).json({ error: 'Invalid authentication scheme' });
+    }
     return res.status(401).send('Invalid authentication scheme');
   }
 
@@ -98,6 +107,9 @@ const adminAuth = (req, res, next) => {
     next();
   } else {
     res.setHeader('WWW-Authenticate', 'Basic');
+    if (isApiRequest) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     return res.status(401).send('Invalid credentials');
   }
 };

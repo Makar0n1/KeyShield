@@ -1614,6 +1614,13 @@
           headers: { 'Authorization': `Basic ${authCredentials}` },
           body: formData
         });
+
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Server error. Please re-login.');
+        }
+
         const data = await res.json();
         if (data.success) {
           showNotification('Image uploaded!');

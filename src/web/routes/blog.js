@@ -535,8 +535,16 @@ router.delete('/comments/:id', async (req, res) => {
 // --- Media Upload ---
 
 // POST /api/admin/blog/upload
-router.post('/upload', upload.single('image'), async (req, res) => {
-  try {
+router.post('/upload', (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large. Max 5MB allowed.' });
+      }
+      return res.status(400).json({ error: err.message || 'Upload failed' });
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
@@ -549,10 +557,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       originalName: req.file.originalname,
       size: req.file.size
     });
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    res.status(500).json({ error: error.message });
-  }
+  });
 });
 
 // GET /api/admin/blog/media
