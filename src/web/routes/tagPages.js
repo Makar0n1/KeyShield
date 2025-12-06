@@ -302,7 +302,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       </div>
     </div>
   </footer>
-  <script src="/js/main.js"></script>
+  <script src="/js/main.js?v=2"></script>
 </body>
 </html>`;
 }
