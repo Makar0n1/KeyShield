@@ -49,8 +49,12 @@ function toggleDescription(wrapperId) {
     if (wrapper) {
         wrapper.classList.toggle('open');
         const btn = wrapper.querySelector('.toggle-text');
+        const icon = wrapper.querySelector('.toggle-icon');
         if (btn) {
             btn.textContent = wrapper.classList.contains('open') ? 'Свернуть' : 'Читать полностью';
+        }
+        if (icon) {
+            icon.textContent = wrapper.classList.contains('open') ? '▲' : '▼';
         }
     }
 }

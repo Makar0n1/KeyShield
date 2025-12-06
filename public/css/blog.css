@@ -234,6 +234,7 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+  align-self: start; /* Important for sticky in grid */
 }
 
 .blog-sidebar::-webkit-scrollbar {
