@@ -468,7 +468,15 @@ router.get('/', async (req, res) => {
       ${!q ? renderPagination(parseInt(page), totalPages, '/blog') : ''}
     `;
 
-    const schemas = [generateBlogSchema(settings)];
+    const breadcrumbs = [
+      { name: 'Главная', url: '/' },
+      { name: 'Блог', url: '/blog' }
+    ];
+
+    const schemas = [
+      generateBlogSchema(settings),
+      generateBreadcrumbSchema(breadcrumbs.map(b => ({ ...b, url: b.url.startsWith('http') ? b.url : `https://keyshield.me${b.url}` })))
+    ];
 
     res.send(renderPage({
       title: settings.seoTitle || 'Блог KeyShield',
@@ -476,7 +484,7 @@ router.get('/', async (req, res) => {
       canonical: settings.canonical || 'https://keyshield.me/blog',
       ogImage: settings.coverImage,
       schemas,
-      breadcrumbs: null,
+      breadcrumbs,
       heroTitle: settings.title || 'Блог',
       heroImage: settings.coverImage,
       heroDescription: settings.description,
