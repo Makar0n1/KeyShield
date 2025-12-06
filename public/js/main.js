@@ -39,12 +39,21 @@ function toggleTOC() {
     }
 }
 
-// Toggle Category Description
-function toggleCategoryDescription() {
-    const wrapper = document.querySelector('.category-description-wrapper');
+// Toggle Description (category/tag) with gradient fade
+function toggleDescription(wrapperId) {
+    const wrapper = document.getElementById(wrapperId);
     if (wrapper) {
         wrapper.classList.toggle('open');
+        const btn = wrapper.querySelector('.toggle-text');
+        if (btn) {
+            btn.textContent = wrapper.classList.contains('open') ? 'Свернуть' : 'Читать полностью';
+        }
     }
+}
+
+// Legacy support
+function toggleCategoryDescription() {
+    toggleDescription('categoryDescWrapper');
 }
 
 // Toggle mobile menu

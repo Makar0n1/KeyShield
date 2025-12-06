@@ -505,6 +505,14 @@ router.put('/comments/:id', async (req, res) => {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
+    // Update post comments count (findByIdAndUpdate doesn't trigger save hook)
+    if (comment.postId) {
+      const post = await BlogPost.findById(comment.postId._id || comment.postId);
+      if (post) {
+        await post.updateCommentsCount();
+      }
+    }
+
     res.json({ success: true, comment });
   } catch (error) {
     console.error('Error updating comment:', error);
@@ -520,10 +528,20 @@ router.delete('/comments/:id', async (req, res) => {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
+    const postId = comment.postId;
+
     // Delete associated votes
     await BlogVote.deleteMany({ targetType: 'comment', targetId: comment._id });
 
     await comment.deleteOne();
+
+    // Update post comments count
+    if (postId) {
+      const post = await BlogPost.findById(postId);
+      if (post) {
+        await post.updateCommentsCount();
+      }
+    }
 
     res.json({ success: true });
   } catch (error) {

@@ -35,6 +35,28 @@ const generateExcerpt = (content, summary, maxLength = 150) => {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 };
 
+// Collapsible tag description with gradient fade
+function renderTagDescription(description) {
+  if (!description) return '';
+
+  const text = description;
+  const needsCollapse = text.length > 200;
+
+  if (!needsCollapse) {
+    return `<div class="tag-description" style="background: var(--dark-light); border-radius: 12px; padding: 20px; margin-bottom: 30px; border: 1px solid var(--border); color: var(--text); line-height: 1.7;">${text}</div>`;
+  }
+
+  return `
+    <div class="tag-description-wrapper" id="tagDescWrapper">
+      <div class="tag-description-preview">${text}</div>
+      <button class="description-toggle-btn" onclick="toggleDescription('tagDescWrapper')">
+        <span class="toggle-text">Читать полностью</span>
+        <span class="toggle-icon">▼</span>
+      </button>
+    </div>
+  `;
+}
+
 // Sidebar data
 async function getSidebarData() {
   const [categories, tags, recentPosts] = await Promise.all([
@@ -180,7 +202,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="stylesheet" href="/css/style.css?v=11">
-  <link rel="stylesheet" href="/css/blog.css?v=4">
+  <link rel="stylesheet" href="/css/blog.css?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -323,7 +345,7 @@ router.get('/:slug', async (req, res) => {
       : `<div class="empty-state">Статьи с этим тегом не найдены</div>`;
 
     const content = `
-      ${tag.description ? `<div class="tag-description">${tag.description}</div>` : ''}
+      ${renderTagDescription(tag.description)}
       ${filtersHtml}
       ${postsHtml}
       ${renderPagination(parseInt(page), result.totalPages, `/tag/${tag.slug}`)}

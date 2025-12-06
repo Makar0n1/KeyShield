@@ -49,12 +49,19 @@ const generateExcerpt = (content, summary, maxLength = 150) => {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 };
 
-// Extract headings for Table of Contents
-const extractTOC = (content) => {
-  const headingRegex = /<h([2-4])[^>]*(?:id="([^"]*)")?[^>]*>(.*?)<\/h\1>/gi;
+// Extract headings for Table of Contents (includes H1 from hero title)
+const extractTOC = (content, heroTitle = null) => {
   const toc = [];
-  let match;
   let index = 0;
+
+  // Add H1 from hero title as first item
+  if (heroTitle) {
+    toc.push({ level: 1, text: heroTitle, id: 'hero-title', index: index++ });
+  }
+
+  // Extract H2-H4 from content
+  const headingRegex = /<h([2-4])[^>]*(?:id="([^"]*)")?[^>]*>(.*?)<\/h\1>/gi;
+  let match;
 
   while ((match = headingRegex.exec(content)) !== null) {
     const level = parseInt(match[1]);
@@ -451,7 +458,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="stylesheet" href="/css/style.css?v=11">
-  <link rel="stylesheet" href="/css/blog.css?v=4">
+  <link rel="stylesheet" href="/css/blog.css?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -494,7 +501,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <section class="blog-hero" ${heroImage ? `style="background-image: url('${heroImage}')"` : ''}>
     <div class="blog-hero-overlay"></div>
     <div class="container">
-      <h1 class="blog-hero-title">${escapeHtml(heroTitle)}</h1>
+      <h1 id="hero-title" class="blog-hero-title">${escapeHtml(heroTitle)}</h1>
       ${breadcrumbs ? `
         <nav class="breadcrumbs">
           ${breadcrumbs.map((b, i) => i === breadcrumbs.length - 1
@@ -770,8 +777,8 @@ router.get('/:slug', async (req, res) => {
       { name: post.title, url: `/blog/${post.slug}` }
     ];
 
-    // Extract TOC and add heading IDs
-    const toc = extractTOC(post.content);
+    // Extract TOC and add heading IDs (include H1 from hero title)
+    const toc = extractTOC(post.content, post.title);
     let processedContent = addHeadingIds(post.content);
 
     // Insert interlinks

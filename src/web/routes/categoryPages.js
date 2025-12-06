@@ -162,29 +162,24 @@ function renderPagination(currentPage, totalPages, baseUrl) {
   return html;
 }
 
-// Collapsible category description (max 500 chars preview)
+// Collapsible category description with gradient fade
 function renderCategoryDescription(description) {
   if (!description) return '';
 
-  const maxPreview = 500;
   const text = description;
+  const needsCollapse = text.length > 200;
 
-  if (text.length <= maxPreview) {
-    return `<div class="category-description">${text}</div>`;
+  if (!needsCollapse) {
+    return `<div class="category-description" style="background: var(--dark-light); border-radius: 12px; padding: 20px; margin-bottom: 30px; border: 1px solid var(--border); color: var(--text); line-height: 1.7;">${text}</div>`;
   }
 
-  const preview = text.substring(0, maxPreview);
-  const rest = text.substring(maxPreview);
-
   return `
-    <div class="category-description-wrapper">
-      <button class="category-description-toggle" onclick="toggleCategoryDescription()">
-        <span>${preview}...</span>
-        <span class="toggle-arrow">▼</span>
+    <div class="category-description-wrapper" id="categoryDescWrapper">
+      <div class="category-description-preview">${text}</div>
+      <button class="description-toggle-btn" onclick="toggleDescription('categoryDescWrapper')">
+        <span class="toggle-text">Читать полностью</span>
+        <span class="toggle-icon">▼</span>
       </button>
-      <div class="category-description-full" id="categoryDescFull">
-        <div class="category-description-full-content">${rest}</div>
-      </div>
     </div>
   `;
 }
@@ -207,7 +202,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="stylesheet" href="/css/style.css?v=11">
-  <link rel="stylesheet" href="/css/blog.css?v=4">
+  <link rel="stylesheet" href="/css/blog.css?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">

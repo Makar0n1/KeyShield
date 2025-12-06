@@ -229,8 +229,8 @@
   flex-direction: column;
   gap: 25px;
   position: sticky;
-  top: 90px;
-  max-height: calc(100vh - 110px);
+  top: 118px;
+  max-height: calc(100vh - 138px);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
@@ -1124,12 +1124,21 @@
   color: var(--primary);
 }
 
-.toc-level-3 {
+.toc-level-1 a {
+  font-weight: 600;
+  color: #fff;
+}
+
+.toc-level-2 {
   padding-left: 15px;
 }
 
-.toc-level-4 {
+.toc-level-3 {
   padding-left: 30px;
+}
+
+.toc-level-4 {
+  padding-left: 45px;
 }
 
 /* ==========================================
@@ -1268,66 +1277,80 @@
 }
 
 /* ==========================================
-   Collapsible Category Description
+   Collapsible Category/Tag Description
    ========================================== */
 
-.category-description-wrapper {
+.category-description-wrapper,
+.tag-description-wrapper {
   background: var(--dark-light);
   border-radius: 12px;
   margin-bottom: 30px;
   border: 1px solid var(--border);
+  position: relative;
+}
+
+.category-description-preview,
+.tag-description-preview {
+  padding: 20px;
+  color: var(--text);
+  line-height: 1.7;
+  position: relative;
+  max-height: 120px;
   overflow: hidden;
 }
 
-.category-description-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 20px;
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 0.95rem;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.3s;
+/* Gradient fade effect at bottom */
+.category-description-preview::after,
+.tag-description-preview::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent 0%, var(--dark-light) 100%);
+  pointer-events: none;
+  transition: opacity 0.3s;
 }
 
-.category-description-toggle:hover {
+.category-description-wrapper.open .category-description-preview::after,
+.tag-description-wrapper.open .tag-description-preview::after {
+  opacity: 0;
+}
+
+.category-description-wrapper.open .category-description-preview,
+.tag-description-wrapper.open .tag-description-preview {
+  max-height: none;
+}
+
+.description-toggle-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.3s, color 0.3s;
+}
+
+.description-toggle-btn:hover {
   background: var(--dark);
 }
 
-.category-description-toggle span:first-child {
-  flex: 1;
-  color: var(--text);
-  line-height: 1.6;
-}
-
-.category-description-toggle .toggle-arrow {
-  font-size: 0.8rem;
-  margin-left: 15px;
+.description-toggle-btn .toggle-icon {
+  display: inline-block;
+  margin-left: 8px;
   transition: transform 0.3s;
 }
 
-.category-description-wrapper.open .toggle-arrow {
+.category-description-wrapper.open .description-toggle-btn .toggle-icon,
+.tag-description-wrapper.open .description-toggle-btn .toggle-icon {
   transform: rotate(180deg);
-}
-
-.category-description-full {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
-}
-
-.category-description-wrapper.open .category-description-full {
-  max-height: 300px;
-}
-
-.category-description-full-content {
-  padding: 0 20px 20px;
-  color: var(--text);
-  line-height: 1.7;
 }
 
 /* ==========================================
