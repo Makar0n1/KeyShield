@@ -91,6 +91,60 @@ router.get('/posts/:slug', async (req, res) => {
   }
 });
 
+// POST /api/blog/vote - universal vote endpoint for posts and comments
+router.post('/vote', async (req, res) => {
+  try {
+    const { type, id, voteType } = req.body;
+
+    if (!type || !['post', 'comment'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid type' });
+    }
+    if (!id) {
+      return res.status(400).json({ error: 'ID required' });
+    }
+    if (!voteType || !['like', 'dislike'].includes(voteType)) {
+      return res.status(400).json({ error: 'Invalid vote type' });
+    }
+
+    const ipAddress = req.ip || req.connection.remoteAddress || '';
+    // Use IP as visitorId for simplicity
+    const visitorId = ipAddress;
+
+    if (type === 'post') {
+      const post = await BlogPost.findById(id);
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+
+      await BlogVote.vote('post', post._id, voteType, visitorId, ipAddress);
+      const votes = await BlogVote.updatePostVotes(post._id);
+
+      res.json({
+        success: true,
+        likes: votes.likes,
+        dislikes: votes.dislikes
+      });
+    } else {
+      const comment = await BlogComment.findById(id);
+      if (!comment) {
+        return res.status(404).json({ error: 'Comment not found' });
+      }
+
+      await BlogVote.vote('comment', comment._id, voteType, visitorId, ipAddress);
+      const votes = await BlogVote.updateCommentVotes(comment._id);
+
+      res.json({
+        success: true,
+        likes: votes.likes,
+        dislikes: votes.dislikes
+      });
+    }
+  } catch (error) {
+    console.error('Error voting:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/blog/posts/:slug/vote - like/dislike post
 router.post('/posts/:slug/vote', async (req, res) => {
   try {
