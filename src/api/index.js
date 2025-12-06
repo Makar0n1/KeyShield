@@ -16,6 +16,10 @@ const transactionsRouter = require('./routes/transactions');
 const disputesRouter = require('./routes/disputes');
 const adminRouter = require('./routes/admin');
 
+// Blog routes
+const blogAdminRoutes = require('../web/routes/blog');
+const blogPublicRoutes = require('../web/routes/blogPublic');
+
 const app = express();
 const PORT = process.env.API_PORT || 3000;
 
@@ -58,6 +62,25 @@ app.use('/api/multisig', multisigRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/disputes', disputesRouter);
 app.use('/api/admin', adminRouter);
+
+// Blog admin routes (with Basic Auth)
+const blogAdminAuth = (req, res, next) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Basic ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString().split(':');
+  const [username, password] = credentials;
+  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+};
+app.use('/api/admin/blog', blogAdminAuth, blogAdminRoutes);
+
+// Public blog API
+app.use('/api/blog', blogPublicRoutes);
 
 // 404 handler
 app.use((req, res) => {
