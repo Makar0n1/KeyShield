@@ -536,6 +536,16 @@ router.delete('/comments/:id', async (req, res) => {
 
 // POST /api/admin/blog/upload
 router.post('/upload', (req, res) => {
+  // Ensure upload directory exists
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    try {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    } catch (mkdirErr) {
+      console.error('Failed to create upload directory:', mkdirErr);
+      return res.status(500).json({ error: 'Failed to create upload directory' });
+    }
+  }
+
   upload.single('image')(req, res, (err) => {
     if (err) {
       console.error('Multer error:', err);

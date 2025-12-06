@@ -78,8 +78,8 @@ app.use('/tag', tagPages);
 const adminAuth = (req, res, next) => {
   const auth = req.headers['authorization'];
 
-  // Check if it's an API request
-  const isApiRequest = req.path.startsWith('/api/') || req.xhr || req.headers.accept?.includes('application/json');
+  // Check if it's an API request (use originalUrl which has full path)
+  const isApiRequest = req.originalUrl.startsWith('/api/') || req.xhr || req.headers.accept?.includes('application/json');
 
   if (!auth) {
     res.setHeader('WWW-Authenticate', 'Basic');
