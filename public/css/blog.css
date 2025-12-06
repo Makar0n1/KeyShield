@@ -802,6 +802,142 @@
   padding: 12px 30px;
 }
 
+/* ==========================================
+   Skeleton Loading
+   ========================================== */
+
+.skeleton {
+  background: linear-gradient(90deg, var(--dark-light) 25%, rgba(51, 65, 85, 0.4) 50%, var(--dark-light) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Post Card Skeleton */
+.post-card-skeleton {
+  background: var(--dark-light);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.post-card-skeleton .skeleton-image {
+  aspect-ratio: 16/9;
+  background: linear-gradient(90deg, var(--dark) 25%, rgba(51, 65, 85, 0.3) 50%, var(--dark) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.post-card-skeleton .skeleton-content {
+  padding: 20px;
+}
+
+.post-card-skeleton .skeleton-meta {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 12px;
+}
+
+.post-card-skeleton .skeleton-category {
+  width: 80px;
+  height: 14px;
+}
+
+.post-card-skeleton .skeleton-date {
+  width: 100px;
+  height: 14px;
+}
+
+.post-card-skeleton .skeleton-title {
+  height: 24px;
+  margin-bottom: 10px;
+  width: 90%;
+}
+
+.post-card-skeleton .skeleton-summary {
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+.post-card-skeleton .skeleton-summary:last-of-type {
+  width: 70%;
+}
+
+.post-card-skeleton .skeleton-footer {
+  display: flex;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.post-card-skeleton .skeleton-stat {
+  width: 50px;
+  height: 14px;
+}
+
+/* Sidebar Skeleton */
+.sidebar-skeleton .skeleton-widget {
+  background: var(--dark-light);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  margin-bottom: 25px;
+}
+
+.sidebar-skeleton .skeleton-widget-title {
+  height: 20px;
+  width: 120px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+
+.sidebar-skeleton .skeleton-list-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-skeleton .skeleton-list-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar-skeleton .skeleton-text {
+  height: 14px;
+  width: 60%;
+}
+
+.sidebar-skeleton .skeleton-count {
+  height: 14px;
+  width: 30px;
+  border-radius: 12px;
+}
+
+/* Hero Skeleton */
+.hero-skeleton .skeleton-title {
+  height: 40px;
+  width: 300px;
+  margin-bottom: 12px;
+}
+
+.hero-skeleton .skeleton-breadcrumbs {
+  height: 16px;
+  width: 150px;
+}
+
+/* Content loaded state - hide skeletons */
+.content-loaded .skeleton,
+.content-loaded .post-card-skeleton,
+.content-loaded .sidebar-skeleton,
+.content-loaded .hero-skeleton {
+  display: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .blog-hero {
