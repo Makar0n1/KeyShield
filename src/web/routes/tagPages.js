@@ -172,8 +172,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           </a>
         </div>
         <ul class="nav-menu">
-          <li><a href="/#features">Возможности</a></li>
-          <li><a href="/#how-it-works">Как работает</a></li>
+          <li><a href="/">Главная</a></li>
           <li><a href="/blog" class="active">Блог</a></li>
           <li><a href="/terms">Документы</a></li>
         </ul>
@@ -185,8 +184,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         </button>
         <nav class="mobile-nav" id="mobileNav">
           <ul>
-            <li><a href="/#features">Возможности</a></li>
-            <li><a href="/#how-it-works">Как работает</a></li>
+            <li><a href="/">Главная</a></li>
             <li><a href="/blog" class="active">Блог</a></li>
             <li><a href="/terms">Документы</a></li>
           </ul>
@@ -242,10 +240,16 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
             </ul>
           </div>
           <div class="footer-column">
-            <h4>Контакты</h4>
+            <h4>Блог</h4>
             <ul>
-              <li><a href="https://t.me/keyshield_bot">Telegram бот</a></li>
-              <li><a href="https://t.me/keyshield_support">Поддержка</a></li>
+              <li><a href="/blog">Все статьи</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>Поддержка</h4>
+            <ul>
+              <li><a href="https://t.me/mamlyga">Telegram: @mamlyga</a></li>
+              <li><a href="mailto:amroids@tutamail.com">Email: amroids@tutamail.com</a></li>
             </ul>
           </div>
         </div>
