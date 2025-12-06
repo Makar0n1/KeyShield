@@ -1247,6 +1247,7 @@
       ? 'https://api.keyshield.me/api'
       : '/api';
     let authCredentials = localStorage.getItem('adminAuth');
+    const PAGE_SIZE = 20;
 
     // Check if already logged in
     if (authCredentials) {
@@ -1286,8 +1287,6 @@
       errorDiv.textContent = message;
       errorDiv.style.display = 'block';
     }
-
-    const PAGE_SIZE = 20;
 
     function showDashboard() {
       document.getElementById('loginScreen').style.display = 'none';
