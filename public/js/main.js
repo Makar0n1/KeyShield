@@ -1,12 +1,19 @@
-// Smooth scrolling for anchor links
+// Get header height based on screen size
+function getHeaderHeight() {
+    return window.innerWidth <= 768 ? 130 : 123;
+}
+
+// Smooth scrolling for anchor links with header offset
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
+            const headerHeight = getHeaderHeight();
+            const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
             });
         }
     });
@@ -57,9 +64,14 @@ function toggleDescription(wrapperId) {
         if (icon) {
             icon.textContent = wrapper.classList.contains('open') ? '▲' : '▼';
         }
-        // При закрытии - скролл к началу блока описания
+        // При закрытии - скролл к началу блока с учетом хедера
         if (wasOpen && !wrapper.classList.contains('open')) {
-            wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const headerHeight = getHeaderHeight();
+            const targetPosition = wrapper.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
         }
     }
 }
