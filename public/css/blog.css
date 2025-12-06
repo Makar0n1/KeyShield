@@ -282,7 +282,7 @@
   flex-direction: column;
   gap: 25px;
   position: sticky;
-  top: 118px;
+  top: 145px;
   max-height: calc(100vh - 138px);
   overflow-y: auto;
   scrollbar-width: thin;
