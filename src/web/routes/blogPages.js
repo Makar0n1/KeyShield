@@ -65,34 +65,35 @@ const formatNumber = (num) => {
 // Extract headings for Table of Contents (includes H1 from hero title)
 const extractTOC = (content, heroTitle = null) => {
   const toc = [];
-  let index = 0;
 
-  // Add H1 from hero title as first item
+  // Add H1 from hero title as first item (uses special id)
   if (heroTitle) {
-    toc.push({ level: 1, text: heroTitle, id: 'hero-title', index: index++ });
+    toc.push({ level: 1, text: heroTitle, id: 'hero-title' });
   }
 
-  // Extract H2-H4 from content
-  const headingRegex = /<h([2-4])[^>]*(?:id="([^"]*)")?[^>]*>(.*?)<\/h\1>/gi;
+  // Extract H2-H4 from content with consistent IDs
+  const headingRegex = /<h([2-4])[^>]*>(.*?)<\/h\1>/gi;
   let match;
+  let index = 0;
 
   while ((match = headingRegex.exec(content)) !== null) {
     const level = parseInt(match[1]);
-    const existingId = match[2];
-    const text = stripHtml(match[3]);
-    const id = existingId || `heading-${index}`;
-    toc.push({ level, text, id, index });
+    const text = stripHtml(match[2]);
+    const id = `heading-${index}`;
+    toc.push({ level, text, id });
     index++;
   }
 
   return toc;
 };
 
-// Add IDs to headings in content
+// Add IDs to headings in content (must match extractTOC logic)
 const addHeadingIds = (content) => {
   let index = 0;
   return content.replace(/<h([2-4])([^>]*)>(.*?)<\/h\1>/gi, (match, level, attrs, text) => {
+    // Skip if already has an id
     if (attrs.includes('id="')) {
+      index++; // Still increment to keep in sync
       return match;
     }
     const id = `heading-${index++}`;
