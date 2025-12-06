@@ -53,7 +53,27 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, '../../public')));
+
+// Static files with long cache TTL (1 year for versioned assets)
+app.use(express.static(path.join(__dirname, '../../public'), {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // CSS/JS with version query get immutable cache
+    if (filePath.endsWith('.css') || filePath.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+    // Images get 30 days cache
+    else if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000');
+    }
+    // Fonts get 1 year cache
+    else if (/\.(woff|woff2|ttf|eot)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 // Clean URL routes for pages (no .html extension)
 app.get('/', (req, res) => {

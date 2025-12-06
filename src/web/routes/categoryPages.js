@@ -201,10 +201,39 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <meta property="og:url" content="${canonical}">
   ${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
   <link rel="icon" type="image/png" href="/images/logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=12">
-  <link rel="stylesheet" href="/css/blog.css?v=10">
+
+  <!-- Preconnect hints -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+  <!-- Preload LCP hero image -->
+  ${heroImage ? `<link rel="preload" as="image" href="${heroImage}" fetchpriority="high">` : ''}
+
+  <!-- Critical CSS inline -->
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0a0a0f;color:#e0e0e0;line-height:1.6}
+    .header{background:rgba(10,10,15,.95);border-bottom:1px solid rgba(255,255,255,.1);position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px)}
+    .container{max-width:1200px;margin:0 auto;padding:0 20px}
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
+    .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
+    .blog-hero{position:relative;padding:80px 0;background-size:cover;background-position:center;min-height:300px}
+    .blog-hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,10,15,.9),rgba(26,26,46,.8))}
+    .blog-hero .container{position:relative;z-index:1}
+    .blog-hero-title{font-size:2.5rem;font-weight:800;margin-bottom:15px;color:#fff}
+    @media(max-width:768px){.nav-menu,.btn-primary{display:none}.blog-hero-title{font-size:1.75rem}}
+  </style>
+
+  <!-- Load full CSS asynchronously -->
+  <link rel="preload" href="/css/style.css?v=13" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=11" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet" href="/css/style.css?v=13">
+    <link rel="stylesheet" href="/css/blog.css?v=11">
+  </noscript>
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   ${schemas.map(s => `<script type="application/ld+json">${JSON.stringify(s)}</script>`).join('\n  ')}
 </head>
