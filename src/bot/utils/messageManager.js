@@ -7,11 +7,16 @@
  *
  * All user text inputs are deleted after processing.
  * All navigation happens via editMessageText.
+ *
+ * mainMessageId is persisted to MongoDB to survive bot restarts.
  */
+
+const User = require('../../models/User');
 
 class MessageManager {
   constructor() {
     // Track main message ID for each user (userId -> messageId)
+    // Acts as a cache, with MongoDB as persistence layer
     this.mainMessages = new Map();
 
     // Navigation stack with full screen data for "Back" button
@@ -106,17 +111,71 @@ class MessageManager {
   }
 
   // ============================================
+  // DATABASE PERSISTENCE FOR mainMessageId
+  // ============================================
+
+  /**
+   * Load mainMessageId from database (called when not in cache)
+   */
+  async loadMainMessageFromDB(userId) {
+    try {
+      const user = await User.findOne({ telegramId: userId }).select('mainMessageId').lean();
+      if (user?.mainMessageId) {
+        this.mainMessages.set(userId, user.mainMessageId);
+        return user.mainMessageId;
+      }
+    } catch (error) {
+      console.error('Error loading mainMessageId from DB:', error.message);
+    }
+    return null;
+  }
+
+  /**
+   * Save mainMessageId to database
+   */
+  async saveMainMessageToDB(userId, messageId) {
+    try {
+      await User.updateOne(
+        { telegramId: userId },
+        { $set: { mainMessageId: messageId } }
+      );
+    } catch (error) {
+      console.error('Error saving mainMessageId to DB:', error.message);
+    }
+  }
+
+  /**
+   * Clear mainMessageId from database
+   */
+  async clearMainMessageFromDB(userId) {
+    try {
+      await User.updateOne(
+        { telegramId: userId },
+        { $set: { mainMessageId: null } }
+      );
+    } catch (error) {
+      console.error('Error clearing mainMessageId from DB:', error.message);
+    }
+  }
+
+  // ============================================
   // CORE MESSAGE OPERATIONS
   // ============================================
 
   /**
    * Edit the main message (or send new if doesn't exist)
    * This is the PRIMARY method for showing content
+   * Persists mainMessageId to database to survive bot restarts
    */
   async editMainMessage(ctx, userId, text, keyboard = null) {
     this.recordActivity(userId);
 
-    const messageId = this.mainMessages.get(userId);
+    // Try cache first, then load from DB
+    let messageId = this.mainMessages.get(userId);
+    if (!messageId) {
+      messageId = await this.loadMainMessageFromDB(userId);
+    }
+
     const extra = {
       parse_mode: 'Markdown',
       ...(keyboard ? { reply_markup: keyboard.reply_markup || keyboard } : {})
@@ -140,6 +199,10 @@ class MessageManager {
       // Send new message
       const newMsg = await ctx.telegram.sendMessage(userId, text, extra);
       this.mainMessages.set(userId, newMsg.message_id);
+
+      // Persist to database
+      await this.saveMainMessageToDB(userId, newMsg.message_id);
+
       return newMsg.message_id;
     } catch (error) {
       console.error('Error in editMainMessage:', error.message);
@@ -172,20 +235,35 @@ class MessageManager {
         // Ignore
       }
       this.mainMessages.delete(userId);
+      // Clear from database
+      await this.clearMainMessageFromDB(userId);
     }
   }
 
   /**
    * Set main message ID (when sending externally)
+   * Also persists to database
    */
-  setMainMessage(userId, messageId) {
+  async setMainMessage(userId, messageId) {
     this.mainMessages.set(userId, messageId);
+    await this.saveMainMessageToDB(userId, messageId);
   }
 
   /**
-   * Get main message ID
+   * Get main message ID (from cache or database)
    */
-  getMainMessage(userId) {
+  async getMainMessage(userId) {
+    let messageId = this.mainMessages.get(userId);
+    if (!messageId) {
+      messageId = await this.loadMainMessageFromDB(userId);
+    }
+    return messageId || null;
+  }
+
+  /**
+   * Get main message ID sync (cache only, for backward compat)
+   */
+  getMainMessageSync(userId) {
     return this.mainMessages.get(userId) || null;
   }
 

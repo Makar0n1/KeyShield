@@ -60,6 +60,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Main bot message ID for single-message navigation
+  mainMessageId: {
+    type: Number,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

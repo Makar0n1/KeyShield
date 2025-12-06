@@ -135,7 +135,7 @@ const startHandler = async (ctx) => {
       const msg = await ctx.telegram.sendMessage(telegramId, BAN_SCREEN_TEXT, {
         parse_mode: 'Markdown'
       });
-      messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.setMainMessage(telegramId, msg.message_id);
       return;
     }
 
@@ -155,8 +155,8 @@ const startHandler = async (ctx) => {
       reply_markup: keyboard.reply_markup
     });
 
-    // Track main message
-    messageManager.setMainMessage(telegramId, msg.message_id);
+    // Track main message (persisted to DB)
+    await messageManager.setMainMessage(telegramId, msg.message_id);
     messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
 
     console.log(`${isNewUser ? 'Welcome' : 'Main menu'} shown to user ${telegramId}, message ID: ${msg.message_id}`);
