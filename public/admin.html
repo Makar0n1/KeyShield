@@ -1242,7 +1242,10 @@
   </div>
 
   <script>
-    const API_BASE = '/api';
+    // Auto-detect API base: use api.keyshield.me in production, /api for localhost
+    const API_BASE = window.location.hostname === 'keyshield.me' || window.location.hostname === 'www.keyshield.me'
+      ? 'https://api.keyshield.me/api'
+      : '/api';
     let authCredentials = localStorage.getItem('adminAuth');
 
     // Check if already logged in
