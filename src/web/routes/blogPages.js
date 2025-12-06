@@ -289,6 +289,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <section class="blog-hero" ${heroImage ? `style="background-image: url('${heroImage}')"` : ''}>
     <div class="blog-hero-overlay"></div>
     <div class="container">
+      <h1 class="blog-hero-title">${escapeHtml(heroTitle)}</h1>
       ${breadcrumbs ? `
         <nav class="breadcrumbs">
           ${breadcrumbs.map((b, i) => i === breadcrumbs.length - 1
@@ -297,7 +298,6 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           ).join('')}
         </nav>
       ` : ''}
-      <h1 class="blog-hero-title">${escapeHtml(heroTitle)}</h1>
       ${heroDescription ? `<div class="blog-hero-description">${heroDescription}</div>` : ''}
     </div>
   </section>

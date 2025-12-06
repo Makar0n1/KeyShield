@@ -9,9 +9,10 @@
   background: linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 100%);
   background-size: cover;
   background-position: center;
-  min-height: 300px;
+  min-height: 280px;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .blog-hero-overlay {
@@ -26,14 +27,16 @@
 .blog-hero .container {
   position: relative;
   z-index: 1;
+  text-align: left;
 }
 
 .blog-hero-title {
   font-size: 2.5rem;
   font-weight: 800;
   color: #fff;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   line-height: 1.2;
+  text-align: left;
 }
 
 .blog-hero-description {
@@ -41,6 +44,7 @@
   color: var(--text);
   max-width: 700px;
   line-height: 1.7;
+  text-align: left;
 }
 
 .blog-hero-description p {
@@ -49,8 +53,10 @@
 
 /* Breadcrumbs */
 .breadcrumbs {
-  margin-bottom: 20px;
+  margin-top: 5px;
+  margin-bottom: 15px;
   font-size: 0.9rem;
+  text-align: left;
 }
 
 .breadcrumbs a {
