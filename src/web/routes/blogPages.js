@@ -498,10 +498,10 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
   <!-- Load full CSS asynchronously -->
   <link rel="preload" href="/css/style.css?v=16" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=15" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=16" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
     <link rel="stylesheet" href="/css/style.css?v=16">
-    <link rel="stylesheet" href="/css/blog.css?v=15">
+    <link rel="stylesheet" href="/css/blog.css?v=16">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->

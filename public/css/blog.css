@@ -215,18 +215,32 @@
 
 .post-card-meta {
   display: flex;
-  gap: 15px;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .post-category {
   color: var(--primary);
   font-weight: 600;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-card-meta .post-category::after {
+  content: '•';
+  margin-left: 8px;
+  color: var(--text-muted);
 }
 
 .post-date {
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .post-card-title {
@@ -1199,11 +1213,12 @@
 .toc-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-out;
+  transition: max-height 0.4s ease-out;
 }
 
 .toc-wrapper.open .toc-content {
-  max-height: 500px;
+  max-height: 1000px;
+  transition: max-height 0.5s ease-in;
 }
 
 .toc-list {
@@ -1407,6 +1422,7 @@
   position: relative;
   max-height: 180px;
   overflow: hidden;
+  transition: max-height 0.4s ease-out;
 }
 
 /* Gradient fade effect at bottom */
@@ -1430,7 +1446,8 @@
 
 .category-description-wrapper.open .category-description-preview,
 .tag-description-wrapper.open .tag-description-preview {
-  max-height: none;
+  max-height: 2000px;
+  transition: max-height 0.6s ease-in;
 }
 
 .description-toggle-btn {
