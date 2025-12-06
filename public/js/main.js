@@ -47,6 +47,7 @@ function toggleTOC() {
 function toggleDescription(wrapperId) {
     const wrapper = document.getElementById(wrapperId);
     if (wrapper) {
+        const wasOpen = wrapper.classList.contains('open');
         wrapper.classList.toggle('open');
         const btn = wrapper.querySelector('.toggle-text');
         const icon = wrapper.querySelector('.toggle-icon');
@@ -55,6 +56,10 @@ function toggleDescription(wrapperId) {
         }
         if (icon) {
             icon.textContent = wrapper.classList.contains('open') ? '▲' : '▼';
+        }
+        // При закрытии - скролл к началу блока описания
+        if (wasOpen && !wrapper.classList.contains('open')) {
+            wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
 }
@@ -69,7 +74,7 @@ function toggleMobileMenu() {
     const nav = document.getElementById('mobileNav');
     const toggle = document.querySelector('.mobile-menu-toggle');
     if (nav && toggle) {
-        nav.classList.toggle('active');
-        toggle.classList.toggle('active');
+        nav.classList.toggle('open');
+        toggle.classList.toggle('open');
     }
 }

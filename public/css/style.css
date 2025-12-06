@@ -622,6 +622,8 @@ body {
 
     .mobile-menu-wrapper {
         display: block;
+        position: static;
+        border-bottom: none;
     }
 
     .btn {
