@@ -34,8 +34,12 @@ document.querySelectorAll('.feature-card, .step, .pricing-card').forEach(el => {
 // Toggle Table of Contents
 function toggleTOC() {
     const wrapper = document.querySelector('.toc-wrapper');
+    const arrow = document.querySelector('.toc-toggle-arrow');
     if (wrapper) {
         wrapper.classList.toggle('open');
+        if (arrow) {
+            arrow.textContent = wrapper.classList.contains('open') ? '▲' : '▼';
+        }
     }
 }
 
