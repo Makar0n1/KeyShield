@@ -1,12 +1,54 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, generateToken } = require('../middleware/auth');
+const { generateToken } = require('../middleware/auth');
 const Deal = require('../../models/Deal');
 const User = require('../../models/User');
 const Dispute = require('../../models/Dispute');
 const Transaction = require('../../models/Transaction');
 const AuditLog = require('../../models/AuditLog');
 const banService = require('../../services/banService');
+
+// Basic Auth middleware for admin panel
+const basicAuthMiddleware = (req, res, next) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Basic ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString().split(':');
+  const [username, password] = credentials;
+  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+    req.adminUser = { username, role: 'admin' };
+    next();
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+};
+
+/**
+ * GET /api/admin/stats
+ * Get basic stats (used for auth check and dashboard)
+ */
+router.get('/stats', basicAuthMiddleware, async (req, res, next) => {
+  try {
+    const [totalDeals, activeDeals, totalUsers, openDisputes] = await Promise.all([
+      Deal.countDocuments(),
+      Deal.countDocuments({ status: { $in: ['in_progress', 'locked', 'waiting_for_deposit'] } }),
+      User.countDocuments(),
+      Dispute.countDocuments({ status: 'open' })
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        deals: { total: totalDeals, active: activeDeals },
+        users: { total: totalUsers },
+        disputes: { open: openDisputes }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * POST /api/admin/login
@@ -47,7 +89,7 @@ router.post('/login', async (req, res, next) => {
  * GET /api/admin/dashboard
  * Get dashboard statistics
  */
-router.get('/dashboard', authMiddleware, async (req, res, next) => {
+router.get('/dashboard', basicAuthMiddleware, async (req, res, next) => {
   try {
     const [
       totalDeals,
@@ -108,7 +150,7 @@ router.get('/dashboard', authMiddleware, async (req, res, next) => {
  * GET /api/admin/deals
  * Get all deals with filters
  */
-router.get('/deals', authMiddleware, async (req, res, next) => {
+router.get('/deals', basicAuthMiddleware, async (req, res, next) => {
   try {
     const { status, buyerId, sellerId, page = 1, limit = 20 } = req.query;
 
@@ -143,7 +185,7 @@ router.get('/deals', authMiddleware, async (req, res, next) => {
  * GET /api/admin/deal/:dealId
  * Get full deal details
  */
-router.get('/deal/:dealId', authMiddleware, async (req, res, next) => {
+router.get('/deal/:dealId', basicAuthMiddleware, async (req, res, next) => {
   try {
     const deal = await Deal.findOne({ dealId: req.params.dealId });
 
@@ -179,7 +221,7 @@ router.get('/deal/:dealId', authMiddleware, async (req, res, next) => {
  * GET /api/admin/users
  * Get all users with filters
  */
-router.get('/users', authMiddleware, async (req, res, next) => {
+router.get('/users', basicAuthMiddleware, async (req, res, next) => {
   try {
     const { blacklisted, page = 1, limit = 50 } = req.query;
 
@@ -214,7 +256,7 @@ router.get('/users', authMiddleware, async (req, res, next) => {
  * POST /api/admin/ban-user
  * Ban a user
  */
-router.post('/ban-user', authMiddleware, async (req, res, next) => {
+router.post('/ban-user', basicAuthMiddleware, async (req, res, next) => {
   try {
     const { telegramId, reason } = req.body;
 
@@ -245,7 +287,7 @@ router.post('/ban-user', authMiddleware, async (req, res, next) => {
  * POST /api/admin/unban-user
  * Unban a user
  */
-router.post('/unban-user', authMiddleware, async (req, res, next) => {
+router.post('/unban-user', basicAuthMiddleware, async (req, res, next) => {
   try {
     const { telegramId, reason } = req.body;
 
@@ -276,7 +318,7 @@ router.post('/unban-user', authMiddleware, async (req, res, next) => {
  * GET /api/admin/logs
  * Get audit logs
  */
-router.get('/logs', authMiddleware, async (req, res, next) => {
+router.get('/logs', basicAuthMiddleware, async (req, res, next) => {
   try {
     const { action, userId, dealId, page = 1, limit = 50 } = req.query;
 
