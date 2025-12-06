@@ -726,6 +726,79 @@
   border-color: var(--error);
 }
 
+/* Post Actions (Voting + Sharing) */
+.post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 1px solid var(--border);
+}
+
+/* Share Buttons */
+.post-share {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.share-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--dark);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.share-btn:hover {
+  transform: translateY(-2px);
+}
+
+.share-telegram:hover {
+  background: #0088cc;
+  border-color: #0088cc;
+  color: #fff;
+}
+
+.share-vk:hover {
+  background: #4a76a8;
+  border-color: #4a76a8;
+  color: #fff;
+}
+
+.share-twitter:hover {
+  background: #000;
+  border-color: #333;
+  color: #fff;
+}
+
+.share-copy:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.share-copy.copied {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
 /* FAQ Section */
 .post-faq {
   margin-top: 40px;
