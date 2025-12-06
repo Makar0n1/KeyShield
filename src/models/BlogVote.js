@@ -62,31 +62,39 @@ blogVoteSchema.statics.vote = async function(targetType, targetId, voteType, vis
     visitorId
   });
 
-  let oldVoteType = null;
-
   if (existingVote) {
     if (existingVote.voteType === voteType) {
       // Тот же тип голоса - удаляем (toggle)
-      await existingVote.deleteOne();
+      await this.findByIdAndDelete(existingVote._id);
       return { action: 'removed', voteType };
     } else {
       // Другой тип - меняем
-      oldVoteType = existingVote.voteType;
-      existingVote.voteType = voteType;
-      existingVote.ipAddress = ipAddress;
-      await existingVote.save();
+      const oldVoteType = existingVote.voteType;
+      await this.findByIdAndUpdate(existingVote._id, {
+        voteType,
+        ipAddress
+      });
       return { action: 'changed', oldVoteType, voteType };
     }
   } else {
-    // Новый голос
-    await this.create({
-      targetType,
-      targetId,
-      voteType,
-      visitorId,
-      ipAddress
-    });
-    return { action: 'added', voteType };
+    // Новый голос - используем findOneAndUpdate с upsert для атомарности
+    try {
+      await this.create({
+        targetType,
+        targetId,
+        voteType,
+        visitorId,
+        ipAddress
+      });
+      return { action: 'added', voteType };
+    } catch (err) {
+      // Если duplicate key error - значит голос уже есть (race condition)
+      if (err.code === 11000) {
+        // Повторно вызываем vote для обработки существующего голоса
+        return this.vote(targetType, targetId, voteType, visitorId, ipAddress);
+      }
+      throw err;
+    }
   }
 };
 
