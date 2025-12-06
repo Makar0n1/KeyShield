@@ -318,39 +318,35 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <footer class="footer">
     <div class="container">
       <div class="footer-content">
-        <div class="footer-brand">
-          <div class="logo">
-            <span class="logo-icon">🔐</span>
-            <span class="logo-text">KeyShield</span>
-          </div>
-          <p>Безопасный криптовалютный эскроу на блокчейне TRON</p>
+        <div class="footer-section">
+          <h4>KeyShield</h4>
+          <p>Безопасный multisig эскроу на TRON</p>
         </div>
-        <div class="footer-links">
-          <div class="footer-column">
-            <h4>Документы</h4>
-            <ul>
-              <li><a href="/terms">Условия использования</a></li>
-              <li><a href="/privacy">Политика конфиденциальности</a></li>
-              <li><a href="/offer">Публичная оферта</a></li>
-            </ul>
-          </div>
-          <div class="footer-column">
-            <h4>Блог</h4>
-            <ul>
-              <li><a href="/blog">Все статьи</a></li>
-            </ul>
-          </div>
-          <div class="footer-column">
-            <h4>Поддержка</h4>
-            <ul>
-              <li><a href="https://t.me/mamlyga">Telegram: @mamlyga</a></li>
-              <li><a href="mailto:amroids@tutamail.com">Email: amroids@tutamail.com</a></li>
-            </ul>
-          </div>
+        <div class="footer-section">
+          <h4>Документы</h4>
+          <ul>
+            <li><a href="/terms">Условия использования</a></li>
+            <li><a href="/privacy">Политика конфиденциальности</a></li>
+            <li><a href="/offer">Публичная оферта</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h4>Блог</h4>
+          <ul>
+            <li><a href="/blog">Все статьи</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h4>Поддержка</h4>
+          <ul>
+            <li><a href="https://t.me/mamlyga">Telegram: @mamlyga</a></li>
+            <li><a href="mailto:amroids@tutamail.com">Email: amroids@tutamail.com</a></li>
+          </ul>
         </div>
       </div>
       <div class="footer-bottom">
         <p>&copy; ${new Date().getFullYear()} KeyShield. Все права защищены.</p>
+        <p class="footer-disclaimer">KeyShield не является финансовой организацией и не предоставляет финансовые услуги. Мы предоставляем технологическую платформу для безопасного обмена криптовалютой между сторонами.</p>
       </div>
     </div>
   </footer>
