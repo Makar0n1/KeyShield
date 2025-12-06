@@ -91,7 +91,7 @@ blogCategorySchema.pre('save', function(next) {
     this.seoDescription = `Статьи в категории "${this.name}" на блоге KeyShield.`;
   }
   if (!this.canonical) {
-    this.canonical = `https://keyshield.me/blog/category/${this.slug}`;
+    this.canonical = `https://keyshield.me/category/${this.slug}`;
   }
   next();
 });
