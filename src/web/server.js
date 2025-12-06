@@ -117,45 +117,52 @@ app.use('/blog', blogPages);
 app.use('/category', categoryPages);
 app.use('/tag', tagPages);
 
-// Basic auth for admin panel
+// JWT auth middleware for admin panel
+const jwt = require('jsonwebtoken');
 const adminAuth = (req, res, next) => {
   const auth = req.headers['authorization'];
 
-  // Check if it's an API request (use originalUrl which has full path)
-  const isApiRequest = req.originalUrl.startsWith('/api/') || req.xhr || req.headers.accept?.includes('application/json');
-
-  if (!auth) {
-    res.setHeader('WWW-Authenticate', 'Basic');
-    if (isApiRequest) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    return res.status(401).send('Authentication required');
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const [scheme, credentials] = auth.split(' ');
-  if (scheme !== 'Basic') {
-    if (isApiRequest) {
-      return res.status(401).json({ error: 'Invalid authentication scheme' });
-    }
-    return res.status(401).send('Invalid authentication scheme');
+  const token = auth.replace('Bearer ', '');
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.admin = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
+};
 
-  const [username, password] = Buffer.from(credentials, 'base64').toString().split(':');
+// Admin login endpoint (JWT)
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
 
-  // Check credentials (use environment variables in production)
   const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    next();
+    const token = jwt.sign(
+      { username, role: 'admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      admin: { username, role: 'admin' }
+    });
   } else {
-    res.setHeader('WWW-Authenticate', 'Basic');
-    if (isApiRequest) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    return res.status(401).send('Invalid credentials');
+    res.status(401).json({
+      success: false,
+      error: 'Invalid credentials'
+    });
   }
-};
+});
 
 // API Routes for Admin Panel
 

@@ -1244,12 +1244,32 @@
   <script>
     // API base - use relative path, nginx proxies /api to Express
     const API_BASE = '';
-    let authCredentials = localStorage.getItem('adminAuth');
+    let authToken = localStorage.getItem('adminToken');
     const PAGE_SIZE = 20;
 
-    // Check if already logged in
-    if (authCredentials) {
-      showDashboard();
+    // Check authentication on page load
+    (async function initAuth() {
+      if (authToken) {
+        const isValid = await validateToken();
+        if (isValid) {
+          showDashboard();
+        } else {
+          // Token invalid, clear and show login
+          logout(false);
+        }
+      }
+    })();
+
+    // Validate token with server
+    async function validateToken() {
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/stats`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        return response.ok;
+      } catch {
+        return false;
+      }
     }
 
     // Login form handler
@@ -1257,26 +1277,35 @@
       e.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
+      const submitBtn = e.target.querySelector('button[type="submit"]');
 
-      // Store Basic Auth credentials
-      const credentials = btoa(`${username}:${password}`);
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Logging in...';
+      hideError();
 
       try {
-        // Test credentials with stats endpoint
-        const response = await fetch(`${API_BASE}/api/admin/stats`, {
-          headers: { 'Authorization': `Basic ${credentials}` }
+        // Use JWT login endpoint
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
         });
 
-        if (response.ok) {
-          authCredentials = credentials;
-          localStorage.setItem('adminAuth', credentials);
-          localStorage.setItem('adminUsername', username);
+        const data = await response.json();
+
+        if (response.ok && data.success && data.token) {
+          authToken = data.token;
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminUsername', data.admin.username);
           showDashboard();
         } else {
-          showError('Invalid username or password');
+          showError(data.error || 'Invalid username or password');
         }
       } catch (error) {
         showError('Connection error: ' + error.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Login';
       }
     });
 
@@ -1286,27 +1315,48 @@
       errorDiv.style.display = 'block';
     }
 
+    function hideError() {
+      document.getElementById('loginError').style.display = 'none';
+    }
+
     function showDashboard() {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('dashboard').classList.add('active');
-      document.getElementById('adminUsername').textContent = localStorage.getItem('adminUsername');
+      document.getElementById('adminUsername').textContent = localStorage.getItem('adminUsername') || 'Admin';
       initCollapsibleSections();
       loadDashboardData();
       loadDeals();
       loadExportLogs();
     }
 
-    function logout() {
-      localStorage.removeItem('adminAuth');
+    function logout(reload = true) {
+      localStorage.removeItem('adminToken');
       localStorage.removeItem('adminUsername');
-      location.reload();
+      authToken = null;
+      if (reload) location.reload();
+    }
+
+    // Helper for authenticated API requests
+    async function apiRequest(url, options = {}) {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+
+      if (response.status === 401) {
+        logout();
+        throw new Error('Session expired');
+      }
+
+      return response;
     }
 
     async function loadDashboardData() {
       try {
-        const response = await fetch(`${API_BASE}/api/admin/stats`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
-        });
+        const response = await apiRequest(`${API_BASE}/api/admin/stats`);
 
         const data = await response.json();
 
@@ -1415,7 +1465,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/deals?${params}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -1476,7 +1526,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/users?${params}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -1538,7 +1588,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/logs?${params}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -1648,7 +1698,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/disputes?${params}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -1729,7 +1779,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/deals?search=${dealId}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
         const data = await response.json();
 
@@ -1985,7 +2035,7 @@
         const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/resolve`, {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ winner: decision, note })
@@ -2018,7 +2068,7 @@
         const response = await fetch(`${API_BASE}/api/admin/users/${telegramId}/ban`, {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ banned, reason })
@@ -2043,7 +2093,7 @@
     async function viewDisputeDetails(disputeId) {
       try {
         const response = await fetch(`${API_BASE}/api/admin/disputes/${disputeId}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -2236,7 +2286,7 @@
         const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/resolve`, {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ winner: decision, note: '' })
@@ -2273,7 +2323,7 @@
         const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/cancel`, {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -2309,7 +2359,7 @@
         const response = await fetch(`${API_BASE}/api/admin/disputes/${currentDisputeId}/return-to-progress`, {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -2420,7 +2470,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/platforms`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -2529,7 +2579,7 @@
         const response = await fetch(`${API_BASE}/api/admin/platforms`, {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ name, telegramChannel, login, password, commissionPercent })
@@ -2553,7 +2603,7 @@
     async function showPlatformDetails(platformId) {
       try {
         const response = await fetch(`${API_BASE}/api/admin/platforms/${platformId}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         const data = await response.json();
@@ -2622,7 +2672,7 @@
         const response = await fetch(`${API_BASE}/api/admin/platforms/${platformId}`, {
           method: 'PUT',
           headers: {
-            'Authorization': `Basic ${authCredentials}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ isActive })
@@ -2657,7 +2707,7 @@
         const response = await fetch(`${API_BASE}/api/admin/platforms/${platformId}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Basic ${authCredentials}`
+            'Authorization': `Bearer ${authToken}`
           }
         });
 
@@ -2693,7 +2743,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/export/deal/${dealId}?userIdentifier=${encodeURIComponent(userIdentifier)}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         if (!response.ok) {
@@ -2739,7 +2789,7 @@
 
       try {
         const response = await fetch(`${API_BASE}/api/admin/export/user/${encodeURIComponent(userIdentifier)}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         if (!response.ok) {
@@ -2783,7 +2833,7 @@
     async function loadExportLogs() {
       try {
         const response = await fetch(`${API_BASE}/api/admin/export/logs`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         if (!response.ok) {
@@ -2886,7 +2936,7 @@
     async function downloadExportLog(logId) {
       try {
         const response = await fetch(`${API_BASE}/api/admin/export/download/${logId}`, {
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         if (!response.ok) {
@@ -2923,7 +2973,7 @@
       try {
         const response = await fetch(`${API_BASE}/api/admin/export/logs/${logId}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Basic ${authCredentials}` }
+          headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
         if (!response.ok) {
