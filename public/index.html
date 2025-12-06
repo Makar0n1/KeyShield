@@ -14,7 +14,7 @@
     <meta property="og:url" content="https://keyshield.me/">
     <meta property="og:image" content="https://keyshield.me/images/logo.png">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=16">
+    <link rel="stylesheet" href="/css/style.css?v=17">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -33,6 +33,7 @@
                 <ul class="nav-menu">
                     <li><a href="#features">Возможности</a></li>
                     <li><a href="#how-it-works">Как работает</a></li>
+                    <li><a href="#pricing">Цены</a></li>
                     <li><a href="/blog">Блог</a></li>
                     <li><a href="/terms">Документы</a></li>
                 </ul>
@@ -47,6 +48,7 @@
                     <ul>
                         <li><a href="#features">Возможности</a></li>
                         <li><a href="#how-it-works">Как работает</a></li>
+                        <li><a href="#pricing">Цены</a></li>
                         <li><a href="/blog">Блог</a></li>
                         <li><a href="/terms">Документы</a></li>
                     </ul>
@@ -218,6 +220,19 @@
         </div>
     </section>
 
+    <!-- Blog Section -->
+    <section class="blog-section">
+        <div class="container">
+            <h2 class="section-title">Полезные статьи</h2>
+            <div class="blog-grid" id="blogGrid">
+                <!-- Posts loaded via JS -->
+            </div>
+            <div class="blog-more">
+                <a href="/blog" class="btn btn-primary btn-large">Читать больше статей</a>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -273,6 +288,39 @@
                 btn.classList.remove('open');
             });
         });
+
+        // Load latest blog posts
+        async function loadBlogPosts() {
+            try {
+                const response = await fetch('/api/blog/posts?limit=4&sort=newest');
+                const data = await response.json();
+
+                if (data.success && data.posts && data.posts.length > 0) {
+                    const grid = document.getElementById('blogGrid');
+                    grid.innerHTML = data.posts.map(post => `
+                        <a href="/blog/${post.slug}" class="blog-card">
+                            ${post.coverImage ? `<div class="blog-card-image" style="background-image: url('${post.coverImage}')"></div>` : ''}
+                            <div class="blog-card-content">
+                                <div class="blog-card-meta">
+                                    ${post.category ? `<span class="blog-card-category">${post.category.name}</span>` : ''}
+                                    <span class="blog-card-date">${new Date(post.publishedAt || post.createdAt).toLocaleDateString('ru-RU')}</span>
+                                </div>
+                                <h3 class="blog-card-title">${post.title}</h3>
+                                <p class="blog-card-excerpt">${post.excerpt || ''}</p>
+                            </div>
+                        </a>
+                    `).join('');
+                } else {
+                    // Hide section if no posts
+                    document.querySelector('.blog-section').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to load blog posts:', error);
+                document.querySelector('.blog-section').style.display = 'none';
+            }
+        }
+
+        loadBlogPosts();
     </script>
 </body>
 </html>
