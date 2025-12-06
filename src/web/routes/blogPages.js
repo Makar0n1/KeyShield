@@ -615,49 +615,73 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       }
     }
 
-    // Voting with fingerprint
-    async function vote(type, id, voteType) {
-      try {
-        const visitorId = getVisitorId();
-        const res = await fetch('/api/blog/vote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type, id, voteType, visitorId })
-        });
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById(type + '-likes-' + id).textContent = data.likes;
-          document.getElementById(type + '-dislikes-' + id).textContent = data.dislikes;
-        }
-      } catch (err) {
-        console.error('Vote error:', err);
+    // Voting with optimistic UI
+    const voteState = {}; // Track current vote state per target
+    function vote(type, id, voteType) {
+      const visitorId = getVisitorId();
+      const key = type + '-' + id;
+      const likesEl = document.getElementById(type + '-likes-' + id);
+      const dislikesEl = document.getElementById(type + '-dislikes-' + id);
+      if (!likesEl || !dislikesEl) return;
+
+      const currentLikes = parseInt(likesEl.textContent) || 0;
+      const currentDislikes = parseInt(dislikesEl.textContent) || 0;
+      const currentVote = voteState[key]; // 'like', 'dislike', or undefined
+
+      // Optimistic update
+      let newLikes = currentLikes;
+      let newDislikes = currentDislikes;
+
+      if (currentVote === voteType) {
+        // Toggle off
+        if (voteType === 'like') newLikes--;
+        else newDislikes--;
+        voteState[key] = null;
+      } else if (currentVote) {
+        // Switch vote
+        if (voteType === 'like') { newLikes++; newDislikes--; }
+        else { newLikes--; newDislikes++; }
+        voteState[key] = voteType;
+      } else {
+        // New vote
+        if (voteType === 'like') newLikes++;
+        else newDislikes++;
+        voteState[key] = voteType;
       }
+
+      // Instant UI update
+      likesEl.textContent = Math.max(0, newLikes);
+      dislikesEl.textContent = Math.max(0, newDislikes);
+
+      // Fire and forget - send to server in background
+      fetch('/api/blog/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, id, voteType, visitorId })
+      }).catch(err => console.error('Vote error:', err));
     }
 
-    // Track share and open link
-    async function trackShare(postId, url) {
-      try {
-        await fetch('/api/blog/share', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postId })
-        });
-        // Update share counter if exists
-        const counter = document.getElementById('post-shares-' + postId);
-        if (counter) {
-          counter.textContent = parseInt(counter.textContent || 0) + 1;
-        }
-      } catch (err) {
-        console.error('Share track error:', err);
+    // Track share with optimistic UI
+    function trackShare(postId, url) {
+      // Instant UI update
+      const counter = document.getElementById('post-shares-' + postId);
+      if (counter) {
+        counter.textContent = parseInt(counter.textContent || 0) + 1;
       }
-      // Open share URL
+      // Open immediately
       window.open(url, '_blank', 'noopener');
+      // Fire and forget
+      fetch('/api/blog/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId })
+      }).catch(err => console.error('Share error:', err));
     }
 
-    // Copy post link to clipboard
+    // Copy post link to clipboard with optimistic UI
     function copyPostLink(postId) {
       const url = window.location.href;
-      navigator.clipboard.writeText(url).then(async () => {
+      navigator.clipboard.writeText(url).then(() => {
         const btn = document.querySelector('.share-copy');
         const originalTitle = btn.title;
         btn.title = 'Скопировано!';
@@ -666,23 +690,20 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           btn.title = originalTitle;
           btn.classList.remove('copied');
         }, 2000);
-        // Track share
+        // Instant UI update
         if (postId) {
-          try {
-            await fetch('/api/blog/share', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ postId })
-            });
-            const counter = document.getElementById('post-shares-' + postId);
-            if (counter) {
-              counter.textContent = parseInt(counter.textContent || 0) + 1;
-            }
-          } catch (err) {}
+          const counter = document.getElementById('post-shares-' + postId);
+          if (counter) {
+            counter.textContent = parseInt(counter.textContent || 0) + 1;
+          }
+          // Fire and forget
+          fetch('/api/blog/share', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ postId })
+          }).catch(() => {});
         }
-      }).catch(err => {
-        console.error('Copy error:', err);
-      });
+      }).catch(err => console.error('Copy error:', err));
     }
 
     // Comment submission
