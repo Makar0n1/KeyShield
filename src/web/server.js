@@ -80,6 +80,48 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Helper to render HTML with env variable substitution
+const fs = require('fs');
+const renderHtmlWithEnv = (filePath, res) => {
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) {
+      console.error('Error reading file:', filePath, err);
+      return res.status(500).send('Error loading page');
+    }
+
+    // Replace environment placeholders
+    const rendered = html
+      .replace(/https:\/\/keyshield\.me/g, SITE_URL)
+      .replace(/<meta name="robots" content="index, follow">/g,
+        `<meta name="robots" content="${ROBOTS_META}">`);
+
+    res.type('html').send(rendered);
+  });
+};
+
+// Intercept HTML page requests BEFORE express.static
+// This ensures dynamic variable substitution works
+app.get(['/', '/index.html'], (req, res) => {
+  renderHtmlWithEnv(path.join(__dirname, '../../public/index.html'), res);
+});
+
+app.get(['/terms', '/terms.html'], (req, res) => {
+  renderHtmlWithEnv(path.join(__dirname, '../../public/terms.html'), res);
+});
+
+app.get(['/privacy', '/privacy.html'], (req, res) => {
+  renderHtmlWithEnv(path.join(__dirname, '../../public/privacy.html'), res);
+});
+
+app.get(['/offer', '/offer.html'], (req, res) => {
+  renderHtmlWithEnv(path.join(__dirname, '../../public/offer.html'), res);
+});
+
+app.get(['/not-found', '/not-found.html'], (req, res) => {
+  res.status(404);
+  renderHtmlWithEnv(path.join(__dirname, '../../public/not-found.html'), res);
+});
+
 // Static files with long cache TTL (1 year for versioned assets)
 app.use(express.static(path.join(__dirname, '../../public'), {
   maxAge: '1y',
@@ -101,54 +143,13 @@ app.use(express.static(path.join(__dirname, '../../public'), {
   }
 }));
 
-// Helper to render HTML with env variable substitution
-const fs = require('fs');
-const renderHtmlWithEnv = (filePath, res) => {
-  fs.readFile(filePath, 'utf8', (err, html) => {
-    if (err) {
-      console.error('Error reading file:', filePath, err);
-      return res.status(500).send('Error loading page');
-    }
-
-    // Replace environment placeholders
-    const rendered = html
-      .replace(/https:\/\/keyshield\.me/g, SITE_URL)
-      .replace(/<meta name="robots" content="index, follow">/g,
-        `<meta name="robots" content="${ROBOTS_META}">`);
-
-    res.type('html').send(rendered);
-  });
-};
-
-// Clean URL routes for pages (no .html extension)
-app.get('/', (req, res) => {
-  renderHtmlWithEnv(path.join(__dirname, '../../public/index.html'), res);
-});
-
-app.get('/terms', (req, res) => {
-  renderHtmlWithEnv(path.join(__dirname, '../../public/terms.html'), res);
-});
-
-app.get('/privacy', (req, res) => {
-  renderHtmlWithEnv(path.join(__dirname, '../../public/privacy.html'), res);
-});
-
-app.get('/offer', (req, res) => {
-  renderHtmlWithEnv(path.join(__dirname, '../../public/offer.html'), res);
-});
-
+// Admin panel routes (no env substitution needed)
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../../public/admin.html'));
 });
 
 app.get('/admin/blog', (req, res) => {
   res.sendFile(path.join(__dirname, '../../public/admin-blog.html'));
-});
-
-// Redirect .html URLs to clean URLs
-app.get('*.html', (req, res) => {
-  const cleanPath = req.path.replace('.html', '');
-  res.redirect(301, cleanPath);
 });
 
 // Partner routes (before admin auth)
