@@ -59,6 +59,31 @@ bot.catch((err, ctx) => {
 });
 
 // ============================================
+// MIDDLEWARE: Initialize user session after restart
+// ============================================
+// After bot restart, mainMessageId is loaded from DB but currentScreenData is lost.
+// This middleware ensures callback queries work by initializing session state.
+bot.use(async (ctx, next) => {
+  if (ctx.callbackQuery) {
+    const telegramId = ctx.from.id;
+
+    // If user has mainMessageId in DB but no currentScreenData in memory,
+    // initialize with main_menu so navigation works
+    const hasMainMessage = await messageManager.getMainMessage(telegramId);
+    const hasScreenData = messageManager.getCurrentScreen(telegramId);
+
+    if (hasMainMessage && !hasScreenData) {
+      // Initialize session with main_menu as current screen
+      const { mainMenuKeyboard } = require('./keyboards/main');
+      const { MAIN_MENU_TEXT } = require('./handlers/start');
+      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
+      console.log(`🔄 Initialized session for user ${telegramId} after restart`);
+    }
+  }
+  return next();
+});
+
+// ============================================
 // COMMANDS
 // ============================================
 
