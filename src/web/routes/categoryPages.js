@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
+// Environment configuration
+const WEB_DOMAIN = process.env.WEB_DOMAIN || 'localhost:3001';
+const SITE_URL = WEB_DOMAIN.includes('localhost') ? `http://${WEB_DOMAIN}` : `https://${WEB_DOMAIN}`;
+const INDEXATION = process.env.INDEXATION === 'yes';
+const ROBOTS_META = INDEXATION ? 'index, follow' : 'noindex, nofollow';
+
 // Models
 const BlogCategory = require('../../models/BlogCategory');
 const BlogPost = require('../../models/BlogPost');
@@ -206,7 +212,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="${ROBOTS_META}">
   <link rel="canonical" href="${canonical}">
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(description)}">
@@ -401,7 +407,7 @@ router.get('/:slug', async (req, res) => {
           '@type': 'ListItem',
           'position': index + 1,
           'name': item.name,
-          'item': item.url.startsWith('http') ? item.url : `https://keyshield.me${item.url}`
+          'item': item.url.startsWith('http') ? item.url : `${SITE_URL}${item.url}`
         }))
       },
       {
@@ -409,14 +415,14 @@ router.get('/:slug', async (req, res) => {
         '@type': 'CollectionPage',
         'name': category.name,
         'description': category.seoDescription || `Статьи в категории ${category.name}`,
-        'url': category.canonical || `https://keyshield.me/category/${category.slug}`
+        'url': category.canonical || `${SITE_URL}/category/${category.slug}`
       }
     ];
 
     res.send(renderPage({
       title: category.seoTitle || `${category.name} - Блог KeyShield`,
       description: category.seoDescription || `Статьи в категории ${category.name}`,
-      canonical: category.canonical || `https://keyshield.me/category/${category.slug}`,
+      canonical: category.canonical || `${SITE_URL}/category/${category.slug}`,
       ogImage: category.coverImage,
       schemas,
       breadcrumbs,

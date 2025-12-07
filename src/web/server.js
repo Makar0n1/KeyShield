@@ -25,12 +25,36 @@ const tagPages = require('./routes/tagPages');
 const app = express();
 const PORT = process.env.WEB_PORT || 3000;
 
+// Domain configuration from env
+const WEB_DOMAIN = process.env.WEB_DOMAIN || 'localhost:3001';
+const API_DOMAIN = process.env.API_DOMAIN || 'localhost:3020';
+const INDEXATION = process.env.INDEXATION === 'yes';
+
+// Build allowed origins from env domains
+const buildAllowedOrigins = () => {
+  const origins = [];
+  // Add web domain with http and https
+  if (WEB_DOMAIN.includes('localhost')) {
+    origins.push(`http://${WEB_DOMAIN}`);
+  } else {
+    origins.push(`https://${WEB_DOMAIN}`);
+    origins.push(`https://www.${WEB_DOMAIN}`);
+  }
+  // Add API domain
+  if (API_DOMAIN.includes('localhost')) {
+    origins.push(`http://${API_DOMAIN}`);
+  } else {
+    origins.push(`https://${API_DOMAIN}`);
+  }
+  return origins;
+};
+
 // Create separate bot instance for web server (avoids timing issues)
 const webBot = new Telegraf(process.env.BOT_TOKEN);
 
-// CORS middleware for cross-origin requests (keyshield.me -> api.keyshield.me)
+// CORS middleware for cross-origin requests
 app.use((req, res, next) => {
-  const allowedOrigins = ['https://keyshield.me', 'https://www.keyshield.me', 'http://localhost:3000', 'http://localhost:3001'];
+  const allowedOrigins = buildAllowedOrigins();
   const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
