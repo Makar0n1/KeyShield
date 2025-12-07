@@ -29,6 +29,8 @@ const PORT = process.env.WEB_PORT || 3000;
 const WEB_DOMAIN = process.env.WEB_DOMAIN || 'localhost:3001';
 const API_DOMAIN = process.env.API_DOMAIN || 'localhost:3020';
 const INDEXATION = process.env.INDEXATION === 'yes';
+const SITE_URL = WEB_DOMAIN.includes('localhost') ? `http://${WEB_DOMAIN}` : `https://${WEB_DOMAIN}`;
+const ROBOTS_META = INDEXATION ? 'index, follow' : 'noindex, nofollow';
 
 // Build allowed origins from env domains
 const buildAllowedOrigins = () => {
@@ -104,6 +106,7 @@ const fs = require('fs');
 const renderHtmlWithEnv = (filePath, res) => {
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) {
+      console.error('Error reading file:', filePath, err);
       return res.status(500).send('Error loading page');
     }
 
@@ -111,14 +114,11 @@ const renderHtmlWithEnv = (filePath, res) => {
     const rendered = html
       .replace(/https:\/\/keyshield\.me/g, SITE_URL)
       .replace(/<meta name="robots" content="index, follow">/g,
-        `<meta name="robots" content="${INDEXATION ? 'index, follow' : 'noindex, nofollow'}">`);
+        `<meta name="robots" content="${ROBOTS_META}">`);
 
     res.type('html').send(rendered);
   });
 };
-
-// Build SITE_URL for HTML templates
-const SITE_URL = WEB_DOMAIN.includes('localhost') ? `http://${WEB_DOMAIN}` : `https://${WEB_DOMAIN}`;
 
 // Clean URL routes for pages (no .html extension)
 app.get('/', (req, res) => {
@@ -1524,8 +1524,9 @@ const startWebServer = async () => {
     app.listen(PORT, () => {
       console.log(`\n🌐 Web server started!`);
       console.log(`   URL: http://localhost:${PORT}`);
+      console.log(`   SITE_URL: ${SITE_URL}`);
+      console.log(`   INDEXATION: ${INDEXATION ? 'yes' : 'no'} (robots: ${ROBOTS_META})`);
       console.log(`   Admin panel: http://localhost:${PORT}/admin`);
-      console.log(`   Default admin credentials: admin / admin123`);
       console.log(`   ⚠️  Change credentials in .env: ADMIN_USERNAME and ADMIN_PASSWORD\n`);
     });
   } catch (error) {
