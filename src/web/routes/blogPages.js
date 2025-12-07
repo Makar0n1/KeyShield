@@ -346,7 +346,7 @@ function generateBlogSchema(settings) {
     '@type': 'Blog',
     'name': settings.title,
     'description': stripHtml(settings.description),
-    'url': settings.canonical || '${SITE_URL}/blog'
+    'url': settings.canonical || `${SITE_URL}/blog`
   };
 }
 
@@ -368,7 +368,7 @@ function generateArticleSchema(post, comments = [], toc = []) {
       'name': 'KeyShield',
       'logo': {
         '@type': 'ImageObject',
-        'url': '${SITE_URL}/images/logo.png'
+        'url': `${SITE_URL}/images/logo.png`
       }
     },
     'mainEntityOfPage': {
@@ -859,7 +859,7 @@ router.get('/', async (req, res) => {
     res.send(renderPage({
       title: settings.seoTitle || 'Блог KeyShield',
       description: settings.seoDescription || 'Полезные статьи о криптовалютах и безопасных сделках',
-      canonical: settings.canonical || '${SITE_URL}/blog',
+      canonical: settings.canonical || `${SITE_URL}/blog`,
       ogImage: settings.coverImage,
       schemas,
       breadcrumbs,
