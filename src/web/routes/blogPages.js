@@ -8,6 +8,13 @@ const SITE_URL = WEB_DOMAIN.includes('localhost') ? `http://${WEB_DOMAIN}` : `ht
 const INDEXATION = process.env.INDEXATION === 'yes';
 const ROBOTS_META = INDEXATION ? 'index, follow' : 'noindex, nofollow';
 
+// Normalize canonical URL - replace hardcoded domain with current SITE_URL
+const normalizeCanonical = (url, fallback) => {
+  if (!url) return fallback;
+  // Replace any hardcoded keyshield.me domain with current SITE_URL
+  return url.replace(/https?:\/\/(www\.)?keyshield\.me/g, SITE_URL);
+};
+
 // Models
 const BlogSettings = require('../../models/BlogSettings');
 const BlogCategory = require('../../models/BlogCategory');
@@ -859,7 +866,7 @@ router.get('/', async (req, res) => {
     res.send(renderPage({
       title: settings.seoTitle || 'Блог KeyShield',
       description: settings.seoDescription || 'Полезные статьи о криптовалютах и безопасных сделках',
-      canonical: settings.canonical || `${SITE_URL}/blog`,
+      canonical: normalizeCanonical(settings.canonical, `${SITE_URL}/blog`),
       ogImage: settings.coverImage,
       schemas,
       breadcrumbs,
@@ -1075,7 +1082,7 @@ router.get('/:slug', async (req, res) => {
     res.send(renderPage({
       title: post.seoTitle || post.title,
       description: post.seoDescription || generateExcerpt(post.content, post.summary, 160),
-      canonical: post.canonical || `${SITE_URL}/blog/${post.slug}`,
+      canonical: normalizeCanonical(post.canonical, `${SITE_URL}/blog/${post.slug}`),
       ogImage: post.coverImage,
       schemas,
       breadcrumbs,
