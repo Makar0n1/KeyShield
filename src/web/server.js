@@ -99,21 +99,42 @@ app.use(express.static(path.join(__dirname, '../../public'), {
   }
 }));
 
+// Helper to render HTML with env variable substitution
+const fs = require('fs');
+const renderHtmlWithEnv = (filePath, res) => {
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) {
+      return res.status(500).send('Error loading page');
+    }
+
+    // Replace environment placeholders
+    const rendered = html
+      .replace(/https:\/\/keyshield\.me/g, SITE_URL)
+      .replace(/<meta name="robots" content="index, follow">/g,
+        `<meta name="robots" content="${INDEXATION ? 'index, follow' : 'noindex, nofollow'}">`);
+
+    res.type('html').send(rendered);
+  });
+};
+
+// Build SITE_URL for HTML templates
+const SITE_URL = WEB_DOMAIN.includes('localhost') ? `http://${WEB_DOMAIN}` : `https://${WEB_DOMAIN}`;
+
 // Clean URL routes for pages (no .html extension)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../public/index.html'));
+  renderHtmlWithEnv(path.join(__dirname, '../../public/index.html'), res);
 });
 
 app.get('/terms', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../public/terms.html'));
+  renderHtmlWithEnv(path.join(__dirname, '../../public/terms.html'), res);
 });
 
 app.get('/privacy', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../public/privacy.html'));
+  renderHtmlWithEnv(path.join(__dirname, '../../public/privacy.html'), res);
 });
 
 app.get('/offer', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../public/offer.html'));
+  renderHtmlWithEnv(path.join(__dirname, '../../public/offer.html'), res);
 });
 
 app.get('/admin', (req, res) => {
@@ -1491,7 +1512,8 @@ app.get('/api/admin/platforms/:platformId', adminAuth, async (req, res) => {
 
 // 404 handler - must be last
 app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, '../../public/not-found.html'));
+  res.status(404);
+  renderHtmlWithEnv(path.join(__dirname, '../../public/not-found.html'), res);
 });
 
 // Start server
