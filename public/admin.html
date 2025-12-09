@@ -1984,17 +1984,87 @@
             </div>
 
             <!-- Operational Costs -->
-            ${deal.operationalCosts && (deal.operationalCosts.activationTrx > 0 || deal.operationalCosts.totalCostUsd > 0) ? `
+            ${deal.operationalCosts && deal.operationalCosts.totalTrxSpent > 0 ? `
             <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-              <div style="font-size: 12px; color: #6366f1; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">Операционные расходы</div>
-              <div style="display: grid; gap: 8px;">
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #94a3b8;">Активация TRX:</span>
-                  <span style="color: #ef4444;">${deal.operationalCosts.activationTrx || 0} TRX</span>
+              <div style="font-size: 12px; color: #6366f1; text-transform: uppercase; margin-bottom: 10px; font-weight: 600;">💰 Операционные расходы</div>
+
+              <!-- Activation Costs -->
+              <div style="margin-bottom: 12px; padding: 10px; background: #1e293b; border-radius: 6px;">
+                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">Активация мультисига:</div>
+                <div style="display: grid; gap: 6px; font-size: 13px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #94a3b8;">Отправлено:</span>
+                    <span style="color: #f59e0b;">${deal.operationalCosts.activationTrxSent || 5} TRX</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #94a3b8;">Комиссия TX:</span>
+                    <span style="color: #f59e0b;">${deal.operationalCosts.activationTxFee || 1.1} TRX</span>
+                  </div>
+                  ${deal.operationalCosts.activationTrxReturned > 0 ? `
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #94a3b8;">Возвращено:</span>
+                    <span style="color: #10b981;">-${deal.operationalCosts.activationTrxReturned.toFixed(2)} TRX</span>
+                  </div>
+                  ` : ''}
+                  <div style="display: flex; justify-content: space-between; border-top: 1px solid #334155; padding-top: 6px; margin-top: 4px;">
+                    <span style="color: #e2e8f0; font-weight: 600;">Итого активация:</span>
+                    <span style="color: #ef4444; font-weight: 600;">${deal.operationalCosts.activationTrxNet?.toFixed(2) || ((deal.operationalCosts.activationTrxSent || 5) + (deal.operationalCosts.activationTxFee || 1.1) - (deal.operationalCosts.activationTrxReturned || 0)).toFixed(2)} TRX</span>
+                  </div>
                 </div>
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="color: #94a3b8;">Всего USD:</span>
-                  <span style="color: #ef4444;">${(deal.operationalCosts.totalCostUsd || 0).toFixed(2)} USD</span>
+              </div>
+
+              <!-- Energy Costs -->
+              <div style="margin-bottom: 12px; padding: 10px; background: #1e293b; border-radius: 6px;">
+                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+                  Энергия:
+                  ${deal.operationalCosts.energyMethod === 'feesaver' ? '<span style="color: #22c55e;">FeeSaver</span>' :
+                    deal.operationalCosts.energyMethod === 'trx' ? '<span style="color: #f59e0b;">TRX Fallback</span>' :
+                    '<span style="color: #64748b;">Не указано</span>'}
+                </div>
+                <div style="display: grid; gap: 6px; font-size: 13px;">
+                  ${deal.operationalCosts.energyMethod === 'feesaver' ? `
+                    <div style="display: flex; justify-content: space-between;">
+                      <span style="color: #94a3b8;">Аренда энергии:</span>
+                      <span style="color: #22c55e;">${deal.operationalCosts.feesaverCostTrx?.toFixed(2) || 0} TRX</span>
+                    </div>
+                  ` : deal.operationalCosts.energyMethod === 'trx' ? `
+                    <div style="display: flex; justify-content: space-between;">
+                      <span style="color: #94a3b8;">Отправлено:</span>
+                      <span style="color: #f59e0b;">${deal.operationalCosts.fallbackTrxSent || 30} TRX</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                      <span style="color: #94a3b8;">Комиссия TX:</span>
+                      <span style="color: #f59e0b;">${deal.operationalCosts.fallbackTxFee || 1.1} TRX</span>
+                    </div>
+                    ${deal.operationalCosts.fallbackTrxReturned > 0 ? `
+                    <div style="display: flex; justify-content: space-between;">
+                      <span style="color: #94a3b8;">Возвращено:</span>
+                      <span style="color: #10b981;">-${deal.operationalCosts.fallbackTrxReturned.toFixed(2)} TRX</span>
+                    </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; border-top: 1px solid #334155; padding-top: 6px; margin-top: 4px;">
+                      <span style="color: #e2e8f0; font-weight: 600;">Итого fallback:</span>
+                      <span style="color: #ef4444; font-weight: 600;">${deal.operationalCosts.fallbackTrxNet?.toFixed(2) || ((deal.operationalCosts.fallbackTrxSent || 30) + (deal.operationalCosts.fallbackTxFee || 1.1) - (deal.operationalCosts.fallbackTrxReturned || 0)).toFixed(2)} TRX</span>
+                    </div>
+                  ` : '<div style="color: #64748b; font-size: 12px;">Нет данных об энергии</div>'}
+                </div>
+              </div>
+
+              <!-- Total Costs -->
+              <div style="padding: 12px; background: #1e1b4b; border-radius: 6px; border: 2px solid #6366f1;">
+                <div style="display: grid; gap: 8px; font-size: 14px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #e2e8f0; font-weight: 600;">Всего TRX:</span>
+                    <span style="color: #ef4444; font-weight: bold; font-size: 16px;">${deal.operationalCosts.totalTrxSpent?.toFixed(2) || 0} TRX</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #e2e8f0; font-weight: 600;">Курс на момент:</span>
+                    <span style="color: #94a3b8;">${deal.operationalCosts.trxPriceAtCompletion ? '$' + deal.operationalCosts.trxPriceAtCompletion.toFixed(6) : 'N/A'}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; border-top: 1px solid #4338ca; padding-top: 8px;">
+                    <span style="color: #e2e8f0; font-weight: bold;">Всего USD:</span>
+                    <span style="color: #ef4444; font-weight: bold; font-size: 16px;">${(deal.operationalCosts.totalCostUsd || 0).toFixed(2)} USD</span>
+                  </div>
                 </div>
               </div>
             </div>` : ''}
