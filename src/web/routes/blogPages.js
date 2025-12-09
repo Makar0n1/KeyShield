@@ -586,7 +586,9 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lightbox-close:hover{background:rgba(255,255,255,.3)}
     /* Single image mode */
     .lightbox-img-container{position:fixed;touch-action:none;will-change:transform;z-index:10000;overflow:hidden;border-radius:8px}
-    .lightbox-img{width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;display:block}
+    .lightbox-img-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(25px) brightness(0.5);transform:scale(1.2);opacity:0;transition:opacity .3s}
+    .lightbox-img-container.vertical .lightbox-img-bg{opacity:1}
+    .lightbox-img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;display:block}
     /* Gallery track mode */
     .lightbox-gallery-wrapper{position:fixed;inset:0;z-index:10000;overflow:hidden;display:none}
     .lightbox-overlay.gallery-mode .lightbox-gallery-wrapper{display:block}
@@ -763,6 +765,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
     <!-- Single image mode -->
     <div class="lightbox-img-container" id="lightboxContainer">
+      <div class="lightbox-img-bg" id="lightboxImgBg"></div>
       <img class="lightbox-img" id="lightboxImg" src="" alt="">
     </div>
     <!-- Gallery track mode -->
@@ -959,6 +962,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     (function() {
       const lightbox = document.getElementById('lightbox');
       const lightboxImg = document.getElementById('lightboxImg');
+      const lightboxImgBg = document.getElementById('lightboxImgBg');
       const lightboxContainer = document.getElementById('lightboxContainer');
       const lightboxToast = document.getElementById('lightboxToast');
       const galleryWrapper = document.getElementById('lightboxGalleryWrapper');
@@ -1034,8 +1038,10 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       function showSingleImage(src, alt) {
         lightboxImg.src = src;
         lightboxImg.alt = alt;
+        lightboxImgBg.style.backgroundImage = 'url(' + src + ')';
         lightbox.classList.add('active');
         document.body.classList.add('lightbox-open');
+        lightboxContainer.classList.remove('vertical');
 
         if (sourceRect) {
           lightboxContainer.style.transition = 'none';
@@ -1052,6 +1058,12 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         const onLoad = () => {
           const naturalW = lightboxImg.naturalWidth || 800;
           const naturalH = lightboxImg.naturalHeight || 600;
+
+          // Check if vertical image (height > width * 1.2)
+          if (naturalH > naturalW * 1.2) {
+            lightboxContainer.classList.add('vertical');
+          }
+
           targetRect = getTargetRect(naturalW, naturalH);
 
           requestAnimationFrame(() => {
@@ -1178,6 +1190,8 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         sourceImg = null;
         sourceRect = null;
         lightboxContainer.style = '';
+        lightboxContainer.classList.remove('vertical');
+        lightboxImgBg.style.backgroundImage = '';
         galleryTrack.innerHTML = '';
         galleryTrack.style = '';
         galleryNav.style.display = 'none';
