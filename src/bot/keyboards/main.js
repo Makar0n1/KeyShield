@@ -182,9 +182,9 @@ const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1) => {
       paginationRow.push(Markup.button.callback('◀️', `deals_page:${currentPage - 1}`));
     }
 
-    // Page numbers (show max 5 pages at a time)
+    // Page numbers (show max 2 pages at a time)
     const pageButtons = [];
-    const maxVisiblePages = 5;
+    const maxVisiblePages = 2;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
