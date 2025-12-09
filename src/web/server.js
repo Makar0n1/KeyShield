@@ -672,12 +672,15 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     let fallbackDeals = 0;
 
     console.log(`[Stats] Processing ${finishedDeals.length} finished deals, TRX price: $${TRX_TO_USDT}`);
+    console.log(`[Stats] TRX_TO_USDT type: ${typeof TRX_TO_USDT}, value: ${TRX_TO_USDT}`);
 
     for (const deal of finishedDeals) {
       if (deal.operationalCosts && deal.operationalCosts.totalTrxSpent > 0) {
         // Use actual recorded costs
         const dealTrx = deal.operationalCosts.totalTrxSpent || 0;
         const dealUsd = deal.operationalCosts.totalCostUsd || 0;
+
+        console.log(`[Stats] Deal ${deal.dealId}: has cost data, TRX=${dealTrx}, USD=${dealUsd}`);
 
         totalTrxSpent += dealTrx;
         totalCostUsd += dealUsd;
@@ -690,10 +693,14 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
         const estimatedTrx = 2.2;
         const estimatedUsd = estimatedTrx * TRX_TO_USDT;
 
+        console.log(`[Stats] Deal ${deal.dealId}: no cost data, estimated TRX=${estimatedTrx}, USD=${estimatedUsd} (${estimatedTrx} * ${TRX_TO_USDT})`);
+
         totalTrxSpent += estimatedTrx;
         totalCostUsd += estimatedUsd;
       }
     }
+
+    console.log(`[Stats] Before NaN check: totalTrxSpent=${totalTrxSpent}, totalCostUsd=${totalCostUsd}`);
 
     // Ensure no NaN values
     totalTrxSpent = isNaN(totalTrxSpent) ? 0 : totalTrxSpent;
@@ -702,7 +709,7 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     // Net profit = commission - TRX expenses
     const netProfit = totalCommission - totalCostUsd;
 
-    console.log(`[Stats] Total TRX: ${totalTrxSpent.toFixed(2)}, Total USD: ${totalCostUsd.toFixed(2)}, Net Profit: ${netProfit.toFixed(2)}`);
+    console.log(`[Stats] After NaN check: totalTrxSpent=${totalTrxSpent}, totalCostUsd=${totalCostUsd}, netProfit=${netProfit}`);
 
     // Calculate partner payouts (ONLY completed/resolved - expired deals don't count for partners!)
     const Platform = require('../models/Platform');
