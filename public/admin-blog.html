@@ -396,17 +396,22 @@
     }
     /* Cover preview container */
     .cover-preview-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    /* Hide select button when image is present */
+    .cover-preview-container.has-image .cover-select-btn {
+      display: none;
+    }
+    /* Hide image wrapper when no image */
+    .cover-image-wrapper {
+      display: none;
       position: relative;
+    }
+    .cover-preview-container.has-image .cover-image-wrapper {
       display: inline-block;
-    }
-    .cover-preview-container .cover-remove-btn {
-      display: none;
-    }
-    .cover-preview-container.has-image .btn-secondary {
-      display: none;
-    }
-    .cover-preview-container.has-image .cover-remove-btn {
-      display: flex !important;
     }
     .cover-preview-img {
       max-width: 250px;
@@ -436,7 +441,7 @@
       align-items: center;
       justify-content: center;
     }
-    .cover-preview-container:hover .cover-remove-btn {
+    .cover-image-wrapper:hover .cover-remove-btn {
       opacity: 1;
     }
     .cover-remove-btn:hover {
@@ -860,9 +865,11 @@
             <input type="hidden" id="settingsCoverImage">
             <input type="hidden" id="settingsCoverImageAlt">
             <div class="cover-preview-container" id="settingsCoverContainer">
-              <img id="settingsCoverPreview" class="cover-preview-img" style="display: none;">
-              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">📁 Выбрать из медиатеки</button>
-              <button type="button" class="cover-remove-btn" onclick="removeCover('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">✕</button>
+              <div class="cover-image-wrapper">
+                <img id="settingsCoverPreview" class="cover-preview-img">
+                <button type="button" class="cover-remove-btn" onclick="removeCover('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">✕</button>
+              </div>
+              <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
           </div>
           <div class="form-group">
@@ -927,9 +934,11 @@
             <input type="hidden" id="postCoverImage">
             <input type="hidden" id="postCoverImageAlt">
             <div class="cover-preview-container" id="postCoverContainer">
-              <img id="postCoverPreview" class="cover-preview-img" style="display: none;">
-              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">📁 Выбрать из медиатеки</button>
-              <button type="button" class="cover-remove-btn" onclick="removeCover('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">✕</button>
+              <div class="cover-image-wrapper">
+                <img id="postCoverPreview" class="cover-preview-img">
+                <button type="button" class="cover-remove-btn" onclick="removeCover('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">✕</button>
+              </div>
+              <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
           </div>
           <div class="form-group">
@@ -1005,9 +1014,11 @@
             <input type="hidden" id="categoryCoverImage">
             <input type="hidden" id="categoryCoverImageAlt">
             <div class="cover-preview-container" id="categoryCoverContainer">
-              <img id="categoryCoverPreview" class="cover-preview-img" style="display: none;">
-              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">📁 Выбрать из медиатеки</button>
-              <button type="button" class="cover-remove-btn" onclick="removeCover('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">✕</button>
+              <div class="cover-image-wrapper">
+                <img id="categoryCoverPreview" class="cover-preview-img">
+                <button type="button" class="cover-remove-btn" onclick="removeCover('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">✕</button>
+              </div>
+              <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
           </div>
           <div class="form-row">
@@ -1062,9 +1073,11 @@
             <input type="hidden" id="tagCoverImage">
             <input type="hidden" id="tagCoverImageAlt">
             <div class="cover-preview-container" id="tagCoverContainer">
-              <img id="tagCoverPreview" class="cover-preview-img" style="display: none;">
-              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">📁 Выбрать из медиатеки</button>
-              <button type="button" class="cover-remove-btn" onclick="removeCover('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">✕</button>
+              <div class="cover-image-wrapper">
+                <img id="tagCoverPreview" class="cover-preview-img">
+                <button type="button" class="cover-remove-btn" onclick="removeCover('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">✕</button>
+              </div>
+              <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
           </div>
           <div class="form-row">
@@ -1303,6 +1316,74 @@
     function initEditors() {
       if (postContentEditor) return;
 
+      // Register custom Blot for galleries to prevent Quill from stripping them
+      const BlockEmbed = Quill.import('blots/block/embed');
+
+      class GalleryBlot extends BlockEmbed {
+        static create(value) {
+          const node = super.create();
+          node.setAttribute('class', 'blog-gallery');
+          node.setAttribute('data-autoplay', value.autoplay || 'true');
+          node.setAttribute('data-speed', value.speed || '3000');
+          node.setAttribute('data-align', value.align || 'center');
+          node.setAttribute('data-images', JSON.stringify(value.images || []));
+          node.setAttribute('contenteditable', 'false');
+          // Show preview in editor
+          const count = (value.images || []).length;
+          node.innerHTML = '<div style="background:#1e293b;padding:20px;border-radius:8px;text-align:center;border:2px dashed #475569;color:#94a3b8;">📷 Галерея: ' + count + ' фото</div>';
+          return node;
+        }
+
+        static value(node) {
+          return {
+            autoplay: node.getAttribute('data-autoplay'),
+            speed: node.getAttribute('data-speed'),
+            align: node.getAttribute('data-align'),
+            images: JSON.parse(node.getAttribute('data-images') || '[]')
+          };
+        }
+      }
+      GalleryBlot.blotName = 'gallery';
+      GalleryBlot.tagName = 'div';
+      GalleryBlot.className = 'blog-gallery';
+
+      Quill.register(GalleryBlot);
+
+      // Register custom Blot for aligned images
+      class ImageContainerBlot extends BlockEmbed {
+        static create(value) {
+          const node = super.create();
+          node.setAttribute('class', 'blog-image ' + (value.align ? 'align-' + value.align : 'align-center'));
+          node.setAttribute('contenteditable', 'false');
+          const img = document.createElement('img');
+          img.src = value.src || '';
+          img.alt = value.alt || '';
+          if (value.title) img.title = value.title;
+          node.appendChild(img);
+          return node;
+        }
+
+        static value(node) {
+          const img = node.querySelector('img');
+          const classList = node.className.split(' ');
+          let align = 'center';
+          classList.forEach(c => {
+            if (c.startsWith('align-')) align = c.replace('align-', '');
+          });
+          return {
+            src: img?.src || '',
+            alt: img?.alt || '',
+            title: img?.title || '',
+            align: align
+          };
+        }
+      }
+      ImageContainerBlot.blotName = 'imageContainer';
+      ImageContainerBlot.tagName = 'div';
+      ImageContainerBlot.className = 'blog-image';
+
+      Quill.register(ImageContainerBlot);
+
       const toolbarOptions = [
         [{ 'header': [1, 2, 3, false] }],
         ['bold', 'italic', 'underline', 'strike'],
@@ -1323,28 +1404,34 @@
           const range = postContentEditor.getSelection(true);
 
           if (selected.length === 1) {
-            // Single image - insert with alt, title and alignment
+            // Single image - insert using custom blot
             const file = selected[0];
             const alt = file.customAlt || file.alt || '';
             const title = file.customTitle || '';
             const align = file.customAlign || 'center';
 
-            // Create image HTML with wrapper div for alignment (Quill strips inline styles)
-            const imgHtml = `<div class="blog-image align-${align}"><img src="${file.url}" alt="${escapeHtml(alt)}" title="${escapeHtml(title)}"></div>`;
-            postContentEditor.clipboard.dangerouslyPasteHTML(range.index, imgHtml);
+            // Insert using registered imageContainer blot
+            postContentEditor.insertEmbed(range.index, 'imageContainer', {
+              src: file.url,
+              alt: alt,
+              title: title,
+              align: align
+            });
             postContentEditor.setSelection(range.index + 1);
           } else if (selected.length > 1) {
-            // Multiple images - insert gallery
+            // Multiple images - insert gallery using custom blot
             const autoplay = document.getElementById('galleryAutoplay').checked;
             const speed = document.getElementById('gallerySpeed').value;
             const align = document.getElementById('galleryAlign').value;
             const urls = selected.map(f => f.url);
 
-            // Create gallery HTML with autoplay setting
-            const galleryHtml = `<div class="blog-gallery" data-autoplay="${autoplay}" data-speed="${speed}" data-align="${align}" data-images='${JSON.stringify(urls)}'></div>`;
-
-            // Insert as custom blot (we'll need to register it) or as HTML
-            postContentEditor.clipboard.dangerouslyPasteHTML(range.index, galleryHtml);
+            // Insert using registered gallery blot
+            postContentEditor.insertEmbed(range.index, 'gallery', {
+              autoplay: String(autoplay),
+              speed: speed,
+              align: align,
+              images: urls
+            });
             postContentEditor.setSelection(range.index + 1);
           }
         });
@@ -2049,11 +2136,14 @@
     }
 
     // --- MEDIA LIBRARY MODAL ---
-    async function openMediaLibrary(callback) {
+    let singleSelectMode = false; // When true, only one image can be selected (for covers)
+
+    async function openMediaLibrary(callback, options = {}) {
       mediaLibraryCallback = callback;
       selectedMediaFiles = [];
       checkboxSelectionMode = false;
       lastSelectedIndex = -1;
+      singleSelectMode = options.singleSelect || false;
 
       document.getElementById('mediaLibraryModal').classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -2063,6 +2153,15 @@
       document.getElementById('selectedCount').textContent = 'Выбрано: 0';
       document.getElementById('insertMediaBtn').disabled = true;
       document.getElementById('mediaSearchInput').value = '';
+
+      // Update UI for single select mode
+      if (singleSelectMode) {
+        document.getElementById('gallerySettings').style.display = 'none';
+        document.getElementById('insertMediaBtn').textContent = 'Выбрать';
+      } else {
+        document.getElementById('gallerySettings').style.display = '';
+        document.getElementById('insertMediaBtn').textContent = 'Вставить';
+      }
 
       await loadMediaLibrary();
     }
@@ -2081,7 +2180,7 @@
       lastSelectedIndex = -1;
     }
 
-    // Select cover image from media library
+    // Select cover image from media library (single selection mode)
     function selectCoverFromLibrary(urlInputId, altInputId, previewId, containerId) {
       openMediaLibrary((selected) => {
         if (selected.length > 0) {
@@ -2093,10 +2192,9 @@
           const preview = document.getElementById(previewId);
           const container = document.getElementById(containerId);
           preview.src = file.url;
-          preview.style.display = 'block';
           container.classList.add('has-image');
         }
-      });
+      }, { singleSelect: true });
     }
 
     // Remove cover image
@@ -2175,9 +2273,11 @@
       document.getElementById('mediaLibraryGrid').innerHTML = files.map((f, idx) => {
         const globalIdx = startIndex + idx;
         const isSelected = selectedMediaFiles.some(s => s.filename === f.filename);
+        // Hide checkbox in single select mode
+        const checkboxHtml = singleSelectMode ? '' : `<div class="select-checkbox" onclick="handleCheckboxClick(event, '${f.filename}', ${globalIdx})">${isSelected ? '✓' : ''}</div>`;
         return `
           <div class="media-item ${isSelected ? 'selected' : ''}" data-filename="${f.filename}" data-index="${globalIdx}" onclick="handleMediaClick(event, '${f.filename}', ${globalIdx})">
-            <div class="select-checkbox" onclick="handleCheckboxClick(event, '${f.filename}', ${globalIdx})">${isSelected ? '✓' : ''}</div>
+            ${checkboxHtml}
             <img src="${f.url}" alt="${f.alt || f.filename}" loading="lazy">
             <span class="select-check">✓</span>
             ${f.width && f.height ? `<span class="media-dimensions">${f.width}×${f.height}</span>` : ''}
@@ -2256,6 +2356,15 @@
       const file = mediaLibraryFiles.find(f => f.filename === filename);
       if (!file) return;
 
+      // In single select mode (for covers), always select only one
+      if (singleSelectMode) {
+        selectedMediaFiles = [file];
+        lastSelectedIndex = index;
+        updateMediaGridSelection();
+        updateMediaSelectionUI();
+        return;
+      }
+
       if (event.shiftKey && lastSelectedIndex >= 0) {
         // Shift+click: range selection (add to existing)
         const start = Math.min(lastSelectedIndex, index);
@@ -2302,6 +2411,9 @@
     // Handle click on checkbox (multi-select mode)
     function handleCheckboxClick(event, filename, index) {
       event.stopPropagation();
+
+      // In single select mode, ignore checkbox clicks
+      if (singleSelectMode) return;
 
       const file = mediaLibraryFiles.find(f => f.filename === filename);
       if (!file) return;

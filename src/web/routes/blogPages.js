@@ -164,9 +164,9 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
 const processContent = (content) => {
   if (!content) return '';
 
-  // Generic gallery parser that handles any attribute order
+  // Generic gallery parser that handles any attribute order and optional inner content
   content = content.replace(
-    /<div class="blog-gallery"([^>]*)><\/div>/gi,
+    /<div class="blog-gallery"([^>]*)>(?:.*?)<\/div>/gi,
     (match, attrs) => {
       try {
         // Parse attributes
@@ -581,13 +581,13 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lightbox-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(60,60,60,.9);color:#fff;padding:12px 24px;border-radius:25px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;backdrop-filter:blur(10px);z-index:10002;white-space:nowrap}
     .lightbox-toast.show{opacity:1}
     /* Tall images - expandable */
-    .tall-image-wrapper{position:relative;max-height:500px;overflow:hidden;border-radius:8px;margin:20px 0}
+    .tall-image-wrapper{position:relative;max-height:400px;overflow:hidden;border-radius:8px;margin:20px 0}
     .tall-image-wrapper.expanded{max-height:none}
-    .tall-image-wrapper img{width:100%;height:auto;display:block;cursor:pointer}
-    .tall-image-gradient{position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(transparent,rgba(10,10,15,.95));pointer-events:none;transition:opacity .3s}
-    .tall-image-wrapper.expanded .tall-image-gradient{opacity:0}
-    .tall-image-toggle{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(59,130,246,.9);color:#fff;border:none;padding:10px 24px;border-radius:25px;cursor:pointer;font-size:14px;font-weight:500;backdrop-filter:blur(10px);transition:background .2s}
-    .tall-image-toggle:hover{background:rgba(37,99,235,.95)}
+    .tall-image-wrapper.expanded .tall-image-toggle{display:none}
+    .tall-image-wrapper img{width:100%;height:auto;display:block;cursor:pointer;mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent 100%)}
+    .tall-image-wrapper.expanded img{mask-image:none;-webkit-mask-image:none}
+    .tall-image-toggle{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;backdrop-filter:blur(10px);transition:all .2s;z-index:5}
+    .tall-image-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
     /* Gallery slideshow */
     .blog-gallery{position:relative;overflow:hidden;border-radius:12px;margin:25px 0;background:#111}
     .blog-gallery.align-left{margin-right:auto;max-width:80%}
@@ -1113,7 +1113,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     // Tall images - auto-detect and wrap, then handle show/hide
     (function() {
       const TALL_RATIO = 1.5; // height > width * 1.5 = tall
-      const MAX_HEIGHT = 500;
+      const MAX_HEIGHT = 400;
 
       // Auto-detect tall images in post-content and wrap them
       document.querySelectorAll('.post-content img:not(.gallery-slide img):not(.tall-image-wrapper img)').forEach(img => {
@@ -1125,26 +1125,24 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
             const wrapper = document.createElement('div');
             wrapper.className = 'tall-image-wrapper';
 
-            const gradient = document.createElement('div');
-            gradient.className = 'tall-image-gradient';
-
             const toggle = document.createElement('button');
             toggle.className = 'tall-image-toggle';
-            toggle.textContent = 'Показать всё';
+            toggle.textContent = 'Показать больше';
             toggle.addEventListener('click', (e) => {
+              e.preventDefault();
               e.stopPropagation();
-              const isExpanded = wrapper.classList.toggle('expanded');
-              toggle.textContent = isExpanded ? 'Свернуть' : 'Показать всё';
+              wrapper.classList.add('expanded');
             });
 
             // Wrap the image
             img.parentNode.insertBefore(wrapper, img);
             wrapper.appendChild(img);
-            wrapper.appendChild(gradient);
             wrapper.appendChild(toggle);
 
-            // Image click opens lightbox
-            img.addEventListener('click', () => {
+            // Image click opens lightbox (not toggle)
+            img.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
               if (typeof openLightbox === 'function') openLightbox(img);
             });
           }
@@ -1164,15 +1162,17 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
         if (toggle) {
           toggle.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
-            const isExpanded = wrapper.classList.toggle('expanded');
-            toggle.textContent = isExpanded ? 'Свернуть' : 'Показать всё';
+            wrapper.classList.add('expanded');
           });
         }
 
-        // Image click still opens lightbox
+        // Image click opens lightbox
         if (img) {
-          img.addEventListener('click', () => {
+          img.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             if (typeof openLightbox === 'function') openLightbox(img);
           });
         }
