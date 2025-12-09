@@ -508,6 +508,15 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .blog-hero .container{position:relative;z-index:1}
     .blog-hero-title{font-size:2.5rem;font-weight:800;margin-bottom:15px;color:#fff}
     @media(max-width:768px){.nav-menu,.btn-primary{display:none}.blog-hero-title{font-size:1.75rem}}
+    /* Lightbox */
+    .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:none;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+    .lightbox-overlay.active{display:flex;opacity:1}
+    .lightbox-close{position:absolute;top:20px;right:20px;width:40px;height:40px;background:rgba(255,255,255,.15);border:none;border-radius:50%;color:#fff;font-size:24px;cursor:pointer;z-index:10001;display:flex;align-items:center;justify-content:center;transition:background .2s}
+    .lightbox-close:hover{background:rgba(255,255,255,.3)}
+    .lightbox-img-container{position:relative;max-width:95vw;max-height:95vh;touch-action:none;will-change:transform}
+    .lightbox-img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none}
+    .lightbox-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;backdrop-filter:blur(10px)}
+    .lightbox-toast.show{opacity:1}
   </style>
 
   <!-- Load full CSS asynchronously -->
@@ -621,6 +630,15 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       </div>
     </div>
   </footer>
+  <!-- Lightbox -->
+  <div class="lightbox-overlay" id="lightbox">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <div class="lightbox-img-container" id="lightboxContainer">
+      <img class="lightbox-img" id="lightboxImg" src="" alt="">
+    </div>
+  </div>
+  <div class="lightbox-toast" id="lightboxToast">Свайпните вверх или вниз для закрытия</div>
+
   <script src="/js/main.js?v=4"></script>
   <script>
     // Generate unique visitor fingerprint
@@ -797,6 +815,116 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         alert('Ошибка соединения');
       }
     }
+
+    // Lightbox for images
+    (function() {
+      const lightbox = document.getElementById('lightbox');
+      const lightboxImg = document.getElementById('lightboxImg');
+      const lightboxContainer = document.getElementById('lightboxContainer');
+      const lightboxToast = document.getElementById('lightboxToast');
+
+      let startY = 0;
+      let currentY = 0;
+      let isDragging = false;
+      let toastShown = false;
+      const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const CLOSE_THRESHOLD = 0.35; // 35% of image height to close
+
+      // Open lightbox
+      function openLightbox(src, alt) {
+        lightboxImg.src = src;
+        lightboxImg.alt = alt || '';
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        // Show toast on mobile (only once per session)
+        if (isMobile && !toastShown) {
+          setTimeout(() => {
+            lightboxToast.classList.add('show');
+            setTimeout(() => lightboxToast.classList.remove('show'), 3000);
+          }, 500);
+          toastShown = true;
+        }
+      }
+      window.openLightbox = openLightbox;
+
+      // Close lightbox
+      function closeLightbox() {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+        lightboxContainer.style.transform = '';
+        lightboxContainer.style.opacity = '';
+        lightboxContainer.style.transition = '';
+      }
+      window.closeLightbox = closeLightbox;
+
+      // Click outside to close
+      lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) closeLightbox();
+      });
+
+      // Escape to close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lightbox.classList.contains('active')) {
+          closeLightbox();
+        }
+      });
+
+      // Touch/swipe handlers for mobile
+      lightboxContainer.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        startY = e.touches[0].clientY;
+        currentY = startY;
+        lightboxContainer.style.transition = 'none';
+      }, { passive: true });
+
+      lightboxContainer.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        const deltaY = currentY - startY;
+        const imgHeight = lightboxImg.offsetHeight;
+        const progress = Math.abs(deltaY) / imgHeight;
+
+        // Move image with finger
+        lightboxContainer.style.transform = 'translateY(' + deltaY + 'px)';
+        // Fade out as it moves
+        lightboxContainer.style.opacity = Math.max(0.3, 1 - progress);
+      }, { passive: true });
+
+      lightboxContainer.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const deltaY = currentY - startY;
+        const imgHeight = lightboxImg.offsetHeight;
+        const progress = Math.abs(deltaY) / imgHeight;
+
+        lightboxContainer.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+
+        if (progress >= CLOSE_THRESHOLD) {
+          // Close with animation
+          const direction = deltaY > 0 ? 1 : -1;
+          lightboxContainer.style.transform = 'translateY(' + (direction * window.innerHeight) + 'px)';
+          lightboxContainer.style.opacity = '0';
+          setTimeout(closeLightbox, 200);
+        } else {
+          // Snap back
+          lightboxContainer.style.transform = 'translateY(0)';
+          lightboxContainer.style.opacity = '1';
+        }
+      });
+
+      // Make all images in post-content and post-cover-image clickable
+      document.addEventListener('DOMContentLoaded', () => {
+        const selectors = '.post-content img, .post-cover-image img';
+        document.querySelectorAll(selectors).forEach(img => {
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', () => {
+            openLightbox(img.src, img.alt);
+          });
+        });
+      });
+    })();
   </script>
 </body>
 </html>`;

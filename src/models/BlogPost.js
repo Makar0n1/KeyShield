@@ -150,9 +150,14 @@ blogPostSchema.pre('save', function(next) {
   if (!this.seoDescription) {
     this.seoDescription = this.summary.substring(0, 160) || this.title;
   }
-  // Canonical
-  if (!this.canonical) {
-    this.canonical = `https://keyshield.me/blog/${this.slug}`;
+  // Canonical - auto-update when slug changes or empty
+  const WEB_DOMAIN = process.env.WEB_DOMAIN || 'keyshield.me';
+  const SITE_URL = WEB_DOMAIN.includes('localhost') ? `http://${WEB_DOMAIN}` : `https://${WEB_DOMAIN}`;
+  const expectedCanonical = `${SITE_URL}/blog/${this.slug}`;
+
+  // Update canonical if: empty, or slug changed (detected by old canonical not matching new slug)
+  if (!this.canonical || (this.canonical.includes('/blog/') && !this.canonical.endsWith(`/blog/${this.slug}`))) {
+    this.canonical = expectedCanonical;
   }
   // Установить дату публикации при первой публикации
   if (this.status === 'published' && !this.publishedAt) {
