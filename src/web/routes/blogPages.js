@@ -606,18 +606,12 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lb-nav:hover{background:rgba(255,255,255,.3);transform:scale(1.1)}
     .lb-counter{color:#fff;font-size:14px;font-weight:500;text-shadow:0 2px 4px rgba(0,0,0,.5)}
     @media(max-width:768px){.lb-nav{width:40px;height:40px;font-size:18px}}
-    /* Tall images - expandable */
-    .tall-image-wrapper{position:relative;max-height:400px;overflow:hidden;border-radius:8px;margin:20px 0;transition:max-height .5s ease}
-    .tall-image-wrapper.expanded{max-height:3000px}
-    .tall-image-wrapper img{width:100%;height:auto;display:block;cursor:pointer;mask-image:linear-gradient(to bottom,#000 280px,rgba(0,0,0,.4) 350px,transparent 400px);-webkit-mask-image:linear-gradient(to bottom,#000 280px,rgba(0,0,0,.4) 350px,transparent 400px);transition:transform .3s ease,mask-image .4s ease,-webkit-mask-image .4s ease}
-    .tall-image-wrapper.expanded img{mask-image:none;-webkit-mask-image:none}
-    .tall-image-wrapper img:hover{transform:scale(1.02)}
-    .tall-image-toggle{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;backdrop-filter:blur(10px);transition:all .2s;z-index:5}
-    .tall-image-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
-    .tall-image-collapse{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;backdrop-filter:blur(10px);transition:all .2s;z-index:5;opacity:0;pointer-events:none}
-    .tall-image-wrapper.expanded .tall-image-toggle{opacity:0;pointer-events:none}
-    .tall-image-wrapper.expanded .tall-image-collapse{opacity:1;pointer-events:auto}
-    .tall-image-collapse:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
+    /* Vertical images in post - Instagram style with blur background */
+    .vertical-image-wrapper{position:relative;height:400px;border-radius:8px;margin:20px 0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+    .vertical-image-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(20px) brightness(0.6);transform:scale(1.1)}
+    .vertical-image-wrapper img{position:relative;z-index:1;height:100%;width:auto;max-width:100%;object-fit:contain;cursor:pointer;border-radius:0;transition:transform .3s ease}
+    .vertical-image-wrapper img:hover{transform:scale(1.02)}
+    @media(max-width:768px){.vertical-image-wrapper{height:300px}}
     /* Gallery slideshow */
     .blog-gallery{position:relative;overflow:hidden;border-radius:12px;margin:25px 0;background:#111}
     .blog-gallery.align-left{margin-right:auto;max-width:80%}
@@ -1353,47 +1347,28 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       });
     })();
 
-    // Tall images - auto-detect and wrap, then handle show/hide
+    // Vertical images - auto-detect and wrap with blur background (Instagram style)
     (function() {
-      const TALL_RATIO = 1.5; // height > width * 1.5 = tall
-      const MAX_HEIGHT = 400;
+      const VERTICAL_RATIO = 1.2; // height > width * 1.2 = vertical
 
-      // Auto-detect tall images in post-content and wrap them
-      document.querySelectorAll('.post-content img:not(.gallery-slide img):not(.tall-image-wrapper img)').forEach(img => {
-        // Wait for image to load to check dimensions
+      // Auto-detect vertical images in post-content and wrap them
+      document.querySelectorAll('.post-content img:not(.slide-main):not(.slide-bg):not(.vertical-image-wrapper img)').forEach(img => {
         const checkAndWrap = () => {
-          const ratio = img.naturalHeight / img.naturalWidth;
-          if (ratio > TALL_RATIO && img.naturalHeight > MAX_HEIGHT) {
-            // Create wrapper
+          if (img.naturalHeight > img.naturalWidth * VERTICAL_RATIO) {
+            // Create wrapper with blur background
             const wrapper = document.createElement('div');
-            wrapper.className = 'tall-image-wrapper';
+            wrapper.className = 'vertical-image-wrapper';
 
-            const toggle = document.createElement('button');
-            toggle.className = 'tall-image-toggle';
-            toggle.textContent = 'Показать больше';
-            toggle.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              wrapper.classList.add('expanded');
-            });
-
-            const collapse = document.createElement('button');
-            collapse.className = 'tall-image-collapse';
-            collapse.textContent = 'Свернуть';
-            collapse.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              wrapper.classList.remove('expanded');
-              wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
+            const bg = document.createElement('div');
+            bg.className = 'vertical-image-bg';
+            bg.style.backgroundImage = 'url(' + img.src + ')';
 
             // Wrap the image
             img.parentNode.insertBefore(wrapper, img);
+            wrapper.appendChild(bg);
             wrapper.appendChild(img);
-            wrapper.appendChild(toggle);
-            wrapper.appendChild(collapse);
 
-            // Image click opens lightbox (not toggle)
+            // Image click opens lightbox
             img.addEventListener('click', (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -1406,45 +1381,6 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           checkAndWrap();
         } else {
           img.addEventListener('load', checkAndWrap);
-        }
-      });
-
-      // Handle pre-existing tall-image-wrappers (from server)
-      document.querySelectorAll('.tall-image-wrapper').forEach(wrapper => {
-        const toggle = wrapper.querySelector('.tall-image-toggle');
-        let collapse = wrapper.querySelector('.tall-image-collapse');
-        const img = wrapper.querySelector('img');
-
-        // Create collapse button if not exists
-        if (!collapse) {
-          collapse = document.createElement('button');
-          collapse.className = 'tall-image-collapse';
-          collapse.textContent = 'Свернуть';
-          wrapper.appendChild(collapse);
-        }
-
-        if (toggle) {
-          toggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            wrapper.classList.add('expanded');
-          });
-        }
-
-        collapse.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          wrapper.classList.remove('expanded');
-          wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-
-        // Image click opens lightbox
-        if (img) {
-          img.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (typeof openLightbox === 'function') openLightbox(img);
-          });
         }
       });
     })();
