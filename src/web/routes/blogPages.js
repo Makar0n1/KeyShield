@@ -607,9 +607,9 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lb-counter{color:#fff;font-size:14px;font-weight:500;text-shadow:0 2px 4px rgba(0,0,0,.5)}
     @media(max-width:768px){.lb-nav{width:40px;height:40px;font-size:18px}}
     /* Vertical images in post - Instagram style with blur background */
-    .vertical-image-wrapper{position:relative;height:400px;border-radius:8px;margin:20px 0;overflow:hidden;display:flex;align-items:center;justify-content:center}
-    .vertical-image-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(20px) brightness(0.6);transform:scale(1.1)}
-    .vertical-image-wrapper img{position:relative;z-index:1;height:100%;width:auto;max-width:100%;object-fit:contain;cursor:pointer;border-radius:0;transition:transform .3s ease}
+    .vertical-image-wrapper{position:relative;height:400px;border-radius:8px;margin:20px 0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#111}
+    .vertical-image-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(20px) brightness(0.6);transform:scale(1.1);z-index:0}
+    .vertical-image-wrapper img{position:relative;z-index:1;max-height:100%;max-width:100%;width:auto;height:auto;object-fit:contain;cursor:pointer;border-radius:0;transition:transform .3s ease}
     .vertical-image-wrapper img:hover{transform:scale(1.02)}
     @media(max-width:768px){.vertical-image-wrapper{height:300px}}
     /* Gallery slideshow */
