@@ -478,7 +478,7 @@ const acceptWork = async (ctx) => {
         // Calculate costs with REAL blockchain data
         const ACTIVATION_AMOUNT = parseInt(process.env.MULTISIG_ACTIVATION_TRX) || 5;
         const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
-        const TX_FEE = parseFloat(process.env.TRON_TX_FEE) || 1.1; // Standard TRON transaction fee
+        const TX_FEE = 1.1; // Standard TRON transaction fee (network constant)
 
         // Amounts sent
         const activationTrxSent = ACTIVATION_AMOUNT;
