@@ -671,11 +671,16 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     let feesaverDeals = 0;
     let fallbackDeals = 0;
 
+    console.log(`[Stats] Processing ${finishedDeals.length} finished deals, TRX price: $${TRX_TO_USDT}`);
+
     for (const deal of finishedDeals) {
       if (deal.operationalCosts && deal.operationalCosts.totalTrxSpent > 0) {
         // Use actual recorded costs
-        totalTrxSpent += deal.operationalCosts.totalTrxSpent;
-        totalCostUsd += deal.operationalCosts.totalCostUsd;
+        const dealTrx = deal.operationalCosts.totalTrxSpent || 0;
+        const dealUsd = deal.operationalCosts.totalCostUsd || 0;
+
+        totalTrxSpent += dealTrx;
+        totalCostUsd += dealUsd;
         dealsWithCostData++;
 
         if (deal.operationalCosts.energyMethod === 'feesaver') feesaverDeals++;
@@ -683,13 +688,21 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
       } else {
         // Fallback estimate for old deals without cost data: ~2.2 TRX average
         const estimatedTrx = 2.2;
+        const estimatedUsd = estimatedTrx * TRX_TO_USDT;
+
         totalTrxSpent += estimatedTrx;
-        totalCostUsd += estimatedTrx * TRX_TO_USDT;
+        totalCostUsd += estimatedUsd;
       }
     }
 
+    // Ensure no NaN values
+    totalTrxSpent = isNaN(totalTrxSpent) ? 0 : totalTrxSpent;
+    totalCostUsd = isNaN(totalCostUsd) ? 0 : totalCostUsd;
+
     // Net profit = commission - TRX expenses
     const netProfit = totalCommission - totalCostUsd;
+
+    console.log(`[Stats] Total TRX: ${totalTrxSpent.toFixed(2)}, Total USD: ${totalCostUsd.toFixed(2)}, Net Profit: ${netProfit.toFixed(2)}`);
 
     // Calculate partner payouts (ONLY completed/resolved - expired deals don't count for partners!)
     const Platform = require('../models/Platform');
