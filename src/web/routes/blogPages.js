@@ -164,13 +164,25 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
 const processContent = (content) => {
   if (!content) return '';
 
-  // 1. Render gallery divs: <div class="blog-gallery" data-images='[...]' data-speed="3000">
+  // Generic gallery parser that handles any attribute order
   content = content.replace(
-    /<div class="blog-gallery"[^>]*data-speed="(\d+)"[^>]*data-align="([^"]*)"[^>]*data-images='(\[[^\]]*\])'[^>]*><\/div>/gi,
-    (match, speed, align, imagesJson) => {
+    /<div class="blog-gallery"([^>]*)><\/div>/gi,
+    (match, attrs) => {
       try {
-        const images = JSON.parse(imagesJson);
+        // Parse attributes
+        const autoplayMatch = attrs.match(/data-autoplay="([^"]*)"/);
+        const speedMatch = attrs.match(/data-speed="(\d+)"/);
+        const alignMatch = attrs.match(/data-align="([^"]*)"/);
+        const imagesMatch = attrs.match(/data-images='(\[[^\]]*\])'/);
+
+        if (!imagesMatch) return '';
+
+        const images = JSON.parse(imagesMatch[1]);
         if (!images || images.length === 0) return '';
+
+        const autoplay = autoplayMatch ? autoplayMatch[1] === 'true' : true;
+        const speed = speedMatch ? speedMatch[1] : '3000';
+        const align = alignMatch ? alignMatch[1] : 'center';
 
         const slides = images.map((url, i) =>
           `<div class="gallery-slide"><img src="${url}" alt="Slide ${i + 1}" loading="lazy"></div>`
@@ -180,40 +192,11 @@ const processContent = (content) => {
           `<span class="gallery-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
         ).join('');
 
-        return `
-          <div class="blog-gallery align-${align || 'center'}" data-speed="${speed || 3000}">
-            <div class="gallery-track">${slides}</div>
-            <div class="gallery-counter">1 / ${images.length}</div>
-            <button class="gallery-nav prev">&lt;</button>
-            <button class="gallery-nav next">&gt;</button>
-            <div class="gallery-dots">${dots}</div>
-          </div>
-        `;
-      } catch (e) {
-        console.error('Error parsing gallery:', e);
-        return '';
-      }
-    }
-  );
-
-  // Also handle alternate attribute order
-  content = content.replace(
-    /<div class="blog-gallery"[^>]*data-images='(\[[^\]]*\])'[^>]*><\/div>/gi,
-    (match, imagesJson) => {
-      try {
-        const images = JSON.parse(imagesJson);
-        if (!images || images.length === 0) return '';
-
-        const slides = images.map((url, i) =>
-          `<div class="gallery-slide"><img src="${url}" alt="Slide ${i + 1}" loading="lazy"></div>`
-        ).join('');
-
-        const dots = images.map((_, i) =>
-          `<span class="gallery-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
-        ).join('');
+        // Add manual-gallery class if autoplay is off
+        const galleryClass = autoplay ? 'blog-gallery' : 'blog-gallery manual-gallery';
 
         return `
-          <div class="blog-gallery align-center" data-speed="3000">
+          <div class="${galleryClass} align-${align}" data-autoplay="${autoplay}" data-speed="${speed}">
             <div class="gallery-track">${slides}</div>
             <div class="gallery-counter">1 / ${images.length}</div>
             <button class="gallery-nav prev">&lt;</button>
@@ -621,6 +604,8 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .blog-gallery:hover .gallery-nav{opacity:1}
     .gallery-nav.prev{left:15px}
     .gallery-nav.next{right:15px}
+    .manual-gallery .gallery-nav{opacity:.7}
+    .manual-gallery:hover .gallery-nav{opacity:1}
     @media(max-width:768px){.gallery-nav{display:none}}
   </style>
 
@@ -1145,6 +1130,8 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
     // Gallery slideshow
     (function() {
+      const isMobile = window.innerWidth <= 768;
+
       document.querySelectorAll('.blog-gallery').forEach(gallery => {
         const track = gallery.querySelector('.gallery-track');
         const slides = gallery.querySelectorAll('.gallery-slide');
@@ -1158,7 +1145,9 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         let currentIndex = 0;
         const total = slides.length;
         const speed = parseInt(gallery.dataset.speed) || 3000;
+        const autoplay = gallery.dataset.autoplay !== 'false';
         let autoplayInterval = null;
+        let hintShown = false;
 
         function goToSlide(index) {
           currentIndex = (index + total) % total;
@@ -1184,11 +1173,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         }
 
         // Click handlers
-        if (prevBtn) prevBtn.addEventListener('click', () => { prevSlide(); resetAutoplay(); });
-        if (nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); resetAutoplay(); });
+        if (prevBtn) prevBtn.addEventListener('click', () => { prevSlide(); stopAutoplay(); });
+        if (nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); stopAutoplay(); });
 
         dots.forEach((dot, i) => {
-          dot.addEventListener('click', () => { goToSlide(i); resetAutoplay(); });
+          dot.addEventListener('click', () => { goToSlide(i); stopAutoplay(); });
         });
 
         // Touch swipe support
@@ -1205,32 +1194,69 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           if (Math.abs(diff) > 50) {
             if (diff > 0) nextSlide();
             else prevSlide();
-            resetAutoplay();
+            stopAutoplay();
           }
         }, { passive: true });
 
-        // Autoplay
+        // Autoplay functions
         function startAutoplay() {
+          if (!autoplay) return;
           if (autoplayInterval) clearInterval(autoplayInterval);
           autoplayInterval = setInterval(nextSlide, speed);
         }
 
-        function resetAutoplay() {
-          startAutoplay();
+        function stopAutoplay() {
+          if (autoplayInterval) clearInterval(autoplayInterval);
+          autoplayInterval = null;
         }
 
-        // Pause on hover (desktop)
-        gallery.addEventListener('mouseenter', () => {
-          if (autoplayInterval) clearInterval(autoplayInterval);
-        });
+        // Pause on hover (desktop) - only for autoplay galleries
+        if (autoplay) {
+          gallery.addEventListener('mouseenter', () => {
+            if (autoplayInterval) clearInterval(autoplayInterval);
+          });
 
-        gallery.addEventListener('mouseleave', () => {
-          startAutoplay();
-        });
+          gallery.addEventListener('mouseleave', () => {
+            startAutoplay();
+          });
+        }
+
+        // Manual gallery: show hint animation on mobile
+        function showHintAnimation() {
+          if (hintShown || total <= 1) return;
+          hintShown = true;
+
+          // Peek 20% to show next image exists
+          track.style.transition = 'transform 0.3s ease';
+          track.style.transform = 'translateX(-20%)';
+
+          setTimeout(() => {
+            track.style.transform = 'translateX(0)';
+            setTimeout(() => {
+              track.style.transition = 'transform 0.5s ease';
+            }, 300);
+          }, 500);
+        }
 
         // Initialize
         goToSlide(0);
-        startAutoplay();
+
+        if (autoplay) {
+          startAutoplay();
+        } else {
+          // Manual gallery - show hint on mobile when gallery comes into view
+          if (isMobile && total > 1) {
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting && !hintShown) {
+                  setTimeout(showHintAnimation, 500);
+                  observer.disconnect();
+                }
+              });
+            }, { threshold: 0.5 });
+            observer.observe(gallery);
+          }
+        }
       });
     })();
   </script>

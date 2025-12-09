@@ -360,18 +360,63 @@
       height: 100%;
       object-fit: cover;
     }
-    /* Cover input with library button */
-    .cover-input-group {
-      display: flex;
-      gap: 8px;
+    /* Cover preview container */
+    .cover-preview-container {
+      position: relative;
+      display: inline-block;
     }
-    .cover-input-group input {
-      flex: 1;
+    .cover-preview-container.has-image {
+      display: block;
+    }
+    .cover-preview-img {
+      max-width: 250px;
+      max-height: 150px;
+      border-radius: 8px;
+      border: 2px solid #334155;
+      margin-bottom: 10px;
+    }
+    .cover-remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 24px;
+      height: 24px;
+      padding: 0 !important;
+      border-radius: 50%;
+      font-size: 14px !important;
+      line-height: 1;
     }
     .btn-sm {
       padding: 6px 10px !important;
       font-size: 12px !important;
       white-space: nowrap;
+    }
+    /* Media item checkbox for multi-select */
+    .media-item .select-checkbox {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      width: 20px;
+      height: 20px;
+      background: rgba(0,0,0,0.5);
+      border: 2px solid #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .media-item:hover .select-checkbox,
+    .media-item.selected .select-checkbox {
+      opacity: 1;
+    }
+    .media-item.selected .select-checkbox {
+      background: #10b981;
+      border-color: #10b981;
     }
     .media-item .delete-media {
       position: absolute;
@@ -754,18 +799,14 @@
             <label>SEO Description</label>
             <textarea id="settingsSeoDescription" rows="2" maxlength="160"></textarea>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Обложка блога</label>
-              <div class="cover-input-group">
-                <input type="text" id="settingsCoverImage" placeholder="URL изображения">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt')">📁 Медиатека</button>
-              </div>
-              <img id="settingsCoverPreview" class="image-preview" style="display: none;">
-            </div>
-            <div class="form-group">
-              <label>Alt обложки</label>
-              <input type="text" id="settingsCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
+          <div class="form-group">
+            <label>Обложка блога</label>
+            <input type="hidden" id="settingsCoverImage">
+            <input type="hidden" id="settingsCoverImageAlt">
+            <div class="cover-preview-container" id="settingsCoverContainer">
+              <img id="settingsCoverPreview" class="cover-preview-img" style="display: none;">
+              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">📁 Выбрать из медиатеки</button>
+              <button type="button" class="btn btn-danger btn-sm cover-remove-btn" onclick="removeCover('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')" style="display: none;">✕</button>
             </div>
           </div>
           <div class="form-group">
@@ -825,18 +866,14 @@
             <label>Content</label>
             <div id="postContentEditor"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Обложка</label>
-              <div class="cover-input-group">
-                <input type="text" id="postCoverImage" oninput="previewPostCover()" placeholder="URL изображения">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt')">📁 Медиатека</button>
-              </div>
-              <img id="postCoverPreview" class="image-preview" style="display: none;">
-            </div>
-            <div class="form-group">
-              <label>Alt обложки</label>
-              <input type="text" id="postCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
+          <div class="form-group">
+            <label>Обложка поста</label>
+            <input type="hidden" id="postCoverImage">
+            <input type="hidden" id="postCoverImageAlt">
+            <div class="cover-preview-container" id="postCoverContainer">
+              <img id="postCoverPreview" class="cover-preview-img" style="display: none;">
+              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">📁 Выбрать из медиатеки</button>
+              <button type="button" class="btn btn-danger btn-sm cover-remove-btn" onclick="removeCover('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')" style="display: none;">✕</button>
             </div>
           </div>
           <div class="form-group">
@@ -907,17 +944,14 @@
             <label>Description</label>
             <div id="categoryDescriptionEditor"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Обложка</label>
-              <div class="cover-input-group">
-                <input type="text" id="categoryCoverImage" placeholder="URL изображения">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt')">📁 Медиатека</button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Alt обложки</label>
-              <input type="text" id="categoryCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
+          <div class="form-group">
+            <label>Обложка категории</label>
+            <input type="hidden" id="categoryCoverImage">
+            <input type="hidden" id="categoryCoverImageAlt">
+            <div class="cover-preview-container" id="categoryCoverContainer">
+              <img id="categoryCoverPreview" class="cover-preview-img" style="display: none;">
+              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">📁 Выбрать из медиатеки</button>
+              <button type="button" class="btn btn-danger btn-sm cover-remove-btn" onclick="removeCover('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')" style="display: none;">✕</button>
             </div>
           </div>
           <div class="form-row">
@@ -967,17 +1001,14 @@
             <label>Description</label>
             <div id="tagDescriptionEditor"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Обложка</label>
-              <div class="cover-input-group">
-                <input type="text" id="tagCoverImage" placeholder="URL изображения">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt')">📁 Медиатека</button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Alt обложки</label>
-              <input type="text" id="tagCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
+          <div class="form-group">
+            <label>Обложка тега</label>
+            <input type="hidden" id="tagCoverImage">
+            <input type="hidden" id="tagCoverImageAlt">
+            <div class="cover-preview-container" id="tagCoverContainer">
+              <img id="tagCoverPreview" class="cover-preview-img" style="display: none;">
+              <button type="button" class="btn btn-secondary" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">📁 Выбрать из медиатеки</button>
+              <button type="button" class="btn btn-danger btn-sm cover-remove-btn" onclick="removeCover('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')" style="display: none;">✕</button>
             </div>
           </div>
           <div class="form-row">
@@ -1046,30 +1077,41 @@
         <!-- Gallery Settings (shows when multiple selected) -->
         <div class="gallery-settings" id="gallerySettings">
           <h4>🖼️ Настройки галереи</h4>
-          <div class="settings-row">
-            <div class="form-group">
-              <label style="font-size: 12px;">Скорость слайдшоу</label>
-              <select id="gallerySpeed" onchange="updateSpeedPreview()" style="font-size: 13px;">
-                <option value="2000">Быстро (2с)</option>
-                <option value="3000" selected>Нормально (3с)</option>
-                <option value="5000">Медленно (5с)</option>
-                <option value="7000">Очень медленно (7с)</option>
-              </select>
+          <div class="settings-row" style="margin-bottom: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+              <input type="checkbox" id="galleryAutoplay" onchange="toggleSlideshowSettings()" checked style="width: 16px; height: 16px;">
+              Автоматическое слайдшоу
+            </label>
+          </div>
+          <div id="slideshowSettings">
+            <div class="settings-row">
+              <div class="form-group">
+                <label style="font-size: 12px;">Скорость слайдшоу</label>
+                <select id="gallerySpeed" onchange="updateSpeedPreview()" style="font-size: 13px;">
+                  <option value="2000">Быстро (2с)</option>
+                  <option value="3000" selected>Нормально (3с)</option>
+                  <option value="5000">Медленно (5с)</option>
+                  <option value="7000">Очень медленно (7с)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="font-size: 12px;">Выравнивание</label>
+                <select id="galleryAlign" style="font-size: 13px;">
+                  <option value="center">По центру</option>
+                  <option value="left">Слева</option>
+                  <option value="right">Справа</option>
+                </select>
+              </div>
             </div>
-            <div class="form-group">
-              <label style="font-size: 12px;">Выравнивание</label>
-              <select id="galleryAlign" style="font-size: 13px;">
-                <option value="center">По центру</option>
-                <option value="left">Слева</option>
-                <option value="right">Справа</option>
-              </select>
+            <div class="speed-preview">
+              <small style="color: #94a3b8; font-size: 11px;">Превью скорости</small>
+              <div class="speed-preview-bar">
+                <div class="speed-preview-indicator" id="speedIndicator"></div>
+              </div>
             </div>
           </div>
-          <div class="speed-preview">
-            <small style="color: #94a3b8; font-size: 11px;">Превью скорости</small>
-            <div class="speed-preview-bar">
-              <div class="speed-preview-indicator" id="speedIndicator"></div>
-            </div>
+          <div id="manualGalleryInfo" style="display: none; color: #94a3b8; font-size: 12px; margin-top: 8px;">
+            Галерея с ручной навигацией: стрелки на десктопе, свайп на мобильных
           </div>
         </div>
       </div>
@@ -1237,12 +1279,13 @@
             postContentEditor.setSelection(range.index + 1);
           } else if (selected.length > 1) {
             // Multiple images - insert gallery
+            const autoplay = document.getElementById('galleryAutoplay').checked;
             const speed = document.getElementById('gallerySpeed').value;
             const align = document.getElementById('galleryAlign').value;
             const urls = selected.map(f => f.url);
 
-            // Create gallery HTML
-            const galleryHtml = `<div class="blog-gallery" data-speed="${speed}" data-align="${align}" data-images='${JSON.stringify(urls)}'></div>`;
+            // Create gallery HTML with autoplay setting
+            const galleryHtml = `<div class="blog-gallery" data-autoplay="${autoplay}" data-speed="${speed}" data-align="${align}" data-images='${JSON.stringify(urls)}'></div>`;
 
             // Insert as custom blot (we'll need to register it) or as HTML
             postContentEditor.clipboard.dangerouslyPasteHTML(range.index, galleryHtml);
@@ -1401,7 +1444,7 @@
       (post?.faq || []).forEach(f => addFaqBlock(f.question, f.answer));
 
       // Preview
-      previewPostCover();
+      updateCoverPreview('postCoverImage', 'postCoverPreview', 'postCoverContainer');
 
       document.getElementById('postModal').classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -1502,17 +1545,6 @@
       updateTagSelect();
     }
 
-    function previewPostCover() {
-      const url = document.getElementById('postCoverImage').value;
-      const img = document.getElementById('postCoverPreview');
-      if (url) {
-        img.src = url;
-        img.style.display = 'block';
-      } else {
-        img.style.display = 'none';
-      }
-    }
-
     function addFaqBlock(question = '', answer = '') {
       const container = document.getElementById('faqContainer');
       const div = document.createElement('div');
@@ -1594,6 +1626,9 @@
       document.getElementById('categorySeoDescription').value = cat?.seoDescription || '';
       document.getElementById('categorySortOrder').value = cat?.sortOrder || 0;
       categoryDescriptionEditor.root.innerHTML = cat?.description || '';
+
+      // Cover preview
+      updateCoverPreview('categoryCoverImage', 'categoryCoverPreview', 'categoryCoverContainer');
 
       document.getElementById('categoryModal').classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -1698,6 +1733,9 @@
       document.getElementById('tagSeoTitle').value = tag?.seoTitle || '';
       document.getElementById('tagSeoDescription').value = tag?.seoDescription || '';
       tagDescriptionEditor.root.innerHTML = tag?.description || '';
+
+      // Cover preview
+      updateCoverPreview('tagCoverImage', 'tagCoverPreview', 'tagCoverContainer');
 
       document.getElementById('tagModal').classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -1846,11 +1884,7 @@
         settingsDescriptionEditor.root.innerHTML = settings.description || '';
 
         // Preview
-        const img = document.getElementById('settingsCoverPreview');
-        if (settings.coverImage) {
-          img.src = settings.coverImage;
-          img.style.display = 'block';
-        }
+        updateCoverPreview('settingsCoverImage', 'settingsCoverPreview', 'settingsCoverContainer');
       } catch (err) {
         console.error('Error loading settings:', err);
       }
@@ -1988,20 +2022,53 @@
     }
 
     // Select cover image from media library
-    function selectCoverFromLibrary(urlInputId, altInputId) {
+    function selectCoverFromLibrary(urlInputId, altInputId, previewId, containerId) {
       openMediaLibrary((selected) => {
         if (selected.length > 0) {
           const file = selected[0];
           document.getElementById(urlInputId).value = file.url;
-          if (altInputId && file.alt) {
-            document.getElementById(altInputId).value = file.alt;
-          }
-          // Trigger preview if exists
-          if (urlInputId === 'postCoverImage') {
-            previewPostCover();
-          }
+          document.getElementById(altInputId).value = file.customAlt || file.alt || '';
+
+          // Show preview
+          const preview = document.getElementById(previewId);
+          const container = document.getElementById(containerId);
+          preview.src = file.url;
+          preview.style.display = 'block';
+          container.classList.add('has-image');
+          container.querySelector('.cover-remove-btn').style.display = 'block';
         }
       });
+    }
+
+    // Remove cover image
+    function removeCover(urlInputId, altInputId, previewId, containerId) {
+      document.getElementById(urlInputId).value = '';
+      document.getElementById(altInputId).value = '';
+
+      const preview = document.getElementById(previewId);
+      const container = document.getElementById(containerId);
+      preview.src = '';
+      preview.style.display = 'none';
+      container.classList.remove('has-image');
+      container.querySelector('.cover-remove-btn').style.display = 'none';
+    }
+
+    // Update cover preview helper
+    function updateCoverPreview(urlInputId, previewId, containerId) {
+      const url = document.getElementById(urlInputId).value;
+      const preview = document.getElementById(previewId);
+      const container = document.getElementById(containerId);
+
+      if (url) {
+        preview.src = url;
+        preview.style.display = 'block';
+        container.classList.add('has-image');
+        container.querySelector('.cover-remove-btn').style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+        container.classList.remove('has-image');
+        container.querySelector('.cover-remove-btn').style.display = 'none';
+      }
     }
 
     async function loadMediaLibrary() {
@@ -2027,12 +2094,16 @@
       }
     }
 
+    // Track last selected index for Shift range selection
+    let lastSelectedIndex = -1;
+
     function renderMediaLibraryGrid(files) {
       document.getElementById('mediaLibraryGrid').style.display = 'grid';
-      document.getElementById('mediaLibraryGrid').innerHTML = files.map(f => {
+      document.getElementById('mediaLibraryGrid').innerHTML = files.map((f, idx) => {
         const isSelected = selectedMediaFiles.some(s => s.filename === f.filename);
         return `
-          <div class="media-item ${isSelected ? 'selected' : ''}" data-filename="${f.filename}" onclick="toggleMediaSelection('${f.filename}')">
+          <div class="media-item ${isSelected ? 'selected' : ''}" data-filename="${f.filename}" data-index="${idx}" onclick="handleMediaClick(event, '${f.filename}', ${idx})">
+            <div class="select-checkbox" onclick="handleCheckboxClick(event, '${f.filename}', ${idx})">${isSelected ? '✓' : ''}</div>
             <img src="${f.url}" alt="${f.alt || f.filename}" loading="lazy">
             <span class="select-check">✓</span>
             ${f.width && f.height ? `<span class="media-dimensions">${f.width}×${f.height}</span>` : ''}
@@ -2051,7 +2122,53 @@
       renderMediaLibraryGrid(filtered);
     }
 
-    function toggleMediaSelection(filename) {
+    // Handle click on media item (not checkbox)
+    // Single click = select ONLY this image (deselect others)
+    // Shift+click = range selection
+    // Ctrl+click = add/remove from selection
+    function handleMediaClick(event, filename, index) {
+      // If clicked on checkbox, ignore - handled by handleCheckboxClick
+      if (event.target.classList.contains('select-checkbox')) return;
+
+      const file = mediaLibraryFiles.find(f => f.filename === filename);
+      if (!file) return;
+
+      if (event.shiftKey && lastSelectedIndex >= 0) {
+        // Shift+click: range selection
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+
+        // Add all files in range to selection (don't clear existing)
+        for (let i = start; i <= end; i++) {
+          const rangeFile = mediaLibraryFiles[i];
+          if (!selectedMediaFiles.some(s => s.filename === rangeFile.filename)) {
+            selectedMediaFiles.push(rangeFile);
+          }
+        }
+      } else if (event.ctrlKey || event.metaKey) {
+        // Ctrl/Cmd+click: toggle this item
+        const idx = selectedMediaFiles.findIndex(f => f.filename === filename);
+        if (idx >= 0) {
+          selectedMediaFiles.splice(idx, 1);
+        } else {
+          selectedMediaFiles.push(file);
+        }
+        lastSelectedIndex = index;
+      } else {
+        // Normal click: select ONLY this image
+        selectedMediaFiles = [file];
+        lastSelectedIndex = index;
+      }
+
+      // Update visual state
+      updateMediaGridSelection();
+      updateMediaSelectionUI();
+    }
+
+    // Handle click on checkbox (multi-select mode)
+    function handleCheckboxClick(event, filename, index) {
+      event.stopPropagation();
+
       const file = mediaLibraryFiles.find(f => f.filename === filename);
       if (!file) return;
 
@@ -2061,12 +2178,22 @@
       } else {
         selectedMediaFiles.push(file);
       }
+      lastSelectedIndex = index;
 
-      // Update UI
-      const item = document.querySelector(`.media-library-modal .media-item[data-filename="${filename}"]`);
-      if (item) item.classList.toggle('selected');
-
+      // Update visual state
+      updateMediaGridSelection();
       updateMediaSelectionUI();
+    }
+
+    // Update visual selection state in grid
+    function updateMediaGridSelection() {
+      document.querySelectorAll('.media-library-modal .media-item').forEach(item => {
+        const filename = item.dataset.filename;
+        const isSelected = selectedMediaFiles.some(s => s.filename === filename);
+        item.classList.toggle('selected', isSelected);
+        const checkbox = item.querySelector('.select-checkbox');
+        if (checkbox) checkbox.textContent = isSelected ? '✓' : '';
+      });
     }
 
     // Track currently editing image and pending changes
@@ -2160,6 +2287,12 @@
       const speed = parseInt(document.getElementById('gallerySpeed').value);
       const indicator = document.getElementById('speedIndicator');
       indicator.style.animationDuration = `${speed}ms`;
+    }
+
+    function toggleSlideshowSettings() {
+      const autoplay = document.getElementById('galleryAutoplay').checked;
+      document.getElementById('slideshowSettings').style.display = autoplay ? 'block' : 'none';
+      document.getElementById('manualGalleryInfo').style.display = autoplay ? 'none' : 'block';
     }
 
     async function uploadMediaFromLibrary(e) {
