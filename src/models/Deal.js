@@ -138,11 +138,25 @@ const dealSchema = new mongoose.Schema({
   },
   // Operational costs tracking
   operationalCosts: {
-    activationTrx: { type: Number, default: 0 },        // TRX spent on activation
-    activationUsd: { type: Number, default: 0 },        // USD equivalent of activation
-    payoutFee: { type: Number, default: 0 },            // Fee for payout to seller
-    commissionTransferFee: { type: Number, default: 0 }, // Fee for commission transfer
-    totalCostUsd: { type: Number, default: 0 }          // Total operational cost in USD
+    // Activation costs (5 TRX sent, minus what was returned)
+    activationTrxSent: { type: Number, default: 5 },      // Initial TRX sent for activation
+    activationTrxReturned: { type: Number, default: 0 },  // TRX returned after completion
+    activationTrxNet: { type: Number, default: 0 },       // Net activation cost (sent - returned)
+
+    // Energy costs
+    energyMethod: { type: String, enum: ['feesaver', 'trx', 'none'], default: 'none' },
+    feesaverCostTrx: { type: Number, default: 0 },        // TRX spent on FeeSaver energy rental
+    fallbackTrxSent: { type: Number, default: 0 },        // TRX sent for fallback (if FeeSaver failed)
+    fallbackTrxReturned: { type: Number, default: 0 },    // TRX returned from fallback
+    fallbackTrxNet: { type: Number, default: 0 },         // Net fallback cost
+
+    // Transaction fees
+    returnTrxFee: { type: Number, default: 1.5 },         // Fee for returning leftover TRX
+
+    // Totals
+    totalTrxSpent: { type: Number, default: 0 },          // Total TRX spent on this deal
+    totalCostUsd: { type: Number, default: 0 },           // Total cost in USD (at completion time)
+    trxPriceAtCompletion: { type: Number, default: 0 }    // TRX price when deal completed
   },
   completedAt: {
     type: Date,

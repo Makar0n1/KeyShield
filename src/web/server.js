@@ -322,7 +322,19 @@ app.get('/api/admin/deals/:dealId', adminAuth, async (req, res) => {
     const buyer = await User.findOne({ telegramId: deal.buyerId }).lean();
     const seller = await User.findOne({ telegramId: deal.sellerId }).lean();
 
-    res.json({ deal, transactions, buyer, seller });
+    // Calculate net profit for this deal
+    let netProfit = null;
+    if (deal.operationalCosts && deal.operationalCosts.totalCostUsd > 0) {
+      netProfit = deal.commission - deal.operationalCosts.totalCostUsd;
+    }
+
+    res.json({
+      deal,
+      transactions,
+      buyer,
+      seller,
+      netProfit: netProfit ? netProfit.toFixed(2) : null
+    });
   } catch (error) {
     console.error('Error fetching deal details:', error);
     res.status(500).json({ error: error.message });
@@ -629,8 +641,6 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
   try {
     // Get current TRX price from CoinGecko (cached for 5 min)
     const TRX_TO_USDT = await priceService.getTrxPrice();
-    // Fixed TRX cost per completed deal (activation + transfers)
-    const TRX_PER_DEAL = 16.1;
 
     const totalDeals = await Deal.countDocuments();
     const activeDeals = await Deal.countDocuments({
@@ -654,12 +664,32 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     const totalVolume = finishedDeals.reduce((sum, deal) => sum + deal.amount, 0);
     const totalCommission = finishedDeals.reduce((sum, deal) => sum + deal.commission, 0);
 
-    // Calculate TRX expenses: 16.1 TRX per finished deal
-    const totalTrxSpent = finishedDeals.length * TRX_PER_DEAL;
-    const totalTrxSpentUsdt = totalTrxSpent * TRX_TO_USDT;
+    // Calculate REAL TRX expenses from actual operational costs
+    let totalTrxSpent = 0;
+    let totalCostUsd = 0;
+    let dealsWithCostData = 0;
+    let feesaverDeals = 0;
+    let fallbackDeals = 0;
 
-    // Net profit = commission - TRX expenses in USDT
-    const netProfit = totalCommission - totalTrxSpentUsdt;
+    for (const deal of finishedDeals) {
+      if (deal.operationalCosts && deal.operationalCosts.totalTrxSpent > 0) {
+        // Use actual recorded costs
+        totalTrxSpent += deal.operationalCosts.totalTrxSpent;
+        totalCostUsd += deal.operationalCosts.totalCostUsd;
+        dealsWithCostData++;
+
+        if (deal.operationalCosts.energyMethod === 'feesaver') feesaverDeals++;
+        if (deal.operationalCosts.energyMethod === 'trx') fallbackDeals++;
+      } else {
+        // Fallback estimate for old deals without cost data: ~2.2 TRX average
+        const estimatedTrx = 2.2;
+        totalTrxSpent += estimatedTrx;
+        totalCostUsd += estimatedTrx * TRX_TO_USDT;
+      }
+    }
+
+    // Net profit = commission - TRX expenses
+    const netProfit = totalCommission - totalCostUsd;
 
     // Calculate partner payouts (ONLY completed/resolved - expired deals don't count for partners!)
     const Platform = require('../models/Platform');
@@ -679,8 +709,18 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
 
       if (platformDeals.length > 0) {
         const platformCommission = platformDeals.reduce((sum, deal) => sum + deal.commission, 0);
-        const platformTrxCost = platformDeals.length * TRX_PER_DEAL * TRX_TO_USDT;
-        const platformNetProfit = platformCommission - platformTrxCost;
+
+        // Calculate actual costs for platform deals
+        let platformCostUsd = 0;
+        for (const deal of platformDeals) {
+          if (deal.operationalCosts && deal.operationalCosts.totalCostUsd > 0) {
+            platformCostUsd += deal.operationalCosts.totalCostUsd;
+          } else {
+            platformCostUsd += 2.2 * TRX_TO_USDT; // Estimate for old deals
+          }
+        }
+
+        const platformNetProfit = platformCommission - platformCostUsd;
         const platformPayout = platformNetProfit * (platform.commissionPercent / 100);
 
         totalPartnerPayouts += platformPayout > 0 ? platformPayout : 0;
@@ -690,6 +730,7 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
           code: platform.code,
           deals: platformDeals.length,
           commission: platformCommission,
+          costUsd: platformCostUsd,
           netProfit: platformNetProfit,
           percent: platform.commissionPercent,
           payout: platformPayout > 0 ? platformPayout : 0
@@ -699,6 +740,10 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
 
     // Pure profit = net profit - partner payouts (what goes to service wallet)
     const pureProfit = netProfit - totalPartnerPayouts;
+
+    // Calculate average cost per deal
+    const avgTrxPerDeal = finishedDeals.length > 0 ? totalTrxSpent / finishedDeals.length : 0;
+    const avgCostPerDeal = finishedDeals.length > 0 ? totalCostUsd / finishedDeals.length : 0;
 
     // Recent activity
     const recentDeals = await Deal.find()
@@ -731,10 +776,14 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
         totalVolume: totalVolume.toFixed(2),
         totalCommission: totalCommission.toFixed(2),
         totalTrxSpent: totalTrxSpent.toFixed(2),
-        totalTrxSpentUsdt: totalTrxSpentUsdt.toFixed(2),
+        totalCostUsd: totalCostUsd.toFixed(2),
         netProfit: netProfit.toFixed(2),
         trxRate: TRX_TO_USDT,
-        trxPerDeal: TRX_PER_DEAL
+        avgTrxPerDeal: avgTrxPerDeal.toFixed(2),
+        avgCostPerDeal: avgCostPerDeal.toFixed(2),
+        dealsWithCostData: dealsWithCostData,
+        feesaverDeals: feesaverDeals,
+        fallbackDeals: fallbackDeals
       },
       partners: {
         count: activePlatforms.length,
