@@ -4,6 +4,8 @@ const MultisigWallet = require('../models/MultisigWallet');
 const AuditLog = require('../models/AuditLog');
 const blockchainService = require('./blockchain');
 const constants = require('../config/constants');
+const messageManager = require('../bot/utils/messageManager');
+const { depositReceivedKeyboard } = require('../bot/keyboards/main');
 
 class DepositMonitor {
   constructor() {
@@ -235,18 +237,18 @@ class DepositMonitor {
 
           // Notify buyer to add more funds
           if (this.botInstance) {
-            await this.botInstance.telegram.sendMessage(
-              deal.buyerId,
-              `⚠️ *Недостаточный депозит!*\n\n` +
+            const warningText = `⚠️ *Недостаточный депозит!*\n\n` +
               `🆔 Сделка: \`${deal.dealId}\`\n` +
               `💸 Получено: ${deposit.amount} ${deal.asset}\n` +
               `💸 Требуется: ${expectedAmount} ${deal.asset}\n\n` +
               `❌ Недостаёт: ${shortfall.toFixed(2)} ${deal.asset}\n\n` +
               `Пожалуйста, переведите ещё ${shortfall.toFixed(2)} ${deal.asset} на адрес:\n` +
               `\`${deal.multisigAddress}\`\n\n` +
-              `⚠️ Допускается отклонение до -${tolerance} ${deal.asset}.`,
-              { parse_mode: 'Markdown' }
-            );
+              `⚠️ Допускается отклонение до -${tolerance} ${deal.asset}.`;
+
+            const warningKeyboard = depositReceivedKeyboard(deal.dealId);
+            const warningCtx = { telegram: this.botInstance.telegram };
+            await messageManager.showNotification(warningCtx, deal.buyerId, warningText, warningKeyboard);
           }
           return; // Don't lock deal yet
         }
@@ -337,18 +339,18 @@ class DepositMonitor {
               }
 
               // Notify buyer
-              await this.botInstance.telegram.sendMessage(
-                deal.buyerId,
-                `✅ *Депозит подтверждён!*\n\n` +
+              const buyerText = `✅ *Депозит подтверждён!*\n\n` +
                 `🆔 Сделка: \`${deal.dealId}\`\n` +
                 `📦 ${deal.productName}\n` +
                 `💸 Депозит: ${deposit.amount} ${deal.asset}\n` +
                 `💸 Сумма сделки: ${deal.amount} ${deal.asset}\n\n` +
                 `Средства заморожены в multisig-кошельке.\n` +
                 `Продавец может начать работу.${overpaymentNote}\n\n` +
-                `[Транзакция](https://tronscan.org/#/transaction/${deposit.txHash})`,
-                { parse_mode: 'Markdown' }
-              );
+                `[Транзакция](https://tronscan.org/#/transaction/${deposit.txHash})`;
+
+              const buyerKeyboard = depositReceivedKeyboard(deal.dealId);
+              const buyerCtx = { telegram: this.botInstance.telegram };
+              await messageManager.showNotification(buyerCtx, deal.buyerId, buyerText, buyerKeyboard);
 
               // Calculate seller payout amount
               let sellerPayout = deal.amount;
@@ -359,17 +361,17 @@ class DepositMonitor {
               }
 
               // Notify seller
-              await this.botInstance.telegram.sendMessage(
-                deal.sellerId,
-                `💰 *Средства поступили!*\n\n` +
+              const sellerText = `💰 *Средства поступили!*\n\n` +
                 `🆔 Сделка: \`${deal.dealId}\`\n` +
                 `📦 ${deal.productName}\n\n` +
                 `💸 Депозит: ${deal.amount} ${deal.asset}\n` +
                 `💵 Вы получите: ${sellerPayout.toFixed(2)} ${deal.asset}\n\n` +
                 `Депозит подтверждён. Можете приступать к работе!\n\n` +
-                `Отправьте \`${deal.dealId}\` для просмотра деталей.`,
-                { parse_mode: 'Markdown' }
-              );
+                `Отправьте \`${deal.dealId}\` для просмотра деталей.`;
+
+              const sellerKeyboard = depositReceivedKeyboard(deal.dealId);
+              const sellerCtx = { telegram: this.botInstance.telegram };
+              await messageManager.showNotification(sellerCtx, deal.sellerId, sellerText, sellerKeyboard);
 
               console.log(`📬 Notifications sent to buyer and seller for deal ${deal.dealId}`);
             } catch (error) {
@@ -410,27 +412,27 @@ class DepositMonitor {
         // Send notifications if bot instance is available
         if (this.botInstance && deal.depositTxHash) {
           try {
-            await this.botInstance.telegram.sendMessage(
-              deal.buyerId,
-              `✅ *Депозит подтверждён!*\n\n` +
+            const buyerText = `✅ *Депозит подтверждён!*\n\n` +
               `Сделка ${deal.dealId}\n` +
               `Сумма: ${deal.amount} ${deal.asset}\n\n` +
               `Средства заморожены в multisig-кошельке.\n` +
               `Продавец может начать работу.\n\n` +
-              `[Транзакция](https://tronscan.org/#/transaction/${deal.depositTxHash})`,
-              { parse_mode: 'Markdown' }
-            );
+              `[Транзакция](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
 
-            await this.botInstance.telegram.sendMessage(
-              deal.sellerId,
-              `💰 *Средства поступили!*\n\n` +
+            const buyerKeyboard = depositReceivedKeyboard(deal.dealId);
+            const buyerCtx = { telegram: this.botInstance.telegram };
+            await messageManager.showNotification(buyerCtx, deal.buyerId, buyerText, buyerKeyboard);
+
+            const sellerText = `💰 *Средства поступили!*\n\n` +
               `Сделка ${deal.dealId}\n` +
               `${deal.productName}\n\n` +
               `Депозит ${deal.amount} ${deal.asset} подтверждён.\n` +
               `Можете приступать к работе!\n\n` +
-              `Отправьте \`${deal.dealId}\` для просмотра деталей.`,
-              { parse_mode: 'Markdown' }
-            );
+              `Отправьте \`${deal.dealId}\` для просмотра деталей.`;
+
+            const sellerKeyboard = depositReceivedKeyboard(deal.dealId);
+            const sellerCtx = { telegram: this.botInstance.telegram };
+            await messageManager.showNotification(sellerCtx, deal.sellerId, sellerText, sellerKeyboard);
 
             console.log(`✅ Sent pending notifications for deal ${deal.dealId}`);
           } catch (error) {
