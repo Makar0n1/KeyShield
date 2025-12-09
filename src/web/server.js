@@ -777,6 +777,14 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
       .populate('dealId')
       .lean();
 
+    // Final debug before response
+    console.log(`[Stats] RIGHT BEFORE RESPONSE:`);
+    console.log(`[Stats] totalTrxSpent=${totalTrxSpent}, type=${typeof totalTrxSpent}`);
+    console.log(`[Stats] totalCostUsd=${totalCostUsd}, type=${typeof totalCostUsd}`);
+    console.log(`[Stats] netProfit=${netProfit}, type=${typeof netProfit}`);
+    console.log(`[Stats] avgCostPerDeal=${avgCostPerDeal}, type=${typeof avgCostPerDeal}`);
+    console.log(`[Stats] After toFixed: totalCostUsd.toFixed(2)=${totalCostUsd.toFixed(2)}`);
+
     res.json({
       deals: {
         total: totalDeals,
