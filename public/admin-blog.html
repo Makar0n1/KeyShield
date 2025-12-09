@@ -261,21 +261,52 @@
     .ql-toolbar.ql-snow { background: #0f172a; border-color: #334155; }
     .ql-container.ql-snow { border-color: #334155; background: #0f172a; }
     .ql-editor { min-height: 200px; color: #e2e8f0; font-size: 14px; }
-    /* Sticky toolbar for main content editor */
+    /* Hide default toolbar for main content editor - we use context menu instead */
     #postContentEditor > .ql-toolbar.ql-snow {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      border-radius: 6px 6px 0 0;
-      margin: 0 -20px;
-      padding: 8px 20px;
-      width: calc(100% + 40px);
+      display: none;
     }
     .ql-snow .ql-stroke { stroke: #94a3b8; }
     .ql-snow .ql-fill { fill: #94a3b8; }
     .ql-snow .ql-picker { color: #94a3b8; }
     .ql-snow .ql-picker-options { background: #1e293b; border-color: #334155; }
     .ql-editor.ql-blank::before { color: #64748b; }
+
+    /* Context menu toolbar */
+    .context-toolbar {
+      position: fixed;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 10000;
+      display: none;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 360px;
+    }
+    .context-toolbar.visible { display: flex; }
+    .context-toolbar button {
+      background: #334155;
+      border: none;
+      color: #e2e8f0;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+    .context-toolbar button:hover { background: #475569; }
+    .context-toolbar button.active { background: #3b82f6; }
+    .context-toolbar .separator {
+      width: 1px;
+      height: 24px;
+      background: #475569;
+      margin: 0 4px;
+    }
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
@@ -864,8 +895,8 @@
             <input type="hidden" id="settingsCoverImageAlt">
             <div class="cover-preview-container" id="settingsCoverContainer">
               <div class="cover-image-wrapper">
-                <img id="settingsCoverPreview" class="cover-preview-img">
-                <button type="button" class="cover-remove-btn" onclick="removeCover('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">✕</button>
+                <img id="settingsCoverPreview" class="cover-preview-img" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')" title="Нажмите чтобы изменить">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); removeCover('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">✕</button>
               </div>
               <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt', 'settingsCoverPreview', 'settingsCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
@@ -933,8 +964,8 @@
             <input type="hidden" id="postCoverImageAlt">
             <div class="cover-preview-container" id="postCoverContainer">
               <div class="cover-image-wrapper">
-                <img id="postCoverPreview" class="cover-preview-img">
-                <button type="button" class="cover-remove-btn" onclick="removeCover('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">✕</button>
+                <img id="postCoverPreview" class="cover-preview-img" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')" title="Нажмите чтобы изменить">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); removeCover('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">✕</button>
               </div>
               <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt', 'postCoverPreview', 'postCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
@@ -1013,8 +1044,8 @@
             <input type="hidden" id="categoryCoverImageAlt">
             <div class="cover-preview-container" id="categoryCoverContainer">
               <div class="cover-image-wrapper">
-                <img id="categoryCoverPreview" class="cover-preview-img">
-                <button type="button" class="cover-remove-btn" onclick="removeCover('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">✕</button>
+                <img id="categoryCoverPreview" class="cover-preview-img" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')" title="Нажмите чтобы изменить">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); removeCover('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">✕</button>
               </div>
               <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt', 'categoryCoverPreview', 'categoryCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
@@ -1072,8 +1103,8 @@
             <input type="hidden" id="tagCoverImageAlt">
             <div class="cover-preview-container" id="tagCoverContainer">
               <div class="cover-image-wrapper">
-                <img id="tagCoverPreview" class="cover-preview-img">
-                <button type="button" class="cover-remove-btn" onclick="removeCover('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">✕</button>
+                <img id="tagCoverPreview" class="cover-preview-img" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')" title="Нажмите чтобы изменить">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); removeCover('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">✕</button>
               </div>
               <button type="button" class="btn btn-secondary cover-select-btn" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt', 'tagCoverPreview', 'tagCoverContainer')">📁 Выбрать из медиатеки</button>
             </div>
@@ -1095,6 +1126,26 @@
         <button class="btn btn-primary" onclick="saveTag()">Save</button>
       </div>
     </div>
+  </div>
+
+  <!-- Context Menu Toolbar for Quill Editor -->
+  <div class="context-toolbar" id="contextToolbar">
+    <button data-action="bold" title="Жирный"><b>B</b></button>
+    <button data-action="italic" title="Курсив"><i>I</i></button>
+    <button data-action="underline" title="Подчёркнутый"><u>U</u></button>
+    <button data-action="strike" title="Зачёркнутый"><s>S</s></button>
+    <div class="separator"></div>
+    <button data-action="header-2" title="Заголовок H2">H2</button>
+    <button data-action="header-3" title="Заголовок H3">H3</button>
+    <button data-action="blockquote" title="Цитата">❝</button>
+    <button data-action="code-block" title="Код">&lt;/&gt;</button>
+    <div class="separator"></div>
+    <button data-action="list-ordered" title="Нумерованный список">1.</button>
+    <button data-action="list-bullet" title="Маркированный список">•</button>
+    <div class="separator"></div>
+    <button data-action="link" title="Ссылка">🔗</button>
+    <button data-action="image" title="Изображение">🖼</button>
+    <button data-action="clean" title="Очистить форматирование">✕</button>
   </div>
 
   <!-- Media Library Modal -->
@@ -1449,6 +1500,172 @@
         theme: 'snow',
         modules: { toolbar: toolbarOptions }
       });
+
+      // Setup context menu toolbar for main content editor
+      setupContextToolbar();
+    }
+
+    // Context menu toolbar logic
+    function setupContextToolbar() {
+      const toolbar = document.getElementById('contextToolbar');
+      const editorContainer = document.querySelector('#postContentEditor .ql-editor');
+      if (!editorContainer || !postContentEditor) return;
+
+      // Show context menu on right-click
+      editorContainer.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+
+        // Position toolbar above cursor
+        const x = e.clientX;
+        const y = e.clientY;
+
+        // Calculate position - above the click point
+        let top = y - toolbar.offsetHeight - 10;
+        let left = x - 50;
+
+        // Keep within viewport
+        if (top < 10) top = y + 20;
+        if (left < 10) left = 10;
+        if (left + 360 > window.innerWidth) left = window.innerWidth - 370;
+
+        toolbar.style.top = top + 'px';
+        toolbar.style.left = left + 'px';
+        toolbar.classList.add('visible');
+
+        // Update active states based on current format
+        updateToolbarActiveStates();
+      });
+
+      // Hide on click outside
+      document.addEventListener('click', function(e) {
+        if (!toolbar.contains(e.target)) {
+          toolbar.classList.remove('visible');
+        }
+      });
+
+      // Hide on Escape
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          toolbar.classList.remove('visible');
+        }
+      });
+
+      // Handle toolbar button clicks
+      toolbar.addEventListener('click', function(e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        handleToolbarAction(action);
+
+        // Keep toolbar open after action
+        updateToolbarActiveStates();
+      });
+    }
+
+    function updateToolbarActiveStates() {
+      const toolbar = document.getElementById('contextToolbar');
+      if (!postContentEditor) return;
+
+      const format = postContentEditor.getFormat();
+
+      toolbar.querySelectorAll('button').forEach(btn => {
+        const action = btn.dataset.action;
+        let isActive = false;
+
+        switch(action) {
+          case 'bold': isActive = format.bold; break;
+          case 'italic': isActive = format.italic; break;
+          case 'underline': isActive = format.underline; break;
+          case 'strike': isActive = format.strike; break;
+          case 'header-2': isActive = format.header === 2; break;
+          case 'header-3': isActive = format.header === 3; break;
+          case 'blockquote': isActive = format.blockquote; break;
+          case 'code-block': isActive = format['code-block']; break;
+          case 'list-ordered': isActive = format.list === 'ordered'; break;
+          case 'list-bullet': isActive = format.list === 'bullet'; break;
+        }
+
+        btn.classList.toggle('active', isActive);
+      });
+    }
+
+    function handleToolbarAction(action) {
+      if (!postContentEditor) return;
+
+      const range = postContentEditor.getSelection(true);
+      const format = postContentEditor.getFormat();
+
+      switch(action) {
+        case 'bold':
+          postContentEditor.format('bold', !format.bold);
+          break;
+        case 'italic':
+          postContentEditor.format('italic', !format.italic);
+          break;
+        case 'underline':
+          postContentEditor.format('underline', !format.underline);
+          break;
+        case 'strike':
+          postContentEditor.format('strike', !format.strike);
+          break;
+        case 'header-2':
+          postContentEditor.format('header', format.header === 2 ? false : 2);
+          break;
+        case 'header-3':
+          postContentEditor.format('header', format.header === 3 ? false : 3);
+          break;
+        case 'blockquote':
+          postContentEditor.format('blockquote', !format.blockquote);
+          break;
+        case 'code-block':
+          postContentEditor.format('code-block', !format['code-block']);
+          break;
+        case 'list-ordered':
+          postContentEditor.format('list', format.list === 'ordered' ? false : 'ordered');
+          break;
+        case 'list-bullet':
+          postContentEditor.format('list', format.list === 'bullet' ? false : 'bullet');
+          break;
+        case 'link':
+          if (format.link) {
+            postContentEditor.format('link', false);
+          } else {
+            const url = prompt('Введите URL ссылки:');
+            if (url) postContentEditor.format('link', url);
+          }
+          break;
+        case 'image':
+          // Open media library
+          openMediaLibrary((selected) => {
+            if (selected.length === 1) {
+              const file = selected[0];
+              const alt = file.customAlt || file.alt || '';
+              const title = file.customTitle || '';
+              const align = file.customAlign || 'center';
+              postContentEditor.insertEmbed(range.index, 'imageContainer', {
+                src: file.url, alt, title, align
+              });
+              postContentEditor.setSelection(range.index + 1);
+            } else if (selected.length > 1) {
+              const autoplay = document.getElementById('galleryAutoplay').checked;
+              const speed = document.getElementById('gallerySpeed').value;
+              const align = document.getElementById('galleryAlign').value;
+              const urls = selected.map(f => f.url);
+              postContentEditor.insertEmbed(range.index, 'gallery', {
+                autoplay: String(autoplay), speed, align, images: urls
+              });
+              postContentEditor.setSelection(range.index + 1);
+            }
+          });
+          document.getElementById('contextToolbar').classList.remove('visible');
+          break;
+        case 'clean':
+          postContentEditor.removeFormat(range.index, range.length);
+          break;
+      }
+
+      postContentEditor.focus();
     }
 
     // API calls
