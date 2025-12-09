@@ -34,10 +34,12 @@ function getStatusText(status) {
 }
 
 // ============================================
-// MY DEALS LIST
+// MY DEALS LIST WITH PAGINATION
 // ============================================
 
-const showMyDeals = async (ctx) => {
+const DEALS_PER_PAGE = 3;
+
+const showMyDeals = async (ctx, page = 1) => {
   try {
     const isCallbackQuery = !!ctx.callbackQuery;
     if (isCallbackQuery) await ctx.answerCbQuery();
@@ -57,10 +59,17 @@ const showMyDeals = async (ctx) => {
       return;
     }
 
-    // Format deals list
-    let text = '📋 *Мои сделки*\n\n';
+    // Calculate pagination
+    const totalPages = Math.ceil(deals.length / DEALS_PER_PAGE);
+    const currentPage = Math.max(1, Math.min(page, totalPages));
+    const startIndex = (currentPage - 1) * DEALS_PER_PAGE;
+    const endIndex = startIndex + DEALS_PER_PAGE;
+    const dealsOnPage = deals.slice(startIndex, endIndex);
 
-    for (const deal of deals.slice(0, 10)) {
+    // Format deals list
+    let text = `📋 *Мои сделки* (${deals.length})\n\n`;
+
+    for (const deal of dealsOnPage) {
       const role = deal.getUserRole(telegramId);
       const statusIcon = getStatusIcon(deal.status);
       const statusText = getStatusText(deal.status);
@@ -72,7 +81,13 @@ const showMyDeals = async (ctx) => {
       text += `📊 ${statusText}\n\n`;
     }
 
-    const keyboard = myDealsKeyboard(deals);
+    // Add pagination info
+    if (totalPages > 1) {
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `📄 Страница ${currentPage} из ${totalPages}`;
+    }
+
+    const keyboard = myDealsKeyboard(dealsOnPage, currentPage, totalPages);
     await messageManager.navigateToScreen(ctx, telegramId, 'my_deals', text, keyboard);
   } catch (error) {
     console.error('Error showing deals:', error);

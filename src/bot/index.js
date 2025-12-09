@@ -122,6 +122,11 @@ bot.action('confirm:create_deal', confirmCreateDeal);
 
 // My deals
 bot.action('my_deals', showMyDeals);
+bot.action(/^deals_page:(\d+)$/, async (ctx) => {
+  const page = parseInt(ctx.match[1]);
+  await ctx.answerCbQuery();
+  await showMyDeals(ctx, page);
+});
 bot.action(/^view_deal:/, async (ctx) => {
   const dealId = ctx.callbackQuery.data.split(':')[1];
   await ctx.answerCbQuery();

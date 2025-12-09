@@ -162,16 +162,54 @@ const dealCreatedKeyboard = (dealId) => {
 /**
  * My deals list keyboard (dynamic based on deals)
  */
-const myDealsKeyboard = (deals = []) => {
+const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1) => {
   const buttons = [];
 
-  // Add buttons for each deal (max 10)
-  deals.slice(0, 10).forEach(deal => {
+  // Add buttons for each deal on current page
+  deals.forEach(deal => {
     const statusIcon = getStatusIcon(deal.status);
     buttons.push([
       Markup.button.callback(`${statusIcon} ${deal.dealId}`, `view_deal:${deal.dealId}`)
     ]);
   });
+
+  // Pagination buttons (if more than 1 page)
+  if (totalPages > 1) {
+    const paginationRow = [];
+
+    // Previous page button
+    if (currentPage > 1) {
+      paginationRow.push(Markup.button.callback('◀️', `deals_page:${currentPage - 1}`));
+    }
+
+    // Page numbers (show max 5 pages at a time)
+    const pageButtons = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    // Adjust startPage if we're near the end
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      if (i === currentPage) {
+        pageButtons.push(Markup.button.callback(`• ${i} •`, `deals_page:${i}`));
+      } else {
+        pageButtons.push(Markup.button.callback(`${i}`, `deals_page:${i}`));
+      }
+    }
+
+    paginationRow.push(...pageButtons);
+
+    // Next page button
+    if (currentPage < totalPages) {
+      paginationRow.push(Markup.button.callback('▶️', `deals_page:${currentPage + 1}`));
+    }
+
+    buttons.push(paginationRow);
+  }
 
   // Back button
   buttons.push([Markup.button.callback('⬅️ Назад', 'back')]);
