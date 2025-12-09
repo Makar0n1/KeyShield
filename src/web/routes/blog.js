@@ -11,6 +11,7 @@ const BlogTag = require('../../models/BlogTag');
 const BlogPost = require('../../models/BlogPost');
 const BlogComment = require('../../models/BlogComment');
 const BlogVote = require('../../models/BlogVote');
+const BlogMedia = require('../../models/BlogMedia');
 
 // Utils
 const { slugify, generateUniqueSlug } = require('../../utils/slugify');
@@ -552,6 +553,66 @@ router.delete('/comments/:id', async (req, res) => {
 
 // --- Media Upload ---
 
+// Helper: get image dimensions
+async function getImageDimensions(filepath) {
+  try {
+    // Use probe-image-size if available, fallback to basic detection
+    const buffer = fs.readFileSync(filepath);
+
+    // PNG
+    if (buffer[0] === 0x89 && buffer[1] === 0x50) {
+      const width = buffer.readUInt32BE(16);
+      const height = buffer.readUInt32BE(20);
+      return { width, height };
+    }
+
+    // JPEG
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+      let offset = 2;
+      while (offset < buffer.length) {
+        if (buffer[offset] !== 0xFF) break;
+        const marker = buffer[offset + 1];
+        if (marker === 0xC0 || marker === 0xC2) {
+          const height = buffer.readUInt16BE(offset + 5);
+          const width = buffer.readUInt16BE(offset + 7);
+          return { width, height };
+        }
+        const len = buffer.readUInt16BE(offset + 2);
+        offset += 2 + len;
+      }
+    }
+
+    // GIF
+    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+      const width = buffer.readUInt16LE(6);
+      const height = buffer.readUInt16LE(8);
+      return { width, height };
+    }
+
+    // WebP
+    if (buffer.slice(0, 4).toString() === 'RIFF' && buffer.slice(8, 12).toString() === 'WEBP') {
+      // VP8
+      if (buffer.slice(12, 16).toString() === 'VP8 ') {
+        const width = buffer.readUInt16LE(26) & 0x3FFF;
+        const height = buffer.readUInt16LE(28) & 0x3FFF;
+        return { width, height };
+      }
+      // VP8L
+      if (buffer.slice(12, 16).toString() === 'VP8L') {
+        const bits = buffer.readUInt32LE(21);
+        const width = (bits & 0x3FFF) + 1;
+        const height = ((bits >> 14) & 0x3FFF) + 1;
+        return { width, height };
+      }
+    }
+
+    return { width: 0, height: 0 };
+  } catch (err) {
+    console.error('Error reading image dimensions:', err);
+    return { width: 0, height: 0 };
+  }
+}
+
 // POST /api/admin/blog/upload
 router.post('/upload', (req, res) => {
   // Ensure upload directory exists
@@ -564,7 +625,7 @@ router.post('/upload', (req, res) => {
     }
   }
 
-  upload.single('image')(req, res, (err) => {
+  upload.single('image')(req, res, async (err) => {
     if (err) {
       console.error('Multer error:', err);
       if (err.code === 'LIMIT_FILE_SIZE') {
@@ -578,35 +639,152 @@ router.post('/upload', (req, res) => {
     }
 
     const url = `/uploads/blog/${req.file.filename}`;
-    res.json({
-      success: true,
-      url,
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      size: req.file.size
-    });
+    const filepath = path.join(UPLOAD_DIR, req.file.filename);
+
+    // Get image dimensions
+    const { width, height } = await getImageDimensions(filepath);
+
+    // Save to database
+    try {
+      const media = new BlogMedia({
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        url,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        width,
+        height,
+        alt: req.body.alt || ''
+      });
+      await media.save();
+
+      res.json({
+        success: true,
+        url,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        width,
+        height,
+        _id: media._id
+      });
+    } catch (dbErr) {
+      console.error('Error saving media to DB:', dbErr);
+      // Still return success since file was uploaded
+      res.json({
+        success: true,
+        url,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size,
+        width,
+        height
+      });
+    }
   });
 });
 
 // GET /api/admin/blog/media
 router.get('/media', async (req, res) => {
   try {
-    const files = fs.readdirSync(UPLOAD_DIR)
-      .filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file))
-      .map(filename => {
-        const stats = fs.statSync(path.join(UPLOAD_DIR, filename));
-        return {
-          filename,
-          url: `/uploads/blog/${filename}`,
-          size: stats.size,
-          createdAt: stats.birthtime
-        };
-      })
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const { page = 1, limit = 100, search, folder } = req.query;
 
-    res.json({ success: true, files });
+    // First try to get from DB
+    let dbFiles = await BlogMedia.find()
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // If DB is empty, sync from filesystem
+    if (dbFiles.length === 0 && fs.existsSync(UPLOAD_DIR)) {
+      const fsFiles = fs.readdirSync(UPLOAD_DIR)
+        .filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file));
+
+      // Migrate filesystem files to DB
+      for (const filename of fsFiles) {
+        const filepath = path.join(UPLOAD_DIR, filename);
+        const stats = fs.statSync(filepath);
+        const { width, height } = await getImageDimensions(filepath);
+
+        // Determine mime type from extension
+        const ext = path.extname(filename).toLowerCase();
+        const mimeTypes = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp'
+        };
+
+        try {
+          await BlogMedia.create({
+            filename,
+            originalName: filename,
+            url: `/uploads/blog/${filename}`,
+            mimeType: mimeTypes[ext] || 'image/jpeg',
+            size: stats.size,
+            width,
+            height,
+            createdAt: stats.birthtime
+          });
+        } catch (e) {
+          // Skip duplicates
+          if (e.code !== 11000) console.error('Migration error:', e);
+        }
+      }
+
+      // Re-fetch from DB
+      dbFiles = await BlogMedia.find()
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+
+    // Apply search filter
+    let files = dbFiles;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      files = files.filter(f =>
+        f.filename.toLowerCase().includes(searchLower) ||
+        (f.originalName && f.originalName.toLowerCase().includes(searchLower)) ||
+        (f.alt && f.alt.toLowerCase().includes(searchLower))
+      );
+    }
+
+    if (folder) {
+      files = files.filter(f => f.folder === folder);
+    }
+
+    res.json({
+      success: true,
+      files,
+      total: files.length
+    });
   } catch (error) {
     console.error('Error listing media:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/admin/blog/media/:id - update media metadata (alt text)
+router.put('/media/:id', async (req, res) => {
+  try {
+    const { alt, folder } = req.body;
+    const update = {};
+    if (alt !== undefined) update.alt = alt;
+    if (folder !== undefined) update.folder = folder;
+
+    const media = await BlogMedia.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true }
+    );
+
+    if (!media) {
+      return res.status(404).json({ error: 'Media not found' });
+    }
+
+    res.json({ success: true, media });
+  } catch (error) {
+    console.error('Error updating media:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -617,13 +795,19 @@ router.delete('/media/:filename', async (req, res) => {
     const filepath = path.join(UPLOAD_DIR, req.params.filename);
 
     // Security check: ensure file is in upload dir
-    if (!filepath.startsWith(UPLOAD_DIR)) {
+    const resolvedPath = path.resolve(filepath);
+    const resolvedDir = path.resolve(UPLOAD_DIR);
+    if (!resolvedPath.startsWith(resolvedDir)) {
       return res.status(400).json({ error: 'Invalid filename' });
     }
 
+    // Delete from filesystem
     if (fs.existsSync(filepath)) {
       fs.unlinkSync(filepath);
     }
+
+    // Delete from database
+    await BlogMedia.deleteOne({ filename: req.params.filename });
 
     res.json({ success: true });
   } catch (error) {

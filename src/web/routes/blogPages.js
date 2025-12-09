@@ -160,6 +160,77 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
   return result.join('');
 };
 
+// Process content: render galleries and wrap tall images
+const processContent = (content) => {
+  if (!content) return '';
+
+  // 1. Render gallery divs: <div class="blog-gallery" data-images='[...]' data-speed="3000">
+  content = content.replace(
+    /<div class="blog-gallery"[^>]*data-speed="(\d+)"[^>]*data-align="([^"]*)"[^>]*data-images='(\[[^\]]*\])'[^>]*><\/div>/gi,
+    (match, speed, align, imagesJson) => {
+      try {
+        const images = JSON.parse(imagesJson);
+        if (!images || images.length === 0) return '';
+
+        const slides = images.map((url, i) =>
+          `<div class="gallery-slide"><img src="${url}" alt="Slide ${i + 1}" loading="lazy"></div>`
+        ).join('');
+
+        const dots = images.map((_, i) =>
+          `<span class="gallery-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
+        ).join('');
+
+        return `
+          <div class="blog-gallery align-${align || 'center'}" data-speed="${speed || 3000}">
+            <div class="gallery-track">${slides}</div>
+            <div class="gallery-counter">1 / ${images.length}</div>
+            <button class="gallery-nav prev">&lt;</button>
+            <button class="gallery-nav next">&gt;</button>
+            <div class="gallery-dots">${dots}</div>
+          </div>
+        `;
+      } catch (e) {
+        console.error('Error parsing gallery:', e);
+        return '';
+      }
+    }
+  );
+
+  // Also handle alternate attribute order
+  content = content.replace(
+    /<div class="blog-gallery"[^>]*data-images='(\[[^\]]*\])'[^>]*><\/div>/gi,
+    (match, imagesJson) => {
+      try {
+        const images = JSON.parse(imagesJson);
+        if (!images || images.length === 0) return '';
+
+        const slides = images.map((url, i) =>
+          `<div class="gallery-slide"><img src="${url}" alt="Slide ${i + 1}" loading="lazy"></div>`
+        ).join('');
+
+        const dots = images.map((_, i) =>
+          `<span class="gallery-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
+        ).join('');
+
+        return `
+          <div class="blog-gallery align-center" data-speed="3000">
+            <div class="gallery-track">${slides}</div>
+            <div class="gallery-counter">1 / ${images.length}</div>
+            <button class="gallery-nav prev">&lt;</button>
+            <button class="gallery-nav next">&gt;</button>
+            <div class="gallery-dots">${dots}</div>
+          </div>
+        `;
+      } catch (e) {
+        console.error('Error parsing gallery:', e);
+        return '';
+      }
+    }
+  );
+
+  return content;
+};
+
 // Generate sidebar HTML
 async function getSidebarData() {
   const [categories, tags, recentPosts] = await Promise.all([
@@ -526,6 +597,31 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lightbox-img{width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;display:block}
     .lightbox-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(60,60,60,.9);color:#fff;padding:12px 24px;border-radius:25px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;backdrop-filter:blur(10px);z-index:10002;white-space:nowrap}
     .lightbox-toast.show{opacity:1}
+    /* Tall images - expandable */
+    .tall-image-wrapper{position:relative;max-height:500px;overflow:hidden;border-radius:8px;margin:20px 0}
+    .tall-image-wrapper.expanded{max-height:none}
+    .tall-image-wrapper img{width:100%;height:auto;display:block;cursor:pointer}
+    .tall-image-gradient{position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(transparent,rgba(10,10,15,.95));pointer-events:none;transition:opacity .3s}
+    .tall-image-wrapper.expanded .tall-image-gradient{opacity:0}
+    .tall-image-toggle{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(59,130,246,.9);color:#fff;border:none;padding:10px 24px;border-radius:25px;cursor:pointer;font-size:14px;font-weight:500;backdrop-filter:blur(10px);transition:background .2s}
+    .tall-image-toggle:hover{background:rgba(37,99,235,.95)}
+    /* Gallery slideshow */
+    .blog-gallery{position:relative;overflow:hidden;border-radius:12px;margin:25px 0;background:#111}
+    .blog-gallery.align-left{margin-right:auto;max-width:80%}
+    .blog-gallery.align-right{margin-left:auto;max-width:80%}
+    .blog-gallery.align-center{margin-left:auto;margin-right:auto}
+    .gallery-track{display:flex;transition:transform .5s ease}
+    .gallery-slide{min-width:100%;position:relative}
+    .gallery-slide img{width:100%;height:auto;display:block;cursor:pointer}
+    .gallery-dots{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
+    .gallery-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer;transition:background .2s}
+    .gallery-dot.active{background:#fff}
+    .gallery-counter{position:absolute;top:15px;right:15px;background:rgba(0,0,0,.6);color:#fff;padding:5px 12px;border-radius:15px;font-size:12px;z-index:10}
+    .gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;z-index:10;opacity:0;transition:opacity .2s}
+    .blog-gallery:hover .gallery-nav{opacity:1}
+    .gallery-nav.prev{left:15px}
+    .gallery-nav.next{right:15px}
+    @media(max-width:768px){.gallery-nav{display:none}}
   </style>
 
   <!-- Load full CSS asynchronously -->
@@ -1005,13 +1101,136 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
       // Make all images in post-content and post-cover-image clickable
       document.addEventListener('DOMContentLoaded', () => {
-        const selectors = '.post-content img, .post-cover-image img';
+        const selectors = '.post-content img:not(.gallery-slide img), .post-cover-image img';
         document.querySelectorAll(selectors).forEach(img => {
           img.addEventListener('click', (e) => {
             e.preventDefault();
             openLightbox(img);
           });
         });
+
+        // Gallery images - lightbox on click
+        document.querySelectorAll('.gallery-slide img').forEach(img => {
+          img.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openLightbox(img);
+          });
+        });
+      });
+    })();
+
+    // Tall images - show/hide functionality
+    (function() {
+      document.querySelectorAll('.tall-image-wrapper').forEach(wrapper => {
+        const toggle = wrapper.querySelector('.tall-image-toggle');
+        const img = wrapper.querySelector('img');
+
+        if (toggle) {
+          toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanded = wrapper.classList.toggle('expanded');
+            toggle.textContent = isExpanded ? 'Свернуть' : 'Показать всё';
+          });
+        }
+
+        // Image click still opens lightbox
+        if (img) {
+          img.addEventListener('click', () => {
+            if (typeof openLightbox === 'function') openLightbox(img);
+          });
+        }
+      });
+    })();
+
+    // Gallery slideshow
+    (function() {
+      document.querySelectorAll('.blog-gallery').forEach(gallery => {
+        const track = gallery.querySelector('.gallery-track');
+        const slides = gallery.querySelectorAll('.gallery-slide');
+        const dots = gallery.querySelectorAll('.gallery-dot');
+        const counter = gallery.querySelector('.gallery-counter');
+        const prevBtn = gallery.querySelector('.gallery-nav.prev');
+        const nextBtn = gallery.querySelector('.gallery-nav.next');
+
+        if (!track || slides.length === 0) return;
+
+        let currentIndex = 0;
+        const total = slides.length;
+        const speed = parseInt(gallery.dataset.speed) || 3000;
+        let autoplayInterval = null;
+
+        function goToSlide(index) {
+          currentIndex = (index + total) % total;
+          track.style.transform = 'translateX(-' + (currentIndex * 100) + '%)';
+
+          // Update dots
+          dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentIndex);
+          });
+
+          // Update counter
+          if (counter) {
+            counter.textContent = (currentIndex + 1) + ' / ' + total;
+          }
+        }
+
+        function nextSlide() {
+          goToSlide(currentIndex + 1);
+        }
+
+        function prevSlide() {
+          goToSlide(currentIndex - 1);
+        }
+
+        // Click handlers
+        if (prevBtn) prevBtn.addEventListener('click', () => { prevSlide(); resetAutoplay(); });
+        if (nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); resetAutoplay(); });
+
+        dots.forEach((dot, i) => {
+          dot.addEventListener('click', () => { goToSlide(i); resetAutoplay(); });
+        });
+
+        // Touch swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        gallery.addEventListener('touchstart', (e) => {
+          touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        gallery.addEventListener('touchend', (e) => {
+          touchEndX = e.changedTouches[0].clientX;
+          const diff = touchStartX - touchEndX;
+          if (Math.abs(diff) > 50) {
+            if (diff > 0) nextSlide();
+            else prevSlide();
+            resetAutoplay();
+          }
+        }, { passive: true });
+
+        // Autoplay
+        function startAutoplay() {
+          if (autoplayInterval) clearInterval(autoplayInterval);
+          autoplayInterval = setInterval(nextSlide, speed);
+        }
+
+        function resetAutoplay() {
+          startAutoplay();
+        }
+
+        // Pause on hover (desktop)
+        gallery.addEventListener('mouseenter', () => {
+          if (autoplayInterval) clearInterval(autoplayInterval);
+        });
+
+        gallery.addEventListener('mouseleave', () => {
+          startAutoplay();
+        });
+
+        // Initialize
+        goToSlide(0);
+        startAutoplay();
       });
     })();
   </script>
@@ -1159,6 +1378,9 @@ router.get('/:slug', async (req, res) => {
     // Extract TOC and add heading IDs (include H1 from hero title)
     const toc = extractTOC(post.content, post.title);
     let processedContent = addHeadingIds(post.content);
+
+    // Process galleries and special content
+    processedContent = processContent(processedContent);
 
     // Insert interlinks
     processedContent = insertInterlinks(processedContent, interlinkPosts, post._id);
