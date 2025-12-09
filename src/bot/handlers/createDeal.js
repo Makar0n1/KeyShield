@@ -1,6 +1,7 @@
 const dealService = require('../../services/dealService');
 const User = require('../../models/User');
 const Deal = require('../../models/Deal');
+const Session = require('../../models/Session');
 const { Markup } = require('telegraf');
 const {
   roleSelectionKeyboard,
@@ -16,30 +17,26 @@ const {
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
 
-// Store temporary deal creation data
-const createDealSessions = new Map();
+// ============================================
+// SESSION HELPERS (MongoDB persistence)
+// ============================================
 
-// Session cleanup
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
+async function getCreateDealSession(telegramId) {
+  return await Session.getSession(telegramId, 'create_deal');
+}
 
-setInterval(() => {
-  const now = Date.now();
-  let cleanedCount = 0;
+async function setCreateDealSession(telegramId, sessionData) {
+  await Session.setSession(telegramId, 'create_deal', sessionData, 2); // 2 hours TTL
+}
 
-  for (const [userId, session] of createDealSessions) {
-    if (session.createdAt && now - session.createdAt > SESSION_TIMEOUT) {
-      createDealSessions.delete(userId);
-      cleanedCount++;
-    }
-  }
+async function deleteCreateDealSession(telegramId) {
+  await Session.deleteSession(telegramId, 'create_deal');
+}
 
-  if (cleanedCount > 0) {
-    console.log(`🧹 Cleaned ${cleanedCount} abandoned deal creation sessions`);
-  }
-}, CLEANUP_INTERVAL);
-
-console.log('🧹 Deal sessions cleanup interval started (every 10 min)');
+async function hasCreateDealSession(telegramId) {
+  const session = await getCreateDealSession(telegramId);
+  return !!session;
+}
 
 // ============================================
 // STEP 1: START DEAL CREATION
@@ -71,7 +68,7 @@ const startCreateDeal = async (ctx) => {
     }
 
     // Initialize session
-    createDealSessions.set(telegramId, {
+    await setCreateDealSession(telegramId, {
       step: 'role_selection',
       data: {},
       createdAt: Date.now()
@@ -101,14 +98,14 @@ const handleRoleSelection = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
+    const session = await getCreateDealSession(telegramId);
 
     if (!session || session.step !== 'role_selection') return;
 
     const role = ctx.callbackQuery.data.split(':')[1];
     session.data.creatorRole = role;
     session.step = 'counterparty_username';
-    createDealSessions.set(telegramId, session);
+    await setCreateDealSession(telegramId, session);
 
     const counterpartyLabel = role === 'buyer' ? 'продавца' : 'покупателя';
 
@@ -134,7 +131,7 @@ const handleRoleSelection = async (ctx) => {
 const handleCreateDealInput = async (ctx) => {
   try {
     const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
+    const session = await getCreateDealSession(telegramId);
 
     if (!session) return;
 
@@ -145,7 +142,7 @@ const handleCreateDealInput = async (ctx) => {
 
     // Handle /cancel
     if (text === '/cancel') {
-      createDealSessions.delete(telegramId);
+      await deleteCreateDealSession(telegramId);
       const keyboard = mainMenuButton();
       await messageManager.showFinalScreen(ctx, telegramId, 'cancelled', '❌ Создание сделки отменено.', keyboard);
       return;
@@ -251,7 +248,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
   }
 
   session.step = 'product_name';
-  createDealSessions.set(telegramId, session);
+  await setCreateDealSession(telegramId, session);
 
   const successText = `✅ ${counterpartyLabel} найден: @${counterparty.username}
 
@@ -289,7 +286,7 @@ const handleProductName = async (ctx, session, text) => {
 
   session.data.productName = text;
   session.step = 'description';
-  createDealSessions.set(telegramId, session);
+  await setCreateDealSession(telegramId, session);
 
   const successText = `📝 *Создание сделки*
 
@@ -329,7 +326,7 @@ const handleDescription = async (ctx, session, text) => {
 
   session.data.description = text;
   session.step = 'asset';
-  createDealSessions.set(telegramId, session);
+  await setCreateDealSession(telegramId, session);
 
   const successText = `📝 *Создание сделки*
 
@@ -350,14 +347,14 @@ const handleAssetSelection = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
+    const session = await getCreateDealSession(telegramId);
 
     if (!session || session.step !== 'asset') return;
 
     const asset = ctx.callbackQuery.data.split(':')[1];
     session.data.asset = asset;
     session.step = 'amount';
-    createDealSessions.set(telegramId, session);
+    await setCreateDealSession(telegramId, session);
 
     const text = `📝 *Создание сделки*
 
@@ -399,7 +396,7 @@ const handleAmount = async (ctx, session, text) => {
 
   session.data.amount = amount;
   session.step = 'creator_wallet';
-  createDealSessions.set(telegramId, session);
+  await setCreateDealSession(telegramId, session);
 
   const creatorRole = session.data.creatorRole;
   const walletPurpose = creatorRole === 'buyer'
@@ -450,7 +447,7 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
   }
 
   session.step = 'commission';
-  createDealSessions.set(telegramId, session);
+  await setCreateDealSession(telegramId, session);
 
   const { amount, asset } = session.data;
   const commission = Deal.calculateCommission(amount);
@@ -477,14 +474,14 @@ const handleCommissionSelection = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
+    const session = await getCreateDealSession(telegramId);
 
     if (!session || session.step !== 'commission') return;
 
     const commissionType = ctx.callbackQuery.data.split(':')[1];
     session.data.commissionType = commissionType;
     session.step = 'deadline';
-    createDealSessions.set(telegramId, session);
+    await setCreateDealSession(telegramId, session);
 
     const text = `📝 *Создание сделки*
 
@@ -509,14 +506,14 @@ const handleDeadlineSelection = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
+    const session = await getCreateDealSession(telegramId);
 
     if (!session || session.step !== 'deadline') return;
 
     const hours = parseInt(ctx.callbackQuery.data.split(':')[1]);
     session.data.deadlineHours = hours;
     session.step = 'confirm';
-    createDealSessions.set(telegramId, session);
+    await setCreateDealSession(telegramId, session);
 
     const { data } = session;
     const commission = Deal.calculateCommission(data.amount);
@@ -568,7 +565,7 @@ const confirmCreateDeal = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-    const session = createDealSessions.get(telegramId);
+    const session = await getCreateDealSession(telegramId);
 
     if (!session || session.step !== 'confirm') return;
 
@@ -579,7 +576,7 @@ const confirmCreateDeal = async (ctx) => {
     const { deal, wallet } = result;
 
     // Clean up session
-    createDealSessions.delete(telegramId);
+    await deleteCreateDealSession(telegramId);
 
     // Calculate amounts
     const commission = deal.commission;
@@ -673,7 +670,7 @@ const confirmCreateDeal = async (ctx) => {
   } catch (error) {
     console.error('Error confirming deal creation:', error);
 
-    createDealSessions.delete(ctx.from.id);
+    await deleteCreateDealSession(ctx.from.id);
 
     const errorText = `❌ *Ошибка при создании сделки*
 
@@ -692,31 +689,13 @@ const cancelCreateDeal = async (ctx) => {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
-    createDealSessions.delete(telegramId);
+    await deleteCreateDealSession(telegramId);
 
     const keyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, telegramId, 'cancelled', '❌ Создание сделки отменено.', keyboard);
   } catch (error) {
     console.error('Error canceling deal creation:', error);
   }
-};
-
-// ============================================
-// SESSION HELPERS
-// ============================================
-
-/**
- * Check if user has active create deal session
- */
-const hasCreateDealSession = (telegramId) => {
-  return createDealSessions.has(telegramId);
-};
-
-/**
- * Clear create deal session
- */
-const clearCreateDealSession = (telegramId) => {
-  createDealSessions.delete(telegramId);
 };
 
 module.exports = {
@@ -729,6 +708,5 @@ module.exports = {
   confirmCreateDeal,
   cancelCreateDeal,
   hasCreateDealSession,
-  clearCreateDealSession,
-  createDealSessions
+  clearCreateDealSession: deleteCreateDealSession
 };

@@ -158,6 +158,74 @@ class MessageManager {
     }
   }
 
+  /**
+   * Load navigation data from database
+   */
+  async loadNavigationFromDB(userId) {
+    try {
+      const user = await User.findOne({ telegramId: userId })
+        .select('navigationStack currentScreen currentScreenData lastActivity')
+        .lean();
+
+      if (user) {
+        if (user.navigationStack) this.navigationStack.set(userId, user.navigationStack);
+        if (user.currentScreen) this.currentScreen.set(userId, user.currentScreen);
+        if (user.currentScreenData) this.currentScreenData.set(userId, user.currentScreenData);
+        if (user.lastActivity) this.lastActivity.set(userId, user.lastActivity.getTime());
+      }
+    } catch (error) {
+      console.error('Error loading navigation from DB:', error.message);
+    }
+  }
+
+  /**
+   * Save navigation data to database
+   */
+  async saveNavigationToDB(userId) {
+    try {
+      const updateData = {
+        lastActivity: new Date()
+      };
+
+      if (this.navigationStack.has(userId)) {
+        updateData.navigationStack = this.navigationStack.get(userId);
+      }
+      if (this.currentScreen.has(userId)) {
+        updateData.currentScreen = this.currentScreen.get(userId);
+      }
+      if (this.currentScreenData.has(userId)) {
+        updateData.currentScreenData = this.currentScreenData.get(userId);
+      }
+
+      await User.updateOne(
+        { telegramId: userId },
+        { $set: updateData }
+      );
+    } catch (error) {
+      console.error('Error saving navigation to DB:', error.message);
+    }
+  }
+
+  /**
+   * Clear navigation data from database
+   */
+  async clearNavigationFromDB(userId) {
+    try {
+      await User.updateOne(
+        { telegramId: userId },
+        {
+          $set: {
+            navigationStack: [],
+            currentScreen: null,
+            currentScreenData: null
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error clearing navigation from DB:', error.message);
+    }
+  }
+
   // ============================================
   // CORE MESSAGE OPERATIONS
   // ============================================
@@ -174,6 +242,11 @@ class MessageManager {
     let messageId = this.mainMessages.get(userId);
     if (!messageId) {
       messageId = await this.loadMainMessageFromDB(userId);
+    }
+
+    // Load navigation data if not in cache
+    if (!this.currentScreen.has(userId)) {
+      await this.loadNavigationFromDB(userId);
     }
 
     const extra = {
@@ -295,6 +368,11 @@ class MessageManager {
     // Set new current screen
     this.currentScreen.set(userId, screenName);
     this.currentScreenData.set(userId, { text, keyboard });
+
+    // Persist to database
+    this.saveNavigationToDB(userId).catch(err =>
+      console.error('Failed to save navigation:', err.message)
+    );
   }
 
   /**
@@ -317,6 +395,11 @@ class MessageManager {
       text: previousScreen.text,
       keyboard: previousScreen.keyboard
     });
+
+    // Persist to database
+    this.saveNavigationToDB(userId).catch(err =>
+      console.error('Failed to save navigation:', err.message)
+    );
 
     return previousScreen;
   }
@@ -358,6 +441,11 @@ class MessageManager {
     this.navigationStack.delete(userId);
     this.currentScreen.set(userId, 'main_menu');
     this.currentScreenData.delete(userId);
+
+    // Persist to database
+    this.clearNavigationFromDB(userId).catch(err =>
+      console.error('Failed to clear navigation:', err.message)
+    );
   }
 
   /**
@@ -365,6 +453,11 @@ class MessageManager {
    */
   clearStack(userId) {
     this.navigationStack.delete(userId);
+
+    // Persist to database
+    this.saveNavigationToDB(userId).catch(err =>
+      console.error('Failed to save navigation:', err.message)
+    );
   }
 
   /**

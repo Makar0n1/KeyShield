@@ -1,5 +1,6 @@
 const disputeService = require('../../services/disputeService');
 const dealService = require('../../services/dealService');
+const Session = require('../../models/Session');
 const {
   mainMenuButton,
   backButton,
@@ -8,8 +9,26 @@ const {
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 
-// Store temporary dispute data
-const disputeSessions = new Map();
+// ============================================
+// SESSION HELPERS (MongoDB persistence)
+// ============================================
+
+async function getDisputeSession(telegramId) {
+  return await Session.getSession(telegramId, 'dispute');
+}
+
+async function setDisputeSession(telegramId, sessionData) {
+  await Session.setSession(telegramId, 'dispute', sessionData, 2); // 2 hours TTL
+}
+
+async function deleteDisputeSession(telegramId) {
+  await Session.deleteSession(telegramId, 'dispute');
+}
+
+async function hasDisputeSession(telegramId) {
+  const session = await getDisputeSession(telegramId);
+  return !!session;
+}
 
 // ============================================
 // START DISPUTE
@@ -90,7 +109,7 @@ _Минимум 20 символов_`;
 const handleDisputeInput = async (ctx) => {
   try {
     const telegramId = ctx.from.id;
-    const session = disputeSessions.get(telegramId);
+    const session = await getDisputeSession(telegramId);
 
     if (!session) {
       return false;
@@ -117,7 +136,7 @@ const handleDisputeInput = async (ctx) => {
       // Save reason and move to media step
       session.reasonText = text;
       session.step = 'media';
-      disputeSessions.set(telegramId, session);
+      await setDisputeSession(telegramId, session);
 
       const mediaText = `📎 *Прикрепите доказательства*
 
@@ -155,7 +174,7 @@ _Добавлено файлов: ${session.media.length}_
 const handleDisputeMedia = async (ctx) => {
   try {
     const telegramId = ctx.from.id;
-    const session = disputeSessions.get(telegramId);
+    const session = await getDisputeSession(telegramId);
 
     if (!session || session.step !== 'media') {
       return false;
@@ -189,7 +208,7 @@ const handleDisputeMedia = async (ctx) => {
         type: fileType
       });
 
-      disputeSessions.set(telegramId, session);
+      await setDisputeSession(telegramId, session);
 
       // Update screen with new count
       const mediaText = `📎 *Прикрепите доказательства*
@@ -232,7 +251,7 @@ const finalizeDisputeHandler = async (ctx) => {
     const dealId = ctx.callbackQuery.data.split(':')[1];
     const telegramId = ctx.from.id;
 
-    const session = disputeSessions.get(telegramId);
+    const session = await getDisputeSession(telegramId);
 
     if (!session || session.dealId !== dealId) {
       const keyboard = mainMenuButton();
@@ -243,7 +262,7 @@ const finalizeDisputeHandler = async (ctx) => {
     if (!session.reasonText) {
       const keyboard = mainMenuButton();
       await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Описание проблемы отсутствует. Начните заново.', keyboard);
-      disputeSessions.delete(telegramId);
+      await deleteDisputeSession(telegramId);
       return;
     }
 
@@ -259,7 +278,7 @@ const finalizeDisputeHandler = async (ctx) => {
     );
 
     // Clean up session
-    disputeSessions.delete(telegramId);
+    await deleteDisputeSession(telegramId);
 
     const deal = await dealService.getDealById(session.dealId);
 
@@ -305,37 +324,11 @@ ${role} открыл спор по данной сделке.
   }
 };
 
-// ============================================
-// GET/CHECK DISPUTE SESSION
-// ============================================
-
-/**
- * Check if user has active dispute session
- */
-const hasDisputeSession = (telegramId) => {
-  return disputeSessions.has(telegramId);
-};
-
-/**
- * Get dispute session
- */
-const getDisputeSession = (telegramId) => {
-  return disputeSessions.get(telegramId);
-};
-
-/**
- * Clear dispute session
- */
-const clearDisputeSession = (telegramId) => {
-  disputeSessions.delete(telegramId);
-};
-
 module.exports = {
   startDispute,
   handleDisputeInput,
   handleDisputeMedia,
   finalizeDisputeHandler,
   hasDisputeSession,
-  getDisputeSession,
-  clearDisputeSession
+  clearDisputeSession: deleteDisputeSession
 };

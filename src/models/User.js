@@ -65,6 +65,29 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  // Navigation stack for Back button (persistent)
+  navigationStack: {
+    type: [{
+      screen: String,
+      text: String,
+      keyboard: mongoose.Schema.Types.Mixed
+    }],
+    default: []
+  },
+  // Current screen data (persistent)
+  currentScreen: {
+    type: String,
+    default: null
+  },
+  currentScreenData: {
+    text: String,
+    keyboard: mongoose.Schema.Types.Mixed
+  },
+  // Last activity timestamp for cleanup
+  lastActivity: {
+    type: Date,
+    default: Date.now
+  },
   createdAt: {
     type: Date,
     default: Date.now
