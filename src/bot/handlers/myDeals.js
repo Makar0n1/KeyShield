@@ -39,7 +39,7 @@ function getStatusText(status) {
 
 const DEALS_PER_PAGE = 3;
 
-const showMyDeals = async (ctx, page = 1) => {
+const showMyDeals = async (ctx, page) => {
   try {
     const isCallbackQuery = !!ctx.callbackQuery;
     if (isCallbackQuery) await ctx.answerCbQuery();
@@ -61,7 +61,7 @@ const showMyDeals = async (ctx, page = 1) => {
 
     // Calculate pagination
     const totalPages = Math.ceil(deals.length / DEALS_PER_PAGE);
-    const currentPage = Math.max(1, Math.min(page, totalPages));
+    const currentPage = Math.max(1, Math.min(parseInt(page) || 1, totalPages));
     const startIndex = (currentPage - 1) * DEALS_PER_PAGE;
     const endIndex = startIndex + DEALS_PER_PAGE;
     const dealsOnPage = deals.slice(startIndex, endIndex);
