@@ -509,13 +509,16 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .blog-hero-title{font-size:2.5rem;font-weight:800;margin-bottom:15px;color:#fff}
     @media(max-width:768px){.nav-menu,.btn-primary{display:none}.blog-hero-title{font-size:1.75rem}}
     /* Lightbox */
-    .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:none;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
-    .lightbox-overlay.active{display:flex;opacity:1}
-    .lightbox-close{position:absolute;top:20px;right:20px;width:40px;height:40px;background:rgba(255,255,255,.15);border:none;border-radius:50%;color:#fff;font-size:24px;cursor:pointer;z-index:10001;display:flex;align-items:center;justify-content:center;transition:background .2s}
+    .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:9999;display:none;align-items:center;justify-content:center;transition:background .3s ease}
+    .lightbox-overlay.active{display:flex}
+    .lightbox-overlay.visible{background:rgba(0,0,0,.95)}
+    .lightbox-close{position:absolute;top:20px;right:20px;width:40px;height:40px;background:rgba(255,255,255,.15);border:none;border-radius:50%;color:#fff;font-size:24px;cursor:pointer;z-index:10001;display:flex;align-items:center;justify-content:center;transition:background .2s,opacity .2s;opacity:0}
+    .lightbox-overlay.visible .lightbox-close{opacity:1}
+    @media(max-width:768px){.lightbox-close{display:none}}
     .lightbox-close:hover{background:rgba(255,255,255,.3)}
-    .lightbox-img-container{position:relative;max-width:95vw;max-height:95vh;touch-action:none;will-change:transform}
-    .lightbox-img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none}
-    .lightbox-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;backdrop-filter:blur(10px)}
+    .lightbox-img-container{position:fixed;touch-action:none;will-change:transform;z-index:10000}
+    .lightbox-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;display:block}
+    .lightbox-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(60,60,60,.9);color:#fff;padding:12px 24px;border-radius:25px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;backdrop-filter:blur(10px);z-index:10002;white-space:nowrap}
     .lightbox-toast.show{opacity:1}
   </style>
 
@@ -816,49 +819,127 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       }
     }
 
-    // Lightbox for images
+    // Lightbox for images - smooth iOS-like animation
     (function() {
       const lightbox = document.getElementById('lightbox');
       const lightboxImg = document.getElementById('lightboxImg');
       const lightboxContainer = document.getElementById('lightboxContainer');
       const lightboxToast = document.getElementById('lightboxToast');
 
+      let sourceImg = null;
+      let sourceRect = null;
+      let targetRect = null;
       let startY = 0;
       let currentY = 0;
       let isDragging = false;
       let toastShown = false;
       const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      const CLOSE_THRESHOLD = 0.35; // 35% of image height to close
+      const CLOSE_THRESHOLD = 0.15; // 15% to close
 
-      // Open lightbox
-      function openLightbox(src, alt) {
-        lightboxImg.src = src;
-        lightboxImg.alt = alt || '';
+      // Calculate target position (centered)
+      function getTargetRect(imgWidth, imgHeight) {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const padding = isMobile ? 0 : 40;
+        const maxW = vw - padding * 2;
+        const maxH = vh - padding * 2;
+        const scale = Math.min(maxW / imgWidth, maxH / imgHeight, 1);
+        const w = imgWidth * scale;
+        const h = imgHeight * scale;
+        return {
+          left: (vw - w) / 2,
+          top: (vh - h) / 2,
+          width: w,
+          height: h
+        };
+      }
+
+      // Open lightbox with animation from source image
+      function openLightbox(img) {
+        sourceImg = img;
+        sourceRect = img.getBoundingClientRect();
+
+        // Hide source image
+        sourceImg.style.visibility = 'hidden';
+
+        // Set image src and wait for load
+        lightboxImg.src = img.src;
+        lightboxImg.alt = img.alt || '';
+
+        // Show overlay
         lightbox.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        // Show toast on mobile (only once per session)
+        // Position at source
+        lightboxContainer.style.transition = 'none';
+        lightboxContainer.style.left = sourceRect.left + 'px';
+        lightboxContainer.style.top = sourceRect.top + 'px';
+        lightboxContainer.style.width = sourceRect.width + 'px';
+        lightboxContainer.style.height = sourceRect.height + 'px';
+
+        // Calculate target after image loads or use natural size
+        const naturalW = img.naturalWidth || sourceRect.width;
+        const naturalH = img.naturalHeight || sourceRect.height;
+        targetRect = getTargetRect(naturalW, naturalH);
+
+        // Animate to center
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            lightbox.classList.add('visible');
+            lightboxContainer.style.transition = 'all 0.35s cubic-bezier(0.2, 0, 0.2, 1)';
+            lightboxContainer.style.left = targetRect.left + 'px';
+            lightboxContainer.style.top = targetRect.top + 'px';
+            lightboxContainer.style.width = targetRect.width + 'px';
+            lightboxContainer.style.height = targetRect.height + 'px';
+          });
+        });
+
+        // Show toast on mobile (only once)
         if (isMobile && !toastShown) {
           setTimeout(() => {
             lightboxToast.classList.add('show');
-            setTimeout(() => lightboxToast.classList.remove('show'), 3000);
-          }, 500);
+            setTimeout(() => lightboxToast.classList.remove('show'), 2500);
+          }, 400);
           toastShown = true;
         }
       }
       window.openLightbox = openLightbox;
 
-      // Close lightbox
-      function closeLightbox() {
-        lightbox.classList.remove('active');
-        document.body.style.overflow = '';
-        lightboxContainer.style.transform = '';
-        lightboxContainer.style.opacity = '';
-        lightboxContainer.style.transition = '';
+      // Close lightbox with animation back to source
+      function closeLightbox(animate = true) {
+        lightboxToast.classList.remove('show');
+
+        if (animate && sourceImg && sourceRect) {
+          // Get current source position (may have scrolled)
+          const currentSourceRect = sourceImg.getBoundingClientRect();
+
+          lightbox.classList.remove('visible');
+          lightboxContainer.style.transition = 'all 0.3s cubic-bezier(0.2, 0, 0.2, 1)';
+          lightboxContainer.style.left = currentSourceRect.left + 'px';
+          lightboxContainer.style.top = currentSourceRect.top + 'px';
+          lightboxContainer.style.width = currentSourceRect.width + 'px';
+          lightboxContainer.style.height = currentSourceRect.height + 'px';
+
+          setTimeout(() => {
+            cleanup();
+          }, 300);
+        } else {
+          lightbox.classList.remove('visible');
+          setTimeout(cleanup, 100);
+        }
       }
       window.closeLightbox = closeLightbox;
 
-      // Click outside to close
+      function cleanup() {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+        if (sourceImg) sourceImg.style.visibility = '';
+        sourceImg = null;
+        sourceRect = null;
+        lightboxContainer.style = '';
+      }
+
+      // Click outside to close (desktop)
       lightbox.addEventListener('click', (e) => {
         if (e.target === lightbox) closeLightbox();
       });
@@ -879,16 +960,22 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       }, { passive: true });
 
       lightboxContainer.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
+        if (!isDragging || !targetRect) return;
         currentY = e.touches[0].clientY;
         const deltaY = currentY - startY;
-        const imgHeight = lightboxImg.offsetHeight;
-        const progress = Math.abs(deltaY) / imgHeight;
+        const progress = Math.min(Math.abs(deltaY) / 200, 1);
 
-        // Move image with finger
-        lightboxContainer.style.transform = 'translateY(' + deltaY + 'px)';
-        // Fade out as it moves
-        lightboxContainer.style.opacity = Math.max(0.3, 1 - progress);
+        // Move image
+        const newTop = targetRect.top + deltaY;
+        lightboxContainer.style.top = newTop + 'px';
+
+        // Fade background
+        const bgOpacity = Math.max(0, 0.95 - progress * 0.7);
+        lightbox.style.background = 'rgba(0,0,0,' + bgOpacity + ')';
+
+        // Slight scale down
+        const scale = 1 - progress * 0.1;
+        lightboxContainer.style.transform = 'scale(' + scale + ')';
       }, { passive: true });
 
       lightboxContainer.addEventListener('touchend', () => {
@@ -896,21 +983,17 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         isDragging = false;
 
         const deltaY = currentY - startY;
-        const imgHeight = lightboxImg.offsetHeight;
-        const progress = Math.abs(deltaY) / imgHeight;
-
-        lightboxContainer.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+        const progress = Math.abs(deltaY) / 200;
 
         if (progress >= CLOSE_THRESHOLD) {
-          // Close with animation
-          const direction = deltaY > 0 ? 1 : -1;
-          lightboxContainer.style.transform = 'translateY(' + (direction * window.innerHeight) + 'px)';
-          lightboxContainer.style.opacity = '0';
-          setTimeout(closeLightbox, 200);
+          closeLightbox(true);
         } else {
           // Snap back
-          lightboxContainer.style.transform = 'translateY(0)';
-          lightboxContainer.style.opacity = '1';
+          lightboxContainer.style.transition = 'all 0.25s cubic-bezier(0.2, 0, 0.2, 1)';
+          lightboxContainer.style.top = targetRect.top + 'px';
+          lightboxContainer.style.transform = 'scale(1)';
+          lightbox.style.background = '';
+          setTimeout(() => lightbox.classList.add('visible'), 10);
         }
       });
 
@@ -919,8 +1002,9 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         const selectors = '.post-content img, .post-cover-image img';
         document.querySelectorAll(selectors).forEach(img => {
           img.style.cursor = 'zoom-in';
-          img.addEventListener('click', () => {
-            openLightbox(img.src, img.alt);
+          img.addEventListener('click', (e) => {
+            e.preventDefault();
+            openLightbox(img);
           });
         });
       });
