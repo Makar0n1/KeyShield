@@ -360,6 +360,19 @@
       height: 100%;
       object-fit: cover;
     }
+    /* Cover input with library button */
+    .cover-input-group {
+      display: flex;
+      gap: 8px;
+    }
+    .cover-input-group input {
+      flex: 1;
+    }
+    .btn-sm {
+      padding: 6px 10px !important;
+      font-size: 12px !important;
+      white-space: nowrap;
+    }
     .media-item .delete-media {
       position: absolute;
       top: 5px;
@@ -743,13 +756,16 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Cover Image URL</label>
-              <input type="text" id="settingsCoverImage">
+              <label>Обложка блога</label>
+              <div class="cover-input-group">
+                <input type="text" id="settingsCoverImage" placeholder="URL изображения">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('settingsCoverImage', 'settingsCoverImageAlt')">📁 Медиатека</button>
+              </div>
               <img id="settingsCoverPreview" class="image-preview" style="display: none;">
             </div>
             <div class="form-group">
-              <label>Cover Image Alt</label>
-              <input type="text" id="settingsCoverImageAlt" maxlength="200">
+              <label>Alt обложки</label>
+              <input type="text" id="settingsCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
             </div>
           </div>
           <div class="form-group">
@@ -811,13 +827,16 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Cover Image URL</label>
-              <input type="text" id="postCoverImage" oninput="previewPostCover()">
+              <label>Обложка</label>
+              <div class="cover-input-group">
+                <input type="text" id="postCoverImage" oninput="previewPostCover()" placeholder="URL изображения">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('postCoverImage', 'postCoverImageAlt')">📁 Медиатека</button>
+              </div>
               <img id="postCoverPreview" class="image-preview" style="display: none;">
             </div>
             <div class="form-group">
-              <label>Cover Alt Text</label>
-              <input type="text" id="postCoverImageAlt" maxlength="200">
+              <label>Alt обложки</label>
+              <input type="text" id="postCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
             </div>
           </div>
           <div class="form-group">
@@ -890,12 +909,15 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Cover Image URL</label>
-              <input type="text" id="categoryCoverImage">
+              <label>Обложка</label>
+              <div class="cover-input-group">
+                <input type="text" id="categoryCoverImage" placeholder="URL изображения">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('categoryCoverImage', 'categoryCoverImageAlt')">📁 Медиатека</button>
+              </div>
             </div>
             <div class="form-group">
-              <label>Cover Alt</label>
-              <input type="text" id="categoryCoverImageAlt" maxlength="200">
+              <label>Alt обложки</label>
+              <input type="text" id="categoryCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
             </div>
           </div>
           <div class="form-row">
@@ -947,12 +969,15 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Cover Image URL</label>
-              <input type="text" id="tagCoverImage">
+              <label>Обложка</label>
+              <div class="cover-input-group">
+                <input type="text" id="tagCoverImage" placeholder="URL изображения">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="selectCoverFromLibrary('tagCoverImage', 'tagCoverImageAlt')">📁 Медиатека</button>
+              </div>
             </div>
             <div class="form-group">
-              <label>Cover Alt</label>
-              <input type="text" id="tagCoverImageAlt" maxlength="200">
+              <label>Alt обложки</label>
+              <input type="text" id="tagCoverImageAlt" maxlength="200" placeholder="Описание для SEO">
             </div>
           </div>
           <div class="form-row">
@@ -1960,6 +1985,23 @@
       mediaLibraryCallback = null;
       selectedMediaFiles = [];
       currentEditingMediaId = null;
+    }
+
+    // Select cover image from media library
+    function selectCoverFromLibrary(urlInputId, altInputId) {
+      openMediaLibrary((selected) => {
+        if (selected.length > 0) {
+          const file = selected[0];
+          document.getElementById(urlInputId).value = file.url;
+          if (altInputId && file.alt) {
+            document.getElementById(altInputId).value = file.alt;
+          }
+          // Trigger preview if exists
+          if (urlInputId === 'postCoverImage') {
+            previewPostCover();
+          }
+        }
+      });
     }
 
     async function loadMediaLibrary() {
