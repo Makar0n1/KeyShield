@@ -211,8 +211,8 @@ const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1) => {
     buttons.push(paginationRow);
   }
 
-  // Main menu button (not "Back" - this is already a top-level screen)
-  buttons.push([Markup.button.callback('🏠 Главное меню', 'main_menu')]);
+  // Back button (returns to main menu)
+  buttons.push([Markup.button.callback('⬅️ Назад', 'main_menu')]);
 
   return Markup.inlineKeyboard(buttons);
 };
