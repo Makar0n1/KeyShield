@@ -11,6 +11,10 @@ const constants = require('../config/constants');
  */
 
 class BlockchainService {
+  constructor() {
+    this.tronWeb = tronWeb;
+  }
+
   /**
    * Create a new TRON account with multisig permissions (2-of-3)
    * @param {string} buyerPublicKey - Buyer's public key
