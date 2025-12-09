@@ -608,8 +608,9 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .blog-image.align-right{text-align:right}
     .blog-image img{max-width:100%;height:auto;border-radius:8px;cursor:pointer}
     .gallery-track{display:flex;transition:transform .5s ease}
-    .gallery-slide{min-width:100%;position:relative}
-    .gallery-slide img{width:100%;height:auto;display:block;cursor:pointer}
+    .gallery-slide{min-width:100%;position:relative;height:400px}
+    .gallery-slide img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer}
+    @media(max-width:768px){.gallery-slide{height:280px}}
     .gallery-dots{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
     .gallery-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer;transition:background .2s}
     .gallery-dot.active{background:#fff}
