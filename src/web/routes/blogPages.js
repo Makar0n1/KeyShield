@@ -1348,12 +1348,15 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     })();
 
     // Vertical images - auto-detect and wrap with blur background (Instagram style)
-    (function() {
+    document.addEventListener('DOMContentLoaded', () => {
       const VERTICAL_RATIO = 1.2; // height > width * 1.2 = vertical
 
       // Auto-detect vertical images in post-content and wrap them
       document.querySelectorAll('.post-content img:not(.slide-main):not(.slide-bg):not(.vertical-image-wrapper img)').forEach(img => {
         const checkAndWrap = () => {
+          // Already wrapped? Skip
+          if (img.closest('.vertical-image-wrapper')) return;
+
           if (img.naturalHeight > img.naturalWidth * VERTICAL_RATIO) {
             // Create wrapper with blur background
             const wrapper = document.createElement('div');
@@ -1361,7 +1364,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
             const bg = document.createElement('div');
             bg.className = 'vertical-image-bg';
-            bg.style.backgroundImage = 'url(' + img.src + ')';
+            bg.style.backgroundImage = 'url("' + img.src + '")';
 
             // Wrap the image
             img.parentNode.insertBefore(wrapper, img);
@@ -1377,13 +1380,13 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           }
         };
 
-        if (img.complete) {
+        if (img.complete && img.naturalHeight > 0) {
           checkAndWrap();
         } else {
           img.addEventListener('load', checkAndWrap);
         }
       });
-    })();
+    });
 
     // Gallery slideshow
     (function() {
