@@ -10,6 +10,7 @@ const {
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
+const feesaverService = require('../../services/feesaver');
 
 // ============================================
 // STATUS HELPERS
@@ -285,6 +286,23 @@ const acceptWork = async (ctx) => {
 
     try {
       console.log(`💸 Creating payout for deal ${dealId}: ${sellerAmount} ${deal.asset} to seller`);
+
+      // 🔋 RENT ENERGY FROM FEESAVER (if enabled)
+      let energyRented = false;
+      if (feesaverService.isEnabled()) {
+        try {
+          console.log(`🔋 Attempting to rent energy for ${deal.multisigAddress}...`);
+          await feesaverService.rentEnergyForDeal(deal.multisigAddress);
+          energyRented = true;
+          console.log(`✅ Energy rental successful, proceeding with transactions`);
+        } catch (error) {
+          console.error(`⚠️ Energy rental failed: ${error.message}`);
+          console.log(`⚠️ Falling back to direct TRX usage`);
+          // Continue with transactions using TRX directly
+        }
+      } else {
+        console.log(`ℹ️ FeeSaver disabled, using direct TRX for transactions`);
+      }
 
       // Create and send transaction to seller
       const sellerTx = await blockchainService.createReleaseTransaction(
