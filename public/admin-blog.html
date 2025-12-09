@@ -308,17 +308,8 @@
       margin: 0 4px;
     }
 
-    /* Gallery marker in editor */
-    .gallery-marker {
-      background: #1e293b;
-      border: 2px dashed #3b82f6;
-      border-radius: 8px;
-      padding: 15px 20px;
-      margin: 10px 0;
-      text-align: center;
-      color: #60a5fa;
-      font-size: 14px;
-    }
+    /* Gallery text marker visual hint - Quill applies blue color via insertText */
+    /* The [GALLERY]...[/GALLERY] marker will be visible as blue text */
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
@@ -1404,18 +1395,18 @@
             postContentEditor.insertEmbed(range.index, 'image', file.url);
             postContentEditor.setSelection(range.index + 1);
           } else if (selected.length > 1) {
-            // Multiple images - insert gallery as special HTML comment marker
+            // Multiple images - insert gallery as text marker (Quill preserves plain text)
             const autoplay = document.getElementById('galleryAutoplay').checked;
             const speed = document.getElementById('gallerySpeed').value;
             const align = document.getElementById('galleryAlign').value;
             const urls = selected.map(f => f.url);
 
-            // Insert gallery marker that server will parse
-            const galleryHtml = `<p class="gallery-marker" data-gallery='${JSON.stringify({autoplay, speed, align, images: urls})}'>📷 Галерея: ${urls.length} фото (сохраните чтобы увидеть)</p>`;
+            // Insert as plain text marker that server will parse
+            const galleryMarker = `[GALLERY]${JSON.stringify({autoplay, speed, align, images: urls})}[/GALLERY]`;
 
-            // Insert at cursor position
-            postContentEditor.clipboard.dangerouslyPasteHTML(range.index, galleryHtml);
-            postContentEditor.setSelection(range.index + 1);
+            // Insert marker as text
+            postContentEditor.insertText(range.index, '\n' + galleryMarker + '\n', { 'color': '#3b82f6' });
+            postContentEditor.setSelection(range.index + galleryMarker.length + 2);
           }
         });
       });
@@ -1591,9 +1582,9 @@
               const speed = document.getElementById('gallerySpeed').value;
               const align = document.getElementById('galleryAlign').value;
               const urls = selected.map(f => f.url);
-              const galleryHtml = `<p class="gallery-marker" data-gallery='${JSON.stringify({autoplay, speed, align, images: urls})}'>📷 Галерея: ${urls.length} фото (сохраните чтобы увидеть)</p>`;
-              postContentEditor.clipboard.dangerouslyPasteHTML(range.index, galleryHtml);
-              postContentEditor.setSelection(range.index + 1);
+              const galleryMarker = `[GALLERY]${JSON.stringify({autoplay, speed, align, images: urls})}[/GALLERY]`;
+              postContentEditor.insertText(range.index, '\n' + galleryMarker + '\n', { 'color': '#3b82f6' });
+              postContentEditor.setSelection(range.index + galleryMarker.length + 2);
             }
           });
           document.getElementById('contextToolbar').classList.remove('visible');

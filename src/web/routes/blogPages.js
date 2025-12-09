@@ -164,13 +164,22 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
 const processContent = (content) => {
   if (!content) return '';
 
-  // Gallery parser - matches gallery-marker paragraphs with data-gallery attribute
-  // Format: <p class="gallery-marker" data-gallery='{"images":[...],...}'>...</p>
+  // Gallery parser - matches [GALLERY]{"images":[...],...}[/GALLERY] text markers
+  // This format survives Quill editor transformations
   content = content.replace(
-    /<p[^>]*class="gallery-marker"[^>]*data-gallery='([^']*)'[^>]*>[^<]*<\/p>/gi,
+    /\[GALLERY\](.*?)\[\/GALLERY\]/gi,
     (match, jsonData) => {
       try {
-        const data = JSON.parse(jsonData);
+        // Decode HTML entities that Quill might have added
+        const decodedJson = jsonData
+          .replace(/&quot;/g, '"')
+          .replace(/&#34;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/<[^>]*>/g, ''); // Remove any HTML tags Quill added
+
+        const data = JSON.parse(decodedJson);
         const images = data.images || [];
 
         if (!images || images.length === 0) {
@@ -201,7 +210,7 @@ const processContent = (content) => {
           </div>
         `;
       } catch (e) {
-        console.error('Error parsing gallery:', e);
+        console.error('Error parsing gallery:', e, 'Data:', jsonData);
         return '';
       }
     }
