@@ -164,10 +164,10 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
 const processContent = (content) => {
   if (!content) return '';
 
-  // Generic gallery parser that handles any attribute order and optional inner content
+  // Generic gallery parser - handles div, figure tags and any attribute order
   content = content.replace(
-    /<div class="blog-gallery"([^>]*)>(?:.*?)<\/div>/gi,
-    (match, attrs) => {
+    /<(div|figure) class="blog-gallery"([^>]*)>(?:.*?)<\/\1>/gi,
+    (match, tag, attrs) => {
       try {
         // Parse attributes
         const autoplayMatch = attrs.match(/data-autoplay="([^"]*)"/);
@@ -581,13 +581,16 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lightbox-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(60,60,60,.9);color:#fff;padding:12px 24px;border-radius:25px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;backdrop-filter:blur(10px);z-index:10002;white-space:nowrap}
     .lightbox-toast.show{opacity:1}
     /* Tall images - expandable */
-    .tall-image-wrapper{position:relative;max-height:400px;overflow:hidden;border-radius:8px;margin:20px 0}
-    .tall-image-wrapper.expanded{max-height:none}
-    .tall-image-wrapper.expanded .tall-image-toggle{display:none}
-    .tall-image-wrapper img{width:100%;height:auto;display:block;cursor:pointer;mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent 100%)}
+    .tall-image-wrapper{position:relative;max-height:400px;overflow:hidden;border-radius:8px;margin:20px 0;transition:max-height .5s ease}
+    .tall-image-wrapper.expanded{max-height:3000px}
+    .tall-image-wrapper img{width:100%;height:auto;display:block;cursor:pointer;mask-image:linear-gradient(to bottom,#000 50%,rgba(0,0,0,.3) 80%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 50%,rgba(0,0,0,.3) 80%,transparent 100%);transition:mask-image .4s ease,-webkit-mask-image .4s ease}
     .tall-image-wrapper.expanded img{mask-image:none;-webkit-mask-image:none}
     .tall-image-toggle{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;backdrop-filter:blur(10px);transition:all .2s;z-index:5}
     .tall-image-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
+    .tall-image-collapse{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:8px 20px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;backdrop-filter:blur(10px);transition:all .2s;z-index:5;opacity:0;pointer-events:none}
+    .tall-image-wrapper.expanded .tall-image-toggle{opacity:0;pointer-events:none}
+    .tall-image-wrapper.expanded .tall-image-collapse{opacity:1;pointer-events:auto}
+    .tall-image-collapse:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.5)}
     /* Gallery slideshow */
     .blog-gallery{position:relative;overflow:hidden;border-radius:12px;margin:25px 0;background:#111}
     .blog-gallery.align-left{margin-right:auto;max-width:80%}
@@ -1134,10 +1137,21 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
               wrapper.classList.add('expanded');
             });
 
+            const collapse = document.createElement('button');
+            collapse.className = 'tall-image-collapse';
+            collapse.textContent = 'Свернуть';
+            collapse.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              wrapper.classList.remove('expanded');
+              wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
             // Wrap the image
             img.parentNode.insertBefore(wrapper, img);
             wrapper.appendChild(img);
             wrapper.appendChild(toggle);
+            wrapper.appendChild(collapse);
 
             // Image click opens lightbox (not toggle)
             img.addEventListener('click', (e) => {
@@ -1158,7 +1172,16 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       // Handle pre-existing tall-image-wrappers (from server)
       document.querySelectorAll('.tall-image-wrapper').forEach(wrapper => {
         const toggle = wrapper.querySelector('.tall-image-toggle');
+        let collapse = wrapper.querySelector('.tall-image-collapse');
         const img = wrapper.querySelector('img');
+
+        // Create collapse button if not exists
+        if (!collapse) {
+          collapse = document.createElement('button');
+          collapse.className = 'tall-image-collapse';
+          collapse.textContent = 'Свернуть';
+          wrapper.appendChild(collapse);
+        }
 
         if (toggle) {
           toggle.addEventListener('click', (e) => {
@@ -1167,6 +1190,13 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
             wrapper.classList.add('expanded');
           });
         }
+
+        collapse.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          wrapper.classList.remove('expanded');
+          wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
 
         // Image click opens lightbox
         if (img) {

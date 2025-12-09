@@ -261,6 +261,16 @@
     .ql-toolbar.ql-snow { background: #0f172a; border-color: #334155; }
     .ql-container.ql-snow { border-color: #334155; background: #0f172a; }
     .ql-editor { min-height: 200px; color: #e2e8f0; font-size: 14px; }
+    /* Sticky toolbar for main content editor */
+    #postContentEditor > .ql-toolbar.ql-snow {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-radius: 6px 6px 0 0;
+      margin: 0 -20px;
+      padding: 8px 20px;
+      width: calc(100% + 40px);
+    }
     .ql-snow .ql-stroke { stroke: #94a3b8; }
     .ql-snow .ql-fill { fill: #94a3b8; }
     .ql-snow .ql-picker { color: #94a3b8; }
@@ -469,7 +479,8 @@
       color: white;
       font-size: 12px;
       opacity: 0;
-      transition: opacity 0.2s;
+      transition: opacity 0.2s, background 0.2s;
+      z-index: 5;
     }
     .media-item:hover .select-checkbox,
     .media-item.selected .select-checkbox {
@@ -478,6 +489,7 @@
     .media-item.selected .select-checkbox {
       background: #10b981;
       border-color: #10b981;
+      border-radius: 4px;
     }
     .media-item .delete-media {
       position: absolute;
@@ -510,22 +522,8 @@
     }
     .media-item:hover .copy-url { opacity: 1; }
     .media-item.selected { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
-    .media-item .select-check {
-      position: absolute;
-      top: 5px;
-      left: 5px;
-      background: #10b981;
-      border: none;
-      color: white;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-    }
-    .media-item.selected .select-check { display: flex; }
+    /* Hide old select-check - checkbox already shows checkmark */
+    .media-item .select-check { display: none !important; }
     .media-item .media-dimensions {
       position: absolute;
       bottom: 5px;
@@ -1316,7 +1314,7 @@
     function initEditors() {
       if (postContentEditor) return;
 
-      // Register custom Blot for galleries to prevent Quill from stripping them
+      // Register custom Blot for galleries - use FIGURE tag to avoid conflicts
       const BlockEmbed = Quill.import('blots/block/embed');
 
       class GalleryBlot extends BlockEmbed {
@@ -1344,12 +1342,12 @@
         }
       }
       GalleryBlot.blotName = 'gallery';
-      GalleryBlot.tagName = 'div';
+      GalleryBlot.tagName = 'figure';
       GalleryBlot.className = 'blog-gallery';
 
-      Quill.register(GalleryBlot);
+      Quill.register(GalleryBlot, true);
 
-      // Register custom Blot for aligned images
+      // Register custom Blot for aligned images - use ASIDE tag
       class ImageContainerBlot extends BlockEmbed {
         static create(value) {
           const node = super.create();
@@ -1379,10 +1377,10 @@
         }
       }
       ImageContainerBlot.blotName = 'imageContainer';
-      ImageContainerBlot.tagName = 'div';
+      ImageContainerBlot.tagName = 'aside';
       ImageContainerBlot.className = 'blog-image';
 
-      Quill.register(ImageContainerBlot);
+      Quill.register(ImageContainerBlot, true);
 
       const toolbarOptions = [
         [{ 'header': [1, 2, 3, false] }],
