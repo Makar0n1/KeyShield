@@ -804,10 +804,12 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
         totalVolume: totalVolume.toFixed(2),
         totalCommission: totalCommission.toFixed(2),
         totalTrxSpent: totalTrxSpent.toFixed(2),
-        totalCostUsd: totalCostUsd.toFixed(2),
+        totalTrxSpentUsdt: totalCostUsd.toFixed(2),  // Frontend expects this field name
+        totalCostUsd: totalCostUsd.toFixed(2),       // Keep for backward compatibility
         netProfit: netProfit.toFixed(2),
         trxRate: TRX_TO_USDT,
-        avgTrxPerDeal: avgTrxPerDeal.toFixed(2),
+        trxPerDeal: avgTrxPerDeal.toFixed(2),        // Frontend expects this field name
+        avgTrxPerDeal: avgTrxPerDeal.toFixed(2),     // Keep for backward compatibility
         avgCostPerDeal: avgCostPerDeal.toFixed(2),
         dealsWithCostData: dealsWithCostData,
         feesaverDeals: feesaverDeals,
