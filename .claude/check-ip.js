@@ -5,14 +5,22 @@
  * to help debug FeeSaver whitelist issues
  */
 
+require('dotenv').config();
 const axios = require('axios');
 
 async function checkIP() {
   console.log('\n🔍 IP Address Check\n');
 
+  // Check proxy environment variables
+  console.log('0. Checking proxy configuration...');
+  console.log(`   HTTP_PROXY: ${process.env.HTTP_PROXY || 'not set'}`);
+  console.log(`   HTTPS_PROXY: ${process.env.HTTPS_PROXY || 'not set'}`);
+  console.log(`   NO_PROXY: ${process.env.NO_PROXY || 'not set'}`);
+  console.log(`   API_DOMAIN: ${process.env.API_DOMAIN || 'not set'}`);
+
   try {
     // Check IP via multiple services
-    console.log('1. Checking IP via ipify.org...');
+    console.log('\n1. Checking IP via ipify.org...');
     const ipify = await axios.get('https://api.ipify.org?format=json');
     console.log(`   IP: ${ipify.data.ip}`);
 
@@ -42,10 +50,25 @@ async function checkIP() {
     const headers = await axios.get('https://httpbin.org/headers');
     console.log('   Headers:', JSON.stringify(headers.data.headers, null, 2));
 
+    console.log('\n6. Summary...');
+    console.log(`   ✅ Your outgoing IP: ${ipify.data.ip}`);
+    console.log(`   ⚠️  Tell FeeSaver to whitelist this IP: ${ipify.data.ip}`);
+
+    if (process.env.HTTP_PROXY || process.env.HTTPS_PROXY) {
+      console.log(`   ⚠️  WARNING: Proxy detected! This might affect FeeSaver access.`);
+    }
+
     console.log('\n✅ IP check complete!\n');
   } catch (error) {
     console.error('\n❌ Error:', error.message);
+    if (error.stack) {
+      console.error(error.stack);
+    }
   }
 }
 
-checkIP();
+if (require.main === module) {
+  checkIP();
+}
+
+module.exports = { checkIP };
