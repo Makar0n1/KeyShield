@@ -163,6 +163,69 @@ app.use('/blog', blogPages);
 app.use('/category', categoryPages);
 app.use('/tag', tagPages);
 
+// Public IP check endpoint for FeeSaver whitelist debugging
+app.get('/api/check-ip', async (req, res) => {
+  const axios = require('axios');
+
+  try {
+    // Get outgoing IP
+    const ipifyResponse = await axios.get('https://api.ipify.org?format=json', {
+      timeout: 5000
+    });
+    const outgoingIP = ipifyResponse.data.ip;
+
+    // Check FeeSaver access
+    let feesaverStatus = 'not_configured';
+    let feesaverError = null;
+    let feesaverBalance = null;
+
+    if (process.env.FEESAVER_API_KEY && process.env.FEESAVER_ENABLED === 'true') {
+      try {
+        const feesaverResponse = await axios.get('https://api.feesaver.com/balance', {
+          params: { token: process.env.FEESAVER_API_KEY },
+          timeout: 5000
+        });
+        feesaverStatus = 'accessible';
+        feesaverBalance = feesaverResponse.data.balance_trx;
+      } catch (error) {
+        feesaverStatus = 'blocked';
+        feesaverError = error.response?.data?.err || error.message;
+      }
+    }
+
+    // Return comprehensive info
+    res.json({
+      success: true,
+      outgoing_ip: outgoingIP,
+      cloudflare_detected: req.headers['cf-connecting-ip'] ? true : false,
+      cloudflare_ip: req.headers['cf-connecting-ip'] || null,
+      request_ip: req.ip || req.connection.remoteAddress,
+      feesaver: {
+        status: feesaverStatus,
+        balance: feesaverBalance,
+        error: feesaverError,
+        whitelist_needed: feesaverStatus === 'blocked'
+      },
+      env: {
+        http_proxy: process.env.HTTP_PROXY ? 'configured' : 'not set',
+        https_proxy: process.env.HTTPS_PROXY ? 'configured' : 'not set',
+        api_domain: process.env.API_DOMAIN || 'not set'
+      },
+      recommendation: feesaverStatus === 'blocked'
+        ? `Tell FeeSaver support to whitelist IP: ${outgoingIP}`
+        : feesaverStatus === 'accessible'
+        ? 'FeeSaver is accessible! No action needed.'
+        : 'FeeSaver not configured in .env'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 // JWT auth middleware for admin panel
 const jwt = require('jsonwebtoken');
 const adminAuth = (req, res, next) => {
