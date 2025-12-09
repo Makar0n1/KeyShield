@@ -308,6 +308,20 @@
       margin: 0 4px;
     }
 
+    /* Gallery preview in editor */
+    .ql-gallery {
+      background: #1e293b;
+      border: 2px dashed #475569;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 10px 0;
+      text-align: center;
+    }
+    .ql-gallery .gallery-preview {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
 
@@ -1368,32 +1382,40 @@
       // Register custom Blot for galleries - use FIGURE tag to avoid conflicts
       const BlockEmbed = Quill.import('blots/block/embed');
 
-      class GalleryBlot extends BlockEmbed {
+      // Gallery Blot - inherit from Block instead of BlockEmbed for better persistence
+      const Block = Quill.import('blots/block');
+
+      class GalleryBlot extends Block {
         static create(value) {
-          const node = super.create();
-          node.setAttribute('data-blot', 'gallery');
+          const node = document.createElement('div');
+          node.setAttribute('class', 'ql-gallery');
           node.setAttribute('data-autoplay', value.autoplay || 'true');
           node.setAttribute('data-speed', value.speed || '3000');
           node.setAttribute('data-align', value.align || 'center');
+          // Use single quotes for JSON to avoid HTML attribute issues
           node.setAttribute('data-images', JSON.stringify(value.images || []));
           node.setAttribute('contenteditable', 'false');
           // Show preview in editor
           const count = (value.images || []).length;
-          node.innerHTML = '<span style="background:#1e293b;padding:20px;border-radius:8px;text-align:center;border:2px dashed #475569;color:#94a3b8;display:block;">📷 Галерея: ' + count + ' фото</span>';
+          node.innerHTML = '<span class="gallery-preview">📷 Галерея: ' + count + ' фото</span>';
           return node;
         }
 
-        static value(node) {
+        static value(domNode) {
           return {
-            autoplay: node.getAttribute('data-autoplay'),
-            speed: node.getAttribute('data-speed'),
-            align: node.getAttribute('data-align'),
-            images: JSON.parse(node.getAttribute('data-images') || '[]')
+            autoplay: domNode.getAttribute('data-autoplay') || 'true',
+            speed: domNode.getAttribute('data-speed') || '3000',
+            align: domNode.getAttribute('data-align') || 'center',
+            images: JSON.parse(domNode.getAttribute('data-images') || '[]')
           };
+        }
+
+        static formats(domNode) {
+          return GalleryBlot.value(domNode);
         }
       }
       GalleryBlot.blotName = 'gallery';
-      GalleryBlot.tagName = 'div';
+      GalleryBlot.tagName = 'DIV';
       GalleryBlot.className = 'ql-gallery';
 
       Quill.register(GalleryBlot, true);
@@ -1534,13 +1556,13 @@
           }
         }
 
-        // Position toolbar ABOVE the line with enough gap
+        // Position toolbar ABOVE the line with big gap
         const toolbarHeight = 50; // approximate height
-        let top = targetY - toolbarHeight - 15; // 15px gap above the line
+        let top = targetY - toolbarHeight - 80; // 80px gap above the line
         let left = e.clientX - 180; // center roughly on click
 
         // Keep within viewport
-        if (top < 10) top = targetY + 30; // If no room above, show below
+        if (top < 10) top = targetY + 40; // If no room above, show below
         if (left < 10) left = 10;
         if (left + 360 > window.innerWidth) left = window.innerWidth - 370;
 
