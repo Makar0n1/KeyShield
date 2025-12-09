@@ -402,63 +402,62 @@ const acceptWork = async (ctx) => {
       // Update deal status
       await dealService.updateDealStatus(dealId, 'completed', telegramId);
 
-      // 💰 AUTO-RETURN LEFTOVER TRX: If we used fallback TRX, return leftover to arbiter
-      if (!energyRented) {
-        try {
-          console.log(`\n💰 Waiting for USDT transactions to confirm before checking TRX balance...`);
+      // 💰 AUTO-RETURN ALL LEFTOVER TRX (activation + fallback TRX) to arbiter
+      try {
+        console.log(`\n💰 Waiting for USDT transactions to confirm before checking TRX balance...`);
 
-          // Wait 10 seconds for previous transactions to be confirmed on blockchain
-          await new Promise(resolve => setTimeout(resolve, 10000));
+        // Wait 10 seconds for previous transactions to be confirmed on blockchain
+        await new Promise(resolve => setTimeout(resolve, 10000));
 
-          console.log(`\n💰 Checking for leftover TRX on multisig to return...`);
-          const TronWeb = require('tronweb');
-          const tronWeb = new TronWeb({
-            fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
-            headers: { 'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY }
-          });
+        console.log(`\n💰 Checking for leftover TRX on multisig to return...`);
+        const TronWeb = require('tronweb');
+        const tronWeb = new TronWeb({
+          fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
+          headers: { 'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY }
+        });
 
-          const balanceSun = await tronWeb.trx.getBalance(deal.multisigAddress);
-          const balanceTRX = balanceSun / 1_000_000;
+        const balanceSun = await tronWeb.trx.getBalance(deal.multisigAddress);
+        const balanceTRX = balanceSun / 1_000_000;
 
-          console.log(`   Multisig TRX balance: ${balanceTRX.toFixed(6)} TRX`);
+        console.log(`   Multisig TRX balance: ${balanceTRX.toFixed(6)} TRX`);
+        console.log(`   (includes activation TRX + ${energyRented ? 'no' : 'fallback'} TRX for energy)`);
 
-          // Check if there's enough to withdraw after reserving fee
-          if (balanceTRX < 0.1) {
-            console.log(`   Balance too low (< 0.1 TRX), nothing to return`);
+        // Check if there's enough to withdraw after reserving fee
+        if (balanceTRX < 0.1) {
+          console.log(`   Balance too low (< 0.1 TRX), nothing to return`);
+        } else {
+          const feeReserve = 1.5; // TRX for transaction fee
+          const returnAmount = balanceTRX - feeReserve;
+
+          if (returnAmount <= 0) {
+            console.log(`   After reserving ${feeReserve} TRX for fee, nothing left to return`);
           } else {
-            const feeReserve = 1.5; // TRX for transaction fee
-            const returnAmount = balanceTRX - feeReserve;
+            const returnAmountSun = Math.floor(returnAmount * 1_000_000);
 
-            if (returnAmount <= 0) {
-              console.log(`   After reserving ${feeReserve} TRX for fee, nothing left to return`);
+            console.log(`   Total: ${balanceTRX.toFixed(6)} TRX`);
+            console.log(`   Fee reserve: ${feeReserve} TRX`);
+            console.log(`   Returning: ${returnAmount.toFixed(6)} TRX to arbiter...`);
+
+            const returnTx = await tronWeb.transactionBuilder.sendTrx(
+              process.env.ARBITER_ADDRESS,
+              returnAmountSun,
+              deal.multisigAddress
+            );
+
+            const signedReturnTx = await tronWeb.trx.sign(returnTx, wallet.privateKey);
+            const returnResult = await tronWeb.trx.sendRawTransaction(signedReturnTx);
+
+            if (returnResult.result) {
+              const returnTxHash = returnResult.txid || returnResult.transaction?.txID;
+              console.log(`✅ Returned ${returnAmount.toFixed(6)} TRX to arbiter: ${returnTxHash}`);
             } else {
-              const returnAmountSun = Math.floor(returnAmount * 1_000_000);
-
-              console.log(`   Total: ${balanceTRX.toFixed(6)} TRX`);
-              console.log(`   Fee reserve: ${feeReserve} TRX`);
-              console.log(`   Returning: ${returnAmount.toFixed(6)} TRX to arbiter...`);
-
-              const returnTx = await tronWeb.transactionBuilder.sendTrx(
-                process.env.ARBITER_ADDRESS,
-                returnAmountSun,
-                deal.multisigAddress
-              );
-
-              const signedReturnTx = await tronWeb.trx.sign(returnTx, wallet.privateKey);
-              const returnResult = await tronWeb.trx.sendRawTransaction(signedReturnTx);
-
-              if (returnResult.result) {
-                const returnTxHash = returnResult.txid || returnResult.transaction?.txID;
-                console.log(`✅ Returned ${returnAmount.toFixed(6)} TRX to arbiter: ${returnTxHash}`);
-              } else {
-                console.log(`⚠️  TRX return failed (non-critical): ${JSON.stringify(returnResult)}`);
-              }
+              console.log(`⚠️  TRX return failed (non-critical): ${JSON.stringify(returnResult)}`);
             }
           }
-        } catch (returnError) {
-          console.error(`⚠️  Failed to return leftover TRX (non-critical):`, returnError.message);
-          // Don't throw - this is not critical for deal completion
         }
+      } catch (returnError) {
+        console.error(`⚠️  Failed to return leftover TRX (non-critical):`, returnError.message);
+        // Don't throw - this is not critical for deal completion
       }
 
       // Notify buyer (final screen)
