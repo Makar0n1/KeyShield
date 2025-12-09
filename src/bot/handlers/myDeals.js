@@ -298,10 +298,33 @@ const acceptWork = async (ctx) => {
         } catch (error) {
           console.error(`⚠️ Energy rental failed: ${error.message}`);
           console.log(`⚠️ Falling back to direct TRX usage`);
-          // Continue with transactions using TRX directly
+          energyRented = false;
         }
       } else {
         console.log(`ℹ️ FeeSaver disabled, using direct TRX for transactions`);
+      }
+
+      // 💰 FALLBACK: Send TRX from arbiter if energy rental failed
+      if (!energyRented) {
+        try {
+          console.log(`💸 Sending 30 TRX from arbiter to multisig for transaction fees...`);
+          const trxResult = await blockchainService.sendTRX(
+            process.env.ARBITER_PRIVATE_KEY,
+            deal.multisigAddress,
+            30
+          );
+
+          if (trxResult.success) {
+            console.log(`✅ Sent 30 TRX to multisig: ${trxResult.txHash}`);
+            // Wait for confirmation
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } else {
+            throw new Error(`Failed to send TRX to multisig: ${trxResult.message}`);
+          }
+        } catch (trxError) {
+          console.error(`❌ Failed to send TRX to multisig:`, trxError.message);
+          throw new Error(`Cannot proceed: both energy rental and TRX fallback failed`);
+        }
       }
 
       // Create and send transaction to seller
@@ -363,6 +386,51 @@ const acceptWork = async (ctx) => {
 
       // Update deal status
       await dealService.updateDealStatus(dealId, 'completed', telegramId);
+
+      // 💰 AUTO-RETURN LEFTOVER TRX: If we used fallback TRX, return leftover to arbiter
+      if (!energyRented) {
+        try {
+          console.log(`\n💰 Checking for leftover TRX on multisig to return...`);
+          const TronWeb = require('tronweb');
+          const tronWeb = new TronWeb({
+            fullHost: process.env.TRON_FULL_NODE || 'https://api.trongrid.io',
+            headers: { 'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY }
+          });
+
+          const balanceSun = await tronWeb.trx.getBalance(deal.multisigAddress);
+          const balanceTRX = balanceSun / 1_000_000;
+
+          console.log(`   Multisig TRX balance: ${balanceTRX.toFixed(6)} TRX`);
+
+          if (balanceTRX > 2) { // If more than 2 TRX left
+            const returnAmount = balanceTRX - 1.5; // Keep 1.5 TRX for fees
+            const returnAmountSun = Math.floor(returnAmount * 1_000_000);
+
+            console.log(`   Returning ${returnAmount.toFixed(6)} TRX to arbiter...`);
+
+            const returnTx = await tronWeb.transactionBuilder.sendTrx(
+              process.env.ARBITER_ADDRESS,
+              returnAmountSun,
+              deal.multisigAddress
+            );
+
+            const signedReturnTx = await tronWeb.trx.sign(returnTx, wallet.privateKey);
+            const returnResult = await tronWeb.trx.sendRawTransaction(signedReturnTx);
+
+            if (returnResult.result) {
+              const returnTxHash = returnResult.txid || returnResult.transaction?.txID;
+              console.log(`✅ Returned ${returnAmount.toFixed(6)} TRX to arbiter: ${returnTxHash}`);
+            } else {
+              console.log(`⚠️  TRX return failed (non-critical): ${JSON.stringify(returnResult)}`);
+            }
+          } else {
+            console.log(`   Balance too low to return (< 2 TRX), skipping`);
+          }
+        } catch (returnError) {
+          console.error(`⚠️  Failed to return leftover TRX (non-critical):`, returnError.message);
+          // Don't throw - this is not critical for deal completion
+        }
+      }
 
       // Notify buyer (final screen)
       const buyerText = `✅ *Сделка завершена!*

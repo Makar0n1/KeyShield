@@ -439,6 +439,57 @@ class BlockchainService {
       throw new Error(`Failed to activate multisig wallet: ${error.message}`);
     }
   }
+
+  /**
+   * Send TRX from one address to another
+   * @param {string} fromPrivateKey - Sender's private key
+   * @param {string} toAddress - Recipient address
+   * @param {number} amountTRX - Amount in TRX
+   * @returns {Promise<{success: boolean, txHash?: string, message?: string}>}
+   */
+  async sendTRX(fromPrivateKey, toAddress, amountTRX) {
+    try {
+      const amountSun = Math.floor(amountTRX * 1_000_000);
+      const fromAddress = this.tronWeb.address.fromPrivateKey(fromPrivateKey);
+
+      console.log(`💸 Sending ${amountTRX} TRX from ${fromAddress} to ${toAddress}...`);
+
+      // Build transaction
+      const tx = await this.tronWeb.transactionBuilder.sendTrx(
+        toAddress,
+        amountSun,
+        fromAddress
+      );
+
+      // Sign transaction
+      const signedTx = await this.tronWeb.trx.sign(tx, fromPrivateKey);
+
+      // Broadcast
+      const result = await this.tronWeb.trx.sendRawTransaction(signedTx);
+
+      if (result.result || result.code === 'SUCCESS') {
+        const txHash = result.txid || result.transaction?.txID;
+        console.log(`✅ TRX sent successfully: ${txHash}`);
+        return {
+          success: true,
+          txHash: txHash
+        };
+      } else {
+        const errorMsg = result.message || result.code || 'Unknown error';
+        console.error(`❌ TRX send failed: ${errorMsg}`);
+        return {
+          success: false,
+          message: errorMsg
+        };
+      }
+    } catch (error) {
+      console.error('Error sending TRX:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+  }
 }
 
 module.exports = new BlockchainService();
