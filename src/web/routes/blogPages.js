@@ -1176,7 +1176,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         }
       });
 
-      // Touch handlers
+      // Touch handlers with drag effect
       lightboxContainer.addEventListener('touchstart', (e) => {
         isDragging = true;
         isHorizontalSwipe = false;
@@ -1200,10 +1200,16 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         }
 
         if (isHorizontalSwipe) {
-          // Horizontal swipe for gallery navigation
-          const progress = Math.min(Math.abs(deltaX) / 150, 1);
-          lightboxContainer.style.transform = 'translateX(' + deltaX * 0.5 + 'px)';
-          lightboxContainer.style.opacity = String(1 - progress * 0.3);
+          // Horizontal swipe for gallery - image follows finger 1:1
+          const screenWidth = window.innerWidth;
+          const progress = Math.min(Math.abs(deltaX) / screenWidth, 1);
+          // Add resistance at edges (first/last image)
+          let dragX = deltaX;
+          if ((galleryIndex === 0 && deltaX > 0) || (galleryIndex === galleryImages.length - 1 && deltaX < 0)) {
+            dragX = deltaX * 0.3; // Resistance
+          }
+          lightboxContainer.style.transform = 'translateX(' + dragX + 'px)';
+          lightboxContainer.style.opacity = String(1 - progress * 0.4);
         } else {
           // Vertical swipe to close
           const progress = Math.min(Math.abs(deltaY) / 200, 1);
@@ -1218,15 +1224,25 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         isDragging = false;
         const deltaY = currentY - startY;
         const deltaX = currentX - startX;
+        const screenWidth = window.innerWidth;
+        const threshold = screenWidth * 0.2; // 20% of screen width
 
         if (isHorizontalSwipe && isGalleryMode) {
           // Handle horizontal swipe for gallery
-          if (Math.abs(deltaX) > 60) {
-            if (deltaX < 0) nextGalleryImage();
-            else prevGalleryImage();
+          if (Math.abs(deltaX) > threshold) {
+            if (deltaX < 0 && galleryIndex < galleryImages.length - 1) {
+              nextGalleryImage();
+            } else if (deltaX > 0 && galleryIndex > 0) {
+              prevGalleryImage();
+            } else {
+              // Snap back at edges
+              lightboxContainer.style.transition = 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+              lightboxContainer.style.transform = 'translateX(0)';
+              lightboxContainer.style.opacity = '1';
+            }
           } else {
             // Snap back
-            lightboxContainer.style.transition = 'all 0.2s ease-out';
+            lightboxContainer.style.transition = 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             lightboxContainer.style.transform = 'translateX(0)';
             lightboxContainer.style.opacity = '1';
           }
@@ -1441,21 +1457,52 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           dot.addEventListener('click', (e) => { e.stopPropagation(); goToSlide(i); stopAutoplay(); });
         });
 
-        // Touch swipe support
+        // Touch swipe support with drag effect
         let touchStartX = 0;
-        let touchEndX = 0;
+        let touchCurrentX = 0;
+        let isDragging = false;
+        const galleryWidth = gallery.offsetWidth;
 
         gallery.addEventListener('touchstart', (e) => {
+          isDragging = true;
           touchStartX = e.touches[0].clientX;
+          touchCurrentX = touchStartX;
+          track.style.transition = 'none'; // Disable transition during drag
         }, { passive: true });
 
-        gallery.addEventListener('touchend', (e) => {
-          touchEndX = e.changedTouches[0].clientX;
-          const diff = touchStartX - touchEndX;
-          if (Math.abs(diff) > 50) {
-            if (diff > 0) nextSlide();
-            else prevSlide();
+        gallery.addEventListener('touchmove', (e) => {
+          if (!isDragging) return;
+          touchCurrentX = e.touches[0].clientX;
+          const deltaX = touchCurrentX - touchStartX;
+          const baseOffset = -currentIndex * 100;
+          const dragPercent = (deltaX / galleryWidth) * 100;
+          // Apply drag with resistance at edges
+          let finalOffset = baseOffset + dragPercent;
+          if ((currentIndex === 0 && deltaX > 0) || (currentIndex === total - 1 && deltaX < 0)) {
+            finalOffset = baseOffset + dragPercent * 0.3; // Resistance at edges
+          }
+          track.style.transform = 'translateX(' + finalOffset + '%)';
+        }, { passive: true });
+
+        gallery.addEventListener('touchend', () => {
+          if (!isDragging) return;
+          isDragging = false;
+          const deltaX = touchCurrentX - touchStartX;
+          const threshold = galleryWidth * 0.2; // 20% of gallery width
+
+          track.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+
+          if (Math.abs(deltaX) > threshold) {
+            if (deltaX < 0 && currentIndex < total - 1) {
+              nextSlide();
+            } else if (deltaX > 0 && currentIndex > 0) {
+              prevSlide();
+            } else {
+              goToSlide(currentIndex); // Snap back
+            }
             stopAutoplay();
+          } else {
+            goToSlide(currentIndex); // Snap back
           }
         }, { passive: true });
 
