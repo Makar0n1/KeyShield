@@ -182,12 +182,12 @@ class FeeSaverService {
    * This is the primary method to use for deal completion
    *
    * @param {string} targetAddress - Multisig wallet address
-   * @returns {Promise<Object>} Rental response
+   * @returns {Promise<{success: boolean, cost: number, data: Object}>} Rental response with cost
    */
   async rentEnergyForDeal(targetAddress) {
     if (!this.isEnabled()) {
       console.warn('⚠️ FeeSaver is disabled, skipping energy rental');
-      return null;
+      return { success: false, cost: 0, data: null };
     }
 
     try {
@@ -205,7 +205,14 @@ class FeeSaverService {
       // Wait for delegation
       await this.waitForDelegation(10);
 
-      return rentalResult;
+      // Extract real cost from rental result
+      const cost = parseFloat(rentalResult.summa) || 0;
+
+      return {
+        success: true,
+        cost: cost,
+        data: rentalResult
+      };
     } catch (error) {
       console.error('❌ Failed to rent energy for deal:', error.message);
       throw error;

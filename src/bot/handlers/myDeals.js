@@ -304,12 +304,18 @@ const acceptWork = async (ctx) => {
 
       // 🔋 RENT ENERGY FROM FEESAVER (if enabled)
       let energyRented = false;
+      let feesaverCost = 0;
       if (feesaverService.isEnabled()) {
         try {
           console.log(`🔋 Attempting to rent energy for ${deal.multisigAddress}...`);
-          await feesaverService.rentEnergyForDeal(deal.multisigAddress);
-          energyRented = true;
-          console.log(`✅ Energy rental successful, proceeding with transactions`);
+          const rentalResult = await feesaverService.rentEnergyForDeal(deal.multisigAddress);
+          if (rentalResult.success) {
+            energyRented = true;
+            feesaverCost = rentalResult.cost;
+            console.log(`✅ Energy rental successful (cost: ${feesaverCost} TRX), proceeding with transactions`);
+          } else {
+            energyRented = false;
+          }
         } catch (error) {
           console.error(`⚠️ Energy rental failed: ${error.message}`);
           console.log(`⚠️ Falling back to direct TRX usage`);
@@ -320,17 +326,18 @@ const acceptWork = async (ctx) => {
       }
 
       // 💰 FALLBACK: Send TRX from arbiter if energy rental failed
+      const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
       if (!energyRented) {
         try {
-          console.log(`💸 Sending 30 TRX from arbiter to multisig for transaction fees...`);
+          console.log(`💸 Sending ${FALLBACK_AMOUNT} TRX from arbiter to multisig for transaction fees...`);
           const trxResult = await blockchainService.sendTRX(
             process.env.ARBITER_PRIVATE_KEY,
             deal.multisigAddress,
-            30
+            FALLBACK_AMOUNT
           );
 
           if (trxResult.success) {
-            console.log(`✅ Sent 30 TRX to multisig: ${trxResult.txHash}`);
+            console.log(`✅ Sent ${FALLBACK_AMOUNT} TRX to multisig: ${trxResult.txHash}`);
             // Wait for confirmation
             await new Promise(resolve => setTimeout(resolve, 3000));
           } else {
@@ -470,8 +477,8 @@ const acceptWork = async (ctx) => {
 
         // Calculate costs with REAL blockchain data
         const ACTIVATION_AMOUNT = parseInt(process.env.MULTISIG_ACTIVATION_TRX) || 5;
-        const FALLBACK_AMOUNT = 30;
-        const TX_FEE = 1.1; // Standard TRON transaction fee
+        const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
+        const TX_FEE = parseFloat(process.env.TRON_TX_FEE) || 1.1; // Standard TRON transaction fee
 
         // Amounts sent
         const activationTrxSent = ACTIVATION_AMOUNT;
@@ -482,8 +489,8 @@ const acceptWork = async (ctx) => {
         // What we got back (from blockchain after USDT transactions)
         const totalReturned = trxReturned;
 
-        // FeeSaver cost (real average: 6.5 TRX)
-        const feesaverCostTrx = energyRented ? 6.5 : 0;
+        // FeeSaver cost (REAL cost from API, not estimate!)
+        const feesaverCostTrx = energyRented ? feesaverCost : 0;
 
         // Calculate returns
         let activationTrxReturned = 0;
