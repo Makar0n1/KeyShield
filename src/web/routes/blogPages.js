@@ -498,16 +498,22 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <style>
     /* Critical CSS for above-the-fold */
     *{margin:0;padding:0;box-sizing:border-box}
+    html{scrollbar-gutter:stable}
     body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0a0a0f;color:#e0e0e0;line-height:1.6}
+    body.lightbox-open{overflow:hidden;touch-action:none}
     .header{background:rgba(10,10,15,.95);border-bottom:1px solid rgba(255,255,255,.1);position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px)}
     .container{max-width:1200px;margin:0 auto;padding:0 20px}
-    .nav{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
+    .nav{display:flex;align-items:center;justify-content:space-between}
     .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
     .blog-hero{position:relative;padding:80px 0;background-size:cover;background-position:center;min-height:300px}
     .blog-hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,10,15,.9),rgba(26,26,46,.8))}
     .blog-hero .container{position:relative;z-index:1}
     .blog-hero-title{font-size:2.5rem;font-weight:800;margin-bottom:15px;color:#fff}
     @media(max-width:768px){.nav-menu,.btn-primary{display:none}.blog-hero-title{font-size:1.75rem}}
+    /* Tall image cropping */
+    .post-content img{max-height:600px;width:auto;max-width:100%;object-fit:contain;cursor:pointer;border-radius:8px;transition:transform .2s}
+    .post-content img:hover{transform:scale(1.01)}
+    .post-cover-image img{cursor:pointer}
     /* Lightbox */
     .lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:9999;display:none;align-items:center;justify-content:center;transition:background .3s ease}
     .lightbox-overlay.active{display:flex}
@@ -516,18 +522,18 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .lightbox-overlay.visible .lightbox-close{opacity:1}
     @media(max-width:768px){.lightbox-close{display:none}}
     .lightbox-close:hover{background:rgba(255,255,255,.3)}
-    .lightbox-img-container{position:fixed;touch-action:none;will-change:transform;z-index:10000}
-    .lightbox-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;user-select:none;-webkit-user-drag:none;display:block}
+    .lightbox-img-container{position:fixed;touch-action:none;will-change:transform;z-index:10000;overflow:hidden;border-radius:8px}
+    .lightbox-img{width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;display:block}
     .lightbox-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(60,60,60,.9);color:#fff;padding:12px 24px;border-radius:25px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;backdrop-filter:blur(10px);z-index:10002;white-space:nowrap}
     .lightbox-toast.show{opacity:1}
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=17" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=17" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=18" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=18" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=17">
-    <link rel="stylesheet" href="/css/blog.css?v=17">
+    <link rel="stylesheet" href="/css/style.css?v=18">
+    <link rel="stylesheet" href="/css/blog.css?v=18">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->
@@ -868,7 +874,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
         // Show overlay
         lightbox.classList.add('active');
-        document.body.style.overflow = 'hidden';
+        document.body.classList.add('lightbox-open');
 
         // Position at source
         lightboxContainer.style.transition = 'none';
@@ -932,7 +938,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
       function cleanup() {
         lightbox.classList.remove('active');
-        document.body.style.overflow = '';
+        document.body.classList.remove('lightbox-open');
         if (sourceImg) sourceImg.style.visibility = '';
         sourceImg = null;
         sourceRect = null;
@@ -1001,7 +1007,6 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       document.addEventListener('DOMContentLoaded', () => {
         const selectors = '.post-content img, .post-cover-image img';
         document.querySelectorAll(selectors).forEach(img => {
-          img.style.cursor = 'zoom-in';
           img.addEventListener('click', (e) => {
             e.preventDefault();
             openLightbox(img);
