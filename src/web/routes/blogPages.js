@@ -164,22 +164,30 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
 const processContent = (content) => {
   if (!content) return '';
 
-  // Generic gallery parser - handles div, figure tags and any attribute order
-  // Use [\s\S]*? to match any content including newlines
+  // Gallery parser - matches ql-gallery class (from Quill) or blog-gallery
+  // Format: <div class="ql-gallery" data-blot="gallery" data-images='[...]' ...>
   content = content.replace(
-    /<(div|figure) class="blog-gallery"([^>]*)>[\s\S]*?<\/\1>/gi,
-    (match, tag, attrs) => {
+    /<div[^>]*(?:class="ql-gallery"|data-blot="gallery")[^>]*>[\s\S]*?<\/div>/gi,
+    (match) => {
       try {
-        // Parse attributes
-        const autoplayMatch = attrs.match(/data-autoplay="([^"]*)"/);
-        const speedMatch = attrs.match(/data-speed="(\d+)"/);
-        const alignMatch = attrs.match(/data-align="([^"]*)"/);
-        const imagesMatch = attrs.match(/data-images='(\[[^\]]*\])'/);
+        // Parse attributes from the match
+        const autoplayMatch = match.match(/data-autoplay="([^"]*)"/);
+        const speedMatch = match.match(/data-speed="(\d+)"/);
+        const alignMatch = match.match(/data-align="([^"]*)"/);
+        const imagesMatch = match.match(/data-images='(\[[^\]]*\])'/) || match.match(/data-images="(\[[^\]]*\])"/);
 
-        if (!imagesMatch) return '';
+        if (!imagesMatch) {
+          console.log('Gallery: no images attribute found in:', match.substring(0, 200));
+          return '';
+        }
 
         const images = JSON.parse(imagesMatch[1]);
-        if (!images || images.length === 0) return '';
+        if (!images || images.length === 0) {
+          console.log('Gallery: empty images array');
+          return '';
+        }
+
+        console.log('Gallery: rendering', images.length, 'images');
 
         const autoplay = autoplayMatch ? autoplayMatch[1] === 'true' : true;
         const speed = speedMatch ? speedMatch[1] : '3000';

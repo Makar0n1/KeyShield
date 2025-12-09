@@ -1371,7 +1371,7 @@
       class GalleryBlot extends BlockEmbed {
         static create(value) {
           const node = super.create();
-          node.setAttribute('class', 'blog-gallery');
+          node.setAttribute('data-blot', 'gallery');
           node.setAttribute('data-autoplay', value.autoplay || 'true');
           node.setAttribute('data-speed', value.speed || '3000');
           node.setAttribute('data-align', value.align || 'center');
@@ -1379,7 +1379,7 @@
           node.setAttribute('contenteditable', 'false');
           // Show preview in editor
           const count = (value.images || []).length;
-          node.innerHTML = '<div style="background:#1e293b;padding:20px;border-radius:8px;text-align:center;border:2px dashed #475569;color:#94a3b8;">📷 Галерея: ' + count + ' фото</div>';
+          node.innerHTML = '<span style="background:#1e293b;padding:20px;border-radius:8px;text-align:center;border:2px dashed #475569;color:#94a3b8;display:block;">📷 Галерея: ' + count + ' фото</span>';
           return node;
         }
 
@@ -1393,8 +1393,8 @@
         }
       }
       GalleryBlot.blotName = 'gallery';
-      GalleryBlot.tagName = 'figure';
-      GalleryBlot.className = 'blog-gallery';
+      GalleryBlot.tagName = 'div';
+      GalleryBlot.className = 'ql-gallery';
 
       Quill.register(GalleryBlot, true);
 
@@ -1475,6 +1475,7 @@
             const urls = selected.map(f => f.url);
 
             // Insert using registered gallery blot
+            console.log('Inserting gallery with', urls.length, 'images at index', range.index);
             postContentEditor.insertEmbed(range.index, 'gallery', {
               autoplay: String(autoplay),
               speed: speed,
@@ -1482,6 +1483,11 @@
               images: urls
             });
             postContentEditor.setSelection(range.index + 1);
+
+            // Debug: check what was inserted
+            setTimeout(() => {
+              console.log('After insert, innerHTML:', postContentEditor.root.innerHTML);
+            }, 100);
           }
         });
       });
@@ -1515,16 +1521,26 @@
       editorContainer.addEventListener('contextmenu', function(e) {
         e.preventDefault();
 
-        // Position toolbar above cursor
-        const x = e.clientX;
-        const y = e.clientY;
+        // Get selection and cursor position for proper placement
+        const selection = window.getSelection();
+        let targetY = e.clientY;
 
-        // Calculate position - above the click point
-        let top = y - toolbar.offsetHeight - 10;
-        let left = x - 50;
+        // Try to get the line element for more accurate positioning
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect.top > 0) {
+            targetY = rect.top; // Use selection top instead of click position
+          }
+        }
+
+        // Position toolbar ABOVE the line with enough gap
+        const toolbarHeight = 50; // approximate height
+        let top = targetY - toolbarHeight - 15; // 15px gap above the line
+        let left = e.clientX - 180; // center roughly on click
 
         // Keep within viewport
-        if (top < 10) top = y + 20;
+        if (top < 10) top = targetY + 30; // If no room above, show below
         if (left < 10) left = 10;
         if (left + 360 > window.innerWidth) left = window.innerWidth - 370;
 
@@ -1824,11 +1840,21 @@
 
     async function savePost() {
       const id = document.getElementById('postId').value;
+      const content = postContentEditor.root.innerHTML;
+
+      // Debug: log content to see gallery markup
+      console.log('Saving content:', content);
+      if (content.includes('ql-gallery') || content.includes('data-blot="gallery"')) {
+        console.log('Gallery found in content!');
+      } else if (content.includes('gallery') || content.includes('Gallery')) {
+        console.log('Gallery text found but not proper markup');
+      }
+
       const data = {
         title: document.getElementById('postTitle').value,
         slug: document.getElementById('postSlug').value || undefined,
         summary: document.getElementById('postSummary').value,
-        content: postContentEditor.root.innerHTML,
+        content: content,
         coverImage: document.getElementById('postCoverImage').value,
         coverImageAlt: document.getElementById('postCoverImageAlt').value,
         category: document.getElementById('postCategory').value,
