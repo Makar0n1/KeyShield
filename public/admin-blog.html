@@ -995,15 +995,15 @@
 
         <!-- Image Settings (shows when 1 selected) -->
         <div class="image-settings" id="imageSettings" style="display: none;">
-          <h4 style="color: #60a5fa; margin-bottom: 10px; font-size: 13px;">📝 Настройки изображения</h4>
+          <h4 style="color: #60a5fa; margin-bottom: 10px; font-size: 13px;">📝 Настройки изображения <span id="imageSaveStatus" style="font-weight: normal; font-size: 11px; color: #94a3b8;"></span></h4>
           <div class="settings-row" style="gap: 10px;">
             <div class="form-group" style="flex: 1;">
               <label style="font-size: 12px;">Alt (описание для SEO)</label>
-              <input type="text" id="imageAlt" placeholder="Описание изображения" style="font-size: 13px; padding: 6px 10px;">
+              <input type="text" id="imageAlt" placeholder="Описание изображения" style="font-size: 13px; padding: 6px 10px;" oninput="saveImageMetaDebounced()">
             </div>
             <div class="form-group" style="flex: 1;">
               <label style="font-size: 12px;">Title (подсказка)</label>
-              <input type="text" id="imageTitle" placeholder="Заголовок при наведении" style="font-size: 13px; padding: 6px 10px;">
+              <input type="text" id="imageTitle" placeholder="Заголовок при наведении" style="font-size: 13px; padding: 6px 10px;" oninput="saveImageMetaDebounced()">
             </div>
           </div>
           <div class="settings-row" style="margin-top: 8px; gap: 10px;">
@@ -1950,11 +1950,16 @@
       await loadMediaLibrary();
     }
 
-    function closeMediaLibrary() {
+    async function closeMediaLibrary() {
+      // Save current editing and all pending changes
+      saveCurrentImageToPending();
+      await saveAllPendingMediaChanges();
+
       document.getElementById('mediaLibraryModal').classList.remove('active');
       document.body.style.overflow = '';
       mediaLibraryCallback = null;
       selectedMediaFiles = [];
+      currentEditingMediaId = null;
     }
 
     async function loadMediaLibrary() {
@@ -2022,7 +2027,59 @@
       updateMediaSelectionUI();
     }
 
+    // Track currently editing image and pending changes
+    let currentEditingMediaId = null;
+    let pendingMediaChanges = {}; // { mediaId: { alt, title } }
+
+    // Save current image meta to pending changes
+    function saveCurrentImageToPending() {
+      if (!currentEditingMediaId) return;
+
+      const alt = document.getElementById('imageAlt').value;
+      const title = document.getElementById('imageTitle').value;
+
+      pendingMediaChanges[currentEditingMediaId] = { alt, title };
+
+      // Also update local cache immediately
+      const file = mediaLibraryFiles.find(f => f._id === currentEditingMediaId);
+      if (file) {
+        file.alt = alt;
+        file.title = title;
+      }
+    }
+
+    // Debounced auto-save to pending
+    const saveImageMetaDebounced = debounce(() => {
+      saveCurrentImageToPending();
+      const statusEl = document.getElementById('imageSaveStatus');
+      statusEl.textContent = '(сохранено локально)';
+      setTimeout(() => { statusEl.textContent = ''; }, 1500);
+    }, 300);
+
+    // Save all pending changes to server
+    async function saveAllPendingMediaChanges() {
+      const ids = Object.keys(pendingMediaChanges);
+      if (ids.length === 0) return;
+
+      for (const id of ids) {
+        const { alt, title } = pendingMediaChanges[id];
+        try {
+          await apiCall(`/api/admin/blog/media/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ alt, title })
+          });
+        } catch (err) {
+          console.error('Error saving media meta:', err);
+        }
+      }
+
+      pendingMediaChanges = {};
+    }
+
     function updateMediaSelectionUI() {
+      // Save current editing before switching
+      saveCurrentImageToPending();
+
       const count = selectedMediaFiles.length;
       document.getElementById('selectedCount').textContent = `Выбрано: ${count}`;
       document.getElementById('insertMediaBtn').disabled = count === 0;
@@ -2032,19 +2089,26 @@
 
       // Show settings based on selection count
       if (count === 1) {
-        // Single image - show image settings, prefill alt from DB
+        // Single image - show image settings, prefill alt and title from DB/cache
+        const file = selectedMediaFiles[0];
+        currentEditingMediaId = file._id;
         imageSettings.style.display = 'block';
         gallerySettings.classList.remove('active');
-        document.getElementById('imageAlt').value = selectedMediaFiles[0].alt || '';
-        document.getElementById('imageTitle').value = '';
+        // Use pending changes if exists, otherwise from file
+        const pending = pendingMediaChanges[file._id];
+        document.getElementById('imageAlt').value = pending?.alt ?? file.alt ?? '';
+        document.getElementById('imageTitle').value = pending?.title ?? file.title ?? '';
         document.getElementById('imageAlign').value = 'center';
+        document.getElementById('imageSaveStatus').textContent = '';
       } else if (count > 1) {
         // Multiple images - show gallery settings
+        currentEditingMediaId = null;
         imageSettings.style.display = 'none';
         gallerySettings.classList.add('active');
         updateSpeedPreview();
       } else {
         // No selection
+        currentEditingMediaId = null;
         imageSettings.style.display = 'none';
         gallerySettings.classList.remove('active');
       }
@@ -2085,20 +2149,33 @@
       e.target.value = '';
     }
 
-    function insertSelectedMedia() {
+    async function insertSelectedMedia() {
       if (selectedMediaFiles.length === 0 || !mediaLibraryCallback) return;
+
+      // Save current editing first
+      saveCurrentImageToPending();
 
       const count = selectedMediaFiles.length;
 
       // Add image settings to selected file(s)
       if (count === 1) {
-        selectedMediaFiles[0].customAlt = document.getElementById('imageAlt').value;
-        selectedMediaFiles[0].customTitle = document.getElementById('imageTitle').value;
+        const pending = pendingMediaChanges[selectedMediaFiles[0]._id];
+        selectedMediaFiles[0].customAlt = pending?.alt ?? document.getElementById('imageAlt').value;
+        selectedMediaFiles[0].customTitle = pending?.title ?? document.getElementById('imageTitle').value;
         selectedMediaFiles[0].customAlign = document.getElementById('imageAlign').value;
       }
 
       mediaLibraryCallback(selectedMediaFiles);
-      closeMediaLibrary();
+
+      // Save all pending changes to DB before closing
+      await saveAllPendingMediaChanges();
+
+      document.getElementById('mediaLibraryModal').classList.remove('active');
+      document.body.style.overflow = '';
+      mediaLibraryCallback = null;
+      selectedMediaFiles = [];
+      currentEditingMediaId = null;
+
       showNotification(`Вставлено: ${count} ${count === 1 ? 'изображение' : 'изображений'}`);
     }
 

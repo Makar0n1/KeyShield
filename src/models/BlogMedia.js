@@ -41,8 +41,14 @@ const blogMediaSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // Alt текст по умолчанию
+  // Alt текст для SEO
   alt: {
+    type: String,
+    default: '',
+    maxlength: 200
+  },
+  // Title (подсказка при наведении)
+  title: {
     type: String,
     default: '',
     maxlength: 200

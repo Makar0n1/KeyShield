@@ -764,12 +764,13 @@ router.get('/media', async (req, res) => {
   }
 });
 
-// PUT /api/admin/blog/media/:id - update media metadata (alt text)
+// PUT /api/admin/blog/media/:id - update media metadata (alt, title)
 router.put('/media/:id', async (req, res) => {
   try {
-    const { alt, folder } = req.body;
+    const { alt, title, folder } = req.body;
     const update = {};
     if (alt !== undefined) update.alt = alt;
+    if (title !== undefined) update.title = title;
     if (folder !== undefined) update.folder = folder;
 
     const media = await BlogMedia.findByIdAndUpdate(
