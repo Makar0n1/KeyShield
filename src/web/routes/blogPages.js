@@ -164,34 +164,22 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
 const processContent = (content) => {
   if (!content) return '';
 
-  // Gallery parser - matches ql-gallery class (from Quill) or blog-gallery
-  // Format: <div class="ql-gallery" data-blot="gallery" data-images='[...]' ...>
+  // Gallery parser - matches gallery-marker paragraphs with data-gallery attribute
+  // Format: <p class="gallery-marker" data-gallery='{"images":[...],...}'>...</p>
   content = content.replace(
-    /<div[^>]*(?:class="ql-gallery"|data-blot="gallery")[^>]*>[\s\S]*?<\/div>/gi,
-    (match) => {
+    /<p[^>]*class="gallery-marker"[^>]*data-gallery='([^']*)'[^>]*>[^<]*<\/p>/gi,
+    (match, jsonData) => {
       try {
-        // Parse attributes from the match
-        const autoplayMatch = match.match(/data-autoplay="([^"]*)"/);
-        const speedMatch = match.match(/data-speed="(\d+)"/);
-        const alignMatch = match.match(/data-align="([^"]*)"/);
-        const imagesMatch = match.match(/data-images='(\[[^\]]*\])'/) || match.match(/data-images="(\[[^\]]*\])"/);
+        const data = JSON.parse(jsonData);
+        const images = data.images || [];
 
-        if (!imagesMatch) {
-          console.log('Gallery: no images attribute found in:', match.substring(0, 200));
-          return '';
-        }
-
-        const images = JSON.parse(imagesMatch[1]);
         if (!images || images.length === 0) {
-          console.log('Gallery: empty images array');
           return '';
         }
 
-        console.log('Gallery: rendering', images.length, 'images');
-
-        const autoplay = autoplayMatch ? autoplayMatch[1] === 'true' : true;
-        const speed = speedMatch ? speedMatch[1] : '3000';
-        const align = alignMatch ? alignMatch[1] : 'center';
+        const autoplay = data.autoplay === true || data.autoplay === 'true';
+        const speed = data.speed || '3000';
+        const align = data.align || 'center';
 
         const slides = images.map((url, i) =>
           `<div class="gallery-slide"><img src="${url}" alt="Slide ${i + 1}" loading="lazy"></div>`
@@ -201,7 +189,6 @@ const processContent = (content) => {
           `<span class="gallery-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`
         ).join('');
 
-        // Add manual-gallery class if autoplay is off
         const galleryClass = autoplay ? 'blog-gallery' : 'blog-gallery manual-gallery';
 
         return `
