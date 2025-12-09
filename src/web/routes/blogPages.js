@@ -593,6 +593,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .blog-gallery.align-left{margin-right:auto;max-width:80%}
     .blog-gallery.align-right{margin-left:auto;max-width:80%}
     .blog-gallery.align-center{margin-left:auto;margin-right:auto}
+    .blog-image{margin:20px 0}
+    .blog-image.align-center{text-align:center}
+    .blog-image.align-left{text-align:left}
+    .blog-image.align-right{text-align:right}
+    .blog-image img{max-width:100%;height:auto;border-radius:8px;cursor:pointer}
     .gallery-track{display:flex;transition:transform .5s ease}
     .gallery-slide{min-width:100%;position:relative}
     .gallery-slide img{width:100%;height:auto;display:block;cursor:pointer}
@@ -1105,8 +1110,54 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
       });
     })();
 
-    // Tall images - show/hide functionality
+    // Tall images - auto-detect and wrap, then handle show/hide
     (function() {
+      const TALL_RATIO = 1.5; // height > width * 1.5 = tall
+      const MAX_HEIGHT = 500;
+
+      // Auto-detect tall images in post-content and wrap them
+      document.querySelectorAll('.post-content img:not(.gallery-slide img):not(.tall-image-wrapper img)').forEach(img => {
+        // Wait for image to load to check dimensions
+        const checkAndWrap = () => {
+          const ratio = img.naturalHeight / img.naturalWidth;
+          if (ratio > TALL_RATIO && img.naturalHeight > MAX_HEIGHT) {
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'tall-image-wrapper';
+
+            const gradient = document.createElement('div');
+            gradient.className = 'tall-image-gradient';
+
+            const toggle = document.createElement('button');
+            toggle.className = 'tall-image-toggle';
+            toggle.textContent = 'Показать всё';
+            toggle.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const isExpanded = wrapper.classList.toggle('expanded');
+              toggle.textContent = isExpanded ? 'Свернуть' : 'Показать всё';
+            });
+
+            // Wrap the image
+            img.parentNode.insertBefore(wrapper, img);
+            wrapper.appendChild(img);
+            wrapper.appendChild(gradient);
+            wrapper.appendChild(toggle);
+
+            // Image click opens lightbox
+            img.addEventListener('click', () => {
+              if (typeof openLightbox === 'function') openLightbox(img);
+            });
+          }
+        };
+
+        if (img.complete) {
+          checkAndWrap();
+        } else {
+          img.addEventListener('load', checkAndWrap);
+        }
+      });
+
+      // Handle pre-existing tall-image-wrappers (from server)
       document.querySelectorAll('.tall-image-wrapper').forEach(wrapper => {
         const toggle = wrapper.querySelector('.tall-image-toggle');
         const img = wrapper.querySelector('img');
