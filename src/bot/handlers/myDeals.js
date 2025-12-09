@@ -404,7 +404,6 @@ const acceptWork = async (ctx) => {
 
       // 💰 AUTO-RETURN ALL LEFTOVER TRX (activation + fallback TRX) to arbiter
       let trxReturned = 0;
-      let actualReturnFee = 1.5;
 
       try {
         console.log(`\n💰 Waiting for USDT transactions to confirm before checking TRX balance...`);
@@ -428,14 +427,12 @@ const acceptWork = async (ctx) => {
         // Check if there's enough to withdraw after reserving fee
         if (balanceTRX < 0.1) {
           console.log(`   Balance too low (< 0.1 TRX), nothing to return`);
-          actualReturnFee = 0; // No return transaction = no fee
         } else {
           const feeReserve = 1.5; // TRX for transaction fee
           const returnAmount = balanceTRX - feeReserve;
 
           if (returnAmount <= 0) {
             console.log(`   After reserving ${feeReserve} TRX for fee, nothing left to return`);
-            actualReturnFee = 0; // No return transaction = no fee
           } else {
             const returnAmountSun = Math.floor(returnAmount * 1_000_000);
 
@@ -458,13 +455,11 @@ const acceptWork = async (ctx) => {
               trxReturned = returnAmount;
             } else {
               console.log(`⚠️  TRX return failed (non-critical): ${JSON.stringify(returnResult)}`);
-              actualReturnFee = 0; // Failed to return = no fee charged
             }
           }
         }
       } catch (returnError) {
         console.error(`⚠️  Failed to return leftover TRX (non-critical):`, returnError.message);
-        actualReturnFee = 0; // Error = no fee
         // Don't throw - this is not critical for deal completion
       }
 
@@ -473,20 +468,46 @@ const acceptWork = async (ctx) => {
         const priceService = require('../../services/priceService');
         const trxPrice = await priceService.getTrxPrice();
 
-        // Calculate costs
-        const activationTrxSent = 5; // Always send 5 TRX for activation
-        const activationTrxReturned = energyRented ? trxReturned : 0; // If FeeSaver used, all returned TRX is from activation
+        // Calculate costs with REAL blockchain data
+        const ACTIVATION_AMOUNT = parseInt(process.env.MULTISIG_ACTIVATION_TRX) || 5;
+        const FALLBACK_AMOUNT = 30;
+        const TX_FEE = 1.1; // Standard TRON transaction fee
+
+        // Amounts sent
+        const activationTrxSent = ACTIVATION_AMOUNT;
+        const activationTxFee = TX_FEE;
+        const fallbackTrxSent = energyRented ? 0 : FALLBACK_AMOUNT;
+        const fallbackTxFee = energyRented ? 0 : TX_FEE;
+
+        // What we got back (from blockchain after USDT transactions)
+        const totalReturned = trxReturned;
+
+        // FeeSaver cost (real average: 6.5 TRX)
+        const feesaverCostTrx = energyRented ? 6.5 : 0;
+
+        // Calculate returns
+        let activationTrxReturned = 0;
+        let fallbackTrxReturned = 0;
+
+        if (energyRented) {
+          // FeeSaver: only activation TRX returned
+          activationTrxReturned = totalReturned;
+          fallbackTrxReturned = 0;
+        } else {
+          // Fallback: activation + fallback TRX returned together
+          activationTrxReturned = 0;
+          fallbackTrxReturned = totalReturned;
+        }
+
+        // Net costs
         const activationTrxNet = activationTrxSent - activationTrxReturned;
+        const fallbackTrxNet = fallbackTrxSent - fallbackTrxReturned;
 
-        const fallbackTrxSent = energyRented ? 0 : 30; // Only send 30 TRX if FeeSaver failed
-        const fallbackTrxReturned = energyRented ? 0 : trxReturned; // If fallback used, returned TRX is from fallback
-        const fallbackTrxNet = fallbackTrxSent - fallbackTrxReturned - actualReturnFee;
-
-        const feesaverCostTrx = energyRented ? 1 : 0; // Estimate 1 TRX for FeeSaver
-
-        const totalTrxSpent = energyRented
-          ? (activationTrxNet + feesaverCostTrx + actualReturnFee)
-          : (activationTrxNet + fallbackTrxNet + actualReturnFee);
+        // TOTAL TRX SPENT = Sent + TX Fees + FeeSaver - Returned
+        const totalTrxSpent = activationTrxSent + activationTxFee +
+                             fallbackTrxSent + fallbackTxFee +
+                             feesaverCostTrx -
+                             totalReturned;
 
         const totalCostUsd = totalTrxSpent * trxPrice;
 
@@ -496,32 +517,36 @@ const acceptWork = async (ctx) => {
           {
             $set: {
               'operationalCosts.activationTrxSent': activationTrxSent,
+              'operationalCosts.activationTxFee': activationTxFee,
               'operationalCosts.activationTrxReturned': activationTrxReturned,
               'operationalCosts.activationTrxNet': parseFloat(activationTrxNet.toFixed(6)),
               'operationalCosts.energyMethod': energyRented ? 'feesaver' : 'trx',
               'operationalCosts.feesaverCostTrx': feesaverCostTrx,
               'operationalCosts.fallbackTrxSent': fallbackTrxSent,
+              'operationalCosts.fallbackTxFee': fallbackTxFee,
               'operationalCosts.fallbackTrxReturned': fallbackTrxReturned,
               'operationalCosts.fallbackTrxNet': parseFloat(fallbackTrxNet.toFixed(6)),
-              'operationalCosts.returnTrxFee': actualReturnFee,
-              'operationalCosts.totalTrxSpent': parseFloat(totalTrxSpent.toFixed(6)),
-              'operationalCosts.totalCostUsd': parseFloat(totalCostUsd.toFixed(2)),
-              'operationalCosts.trxPriceAtCompletion': parseFloat(trxPrice.toFixed(4))
+              'operationalCosts.totalTrxSpent': totalTrxSpent,
+              'operationalCosts.totalCostUsd': totalCostUsd,
+              'operationalCosts.trxPriceAtCompletion': trxPrice
             }
           }
         );
 
         console.log(`\n📊 Operational costs saved to database:`);
         console.log(`   Energy method: ${energyRented ? 'FeeSaver' : 'TRX Fallback'}`);
-        console.log(`   Activation: ${activationTrxSent} TRX sent, ${activationTrxReturned.toFixed(2)} returned = ${activationTrxNet.toFixed(2)} net`);
+        console.log(`   Activation: ${activationTrxSent} + ${activationTxFee} fee = ${(activationTrxSent + activationTxFee).toFixed(2)} TRX sent`);
+        console.log(`   Returned: ${activationTrxReturned.toFixed(6)} TRX`);
         if (!energyRented) {
-          console.log(`   Fallback: ${fallbackTrxSent} TRX sent, ${fallbackTrxReturned.toFixed(2)} returned = ${fallbackTrxNet.toFixed(2)} net`);
+          console.log(`   Fallback: ${fallbackTrxSent} + ${fallbackTxFee} fee = ${(fallbackTrxSent + fallbackTxFee).toFixed(2)} TRX sent`);
+          console.log(`   Returned: ${fallbackTrxReturned.toFixed(6)} TRX`);
         } else {
-          console.log(`   FeeSaver: ~${feesaverCostTrx} TRX`);
+          console.log(`   FeeSaver energy: ${feesaverCostTrx} TRX`);
         }
-        console.log(`   Return fee: ${actualReturnFee} TRX`);
+        console.log(`   ═══════════════════════════════`);
         console.log(`   Total TRX spent: ${totalTrxSpent.toFixed(6)} TRX`);
-        console.log(`   Total cost: $${totalCostUsd.toFixed(2)} (TRX @ $${trxPrice.toFixed(4)})`);
+        console.log(`   Total cost USD: $${totalCostUsd.toFixed(6)} (TRX @ $${trxPrice.toFixed(6)})`);
+        console.log(`   Net profit: $${(deal.commission - totalCostUsd).toFixed(6)}`);
       } catch (costError) {
         console.error(`⚠️  Failed to save operational costs (non-critical):`, costError.message);
       }

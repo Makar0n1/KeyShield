@@ -140,6 +140,7 @@ const dealSchema = new mongoose.Schema({
   operationalCosts: {
     // Activation costs (5 TRX sent, minus what was returned)
     activationTrxSent: { type: Number, default: 5 },      // Initial TRX sent for activation
+    activationTxFee: { type: Number, default: 1.1 },      // Transaction fee for sending activation
     activationTrxReturned: { type: Number, default: 0 },  // TRX returned after completion
     activationTrxNet: { type: Number, default: 0 },       // Net activation cost (sent - returned)
 
@@ -147,11 +148,9 @@ const dealSchema = new mongoose.Schema({
     energyMethod: { type: String, enum: ['feesaver', 'trx', 'none'], default: 'none' },
     feesaverCostTrx: { type: Number, default: 0 },        // TRX spent on FeeSaver energy rental
     fallbackTrxSent: { type: Number, default: 0 },        // TRX sent for fallback (if FeeSaver failed)
+    fallbackTxFee: { type: Number, default: 0 },          // Transaction fee for sending fallback
     fallbackTrxReturned: { type: Number, default: 0 },    // TRX returned from fallback
     fallbackTrxNet: { type: Number, default: 0 },         // Net fallback cost
-
-    // Transaction fees
-    returnTrxFee: { type: Number, default: 1.5 },         // Fee for returning leftover TRX
 
     // Totals
     totalTrxSpent: { type: Number, default: 0 },          // Total TRX spent on this deal
