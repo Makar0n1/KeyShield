@@ -270,6 +270,17 @@
     .ql-snow .ql-picker { color: #94a3b8; }
     .ql-snow .ql-picker-options { background: #1e293b; border-color: #334155; }
     .ql-editor.ql-blank::before { color: #64748b; }
+    /* Images in editor - show as thumbnails */
+    .ql-editor img {
+      max-width: 200px;
+      max-height: 150px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 2px solid #334155;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .ql-editor img:hover { border-color: #60a5fa; }
 
     /* Context menu toolbar */
     .context-toolbar {
@@ -308,8 +319,48 @@
       margin: 0 4px;
     }
 
-    /* Gallery text marker visual hint - Quill applies blue color via insertText */
-    /* The [GALLERY]...[/GALLERY] marker will be visible as blue text */
+    /* Gallery preview block in editor */
+    .gallery-preview-block {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px;
+      background: #1e293b;
+      border: 2px dashed #3b82f6;
+      border-radius: 8px;
+      margin: 10px 0;
+      align-items: center;
+    }
+    .gallery-preview-block::before {
+      content: '📷 Галерея';
+      display: block;
+      width: 100%;
+      font-size: 12px;
+      color: #60a5fa;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .gallery-preview-thumb {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+    .gallery-preview-more {
+      width: 60px;
+      height: 60px;
+      background: #334155;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    .gallery-marker-text {
+      display: none;
+    }
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
@@ -1407,6 +1458,8 @@
             // Insert marker as text
             postContentEditor.insertText(range.index, '\n' + galleryMarker + '\n', { 'color': '#3b82f6' });
             postContentEditor.setSelection(range.index + galleryMarker.length + 2);
+            // Convert to visual preview
+            setTimeout(renderGalleryPreviews, 50);
           }
         });
       });
@@ -1428,6 +1481,67 @@
 
       // Setup context menu toolbar for main content editor
       setupContextToolbar();
+    }
+
+    // Render gallery preview blocks in editor
+    function renderGalleryPreviews() {
+      if (!postContentEditor) return;
+      const editor = postContentEditor.root;
+      const html = editor.innerHTML;
+
+      // Replace [GALLERY]...JSON...[/GALLERY] with visual preview blocks
+      const newHtml = html.replace(
+        /\[GALLERY\](.*?)\[\/GALLERY\]/gi,
+        (match, jsonData) => {
+          try {
+            // Clean up JSON (remove HTML tags that Quill might add)
+            const cleanJson = jsonData
+              .replace(/<[^>]*>/g, '')
+              .replace(/&quot;/g, '"')
+              .replace(/&#34;/g, '"')
+              .replace(/&amp;/g, '&');
+            const data = JSON.parse(cleanJson);
+            const images = data.images || [];
+
+            if (images.length === 0) return match;
+
+            // Show max 4 thumbnails + "more" indicator
+            const maxThumbs = 4;
+            const thumbsHtml = images.slice(0, maxThumbs).map(url =>
+              `<img class="gallery-preview-thumb" src="${url}" alt="">`
+            ).join('');
+
+            const moreHtml = images.length > maxThumbs
+              ? `<div class="gallery-preview-more">+${images.length - maxThumbs}</div>`
+              : '';
+
+            // Keep original data in hidden span for saving
+            return `<div class="gallery-preview-block" contenteditable="false">${thumbsHtml}${moreHtml}<span class="gallery-marker-text">[GALLERY]${cleanJson}[/GALLERY]</span></div>`;
+          } catch (e) {
+            console.error('Gallery parse error:', e);
+            return match; // Keep original if parse fails
+          }
+        }
+      );
+
+      if (newHtml !== html) {
+        editor.innerHTML = newHtml;
+      }
+    }
+
+    // Restore gallery markers before saving (convert visual blocks back to text)
+    function restoreGalleryMarkers() {
+      if (!postContentEditor) return;
+      const editor = postContentEditor.root;
+
+      // Replace gallery preview blocks with their hidden marker text
+      editor.querySelectorAll('.gallery-preview-block').forEach(block => {
+        const markerSpan = block.querySelector('.gallery-marker-text');
+        if (markerSpan) {
+          const textNode = document.createTextNode('\n' + markerSpan.textContent + '\n');
+          block.parentNode.replaceChild(textNode, block);
+        }
+      });
     }
 
     // Context menu toolbar logic
@@ -1585,6 +1699,8 @@
               const galleryMarker = `[GALLERY]${JSON.stringify({autoplay, speed, align, images: urls})}[/GALLERY]`;
               postContentEditor.insertText(range.index, '\n' + galleryMarker + '\n', { 'color': '#3b82f6' });
               postContentEditor.setSelection(range.index + galleryMarker.length + 2);
+              // Convert to visual preview
+              setTimeout(renderGalleryPreviews, 50);
             }
           });
           document.getElementById('contextToolbar').classList.remove('visible');
@@ -1720,6 +1836,7 @@
 
       // Content
       postContentEditor.root.innerHTML = post?.content || '';
+      renderGalleryPreviews(); // Show visual gallery blocks
 
       // Tags
       selectedPostTags = post?.tags?.map(t => t._id) || [];
@@ -1753,6 +1870,7 @@
 
     async function savePost() {
       const id = document.getElementById('postId').value;
+      restoreGalleryMarkers(); // Convert visual blocks back to markers
       const content = postContentEditor.root.innerHTML;
 
       const data = {
