@@ -167,6 +167,8 @@ class MessageManager {
         .select('navigationStack currentScreen currentScreenData lastActivity')
         .lean();
 
+      console.log(`[loadNavigationFromDB] User ${userId}: found=${!!user}, stackLength=${user?.navigationStack?.length || 0}, currentScreen=${user?.currentScreen}`);
+
       if (user) {
         if (user.navigationStack) this.navigationStack.set(userId, user.navigationStack);
         if (user.currentScreen) this.currentScreen.set(userId, user.currentScreen);

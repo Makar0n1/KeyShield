@@ -217,9 +217,8 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
           { telegramId: userId },
           { $set: { navigationStack: newStack } }
         );
-
-        // Also update messageManager cache so popScreen works correctly
-        messageManager.navigationStack.set(userId, newStack);
+        // Note: Don't update messageManager cache here - web server and bot
+        // run in separate processes with separate messageManager instances
       }
 
       // 1. DELETE old message (silent)
@@ -252,10 +251,8 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
         }
       );
 
-      // 4. Update messageManager cache
-      messageManager.mainMessages.set(userId, newMsg.message_id);
-      messageManager.currentScreen.set(userId, `blog_notification_${postId}`);
-      messageManager.currentScreenData.set(userId, { text: notificationText, keyboard });
+      // Note: Don't update messageManager cache - web server and bot run in
+      // separate processes. Bot will load fresh data from DB when needed.
 
       return 'sent';
     } catch (error) {
