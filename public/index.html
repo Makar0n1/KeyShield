@@ -14,7 +14,7 @@
     <meta property="og:url" content="https://keyshield.me/">
     <meta property="og:image" content="https://keyshield.me/images/logo.png">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=17">
+    <link rel="stylesheet" href="/css/style.css?v=18">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -24,12 +24,10 @@
     <header class="header">
         <div class="container">
             <nav class="nav">
-                <div class="logo">
-                    <a href="/" class="logo">
-                        <span class="logo-icon">🔐</span>
-                        <span class="logo-text">KeyShield</span>
-                    </a>
-                </div>
+                <a href="/" class="logo">
+                    <span class="logo-icon">🔐</span>
+                    <span class="logo-text">KeyShield</span>
+                </a>
                 <ul class="nav-menu">
                     <li><a href="#features">Возможности</a></li>
                     <li><a href="#how-it-works">Как работает</a></li>
@@ -37,25 +35,27 @@
                     <li><a href="/blog">Блог</a></li>
                     <li><a href="/terms">Документы</a></li>
                 </ul>
-                <a href="https://t.me/keyshield_bot" class="btn btn-primary">Открыть бота</a>
-            </nav>
-              <!-- Mobile Menu -->
-            <div class="mobile-menu-wrapper">
-                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-                    <span class="arrow">▼</span> Меню
+                <a href="https://t.me/keyshield_bot" class="btn btn-primary header-cta">Открыть бота</a>
+                <!-- Mobile Burger -->
+                <button class="burger" id="burger" onclick="toggleMobileMenu()">
+                    <span class="burger-line"></span>
+                    <span class="burger-line"></span>
+                    <span class="burger-line"></span>
                 </button>
-                <nav class="mobile-nav" id="mobileNav">
-                    <ul>
-                        <li><a href="#features">Возможности</a></li>
-                        <li><a href="#how-it-works">Как работает</a></li>
-                        <li><a href="#pricing">Цены</a></li>
-                        <li><a href="/blog">Блог</a></li>
-                        <li><a href="/terms">Документы</a></li>
-                    </ul>
-                </nav>
-            </div>
+            </nav>
         </div>
     </header>
+
+    <!-- Mobile Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <a href="#features" onclick="closeSidebar()">Возможности</a>
+            <a href="#how-it-works" onclick="closeSidebar()">Как работает</a>
+            <a href="#pricing" onclick="closeSidebar()">Цены</a>
+            <a href="/blog">Блог</a>
+            <a href="/terms">Документы</a>
+        </nav>
+    </div>
     
 
     <!-- Hero Section -->
@@ -273,21 +273,18 @@
     <script src="/js/main.js?v=4"></script>
     <script>
         function toggleMobileMenu() {
-            const nav = document.getElementById('mobileNav');
-            const btn = document.querySelector('.mobile-menu-toggle');
-            nav.classList.toggle('open');
-            btn.classList.toggle('open');
+            const burger = document.getElementById('burger');
+            const sidebar = document.getElementById('sidebar');
+            burger.classList.toggle('open');
+            sidebar.classList.toggle('open');
         }
 
-        // Close menu when clicking anchor links
-        document.querySelectorAll('.mobile-nav a[href^="#"]').forEach(link => {
-            link.addEventListener('click', () => {
-                const nav = document.getElementById('mobileNav');
-                const btn = document.querySelector('.mobile-menu-toggle');
-                nav.classList.remove('open');
-                btn.classList.remove('open');
-            });
-        });
+        function closeSidebar() {
+            const burger = document.getElementById('burger');
+            const sidebar = document.getElementById('sidebar');
+            burger.classList.remove('open');
+            sidebar.classList.remove('open');
+        }
 
         // Load latest blog posts
         async function loadBlogPosts() {

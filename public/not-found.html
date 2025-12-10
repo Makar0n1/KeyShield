@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/png" href="/images/logo.png">
     <meta name="description" content="Страница не найдена. Вернитесь на главную страницу KeyShield.">
-    <link rel="stylesheet" href="/css/style.css?v=10">
+    <link rel="stylesheet" href="/css/style.css?v=18">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -73,12 +73,29 @@
                     <li><a href="/#features">Возможности</a></li>
                     <li><a href="/#how-it-works">Как работает</a></li>
                     <li><a href="/#pricing">Цены</a></li>
+                    <li><a href="/blog">Блог</a></li>
                     <li><a href="/terms">Документы</a></li>
                 </ul>
-                <a href="https://t.me/keyshield_bot" class="btn btn-primary">Открыть бота</a>
+                <a href="https://t.me/keyshield_bot" class="btn btn-primary header-cta">Открыть бота</a>
+                <button class="burger" id="burger" onclick="toggleMobileMenu()">
+                    <span class="burger-line"></span>
+                    <span class="burger-line"></span>
+                    <span class="burger-line"></span>
+                </button>
             </nav>
         </div>
     </header>
+
+    <!-- Mobile Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <a href="/#features">Возможности</a>
+            <a href="/#how-it-works">Как работает</a>
+            <a href="/#pricing">Цены</a>
+            <a href="/blog">Блог</a>
+            <a href="/terms">Документы</a>
+        </nav>
+    </div>
 
     <!-- Error Content -->
     <main class="error-page">
@@ -124,5 +141,12 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        function toggleMobileMenu() {
+            document.getElementById('burger').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+    </script>
 </body>
 </html>

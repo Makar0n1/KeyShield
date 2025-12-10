@@ -9,40 +9,38 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://keyshield.me/terms">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=10">
+    <link rel="stylesheet" href="/css/style.css?v=18">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <header class="header">
         <div class="container">
             <nav class="nav">
-                <div class="logo">
-                    <a href="/" class="logo">
-                        <span class="logo-icon">🔐</span>
-                        <span class="logo-text">KeyShield</span>
-                    </a>
-                </div>
+                <a href="/" class="logo">
+                    <span class="logo-icon">🔐</span>
+                    <span class="logo-text">KeyShield</span>
+                </a>
                 <ul class="nav-menu">
                     <li><a href="/">Главная</a></li>
                     <li><a href="/blog">Блог</a></li>
                     <li><a href="/terms">Документы</a></li>
                 </ul>
-                <a href="https://t.me/keyshield_bot" class="btn btn-primary">Открыть бота</a>
+                <a href="https://t.me/keyshield_bot" class="btn btn-primary header-cta">Открыть бота</a>
+                <button class="burger" id="burger" onclick="toggleMobileMenu()">
+                    <span class="burger-line"></span>
+                    <span class="burger-line"></span>
+                    <span class="burger-line"></span>
+                </button>
             </nav>
         </div>
     </header>
 
-    <!-- Mobile Menu -->
-    <div class="mobile-menu-wrapper">
-        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-            <span class="arrow">▼</span> Меню
-        </button>
-        <nav class="mobile-nav" id="mobileNav">
-            <ul>
-                <li><a href="/">Главная</a></li>
-                <li><a href="/blog">Блог</a></li>
-                <li><a href="/terms" class="active">Документы</a></li>
-            </ul>
+    <!-- Mobile Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <a href="/">Главная</a>
+            <a href="/blog">Блог</a>
+            <a href="/terms">Документы</a>
         </nav>
     </div>
 
@@ -276,10 +274,8 @@
 
     <script>
         function toggleMobileMenu() {
-            const nav = document.getElementById('mobileNav');
-            const btn = document.querySelector('.mobile-menu-toggle');
-            nav.classList.toggle('open');
-            btn.classList.toggle('open');
+            document.getElementById('burger').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('open');
         }
     </script>
 </body>

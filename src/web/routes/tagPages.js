@@ -244,19 +244,32 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .container{max-width:1200px;margin:0 auto;padding:0 20px}
     .nav{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
     .logo{display:flex;align-items:center;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
+    .header-cta{display:inline-block}
+    .burger{display:none;flex-direction:column;justify-content:center;align-items:center;width:32px;height:32px;background:transparent;border:none;cursor:pointer;padding:0;z-index:1001}
+    .burger-line{display:block;width:24px;height:2px;background:#e0e0e0;border-radius:2px;transition:all .3s ease}
+    .burger-line:nth-child(1){transform:translateY(-6px)}
+    .burger-line:nth-child(3){transform:translateY(6px)}
+    .burger.open .burger-line:nth-child(1){transform:translateY(0) rotate(45deg)}
+    .burger.open .burger-line:nth-child(2){opacity:0}
+    .burger.open .burger-line:nth-child(3){transform:translateY(0) rotate(-45deg)}
+    .sidebar{position:fixed;top:0;right:0;width:280px;height:100vh;background:#1e293b;z-index:1000;transform:translateX(100%);transition:transform .3s ease;padding:80px 0 30px;border-left:1px solid rgba(255,255,255,.1)}
+    .sidebar.open{transform:translateX(0)}
+    .sidebar-nav{display:flex;flex-direction:column}
+    .sidebar-nav a{display:block;padding:16px 24px;color:#e0e0e0;text-decoration:none;font-size:16px;font-weight:500;border-bottom:1px solid rgba(255,255,255,.1);transition:all .2s}
+    .sidebar-nav a:hover{color:#6366f1;background:rgba(99,102,241,.1)}
     .blog-hero{position:relative;padding:80px 0;background-size:cover;background-position:center;min-height:300px}
     .blog-hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,10,15,.9),rgba(26,26,46,.8))}
     .blog-hero .container{position:relative;z-index:1}
     .blog-hero-title{font-size:2.5rem;font-weight:800;margin-bottom:15px;color:#fff}
-    @media(max-width:768px){.nav-menu,.btn-primary{display:none}.blog-hero-title{font-size:1.75rem}}
+    @media(max-width:768px){.nav-menu,.header-cta{display:none}.burger{display:flex}.blog-hero-title{font-size:1.75rem}}
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=17" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=17" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=20" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=20" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=17">
-    <link rel="stylesheet" href="/css/blog.css?v=17">
+    <link rel="stylesheet" href="/css/style.css?v=20">
+    <link rel="stylesheet" href="/css/blog.css?v=20">
   </noscript>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -266,33 +279,33 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   <header class="header">
     <div class="container">
       <nav class="nav">
-        <div class="logo">
-          <a href="/" class="logo">
-            <span class="logo-icon">🔐</span>
-            <span class="logo-text">KeyShield</span>
-          </a>
-        </div>
+        <a href="/" class="logo">
+          <span class="logo-icon">🔐</span>
+          <span class="logo-text">KeyShield</span>
+        </a>
         <ul class="nav-menu">
           <li><a href="/">Главная</a></li>
           <li><a href="/blog" class="active">Блог</a></li>
           <li><a href="/terms">Документы</a></li>
         </ul>
-        <a href="https://t.me/keyshield_bot" class="btn btn-primary">Открыть бота</a>
-      </nav>
-      <div class="mobile-menu-wrapper">
-        <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-          <span class="arrow">▼</span> Меню
+        <a href="https://t.me/keyshield_bot" class="btn btn-primary header-cta">Открыть бота</a>
+        <button class="burger" id="burger" onclick="toggleMobileMenu()">
+          <span class="burger-line"></span>
+          <span class="burger-line"></span>
+          <span class="burger-line"></span>
         </button>
-        <nav class="mobile-nav" id="mobileNav">
-          <ul>
-            <li><a href="/">Главная</a></li>
-            <li><a href="/blog" class="active">Блог</a></li>
-            <li><a href="/terms">Документы</a></li>
-          </ul>
-        </nav>
-      </div>
+      </nav>
     </div>
   </header>
+
+  <!-- Mobile Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <nav class="sidebar-nav">
+      <a href="/">Главная</a>
+      <a href="/blog">Блог</a>
+      <a href="/terms">Документы</a>
+    </nav>
+  </div>
 
   <section class="blog-hero" ${heroImage ? `style="background-image: url('${heroImage}')"` : ''}>
     <div class="blog-hero-overlay"></div>
@@ -357,6 +370,12 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     </div>
   </footer>
   <script src="/js/main.js?v=4"></script>
+  <script>
+    function toggleMobileMenu() {
+      document.getElementById('burger').classList.toggle('open');
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+  </script>
 </body>
 </html>`;
 }
