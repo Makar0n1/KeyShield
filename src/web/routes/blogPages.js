@@ -644,11 +644,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=18" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=18" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=19" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=19" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=18">
-    <link rel="stylesheet" href="/css/blog.css?v=18">
+    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/blog.css?v=19">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->
