@@ -164,16 +164,17 @@ class MessageManager {
   async loadNavigationFromDB(userId) {
     try {
       const user = await User.findOne({ telegramId: userId })
-        .select('navigationStack currentScreen currentScreenData lastActivity')
+        .select('navigationStack currentScreen currentScreenData lastActivity mainMessageId')
         .lean();
 
-      console.log(`[loadNavigationFromDB] User ${userId}: found=${!!user}, stackLength=${user?.navigationStack?.length || 0}, currentScreen=${user?.currentScreen}`);
+      console.log(`[loadNavigationFromDB] User ${userId}: found=${!!user}, stackLength=${user?.navigationStack?.length || 0}, currentScreen=${user?.currentScreen}, mainMessageId=${user?.mainMessageId}`);
 
       if (user) {
         if (user.navigationStack) this.navigationStack.set(userId, user.navigationStack);
         if (user.currentScreen) this.currentScreen.set(userId, user.currentScreen);
         if (user.currentScreenData) this.currentScreenData.set(userId, user.currentScreenData);
         if (user.lastActivity) this.lastActivity.set(userId, user.lastActivity.getTime());
+        if (user.mainMessageId) this.mainMessages.set(userId, user.mainMessageId);
       }
     } catch (error) {
       console.error('Error loading navigation from DB:', error.message);
