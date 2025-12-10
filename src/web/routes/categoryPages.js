@@ -243,7 +243,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .header{background:rgba(10,10,15,.95);border-bottom:1px solid rgba(255,255,255,.1);position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px)}
     .container{max-width:1200px;margin:0 auto;padding:0 20px}
     .nav{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
-    .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
+    .logo{display:flex;align-items:center;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
     .blog-hero{position:relative;padding:80px 0;background-size:cover;background-position:center;min-height:300px}
     .blog-hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(10,10,15,.9),rgba(26,26,46,.8))}
     .blog-hero .container{position:relative;z-index:1}
