@@ -114,7 +114,48 @@ const addHeadingIds = (content) => {
   });
 };
 
-// Insert interlinks between paragraphs
+// CTA block variations for bot promotion
+const CTA_BLOCKS = [
+  {
+    icon: '🔐',
+    title: 'Безопасные сделки с KeyShield',
+    text: 'Совершайте криптовалютные сделки без риска. Ваши средства под защитой multisig-технологии.'
+  },
+  {
+    icon: '🛡️',
+    title: 'Защитите свою сделку',
+    text: 'Не рискуйте деньгами при P2P-обменах. KeyShield гарантирует безопасность каждой транзакции.'
+  },
+  {
+    icon: '⚡',
+    title: 'Начните торговать безопасно',
+    text: 'Escrow-сервис для криптовалюты. Быстро, надёжно, с арбитражем споров.'
+  },
+  {
+    icon: '💎',
+    title: 'Доверьте сделку профессионалам',
+    text: 'KeyShield — ваш надёжный посредник в мире криптовалют. Комиссия от 15 USDT.'
+  }
+];
+
+// Generate random CTA block HTML
+const generateCTABlock = () => {
+  const cta = CTA_BLOCKS[Math.floor(Math.random() * CTA_BLOCKS.length)];
+  return `
+    <div class="cta-block">
+      <div class="cta-block-content">
+        <div class="cta-block-icon">${cta.icon}</div>
+        <div class="cta-block-title">${cta.title}</div>
+        <p class="cta-block-text">${cta.text}</p>
+        <a href="https://t.me/keyshield_bot" class="cta-block-btn" target="_blank">
+          🚀 Открыть бота
+        </a>
+      </div>
+    </div>
+  `;
+};
+
+// Insert interlinks and CTA between paragraphs
 const insertInterlinks = (content, relatedPosts, currentPostId) => {
   if (!relatedPosts || relatedPosts.length === 0) return content;
 
@@ -135,8 +176,12 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
     Math.floor(paragraphs.length * 2 / 3)
   ];
 
+  // Random position for CTA block (around middle, but not same as interlinks)
+  const ctaPosition = Math.floor(paragraphs.length / 2);
+
   let result = [];
   let linkIndex = 0;
+  let ctaInserted = false;
 
   paragraphs.forEach((p, i) => {
     result.push(p);
@@ -144,6 +189,7 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
       result.push('</p>');
     }
 
+    // Insert interlinks at 1/3 and 2/3 positions
     if (positions.includes(i) && linkIndex < postsForLinks.length) {
       const post = postsForLinks[linkIndex];
       const interlink = `
@@ -155,7 +201,19 @@ const insertInterlinks = (content, relatedPosts, currentPostId) => {
       result.push(interlink);
       linkIndex++;
     }
+
+    // Insert CTA block once around the middle
+    if (i === ctaPosition && !ctaInserted && !positions.includes(i)) {
+      result.push(generateCTABlock());
+      ctaInserted = true;
+    }
   });
+
+  // If CTA wasn't inserted (position conflict), add it after all interlinks
+  if (!ctaInserted && paragraphs.length >= 6) {
+    const insertAt = Math.floor(result.length * 0.6);
+    result.splice(insertAt, 0, generateCTABlock());
+  }
 
   return result.join('');
 };
@@ -663,11 +721,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=23" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=23" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=24" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=24" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=23">
-    <link rel="stylesheet" href="/css/blog.css?v=23">
+    <link rel="stylesheet" href="/css/style.css?v=24">
+    <link rel="stylesheet" href="/css/blog.css?v=24">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->
@@ -1086,8 +1144,8 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           const naturalW = lightboxImg.naturalWidth || 800;
           const naturalH = lightboxImg.naturalHeight || 600;
 
-          // Check if vertical image (height > width * 1.2)
-          if (naturalH > naturalW * 1.2) {
+          // Check if vertical image (height > width)
+          if (naturalH > naturalW) {
             lightboxContainer.classList.add('vertical');
           }
 
@@ -1382,7 +1440,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
 
     // Vertical images - auto-detect and wrap with blur background (Instagram style)
     document.addEventListener('DOMContentLoaded', () => {
-      const VERTICAL_RATIO = 1.2; // height > width * 1.2 = vertical
+      const VERTICAL_RATIO = 1.0; // height > width = vertical
 
       // Auto-detect vertical images in post-content and wrap them
       document.querySelectorAll('.post-content img:not(.slide-main):not(.slide-bg):not(.vertical-image-wrapper img)').forEach(img => {
@@ -1455,7 +1513,7 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
           if (!img) return;
 
           const checkOrientation = () => {
-            if (img.naturalHeight > img.naturalWidth * 1.2) {
+            if (img.naturalHeight > img.naturalWidth) {
               slide.classList.add('vertical');
             }
           };
@@ -1619,6 +1677,18 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
         }
       });
     })();
+
+    // FAQ accordion - collapsible items
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.faq-question').forEach(question => {
+        question.addEventListener('click', () => {
+          const item = question.closest('.faq-item');
+          if (item) {
+            item.classList.toggle('open');
+          }
+        });
+      });
+    });
   </script>
 </body>
 </html>`;
@@ -1836,6 +1906,32 @@ router.get('/:slug', async (req, res) => {
                 <div class="faq-answer">${item.answer}</div>
               </div>
             `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Mobile Read Also (shows on tablet/mobile after FAQ) -->
+        ${relatedPosts && relatedPosts.length > 0 ? `
+          <div class="mobile-read-also">
+            <h3 class="mobile-read-also-title">📚 Читайте также</h3>
+            <div class="mobile-read-also-list">
+              ${relatedPosts.slice(0, 4).map(p => `
+                <a href="/blog/${p.slug}" class="mobile-read-also-item">
+                  ${p.coverImage ? `
+                    <div class="mobile-read-also-thumb">
+                      <img src="${p.coverImage}" alt="${escapeHtml(p.title)}" loading="lazy">
+                    </div>
+                  ` : `
+                    <div class="mobile-read-also-thumb mobile-read-also-thumb-empty">
+                      <span>📄</span>
+                    </div>
+                  `}
+                  <div class="mobile-read-also-info">
+                    <span class="mobile-read-also-item-title">${escapeHtml(p.title)}</span>
+                    <span class="mobile-read-also-date">${formatDate(p.publishedAt)}</span>
+                  </div>
+                </a>
+              `).join('')}
+            </div>
           </div>
         ` : ''}
       </article>
