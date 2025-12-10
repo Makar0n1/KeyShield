@@ -217,6 +217,9 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
           { telegramId: userId },
           { $set: { navigationStack: newStack } }
         );
+
+        // Also update messageManager cache so popScreen works correctly
+        messageManager.navigationStack.set(userId, newStack);
       }
 
       // 1. DELETE old message (silent)

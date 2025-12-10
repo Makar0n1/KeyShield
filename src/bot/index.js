@@ -188,25 +188,13 @@ bot.action('blog_notification_back', async (ctx) => {
     const previousScreen = await messageManager.restoreFromStack(ctx, telegramId);
 
     if (!previousScreen) {
-      // No previous screen - show main menu via delete + send
-      const currentMessageId = await messageManager.getMainMessage(telegramId);
-      if (currentMessageId) {
-        try {
-          await ctx.telegram.deleteMessage(telegramId, currentMessageId);
-        } catch (e) {
-          // Already deleted
-        }
-      }
-
+      // No previous screen - show main menu via edit (more reliable)
       const { mainMenuKeyboard } = require('./keyboards/main');
+      const keyboard = mainMenuKeyboard();
 
-      const newMsg = await ctx.telegram.sendMessage(telegramId, MAIN_MENU_TEXT, {
-        parse_mode: 'Markdown',
-        reply_markup: mainMenuKeyboard()
-      });
-
-      await messageManager.setMainMessage(telegramId, newMsg.message_id);
-      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
+      await messageManager.editMainMessage(ctx, telegramId, MAIN_MENU_TEXT, keyboard);
+      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+      messageManager.clearStack(telegramId);
     }
   } catch (error) {
     console.error('Error handling blog notification back:', error);

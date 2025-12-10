@@ -507,18 +507,21 @@ class MessageManager {
    * Deletes current message and sends new one - triggers push notification
    */
   async restoreFromStack(ctx, userId) {
-    // Ensure we have navigation data
-    if (!this.navigationStack.has(userId)) {
-      await this.loadNavigationFromDB(userId);
-    }
+    // Always load fresh navigation data from DB
+    await this.loadNavigationFromDB(userId);
 
+    // Get stack AFTER loading from DB
     const stack = this.navigationStack.get(userId) || [];
+    console.log(`[restoreFromStack] User ${userId}: stack length = ${stack.length}`);
+
     if (stack.length === 0) {
       return null; // No previous screen
     }
 
     const previousScreen = this.popScreen(userId);
-    if (!previousScreen) {
+    console.log(`[restoreFromStack] User ${userId}: previousScreen =`, previousScreen?.screen, 'hasText:', !!previousScreen?.text, 'hasKeyboard:', !!previousScreen?.keyboard);
+
+    if (!previousScreen || !previousScreen.text) {
       return null;
     }
 
@@ -532,10 +535,22 @@ class MessageManager {
       }
     }
 
+    // Build keyboard - handle both formats (raw inline_keyboard or wrapped in reply_markup)
+    let replyMarkup = null;
+    if (previousScreen.keyboard) {
+      if (previousScreen.keyboard.inline_keyboard) {
+        // Already in correct format { inline_keyboard: [...] }
+        replyMarkup = previousScreen.keyboard;
+      } else if (previousScreen.keyboard.reply_markup) {
+        // Wrapped format { reply_markup: { inline_keyboard: [...] } }
+        replyMarkup = previousScreen.keyboard.reply_markup;
+      }
+    }
+
     // Send new message with previous screen content
     const extra = {
       parse_mode: 'Markdown',
-      ...(previousScreen.keyboard ? { reply_markup: previousScreen.keyboard } : {})
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
     };
 
     const newMsg = await ctx.telegram.sendMessage(userId, previousScreen.text, extra);
