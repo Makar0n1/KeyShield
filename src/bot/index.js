@@ -9,7 +9,7 @@ const blogNotificationService = require('../services/blogNotificationService');
 const messageManager = require('./utils/messageManager');
 
 // Handlers
-const { startHandler, mainMenuHandler, backHandler } = require('./handlers/start');
+const { startHandler, mainMenuHandler, backHandler, MAIN_MENU_TEXT } = require('./handlers/start');
 const {
   startCreateDeal,
   handleCreateDealInput,
@@ -178,18 +178,35 @@ bot.action('how_it_works', howItWorks);
 bot.action('rules', rulesAndFees);
 bot.action('support', support);
 
-// Blog notification back button
+// Blog notification back button (uses delete + send for consistency)
 bot.action('blog_notification_back', async (ctx) => {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
-    // Go back to previous screen
-    const previousScreen = await messageManager.goBack(ctx, telegramId);
+    // Use restoreFromStack - deletes current message, sends new one
+    const previousScreen = await messageManager.restoreFromStack(ctx, telegramId);
 
     if (!previousScreen) {
-      // No previous screen, show main menu
-      await mainMenuHandler(ctx);
+      // No previous screen - show main menu via delete + send
+      const currentMessageId = await messageManager.getMainMessage(telegramId);
+      if (currentMessageId) {
+        try {
+          await ctx.telegram.deleteMessage(telegramId, currentMessageId);
+        } catch (e) {
+          // Already deleted
+        }
+      }
+
+      const { mainMenuKeyboard } = require('./keyboards/main');
+
+      const newMsg = await ctx.telegram.sendMessage(telegramId, MAIN_MENU_TEXT, {
+        parse_mode: 'Markdown',
+        reply_markup: mainMenuKeyboard()
+      });
+
+      await messageManager.setMainMessage(telegramId, newMsg.message_id);
+      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
     }
   } catch (error) {
     console.error('Error handling blog notification back:', error);

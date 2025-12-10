@@ -171,19 +171,41 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
   }
 
   /**
+   * Screens to skip - users in middle of important flows
+   */
+  shouldSkipUser(user) {
+    const screen = user.currentScreen || '';
+
+    // Skip users creating a deal
+    if (screen.startsWith('create_deal')) return true;
+
+    // Skip users in dispute flow
+    if (screen.startsWith('dispute')) return true;
+
+    // Skip users entering wallet
+    if (screen.includes('wallet')) return true;
+
+    return false;
+  }
+
+  /**
    * Send notification to a single user
-   * Handles stacked notifications properly
+   * Uses delete + send for push notifications (loud)
    */
   async sendNotificationToUser(user, postId, notificationText, keyboard) {
     try {
       const userId = user.telegramId;
+
+      // Skip users in important flows
+      if (this.shouldSkipUser(user)) {
+        return 'skipped';
+      }
 
       // Check if user is already on a blog notification screen
       const isAlreadyNotification = user.currentScreen?.startsWith('blog_notification');
 
       // If NOT already on notification, save current screen to stack
       if (!isAlreadyNotification && user.currentScreenData?.text) {
-        // Build new navigation stack
         const newStack = [...(user.navigationStack || [])];
         newStack.push({
           screen: user.currentScreen || 'main_menu',
@@ -191,37 +213,22 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
           keyboard: user.currentScreenData.keyboard
         });
 
-        // Update user in database with new stack
         await User.updateOne(
           { telegramId: userId },
-          {
-            $set: {
-              navigationStack: newStack,
-              currentScreen: `blog_notification_${postId}`,
-              currentScreenData: { text: notificationText, keyboard },
-              lastActivity: new Date()
-            }
-          }
-        );
-      } else {
-        // Already on notification - just update current screen (don't touch stack)
-        await User.updateOne(
-          { telegramId: userId },
-          {
-            $set: {
-              currentScreen: `blog_notification_${postId}`,
-              currentScreenData: { text: notificationText, keyboard },
-              lastActivity: new Date()
-            }
-          }
+          { $set: { navigationStack: newStack } }
         );
       }
 
-      // Send the notification by editing the main message
-      await this.bot.telegram.editMessageText(
+      // 1. DELETE old message (silent)
+      try {
+        await this.bot.telegram.deleteMessage(userId, user.mainMessageId);
+      } catch (e) {
+        // Message already deleted - not critical
+      }
+
+      // 2. SEND new message (this triggers PUSH notification!)
+      const newMsg = await this.bot.telegram.sendMessage(
         userId,
-        user.mainMessageId,
-        null,
         notificationText,
         {
           parse_mode: 'Markdown',
@@ -229,17 +236,26 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
         }
       );
 
-      // Update messageManager cache if user is active in memory
+      // 3. Update mainMessageId and state in DB
+      await User.updateOne(
+        { telegramId: userId },
+        {
+          $set: {
+            mainMessageId: newMsg.message_id,
+            currentScreen: `blog_notification_${postId}`,
+            currentScreenData: { text: notificationText, keyboard },
+            lastActivity: new Date()
+          }
+        }
+      );
+
+      // 4. Update messageManager cache
+      messageManager.mainMessages.set(userId, newMsg.message_id);
       messageManager.currentScreen.set(userId, `blog_notification_${postId}`);
       messageManager.currentScreenData.set(userId, { text: notificationText, keyboard });
 
       return 'sent';
     } catch (error) {
-      // Common errors: bot blocked, message deleted, chat not found
-      if (error.description?.includes('message is not modified')) {
-        return 'skipped'; // Same content, no need to update
-      }
-
       console.error(`Failed to notify user ${user.telegramId}:`, error.message);
 
       // If bot is blocked or chat not found, clear mainMessageId

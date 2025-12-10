@@ -503,6 +503,53 @@ class MessageManager {
   }
 
   /**
+   * Restore previous screen from stack with new message (for loud notifications)
+   * Deletes current message and sends new one - triggers push notification
+   */
+  async restoreFromStack(ctx, userId) {
+    // Ensure we have navigation data
+    if (!this.navigationStack.has(userId)) {
+      await this.loadNavigationFromDB(userId);
+    }
+
+    const stack = this.navigationStack.get(userId) || [];
+    if (stack.length === 0) {
+      return null; // No previous screen
+    }
+
+    const previousScreen = this.popScreen(userId);
+    if (!previousScreen) {
+      return null;
+    }
+
+    // Delete current message
+    const currentMessageId = await this.getMainMessage(userId);
+    if (currentMessageId) {
+      try {
+        await ctx.telegram.deleteMessage(userId, currentMessageId);
+      } catch (e) {
+        // Already deleted - not critical
+      }
+    }
+
+    // Send new message with previous screen content
+    const extra = {
+      parse_mode: 'Markdown',
+      ...(previousScreen.keyboard ? { reply_markup: previousScreen.keyboard } : {})
+    };
+
+    const newMsg = await ctx.telegram.sendMessage(userId, previousScreen.text, extra);
+
+    // Update mainMessageId
+    await this.setMainMessage(userId, newMsg.message_id);
+
+    // Save navigation to DB
+    await this.saveNavigationToDB(userId);
+
+    return previousScreen.screen;
+  }
+
+  /**
    * Show final screen (clears stack, no "Back" possible)
    */
   async showFinalScreen(ctx, userId, screenName, text, keyboard) {
