@@ -119,6 +119,16 @@ const blogPostSchema = new mongoose.Schema({
     }
   }],
 
+  // Notification tracking
+  notificationSentAt: {
+    type: Date,
+    default: null
+  },
+  notificationSentCount: {
+    type: Number,
+    default: 0
+  },
+
   // Timestamps
   createdAt: {
     type: Date,

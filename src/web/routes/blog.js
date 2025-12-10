@@ -459,6 +459,33 @@ router.delete('/posts/:id', async (req, res) => {
   }
 });
 
+// POST /api/admin/blog/posts/:id/notify - Send blog notification to all users
+router.post('/posts/:id/notify', async (req, res) => {
+  try {
+    const post = await BlogPost.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    if (post.status !== 'published') {
+      return res.status(400).json({ error: 'Only published posts can be notified' });
+    }
+
+    const blogNotificationService = require('../../services/blogNotificationService');
+    const result = await blogNotificationService.sendBlogNotification(post._id);
+
+    res.json({
+      success: true,
+      sent: result.sent,
+      failed: result.failed,
+      skipped: result.skipped
+    });
+  } catch (error) {
+    console.error('Error sending blog notification:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- Comments ---
 
 // GET /api/admin/blog/comments

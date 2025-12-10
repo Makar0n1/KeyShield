@@ -1002,7 +1002,7 @@
           <div class="form-row">
             <div class="form-group">
               <label>Status</label>
-              <select id="postStatus">
+              <select id="postStatus" onchange="updateNotifyCheckboxVisibility()">
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
               </select>
@@ -1011,6 +1011,13 @@
               <label>Publish Date</label>
               <input type="datetime-local" id="postPublishedAt">
             </div>
+          </div>
+          <div class="form-group" id="notifyUsersGroup" style="display: none;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="postNotifyUsers" style="width: 18px; height: 18px;">
+              <span>📢 Уведомить пользователей бота о публикации</span>
+            </label>
+            <small style="color: #64748b; margin-top: 5px; display: block;">Отправит уведомление всем активным пользователям бота</small>
           </div>
           <div class="form-group">
             <label>FAQ Blocks (for Schema.org)</label>
@@ -1699,7 +1706,10 @@
             <td>
               <div class="action-btns">
                 <button class="btn btn-primary btn-sm" onclick="editPost('${post._id}')">Edit</button>
-                ${post.status === 'published' ? `<a href="/blog/${post.slug}" target="_blank" class="btn btn-secondary btn-sm">View</a>` : ''}
+                ${post.status === 'published' ? `
+                  <button class="btn btn-sm" style="background: #8b5cf6; color: white;" onclick="sendNotification('${post._id}')" title="Отправить уведомление">📢</button>
+                  <a href="/blog/${post.slug}" target="_blank" class="btn btn-secondary btn-sm">View</a>
+                ` : ''}
                 <button class="btn btn-danger btn-sm" onclick="deletePost('${post._id}')">Delete</button>
               </div>
             </td>
@@ -1743,6 +1753,10 @@
       // Preview
       updateCoverPreview('postCoverImage', 'postCoverPreview', 'postCoverContainer');
 
+      // Reset notify checkbox
+      document.getElementById('postNotifyUsers').checked = false;
+      updateNotifyCheckboxVisibility();
+
       document.getElementById('postModal').classList.add('active');
       document.body.style.overflow = 'hidden';
     }
@@ -1781,13 +1795,29 @@
         faq: getFaqData()
       };
 
+      const notifyUsers = document.getElementById('postNotifyUsers')?.checked && !id && data.status === 'published';
+
       try {
+        let response;
         if (id) {
-          await apiCall(`/api/admin/blog/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+          response = await apiCall(`/api/admin/blog/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
         } else {
-          await apiCall('/api/admin/blog/posts', { method: 'POST', body: JSON.stringify(data) });
+          response = await apiCall('/api/admin/blog/posts', { method: 'POST', body: JSON.stringify(data) });
         }
-        showNotification('Post saved!');
+
+        // If new post with published status and notify checkbox checked
+        if (notifyUsers && response.post?._id) {
+          try {
+            showNotification('Пост сохранен! Отправка уведомлений...');
+            const notifyResult = await apiCall(`/api/admin/blog/posts/${response.post._id}/notify`, { method: 'POST' });
+            showNotification(`Пост сохранен! Уведомления отправлены: ${notifyResult.sent}`);
+          } catch (notifyErr) {
+            showNotification('Пост сохранен, но уведомление не отправлено: ' + notifyErr.message, true);
+          }
+        } else {
+          showNotification('Post saved!');
+        }
+
         closePostModal();
         loadPosts();
         loadStats();
@@ -1805,6 +1835,29 @@
         loadStats();
       } catch (err) {
         showNotification(err.message, true);
+      }
+    }
+
+    // Send blog notification to all bot users
+    async function sendNotification(postId) {
+      if (!confirm('Разослать уведомление о статье всем пользователям бота?')) return;
+      try {
+        showNotification('Отправка уведомлений...');
+        const result = await apiCall(`/api/admin/blog/posts/${postId}/notify`, { method: 'POST' });
+        showNotification(`Уведомления отправлены! Успешно: ${result.sent}, Ошибок: ${result.failed}, Пропущено: ${result.skipped}`);
+      } catch (err) {
+        showNotification(err.message, true);
+      }
+    }
+
+    // Show/hide notify checkbox based on status and whether it's a new post
+    function updateNotifyCheckboxVisibility() {
+      const isNew = !document.getElementById('postId').value;
+      const isPublished = document.getElementById('postStatus').value === 'published';
+      const notifyGroup = document.getElementById('notifyUsersGroup');
+      notifyGroup.style.display = (isNew && isPublished) ? 'block' : 'none';
+      if (!isNew || !isPublished) {
+        document.getElementById('postNotifyUsers').checked = false;
       }
     }
 

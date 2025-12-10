@@ -5,6 +5,7 @@ const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
 const deadlineMonitor = require('../services/deadlineMonitor');
 const notificationService = require('../services/notificationService');
+const blogNotificationService = require('../services/blogNotificationService');
 const messageManager = require('./utils/messageManager');
 
 // Handlers
@@ -177,6 +178,24 @@ bot.action('how_it_works', howItWorks);
 bot.action('rules', rulesAndFees);
 bot.action('support', support);
 
+// Blog notification back button
+bot.action('blog_notification_back', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+
+    // Go back to previous screen
+    const previousScreen = await messageManager.goBack(ctx, telegramId);
+
+    if (!previousScreen) {
+      // No previous screen, show main menu
+      await mainMenuHandler(ctx);
+    }
+  } catch (error) {
+    console.error('Error handling blog notification back:', error);
+  }
+});
+
 // ============================================
 // TEXT MESSAGES
 // ============================================
@@ -247,6 +266,7 @@ const startBot = async () => {
     deadlineMonitor.start();
 
     notificationService.setBotInstance(bot);
+    blogNotificationService.setBotInstance(bot);
 
     // Start bot
     await bot.launch();
