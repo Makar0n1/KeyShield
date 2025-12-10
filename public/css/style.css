@@ -102,7 +102,7 @@ body {
     justify-content: space-between;
     align-items: center;
     width: 32px;
-    height: 24px;
+    height: 12px;
     background: transparent;
     border: none;
     cursor: pointer;
@@ -127,16 +127,16 @@ body {
 }
 
 .burger-line:nth-child(2) {
-    top: 11px;
+    top: 5px;
 }
 
 .burger-line:nth-child(3) {
-    top: 22px;
+    top: 10px;
 }
 
 /* Burger animation to X */
 .burger.open .burger-line:nth-child(1) {
-    top: 11px;
+    top: 5px;
     transform: rotate(45deg);
 }
 
@@ -145,7 +145,7 @@ body {
 }
 
 .burger.open .burger-line:nth-child(3) {
-    top: 11px;
+    top: 5px;
     transform: rotate(-45deg);
 }
 

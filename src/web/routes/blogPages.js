@@ -569,14 +569,14 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .logo{display:flex;align-items:center;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
     .header-cta{display:inline-block}
     /* Burger */
-    .burger{display:none;flex-direction:column;justify-content:space-between;align-items:center;width:32px;height:24px;background:transparent;border:none;cursor:pointer;padding:0;z-index:20;position:relative}
+    .burger{display:none;flex-direction:column;justify-content:space-between;align-items:center;width:32px;height:12px;background:transparent;border:none;cursor:pointer;padding:0;z-index:20;position:relative}
     .burger-line{display:block;width:24px;height:2px;background:#e0e0e0;border-radius:2px;transition:all .3s ease;position:absolute;left:4px}
     .burger-line:nth-child(1){top:0}
-    .burger-line:nth-child(2){top:11px}
-    .burger-line:nth-child(3){top:22px}
-    .burger.open .burger-line:nth-child(1){top:11px;transform:rotate(45deg)}
+    .burger-line:nth-child(2){top:5px}
+    .burger-line:nth-child(3){top:10px}
+    .burger.open .burger-line:nth-child(1){top:5px;transform:rotate(45deg)}
     .burger.open .burger-line:nth-child(2){opacity:0}
-    .burger.open .burger-line:nth-child(3){top:11px;transform:rotate(-45deg)}
+    .burger.open .burger-line:nth-child(3){top:5px;transform:rotate(-45deg)}
     /* Sidebar Overlay */
     .sidebar-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:5;opacity:0;visibility:hidden;transition:all .3s ease}
     .sidebar-overlay.open{opacity:1;visibility:visible}
