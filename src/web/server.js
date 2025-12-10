@@ -3,6 +3,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const connectDB = require('../config/database');
 const notificationService = require('../services/notificationService');
+const blogNotificationService = require('../services/blogNotificationService');
 const priceService = require('../services/priceService');
 const { Telegraf } = require('telegraf');
 
@@ -53,6 +54,10 @@ const buildAllowedOrigins = () => {
 
 // Create separate bot instance for web server (avoids timing issues)
 const webBot = new Telegraf(process.env.BOT_TOKEN);
+
+// Initialize notification services with webBot
+notificationService.setBotInstance(webBot);
+blogNotificationService.setBotInstance(webBot);
 
 // CORS middleware for cross-origin requests
 app.use((req, res, next) => {
