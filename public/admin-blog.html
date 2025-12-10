@@ -319,62 +319,6 @@
       margin: 0 4px;
     }
 
-    /* Gallery preview block in editor */
-    .gallery-preview-block {
-      display: block;
-      padding: 12px;
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      border: 2px dashed #3b82f6;
-      border-radius: 8px;
-      margin: 10px 0;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .gallery-preview-block:hover {
-      border-color: #60a5fa;
-      background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
-    }
-    .gallery-preview-header {
-      font-size: 13px;
-      color: #60a5fa;
-      font-weight: 600;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .gallery-edit-hint {
-      font-size: 11px;
-      color: #64748b;
-      font-weight: 400;
-      margin-left: auto;
-    }
-    .gallery-preview-thumbs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .gallery-preview-thumb {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 4px;
-      border: 1px solid #334155;
-    }
-    .gallery-preview-more {
-      width: 60px;
-      height: 60px;
-      background: #334155;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      color: #94a3b8;
-    }
-    .gallery-marker-text {
-      display: none;
-    }
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
@@ -1472,8 +1416,6 @@
             // Insert marker as text
             postContentEditor.insertText(range.index, '\n' + galleryMarker + '\n', { 'color': '#3b82f6' });
             postContentEditor.setSelection(range.index + galleryMarker.length + 2);
-            // Convert to visual preview
-            setTimeout(renderGalleryPreviews, 50);
           }
         });
       });
@@ -1497,139 +1439,6 @@
       setupContextToolbar();
     }
 
-    // Render gallery preview blocks in editor
-    function renderGalleryPreviews() {
-      if (!postContentEditor) return;
-      const editor = postContentEditor.root;
-      const html = editor.innerHTML;
-
-      // Replace [GALLERY]...JSON...[/GALLERY] with visual preview blocks
-      // The marker might be wrapped in <span> tags by Quill, so we need flexible regex
-      const newHtml = html.replace(
-        /(<[^>]*>)*\[GALLERY\](<[^>]*>)*([\s\S]*?)(<[^>]*>)*\[\/GALLERY\](<[^>]*>)*/gi,
-        (match, ...args) => {
-          try {
-            // Extract JSON from the messy match - find content between markers
-            let jsonData = match
-              .replace(/.*\[GALLERY\]/i, '')
-              .replace(/\[\/GALLERY\].*/i, '');
-
-            // Clean up JSON (remove HTML tags that Quill might add)
-            const cleanJson = jsonData
-              .replace(/<[^>]*>/g, '')
-              .replace(/&quot;/g, '"')
-              .replace(/&#34;/g, '"')
-              .replace(/&amp;/g, '&')
-              .replace(/&lt;/g, '<')
-              .replace(/&gt;/g, '>')
-              .trim();
-
-            const data = JSON.parse(cleanJson);
-            const images = data.images || [];
-
-            if (images.length === 0) return match;
-
-            // Generate unique ID for this gallery
-            const galleryId = 'gal_' + Math.random().toString(36).substr(2, 9);
-
-            // Show max 4 thumbnails + "more" indicator
-            const maxThumbs = 4;
-            const thumbsHtml = images.slice(0, maxThumbs).map(url =>
-              `<img class="gallery-preview-thumb" src="${url}" alt="">`
-            ).join('');
-
-            const moreHtml = images.length > maxThumbs
-              ? `<div class="gallery-preview-more">+${images.length - maxThumbs}</div>`
-              : '';
-
-            // Settings indicators
-            const autoplayIcon = data.autoplay ? '▶️' : '';
-            const alignIcon = data.align === 'center' ? '⬛' : (data.align === 'left' ? '⬅️' : '➡️');
-
-            // Keep original data in hidden span for saving
-            return `<div class="gallery-preview-block" data-gallery-id="${galleryId}" contenteditable="false" onclick="editGallery(this)">
-              <div class="gallery-preview-header">📷 Галерея (${images.length}) ${autoplayIcon} <span class="gallery-edit-hint">клик для редактирования</span></div>
-              <div class="gallery-preview-thumbs">${thumbsHtml}${moreHtml}</div>
-              <span class="gallery-marker-text">[GALLERY]${cleanJson}[/GALLERY]</span>
-            </div>`;
-          } catch (e) {
-            console.error('Gallery parse error:', e, match);
-            return match; // Keep original if parse fails
-          }
-        }
-      );
-
-      if (newHtml !== html) {
-        editor.innerHTML = newHtml;
-      }
-    }
-
-    // Edit existing gallery
-    let editingGalleryBlock = null;
-
-    function editGallery(block) {
-      editingGalleryBlock = block;
-      const markerSpan = block.querySelector('.gallery-marker-text');
-      if (!markerSpan) return;
-
-      try {
-        const markerText = markerSpan.textContent;
-        const jsonStr = markerText.replace(/\[GALLERY\]/i, '').replace(/\[\/GALLERY\]/i, '');
-        const data = JSON.parse(jsonStr);
-
-        // Pre-set gallery options
-        document.getElementById('galleryAutoplay').checked = data.autoplay || false;
-        document.getElementById('gallerySpeed').value = data.speed || '3000';
-        document.getElementById('galleryAlign').value = data.align || 'center';
-
-        // Open media library with pre-selected images
-        openMediaLibrary((selected) => {
-          if (selected.length === 0) {
-            // User cancelled or selected nothing - remove gallery
-            if (confirm('Удалить галерею?')) {
-              block.remove();
-            }
-            editingGalleryBlock = null;
-            return;
-          }
-
-          // Update gallery with new selection
-          const autoplay = document.getElementById('galleryAutoplay').checked;
-          const speed = document.getElementById('gallerySpeed').value;
-          const align = document.getElementById('galleryAlign').value;
-          const urls = selected.map(f => f.url);
-
-          const newData = { autoplay, speed, align, images: urls };
-          const newMarker = `[GALLERY]${JSON.stringify(newData)}[/GALLERY]`;
-
-          // Update the marker text
-          markerSpan.textContent = newMarker;
-
-          // Re-render previews
-          renderGalleryPreviews();
-          editingGalleryBlock = null;
-        }, { preSelected: data.images }); // Pass current images for pre-selection
-
-      } catch (e) {
-        console.error('Edit gallery error:', e);
-        editingGalleryBlock = null;
-      }
-    }
-
-    // Restore gallery markers before saving (convert visual blocks back to text)
-    function restoreGalleryMarkers() {
-      if (!postContentEditor) return;
-      const editor = postContentEditor.root;
-
-      // Replace gallery preview blocks with their hidden marker text
-      editor.querySelectorAll('.gallery-preview-block').forEach(block => {
-        const markerSpan = block.querySelector('.gallery-marker-text');
-        if (markerSpan) {
-          const textNode = document.createTextNode('\n' + markerSpan.textContent + '\n');
-          block.parentNode.replaceChild(textNode, block);
-        }
-      });
-    }
 
     // Context menu toolbar logic
     function setupContextToolbar() {
@@ -1786,8 +1595,6 @@
               const galleryMarker = `[GALLERY]${JSON.stringify({autoplay, speed, align, images: urls})}[/GALLERY]`;
               postContentEditor.insertText(range.index, '\n' + galleryMarker + '\n', { 'color': '#3b82f6' });
               postContentEditor.setSelection(range.index + galleryMarker.length + 2);
-              // Convert to visual preview
-              setTimeout(renderGalleryPreviews, 50);
             }
           });
           document.getElementById('contextToolbar').classList.remove('visible');
@@ -1923,7 +1730,6 @@
 
       // Content
       postContentEditor.root.innerHTML = post?.content || '';
-      renderGalleryPreviews(); // Show visual gallery blocks
 
       // Tags
       selectedPostTags = post?.tags?.map(t => t._id) || [];
@@ -1957,7 +1763,6 @@
 
     async function savePost() {
       const id = document.getElementById('postId').value;
-      restoreGalleryMarkers(); // Convert visual blocks back to markers
       const content = postContentEditor.root.innerHTML;
 
       const data = {
@@ -2495,7 +2300,6 @@
       checkboxSelectionMode = false;
       lastSelectedIndex = -1;
       singleSelectMode = options.singleSelect || false;
-      const preSelectedUrls = options.preSelected || [];
 
       document.getElementById('mediaLibraryModal').classList.add('active');
       document.body.style.overflow = 'hidden';
@@ -2516,18 +2320,6 @@
       }
 
       await loadMediaLibrary();
-
-      // Pre-select images if provided (for gallery editing)
-      if (preSelectedUrls.length > 0) {
-        checkboxSelectionMode = true;
-        mediaFiles.forEach((file, index) => {
-          if (preSelectedUrls.includes(file.url)) {
-            selectedMediaFiles.push(file);
-          }
-        });
-        updateSelectionUI();
-        renderMediaGrid(); // Re-render to show checkboxes
-      }
     }
 
     async function closeMediaLibrary() {
