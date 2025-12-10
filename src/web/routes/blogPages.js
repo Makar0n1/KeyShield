@@ -569,15 +569,18 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     .logo{display:flex;align-items:center;text-decoration:none;color:#fff;font-size:1.25rem;font-weight:700}
     .header-cta{display:inline-block}
     /* Burger */
-    .burger{display:none;flex-direction:column;justify-content:center;align-items:center;width:32px;height:32px;background:transparent;border:none;cursor:pointer;padding:0;z-index:1001}
+    .burger{display:none;flex-direction:column;justify-content:center;align-items:center;width:32px;height:32px;background:transparent;border:none;cursor:pointer;padding:0;z-index:1002;position:relative}
     .burger-line{display:block;width:24px;height:2px;background:#e0e0e0;border-radius:2px;transition:all .3s ease}
     .burger-line:nth-child(1){transform:translateY(-6px)}
     .burger-line:nth-child(3){transform:translateY(6px)}
     .burger.open .burger-line:nth-child(1){transform:translateY(0) rotate(45deg)}
     .burger.open .burger-line:nth-child(2){opacity:0}
     .burger.open .burger-line:nth-child(3){transform:translateY(0) rotate(-45deg)}
+    /* Sidebar Overlay */
+    .sidebar-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:999;opacity:0;visibility:hidden;transition:all .3s ease}
+    .sidebar-overlay.open{opacity:1;visibility:visible}
     /* Sidebar */
-    .sidebar{position:fixed;top:0;right:0;width:280px;height:100vh;background:#1e293b;z-index:1000;transform:translateX(100%);transition:transform .3s ease;padding:80px 0 30px;border-left:1px solid rgba(255,255,255,.1)}
+    .sidebar{position:fixed;top:0;right:0;width:280px;height:100vh;background:#1e293b;z-index:1001;transform:translateX(100%);transition:transform .3s ease;padding:80px 0 30px;border-left:1px solid rgba(255,255,255,.1)}
     .sidebar.open{transform:translateX(0)}
     .sidebar-nav{display:flex;flex-direction:column}
     .sidebar-nav a{display:block;padding:16px 24px;color:#e0e0e0;text-decoration:none;font-size:16px;font-weight:500;border-bottom:1px solid rgba(255,255,255,.1);transition:all .2s}
@@ -659,11 +662,11 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   </style>
 
   <!-- Load full CSS asynchronously -->
-  <link rel="preload" href="/css/style.css?v=20" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <link rel="preload" href="/css/blog.css?v=20" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/style.css?v=21" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/blog.css?v=21" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript>
-    <link rel="stylesheet" href="/css/style.css?v=20">
-    <link rel="stylesheet" href="/css/blog.css?v=20">
+    <link rel="stylesheet" href="/css/style.css?v=21">
+    <link rel="stylesheet" href="/css/blog.css?v=21">
   </noscript>
 
   <!-- Fonts with display=swap for faster text rendering -->
@@ -696,9 +699,10 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
   </header>
 
   <!-- Mobile Sidebar -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
   <div class="sidebar" id="sidebar">
     <nav class="sidebar-nav">
-      <a href="/">Главная</a>
+      <a href="/" onclick="closeSidebar()">Главная</a>
       <a href="/blog">Блог</a>
       <a href="/terms">Документы</a>
     </nav>
@@ -796,6 +800,13 @@ function renderPage({ title, description, canonical, ogImage, schemas, breadcrum
     function toggleMobileMenu() {
       document.getElementById('burger').classList.toggle('open');
       document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+
+    function closeSidebar() {
+      document.getElementById('burger').classList.remove('open');
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('open');
     }
 
     // Generate unique visitor fingerprint

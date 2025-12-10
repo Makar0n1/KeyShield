@@ -14,7 +14,7 @@
     <meta property="og:url" content="https://keyshield.me/">
     <meta property="og:image" content="https://keyshield.me/images/logo.png">
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css?v=18">
+    <link rel="stylesheet" href="/css/style.css?v=21">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -47,6 +47,7 @@
     </header>
 
     <!-- Mobile Sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
     <div class="sidebar" id="sidebar">
         <nav class="sidebar-nav">
             <a href="#features" onclick="closeSidebar()">Возможности</a>
@@ -273,17 +274,15 @@
     <script src="/js/main.js?v=4"></script>
     <script>
         function toggleMobileMenu() {
-            const burger = document.getElementById('burger');
-            const sidebar = document.getElementById('sidebar');
-            burger.classList.toggle('open');
-            sidebar.classList.toggle('open');
+            document.getElementById('burger').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
         }
 
         function closeSidebar() {
-            const burger = document.getElementById('burger');
-            const sidebar = document.getElementById('sidebar');
-            burger.classList.remove('open');
-            sidebar.classList.remove('open');
+            document.getElementById('burger').classList.remove('open');
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
         }
 
         // Load latest blog posts
