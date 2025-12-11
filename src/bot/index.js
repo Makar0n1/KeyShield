@@ -1,4 +1,5 @@
 const { Telegraf } = require('telegraf');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const connectDB = require('../config/database');
@@ -68,6 +69,8 @@ bot.catch((err, ctx) => {
 bot.use(async (ctx, next) => {
   if (ctx.callbackQuery) {
     const telegramId = ctx.from.id;
+    const callbackData = ctx.callbackQuery.data;
+    const startTime = Date.now();
 
     // Check cache first (sync, instant)
     const hasScreenData = messageManager.getCurrentScreen(telegramId);
@@ -75,12 +78,16 @@ bot.use(async (ctx, next) => {
     // If no screen data in cache, we need to initialize from DB
     // But do it NON-BLOCKING to avoid "loading..." hang
     if (!hasScreenData) {
+      const dbState = mongoose.connection.readyState; // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+      console.log(`[MW] User ${telegramId} not in cache, loading from DB... (action: ${callbackData}, dbState: ${dbState})`);
+
       // Load from DB with timeout (don't block forever)
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
-      const loadPromise = messageManager.loadNavigationFromDB(telegramId);
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 2000));
+      const loadPromise = messageManager.loadNavigationFromDB(telegramId).then(() => 'loaded');
 
       // Race: either load completes or timeout
-      await Promise.race([loadPromise, timeoutPromise]);
+      const result = await Promise.race([loadPromise, timeoutPromise]);
+      const loadDuration = Date.now() - startTime;
 
       // Check again after load attempt
       const hasScreenDataNow = messageManager.getCurrentScreen(telegramId);
@@ -90,10 +97,16 @@ bot.use(async (ctx, next) => {
         const { mainMenuKeyboard } = require('./keyboards/main');
         const { MAIN_MENU_TEXT } = require('./handlers/start');
         messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
-        console.log(`🔄 Initialized session for user ${telegramId} (fallback to main_menu)`);
+        console.log(`[MW] User ${telegramId}: ${result}, fallback to main_menu (${loadDuration}ms)`);
       } else {
-        console.log(`🔄 Loaded session for user ${telegramId} from DB`);
+        console.log(`[MW] User ${telegramId}: ${result}, loaded from DB (${loadDuration}ms)`);
       }
+    }
+
+    // Log total middleware time
+    const mwDuration = Date.now() - startTime;
+    if (mwDuration > 100) {
+      console.log(`[MW] User ${telegramId}: middleware took ${mwDuration}ms (action: ${callbackData})`);
     }
   }
   return next();

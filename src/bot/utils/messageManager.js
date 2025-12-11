@@ -34,9 +34,9 @@ class MessageManager {
     this.lastActivity = new Map();
 
     // Memory management settings
-    this.MAX_ENTRIES = 5000;
-    this.CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
-    this.INACTIVE_THRESHOLD = 2 * 60 * 60 * 1000; // 2 hours
+    this.MAX_ENTRIES = 10000;
+    this.CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour (was 30 min)
+    this.INACTIVE_THRESHOLD = 24 * 60 * 60 * 1000; // 24 hours (was 2 hours)
 
     // Start periodic cleanup
     this.startCleanupInterval();
@@ -47,7 +47,7 @@ class MessageManager {
    */
   startCleanupInterval() {
     setInterval(() => this.cleanup(), this.CLEANUP_INTERVAL);
-    console.log('🧹 MessageManager cleanup interval started (every 30 min)');
+    console.log('🧹 MessageManager cleanup interval started (every 1 hour, inactive threshold: 24h)');
   }
 
   /**
@@ -248,17 +248,35 @@ class MessageManager {
    * Persists mainMessageId to database to survive bot restarts
    */
   async editMainMessage(ctx, userId, text, keyboard = null) {
+    const startTime = Date.now();
     this.recordActivity(userId);
 
-    // Try cache first, then load from DB
+    // Try cache first, then load from DB with timeout
     let messageId = this.mainMessages.get(userId);
     if (!messageId) {
-      messageId = await this.loadMainMessageFromDB(userId);
+      // Load with 2 second timeout to prevent blocking
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
+      const loadPromise = this.loadMainMessageFromDB(userId);
+      messageId = await Promise.race([loadPromise, timeoutPromise]);
+
+      const loadTime = Date.now() - startTime;
+      if (loadTime > 500) {
+        console.log(`[editMainMessage] User ${userId}: loadMainMessageFromDB took ${loadTime}ms`);
+      }
     }
 
-    // Load navigation data if not in cache
+    // Skip navigation load here - middleware should have done it already
+    // Only load if absolutely necessary and with timeout
     if (!this.currentScreen.has(userId)) {
-      await this.loadNavigationFromDB(userId);
+      const navStart = Date.now();
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 1000));
+      const loadPromise = this.loadNavigationFromDB(userId);
+      await Promise.race([loadPromise, timeoutPromise]);
+
+      const navTime = Date.now() - navStart;
+      if (navTime > 500) {
+        console.log(`[editMainMessage] User ${userId}: loadNavigationFromDB took ${navTime}ms`);
+      }
     }
 
     const extra = {
@@ -285,8 +303,10 @@ class MessageManager {
       const newMsg = await ctx.telegram.sendMessage(userId, text, extra);
       this.mainMessages.set(userId, newMsg.message_id);
 
-      // Persist to database
-      await this.saveMainMessageToDB(userId, newMsg.message_id);
+      // Persist to database (don't await - fire and forget)
+      this.saveMainMessageToDB(userId, newMsg.message_id).catch(err => {
+        console.error('Error saving mainMessageId:', err.message);
+      });
 
       return newMsg.message_id;
     } catch (error) {

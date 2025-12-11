@@ -136,6 +136,11 @@ const dealSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  // Flag to prevent duplicate deposit notifications on bot restart
+  depositNotificationSent: {
+    type: Boolean,
+    default: false
+  },
   // Operational costs tracking
   operationalCosts: {
     // Activation costs (5 TRX sent, minus what was returned)

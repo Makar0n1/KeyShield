@@ -373,6 +373,12 @@ class DepositMonitor {
               const sellerCtx = { telegram: this.botInstance.telegram };
               await messageManager.showNotification(sellerCtx, deal.sellerId, sellerText, sellerKeyboard);
 
+              // Mark notification as sent to prevent duplicates on bot restart
+              await Deal.updateOne(
+                { _id: deal._id },
+                { $set: { depositNotificationSent: true } }
+              );
+
               console.log(`📬 Notifications sent to buyer and seller for deal ${deal.dealId}`);
             } catch (error) {
               console.error(`Error sending notifications for deal ${deal.dealId}:`, error);
@@ -396,17 +402,18 @@ class DepositMonitor {
    */
   async checkPendingNotifications() {
     try {
-      // Find deals that are locked but don't have "notificationsSent" flag
+      // Find deals that are locked, have deposit, but notification NOT sent yet
       const lockedDeals = await Deal.find({
         status: 'locked',
-        depositTxHash: { $ne: null }
+        depositTxHash: { $ne: null },
+        depositNotificationSent: { $ne: true } // Only deals where notification wasn't sent
       });
 
       if (lockedDeals.length === 0) {
         return;
       }
 
-      console.log(`📬 Checking ${lockedDeals.length} locked deal(s) for pending notifications...`);
+      console.log(`📬 Found ${lockedDeals.length} locked deal(s) with pending notifications...`);
 
       for (const deal of lockedDeals) {
         // Send notifications if bot instance is available
@@ -433,6 +440,12 @@ class DepositMonitor {
             const sellerKeyboard = depositReceivedKeyboard(deal.dealId);
             const sellerCtx = { telegram: this.botInstance.telegram };
             await messageManager.showNotification(sellerCtx, deal.sellerId, sellerText, sellerKeyboard);
+
+            // Mark notification as sent to prevent duplicates on restart
+            await Deal.updateOne(
+              { _id: deal._id },
+              { $set: { depositNotificationSent: true } }
+            );
 
             console.log(`✅ Sent pending notifications for deal ${deal.dealId}`);
           } catch (error) {
