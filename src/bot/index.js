@@ -64,21 +64,36 @@ bot.catch((err, ctx) => {
 // ============================================
 // After bot restart, mainMessageId is loaded from DB but currentScreenData is lost.
 // This middleware ensures callback queries work by initializing session state.
+// IMPORTANT: Do NOT block on slow DB queries - use non-blocking initialization.
 bot.use(async (ctx, next) => {
   if (ctx.callbackQuery) {
     const telegramId = ctx.from.id;
 
-    // If user has mainMessageId in DB but no currentScreenData in memory,
-    // initialize with main_menu so navigation works
-    const hasMainMessage = await messageManager.getMainMessage(telegramId);
+    // Check cache first (sync, instant)
     const hasScreenData = messageManager.getCurrentScreen(telegramId);
 
-    if (hasMainMessage && !hasScreenData) {
-      // Initialize session with main_menu as current screen
-      const { mainMenuKeyboard } = require('./keyboards/main');
-      const { MAIN_MENU_TEXT } = require('./handlers/start');
-      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
-      console.log(`🔄 Initialized session for user ${telegramId} after restart`);
+    // If no screen data in cache, we need to initialize from DB
+    // But do it NON-BLOCKING to avoid "loading..." hang
+    if (!hasScreenData) {
+      // Load from DB with timeout (don't block forever)
+      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
+      const loadPromise = messageManager.loadNavigationFromDB(telegramId);
+
+      // Race: either load completes or timeout
+      await Promise.race([loadPromise, timeoutPromise]);
+
+      // Check again after load attempt
+      const hasScreenDataNow = messageManager.getCurrentScreen(telegramId);
+
+      if (!hasScreenDataNow) {
+        // Still no data - initialize with main_menu as fallback
+        const { mainMenuKeyboard } = require('./keyboards/main');
+        const { MAIN_MENU_TEXT } = require('./handlers/start');
+        messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
+        console.log(`🔄 Initialized session for user ${telegramId} (fallback to main_menu)`);
+      } else {
+        console.log(`🔄 Loaded session for user ${telegramId} from DB`);
+      }
     }
   }
   return next();

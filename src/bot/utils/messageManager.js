@@ -118,8 +118,15 @@ class MessageManager {
    * Load mainMessageId from database (called when not in cache)
    */
   async loadMainMessageFromDB(userId) {
+    const startTime = Date.now();
     try {
       const user = await User.findOne({ telegramId: userId }).select('mainMessageId').lean();
+      const duration = Date.now() - startTime;
+
+      if (duration > 1000) {
+        console.warn(`[loadMainMessageFromDB] SLOW QUERY for user ${userId}: ${duration}ms`);
+      }
+
       if (user?.mainMessageId) {
         this.mainMessages.set(userId, user.mainMessageId);
         return user.mainMessageId;
@@ -162,12 +169,14 @@ class MessageManager {
    * Load navigation data from database
    */
   async loadNavigationFromDB(userId) {
+    const startTime = Date.now();
     try {
       const user = await User.findOne({ telegramId: userId })
         .select('navigationStack currentScreen currentScreenData lastActivity mainMessageId')
         .lean();
 
-      console.log(`[loadNavigationFromDB] User ${userId}: found=${!!user}, stackLength=${user?.navigationStack?.length || 0}, currentScreen=${user?.currentScreen}, mainMessageId=${user?.mainMessageId}`);
+      const duration = Date.now() - startTime;
+      console.log(`[loadNavigationFromDB] User ${userId}: found=${!!user}, stackLength=${user?.navigationStack?.length || 0}, currentScreen=${user?.currentScreen}, mainMessageId=${user?.mainMessageId}, duration=${duration}ms`);
 
       if (user) {
         if (user.navigationStack) this.navigationStack.set(userId, user.navigationStack);
