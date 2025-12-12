@@ -49,7 +49,6 @@
     "pdfkit": "^0.17.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-helmet-async": "^2.0.5",
     "react-hook-form": "^7.68.0",
     "react-router-dom": "^7.10.1",
     "tailwind-merge": "^3.4.0",
