@@ -1,0 +1,5 @@
+export { PartnerLoginPage } from './LoginPage'
+export { PartnerDashboardPage } from './DashboardPage'
+export { PartnerUsersPage } from './UsersPage'
+export { PartnerDealsPage } from './DealsPage'
+export { PartnerSettingsPage } from './SettingsPage'

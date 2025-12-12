@@ -50,13 +50,16 @@ async function getTrxPrice() {
   } catch (error) {
     console.error(`[PriceService] Failed to fetch TRX price: ${error.message}`);
 
-    // Return cached price if available, otherwise fallback
-    if (cachedPrice !== null) {
+    // Return cached price if available and valid, otherwise fallback
+    if (cachedPrice !== null && cachedPrice > 0) {
       console.log(`[PriceService] Using cached price: $${cachedPrice}`);
       return cachedPrice;
     }
 
     console.log(`[PriceService] Using fallback price: $${FALLBACK_TRX_RATE}`);
+    // Set fallback as cached so subsequent calls don't spam the log
+    cachedPrice = FALLBACK_TRX_RATE;
+    cacheTimestamp = now;
     return FALLBACK_TRX_RATE;
   }
 }

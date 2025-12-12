@@ -2,23 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
 require('dotenv').config();
 
 const connectDB = require('../config/database');
 const { testConnection } = require('../config/tron');
 const errorHandler = require('./middleware/errorHandler');
 
-// Routes
+// Routes (internal API for bot/system operations)
 const dealsRouter = require('./routes/deals');
 const multisigRouter = require('./routes/multisig');
 const transactionsRouter = require('./routes/transactions');
 const disputesRouter = require('./routes/disputes');
-const adminRouter = require('./routes/admin');
-
-// Blog routes
-const blogAdminRoutes = require('../web/routes/blog');
-const blogPublicRoutes = require('../web/routes/blogPublic');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -34,9 +28,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, '../../public')));
-
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -44,11 +35,6 @@ const limiter = rateLimit({
 });
 
 app.use('/api/', limiter);
-
-// Root redirect to admin panel
-app.get('/', (req, res) => {
-  res.redirect('/admin.html');
-});
 
 // Health check
 app.get('/health', (req, res) => {
@@ -122,31 +108,13 @@ app.get('/api/check-ip', async (req, res) => {
   }
 });
 
-// API Routes
+// API Routes (internal - for system/bot operations)
 app.use('/api/deals', dealsRouter);
 app.use('/api/multisig', multisigRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/disputes', disputesRouter);
-app.use('/api/admin', adminRouter);
 
-// Blog admin routes (with Basic Auth)
-const blogAdminAuth = (req, res, next) => {
-  const auth = req.headers['authorization'];
-  if (!auth || !auth.startsWith('Basic ')) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString().split(':');
-  const [username, password] = credentials;
-  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
-    next();
-  } else {
-    res.status(401).json({ error: 'Invalid credentials' });
-  }
-};
-app.use('/api/admin/blog', blogAdminAuth, blogAdminRoutes);
-
-// Public blog API
-app.use('/api/blog', blogPublicRoutes);
+// Note: Admin and Blog APIs are served by client/server.js (port 3001)
 
 // 404 handler
 app.use((req, res) => {

@@ -69,18 +69,22 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
    * Get keyboard for notification
    */
   getNotificationKeyboard(post) {
-    return {
-      inline_keyboard: [
-        [{
-          text: '📖 Читать статью',
-          url: `${this.getSiteUrl()}/blog/${post.slug}`
-        }],
-        [{
-          text: '↩️ Назад',
-          callback_data: 'blog_notification_back'
-        }]
-      ]
-    };
+    const keyboard = [];
+
+    // Only add URL button if not localhost (Telegram doesn't accept localhost URLs)
+    if (!this.WEB_DOMAIN.includes('localhost')) {
+      keyboard.push([{
+        text: '📖 Читать статью',
+        url: `${this.getSiteUrl()}/blog/${post.slug}`
+      }]);
+    }
+
+    keyboard.push([{
+      text: '↩️ Назад',
+      callback_data: 'blog_notification_back'
+    }]);
+
+    return { inline_keyboard: keyboard };
   }
 
   /**

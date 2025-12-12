@@ -1,0 +1,7 @@
+export { BlogPostsPage } from './PostsPage'
+export { BlogPostEditorPage } from './PostEditorPage'
+export { BlogCategoriesPage } from './CategoriesPage'
+export { BlogTagsPage } from './TagsPage'
+export { BlogMediaPage } from './MediaPage'
+export { BlogCommentsPage } from './CommentsPage'
+export { BlogSettingsPage } from './SettingsPage'

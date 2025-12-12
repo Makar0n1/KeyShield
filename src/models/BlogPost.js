@@ -230,11 +230,37 @@ blogPostSchema.statics.getPublished = async function(options = {}) {
 
   const query = { status: 'published' };
 
+  // Category can be ObjectId or slug string
   if (category) {
-    query.category = category;
+    if (mongoose.Types.ObjectId.isValid(category)) {
+      query.category = category;
+    } else {
+      // It's a slug - find category first
+      const BlogCategory = mongoose.model('BlogCategory');
+      const cat = await BlogCategory.findOne({ slug: category });
+      if (cat) {
+        query.category = cat._id;
+      } else {
+        // Category not found - return empty
+        return { posts: [], total: 0, page, limit, totalPages: 0 };
+      }
+    }
   }
+
+  // Tag can be ObjectId or slug string
   if (tag) {
-    query.tags = tag;
+    if (mongoose.Types.ObjectId.isValid(tag)) {
+      query.tags = tag;
+    } else {
+      // It's a slug - find tag first
+      const BlogTag = mongoose.model('BlogTag');
+      const t = await BlogTag.findOne({ slug: tag });
+      if (t) {
+        query.tags = t._id;
+      } else {
+        return { posts: [], total: 0, page, limit, totalPages: 0 };
+      }
+    }
   }
 
   let sortOption = { publishedAt: -1 }; // newest by default

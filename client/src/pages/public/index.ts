@@ -1,0 +1,5 @@
+export * from './HomePage'
+export * from './NotFoundPage'
+export * from './TermsPage'
+export * from './PrivacyPage'
+export * from './OfferPage'

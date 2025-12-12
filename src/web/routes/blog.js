@@ -16,8 +16,8 @@ const BlogMedia = require('../../models/BlogMedia');
 // Utils
 const { slugify, generateUniqueSlug } = require('../../utils/slugify');
 
-// Upload directory
-const UPLOAD_DIR = path.join(__dirname, '../../../public/uploads/blog');
+// Upload directory - points to client/public/uploads/blog
+const UPLOAD_DIR = path.join(__dirname, '../../../client/public/uploads/blog');
 
 // Ensure upload directory exists
 if (!fs.existsSync(UPLOAD_DIR)) {
