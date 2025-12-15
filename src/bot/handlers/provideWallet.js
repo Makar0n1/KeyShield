@@ -8,6 +8,12 @@ const {
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 
+// Escape special Markdown characters
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 // ============================================
 // ENTER WALLET CALLBACK (from notification)
 // ============================================
@@ -129,7 +135,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 Он понадобится для получения средств по сделке!
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 🔑 *Ключ:*
 \`${sellerPrivateKey}\`
@@ -158,7 +164,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 Адрес: \`${text}\`
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 🔐 *Приватный ключ отправлен выше!*
 ⚠️ Сохраните его - он нужен для получения средств!
@@ -270,13 +276,13 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
     console.log(`✅ Buyer wallet set for deal ${deal.dealId}: ${text}`);
 
     // Show private key message (will be deleted in 60 seconds)
-    const keyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
+    const buyerKeyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
 
 ⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ!*
 Он понадобится для возврата средств в случае спора или отмены!
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 🔑 *Ключ:*
 \`${buyerPrivateKey}\`
@@ -286,14 +292,14 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 ❗️ *Если вы потеряете ключ, вы не сможете вернуть средства!*`;
 
     // Send key message (separate from main message flow)
-    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+    const buyerKeyMsg = await ctx.telegram.sendMessage(telegramId, buyerKeyText, {
       parse_mode: 'Markdown'
     });
 
     // Delete key message after 60 seconds
     setTimeout(async () => {
       try {
-        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+        await ctx.telegram.deleteMessage(telegramId, buyerKeyMsg.message_id);
       } catch (e) {
         // Message might already be deleted
       }
@@ -313,10 +319,10 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
     }
 
     // Show deposit instructions to buyer (final screen with deposit info)
-    const buyerText = `✅ *Кошелек сохранен! Теперь внесите депозит.*
+    const buyerDepositText = `✅ *Кошелек сохранен! Теперь внесите депозит.*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 🔐 *Приватный ключ отправлен выше!*
 ⚠️ Сохраните его - он нужен для возврата средств!
@@ -336,19 +342,19 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 [🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
 
     const buyerKeyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerText, buyerKeyboard);
+    await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
     // Notify seller
-    const sellerText = `✅ *Покупатель указал кошелек!*
+    const sellerNotifyText = `✅ *Покупатель указал кошелек!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 Ожидаем депозит от покупателя.
 Вы получите уведомление, когда средства поступят.`;
 
     const sellerKeyboard = mainMenuButton();
-    await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
+    await messageManager.showNotification(ctx, deal.sellerId, sellerNotifyText, sellerKeyboard);
 
     return true;
   } catch (error) {
