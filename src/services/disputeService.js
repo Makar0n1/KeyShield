@@ -2,7 +2,15 @@ const Dispute = require('../models/Dispute');
 const Deal = require('../models/Deal');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
+const Transaction = require('../models/Transaction');
+const MultisigWallet = require('../models/MultisigWallet');
 const dealService = require('./dealService');
+const blockchainService = require('./blockchain');
+const feesaverService = require('./feesaver');
+const priceService = require('./priceService');
+const constants = require('../config/constants');
+const TronWeb = require('tronweb');
+const notificationService = require('./notificationService');
 
 class DisputeService {
   /**
@@ -144,6 +152,13 @@ class DisputeService {
       await loser.updateDisputeStats(false); // Lost
     }
 
+    // Check if autoban was triggered and send ban notification
+    const autobanTriggered = loser?.blacklisted && loser.disputeStats.lossStreak >= 3;
+    if (autobanTriggered) {
+      console.log(`🚫 Auto-ban triggered for user ${loserId} (3 consecutive dispute losses)`);
+      await this.sendBanNotification(loserId);
+    }
+
     // Log decision
     await AuditLog.logArbitrageDecision(arbiterId, deal._id, dispute._id, {
       dealId: deal.dealId,
@@ -154,13 +169,410 @@ class DisputeService {
       loserBanned: loser?.blacklisted
     });
 
+    // =============================================
+    // Process actual payout (new functionality)
+    // =============================================
+    let payoutResult = null;
+    try {
+      payoutResult = await this.processDisputePayout(deal, decision, arbiterId);
+      console.log(`✅ Dispute payout completed for deal ${deal.dealId}`);
+    } catch (payoutError) {
+      console.error(`❌ Dispute payout failed for deal ${deal.dealId}:`, payoutError.message);
+      // Don't throw - dispute is resolved, payout failure should be handled separately
+      // The admin can retry the payout manually if needed
+      payoutResult = { success: false, error: payoutError.message };
+    }
+
     return {
       dispute,
       deal,
       winner,
       loser,
-      autobanTriggered: loser?.blacklisted && loser.disputeStats.lossStreak >= 3
+      autobanTriggered,
+      payout: payoutResult
     };
+  }
+
+  /**
+   * Send ban notification to user using DELETE+SEND pattern
+   * @param {number} userId - Telegram user ID
+   */
+  async sendBanNotification(userId) {
+    const banText = `🚫 *Ваш аккаунт заблокирован*
+
+Вы проиграли 3 спора подряд, что привело к автоматической блокировке аккаунта.
+
+Заблокированные пользователи не могут:
+• Создавать новые сделки
+• Участвовать в сделках как контрагент
+
+Если вы считаете, что блокировка ошибочна, обратитесь в поддержку:
+
+📧 support@keyshield.io
+💬 @keyshield\\_support`;
+
+    try {
+      // Use notificationService which uses DELETE+SEND pattern
+      await notificationService.sendNotification(userId, banText, {});
+      console.log(`📤 Ban notification sent to user ${userId}`);
+    } catch (error) {
+      console.error(`❌ Failed to send ban notification to user ${userId}:`, error.message);
+    }
+  }
+
+  /**
+   * Process payout for resolved dispute
+   * Full flow: FeeSaver → TRX fallback → USDT transactions → return TRX → save costs
+   *
+   * @param {Object} deal - Deal document
+   * @param {string} decision - 'refund_buyer' or 'release_seller'
+   * @param {number} arbiterId - Arbiter user ID
+   * @returns {Promise<Object>} - Payout result
+   */
+  async processDisputePayout(deal, decision, arbiterId) {
+    const dealId = deal.dealId;
+    console.log(`\n💰 Processing dispute payout for deal ${dealId}, decision: ${decision}`);
+
+    // Get multisig wallet
+    const multisig = await MultisigWallet.findOne({ _id: deal.multisigWalletId });
+    if (!multisig) {
+      throw new Error(`Multisig wallet not found for deal ${dealId}`);
+    }
+
+    const multisigAddress = multisig.address;
+    console.log(`📍 Multisig address: ${multisigAddress}`);
+
+    // Get arbiter wallet for signing
+    const arbiterKey = process.env.ARBITER_PRIVATE_KEY;
+    if (!arbiterKey) {
+      throw new Error('ARBITER_PRIVATE_KEY not configured');
+    }
+
+    // Get commission wallet
+    const commissionWallet = process.env.COMMISSION_WALLET;
+    if (!commissionWallet) {
+      throw new Error('COMMISSION_WALLET not configured');
+    }
+
+    // Determine recipient based on decision
+    const isRefund = decision === 'refund_buyer';
+    const recipientWallet = isRefund ? deal.buyerWallet : deal.sellerWallet;
+    const recipientId = isRefund ? deal.buyerId : deal.sellerId;
+    const recipientRole = isRefund ? 'buyer' : 'seller';
+
+    if (!recipientWallet) {
+      throw new Error(`${recipientRole} wallet not set for deal ${dealId}`);
+    }
+
+    console.log(`👤 Recipient (${recipientRole}): ${recipientWallet}`);
+
+    // Calculate amounts
+    const totalAmount = deal.totalAmount; // Amount in USDT with commission
+    const commission = deal.commission;
+    const netAmount = totalAmount - commission; // Amount to recipient
+
+    console.log(`💵 Total: ${totalAmount} USDT, Commission: ${commission} USDT, Net to ${recipientRole}: ${netAmount} USDT`);
+
+    // Track costs for logging
+    let trxSent = 0;
+    let trxReturned = 0;
+    let feesaverUsed = false;
+    let feesaverCost = 0;
+
+    // ========================================
+    // STEP 1: Energy provision (FeeSaver or TRX)
+    // ========================================
+    let useFeeSaver = feesaverService.isEnabled();
+
+    if (useFeeSaver) {
+      console.log('⚡ Attempting to rent energy from FeeSaver...');
+      try {
+        const rentResult = await feesaverService.rentEnergyForDeal(multisigAddress);
+        if (rentResult.success) {
+          feesaverUsed = true;
+          feesaverCost = rentResult.cost || 0;
+          console.log(`✅ FeeSaver energy rented successfully, cost: ${feesaverCost} TRX`);
+        } else {
+          console.log(`⚠️ FeeSaver failed: ${rentResult.error}, falling back to TRX`);
+          useFeeSaver = false;
+        }
+      } catch (error) {
+        console.log(`⚠️ FeeSaver error: ${error.message}, falling back to TRX`);
+        useFeeSaver = false;
+      }
+    }
+
+    // If FeeSaver not used, send TRX for energy
+    if (!useFeeSaver) {
+      console.log('💰 Sending TRX for transaction energy...');
+      const trxForEnergy = 30; // 30 TRX for 2 USDT transactions
+
+      try {
+        const trxResult = await blockchainService.sendTRX(multisigAddress, trxForEnergy);
+        if (trxResult.success) {
+          trxSent = trxForEnergy;
+          console.log(`✅ Sent ${trxForEnergy} TRX to multisig, txid: ${trxResult.txid}`);
+
+          // Wait for TRX to arrive
+          await this.sleep(5000);
+        } else {
+          throw new Error(`Failed to send TRX: ${trxResult.error}`);
+        }
+      } catch (error) {
+        throw new Error(`TRX transfer failed: ${error.message}`);
+      }
+    }
+
+    // ========================================
+    // STEP 2: Send USDT to recipient
+    // ========================================
+    console.log(`\n📤 Sending ${netAmount} USDT to ${recipientRole}...`);
+
+    let mainTxId;
+    try {
+      const mainResult = await blockchainService.sendUSDTFromMultisig(
+        multisigAddress,
+        recipientWallet,
+        netAmount,
+        arbiterKey
+      );
+
+      if (!mainResult.success) {
+        throw new Error(`USDT transfer to ${recipientRole} failed: ${mainResult.error}`);
+      }
+
+      mainTxId = mainResult.txid;
+      console.log(`✅ Sent ${netAmount} USDT to ${recipientRole}, txid: ${mainTxId}`);
+
+      // Record transaction
+      await Transaction.create({
+        deal: deal._id,
+        type: isRefund ? 'refund' : 'release',
+        from: multisigAddress,
+        to: recipientWallet,
+        amount: netAmount,
+        currency: 'USDT',
+        txid: mainTxId,
+        status: 'confirmed',
+        metadata: {
+          reason: 'dispute_resolution',
+          decision,
+          arbiterId
+        }
+      });
+
+    } catch (error) {
+      console.error(`❌ Failed to send USDT to ${recipientRole}:`, error.message);
+      throw error;
+    }
+
+    // Wait between transactions
+    await this.sleep(5000);
+
+    // ========================================
+    // STEP 3: Send commission
+    // ========================================
+    console.log(`\n📤 Sending ${commission} USDT commission...`);
+
+    let commissionTxId;
+    try {
+      const commissionResult = await blockchainService.sendUSDTFromMultisig(
+        multisigAddress,
+        commissionWallet,
+        commission,
+        arbiterKey
+      );
+
+      if (!commissionResult.success) {
+        console.error(`⚠️ Commission transfer failed: ${commissionResult.error}`);
+        // Don't throw - main payment succeeded
+      } else {
+        commissionTxId = commissionResult.txid;
+        console.log(`✅ Sent ${commission} USDT commission, txid: ${commissionTxId}`);
+
+        // Record commission transaction
+        await Transaction.create({
+          deal: deal._id,
+          type: 'commission',
+          from: multisigAddress,
+          to: commissionWallet,
+          amount: commission,
+          currency: 'USDT',
+          txid: commissionTxId,
+          status: 'confirmed',
+          metadata: {
+            reason: 'dispute_resolution',
+            decision,
+            arbiterId
+          }
+        });
+      }
+    } catch (error) {
+      console.error(`⚠️ Commission transfer error: ${error.message}`);
+      // Don't throw - main payment succeeded
+    }
+
+    // ========================================
+    // STEP 4: Return leftover TRX to arbiter
+    // ========================================
+    if (trxSent > 0) {
+      console.log('\n💰 Returning leftover TRX to arbiter...');
+      await this.sleep(10000); // Wait for USDT transactions to fully confirm
+
+      try {
+        const returnResult = await this.returnLeftoverTRX(multisig, arbiterKey);
+        if (returnResult.success) {
+          trxReturned = returnResult.amount;
+          console.log(`✅ Returned ${trxReturned} TRX to arbiter`);
+        }
+      } catch (error) {
+        console.error(`⚠️ TRX return error: ${error.message}`);
+      }
+    }
+
+    // ========================================
+    // STEP 5: Save operational costs
+    // ========================================
+    try {
+      await this.saveOperationalCosts(deal, {
+        trxSent,
+        trxReturned,
+        feesaverUsed,
+        feesaverCost,
+        operation: 'dispute_resolution',
+        decision
+      });
+    } catch (error) {
+      console.error(`⚠️ Failed to save operational costs: ${error.message}`);
+    }
+
+    console.log(`\n✅ Dispute payout completed for deal ${dealId}`);
+    console.log(`   ${recipientRole} received: ${netAmount} USDT`);
+    console.log(`   Commission: ${commission} USDT`);
+    console.log(`   TRX sent: ${trxSent}, returned: ${trxReturned}, net cost: ${trxSent - trxReturned}`);
+    if (feesaverUsed) {
+      console.log(`   FeeSaver cost: ${feesaverCost} TRX`);
+    }
+
+    return {
+      success: true,
+      recipientWallet,
+      netAmount,
+      commission,
+      mainTxId,
+      commissionTxId,
+      trxSent,
+      trxReturned,
+      feesaverUsed,
+      feesaverCost
+    };
+  }
+
+  /**
+   * Return leftover TRX from multisig to arbiter wallet
+   */
+  async returnLeftoverTRX(multisig, arbiterKey) {
+    const tronWeb = new TronWeb({
+      fullHost: process.env.TRON_FULL_HOST || 'https://api.trongrid.io',
+      privateKey: arbiterKey
+    });
+
+    // Get arbiter address from key
+    const arbiterAddress = tronWeb.address.fromPrivateKey(arbiterKey);
+
+    // Get multisig TRX balance
+    const balance = await tronWeb.trx.getBalance(multisig.address);
+    const balanceTRX = balance / 1_000_000;
+
+    // Leave 1 TRX for account rent, return the rest
+    const minKeep = 1;
+    const toReturn = balanceTRX - minKeep;
+
+    if (toReturn <= 0.1) {
+      console.log(`   TRX balance too low to return: ${balanceTRX} TRX`);
+      return { success: false, amount: 0 };
+    }
+
+    console.log(`   Multisig TRX balance: ${balanceTRX}, returning: ${toReturn} TRX`);
+
+    // Build and sign transaction
+    const toReturnSun = Math.floor(toReturn * 1_000_000);
+
+    const unsignedTx = await tronWeb.transactionBuilder.sendTrx(
+      arbiterAddress,
+      toReturnSun,
+      multisig.address
+    );
+
+    // Sign with arbiter key (for multisig, arbiter has authority)
+    const signedTx = await tronWeb.trx.sign(unsignedTx, arbiterKey);
+    const broadcast = await tronWeb.trx.sendRawTransaction(signedTx);
+
+    if (broadcast.result) {
+      return { success: true, amount: toReturn, txid: broadcast.txid };
+    } else {
+      return { success: false, amount: 0, error: 'Broadcast failed' };
+    }
+  }
+
+  /**
+   * Save operational costs to database
+   */
+  async saveOperationalCosts(deal, costs) {
+    const { trxSent, trxReturned, feesaverUsed, feesaverCost, operation, decision } = costs;
+
+    // Get current TRX price in USD
+    let trxPriceUsd = 0.12; // Default fallback
+    try {
+      const prices = await priceService.getPrices();
+      if (prices.TRX) {
+        trxPriceUsd = prices.TRX;
+      }
+    } catch (e) {
+      console.log('   Using default TRX price');
+    }
+
+    const netTrxCost = trxSent - trxReturned;
+    const totalTrxCost = feesaverUsed ? feesaverCost : netTrxCost;
+    const costInUsd = totalTrxCost * trxPriceUsd;
+
+    // Update deal with operational costs
+    await Deal.updateOne(
+      { _id: deal._id },
+      {
+        $set: {
+          'operationalCosts.trxSent': trxSent,
+          'operationalCosts.trxReturned': trxReturned,
+          'operationalCosts.feesaverUsed': feesaverUsed,
+          'operationalCosts.feesaverCost': feesaverCost,
+          'operationalCosts.netCostTrx': totalTrxCost,
+          'operationalCosts.netCostUsd': costInUsd,
+          'operationalCosts.trxPriceAtCompletion': trxPriceUsd
+        }
+      }
+    );
+
+    // Log to audit
+    await AuditLog.log(0, 'operational_costs', {
+      dealId: deal.dealId,
+      operation,
+      decision,
+      trxSent,
+      trxReturned,
+      feesaverUsed,
+      feesaverCost,
+      netCostTrx: totalTrxCost,
+      netCostUsd: costInUsd
+    }, { dealId: deal._id });
+
+    console.log(`   Operational costs saved: ${totalTrxCost} TRX ($${costInUsd.toFixed(2)})`);
+  }
+
+  /**
+   * Sleep helper
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
