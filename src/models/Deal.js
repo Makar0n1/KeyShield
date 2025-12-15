@@ -219,8 +219,10 @@ dealSchema.statics.generateDealId = function() {
 };
 
 // Static method to generate uniqueKey for anti-duplicate
+// Now includes timestamp to allow same participants to create multiple deals
 dealSchema.statics.generateUniqueKey = function(buyerId, sellerId, description) {
-  const data = `${buyerId}${sellerId}${description}`;
+  const timestamp = Date.now();
+  const data = `${buyerId}${sellerId}${description}${timestamp}`;
   return crypto.createHash('sha256').update(data).digest('hex');
 };
 
