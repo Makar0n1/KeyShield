@@ -17,6 +17,12 @@ const {
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
 
+// Escape special Markdown characters
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 // ============================================
 // SESSION HELPERS (MongoDB persistence)
 // ============================================
@@ -573,7 +579,7 @@ const confirmCreateDeal = async (ctx) => {
     await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ Создаём сделку и multisig-кошелёк...', {});
 
     const result = await dealService.createDeal(session.data);
-    const { deal, wallet } = result;
+    const { deal, wallet, creatorPrivateKey } = result;
 
     // Clean up session
     await deleteCreateDealSession(telegramId);
@@ -595,17 +601,53 @@ const confirmCreateDeal = async (ctx) => {
       sellerPayout = deal.amount - (commission / 2);
     }
 
+    // ========== SHOW PRIVATE KEY TO CREATOR (60 sec auto-delete) ==========
+    const keyPurpose = deal.creatorRole === 'buyer'
+      ? 'для возврата средств в случае спора или отмены'
+      : 'для получения средств по сделке';
+
+    const keyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ!*
+Он понадобится ${keyPurpose}!
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+🔑 *Ключ:*
+\`${creatorPrivateKey}\`
+
+⏱ _Это сообщение удалится через 60 секунд!_
+
+❗️ *Если вы потеряете ключ, вы не сможете ${deal.creatorRole === 'buyer' ? 'вернуть' : 'получить'} средства!*`;
+
+    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+      parse_mode: 'Markdown'
+    });
+
+    // Delete key message after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+      } catch (e) {
+        // Message might already be deleted
+      }
+    }, 60000);
+
     // ========== NOTIFY CREATOR ==========
     if (deal.creatorRole === 'buyer') {
       // Buyer created - waiting for seller wallet
       const creatorText = `✅ *Сделка создана!*
 
 🆔 ID: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 💰 Сумма: ${deal.amount} ${deal.asset}
 📊 Комиссия: ${commission} ${deal.asset}
 💸 К оплате: ${depositAmount} ${deal.asset}
+
+🔐 *Приватный ключ отправлен выше!*
+⚠️ Сохраните его - он нужен для возврата средств!
 
 ⏳ *Статус:* Ожидание кошелька продавца
 
@@ -636,10 +678,13 @@ const confirmCreateDeal = async (ctx) => {
       const creatorText = `✅ *Сделка создана!*
 
 🆔 ID: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${escapeMarkdown(deal.productName)}
 
 💰 Сумма: ${deal.amount} ${deal.asset}
 💸 Вы получите: ${sellerPayout} ${deal.asset}
+
+🔐 *Приватный ключ отправлен выше!*
+⚠️ Сохраните его - он нужен для получения средств!
 
 ⏳ *Статус:* Ожидание кошелька покупателя
 

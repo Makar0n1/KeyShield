@@ -172,17 +172,26 @@ class DealService {
     const uniqueKey = Deal.generateUniqueKey(buyerId, sellerId, description);
 
     // Validate wallet addresses based on creator role
+    // Also generate private key for creator (pseudo-multisig)
+    let creatorPrivateKey = null;
+
     if (creatorRole === 'buyer') {
       // Buyer created deal - buyer wallet is required, seller wallet is optional
       if (!buyerAddress || !blockchainService.isValidAddress(buyerAddress)) {
         throw new Error('Invalid buyer wallet address');
       }
+      // Generate private key for buyer (creator)
+      const buyerKeys = await blockchainService.generateKeyPair();
+      creatorPrivateKey = buyerKeys.privateKey;
       // Seller address is optional - they provide it later
     } else {
       // Seller created deal - seller wallet is required, buyer wallet is optional
       if (!sellerAddress || !blockchainService.isValidAddress(sellerAddress)) {
         throw new Error('Invalid seller wallet address');
       }
+      // Generate private key for seller (creator)
+      const sellerKeys = await blockchainService.generateKeyPair();
+      creatorPrivateKey = sellerKeys.privateKey;
       // Buyer address is optional - they provide it later
     }
 
@@ -278,7 +287,10 @@ class DealService {
       sellerKey: tempSellerKeys.privateKey, // Not used for payouts
       arbiterKey: arbiterPrivateKey,
       buyerAddress: buyerAddress || null,  // User-provided wallet for payout
-      sellerAddress: sellerAddress || null  // Will be set when seller provides it
+      sellerAddress: sellerAddress || null,  // Will be set when seller provides it
+      // Private keys for pseudo-multisig (set for creator, other set when they provide wallet)
+      buyerPrivateKey: creatorRole === 'buyer' ? creatorPrivateKey : null,
+      sellerPrivateKey: creatorRole === 'seller' ? creatorPrivateKey : null
     });
 
     await deal.save();
@@ -313,7 +325,8 @@ class DealService {
       deal,
       wallet,
       buyerAddress: buyerAddress,
-      sellerAddress: sellerAddress
+      sellerAddress: sellerAddress,
+      creatorPrivateKey  // Return private key to show to creator
     };
   }
 
