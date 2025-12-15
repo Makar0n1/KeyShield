@@ -2,6 +2,7 @@ const Deal = require('../models/Deal');
 const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
 const MultisigWallet = require('../models/MultisigWallet');
+const Session = require('../models/Session');
 const blockchainService = require('./blockchain');
 const feesaverService = require('./feesaver');
 const priceService = require('./priceService');
@@ -325,27 +326,22 @@ class DeadlineMonitor {
   }
 
   /**
-   * Process auto-refund to buyer
-   * Full logic: FeeSaver → TRX fallback → refund → commission → return TRX → log costs
+   * Request buyer's private key for refund (instead of auto-refund)
+   * NO automatic payouts - buyer must input their private key!
    * @param {Object} deal - Deal document
    */
   async processAutoRefund(deal) {
     // Prevent double processing
     if (this.refundingDeals.has(deal.dealId)) {
-      console.log(`⏭️ Deal ${deal.dealId} already in refund process, skipping...`);
+      console.log(`⏭️ Deal ${deal.dealId} already in refund request process, skipping...`);
       return;
     }
 
     this.refundingDeals.add(deal.dealId);
 
-    let energyRented = false;
-    let feesaverCost = 0;
-    let trxReturned = 0;
-
     try {
       // Double-check deal status in DB
-      const currentDeal = await Deal.findById(deal._id)
-        .select('+buyerKey +sellerKey +arbiterKey');
+      const currentDeal = await Deal.findById(deal._id);
 
       if (!currentDeal) {
         console.log(`⏭️ Deal ${deal.dealId} not found, skipping...`);
@@ -358,7 +354,13 @@ class DeadlineMonitor {
         return;
       }
 
-      console.log(`🔄 Processing auto-refund for deal ${deal.dealId}...`);
+      // Check if key validation already requested
+      if (currentDeal.pendingKeyValidation === 'buyer_refund') {
+        console.log(`⏭️ Deal ${deal.dealId} already has pending key validation, skipping...`);
+        return;
+      }
+
+      console.log(`🔐 Requesting buyer's private key for refund on deal ${deal.dealId}...`);
 
       // Get multisig wallet balance
       const balance = await blockchainService.getBalance(deal.multisigAddress, deal.asset);
@@ -366,20 +368,6 @@ class DeadlineMonitor {
       if (balance <= 0) {
         console.log(`⏭️ Deal ${deal.dealId} has zero balance, marking as expired...`);
         await Deal.findByIdAndUpdate(deal._id, { status: 'expired' });
-        return;
-      }
-
-      // Commission is ALWAYS taken on expiration
-      const commission = deal.commission;
-      const refundAmount = balance - commission;
-
-      if (refundAmount <= 0) {
-        console.log(`⚠️ Deal ${deal.dealId} balance (${balance}) <= commission (${commission}), only commission will be taken`);
-        await this.transferCommission(currentDeal, balance);
-        await Deal.findByIdAndUpdate(deal._id, {
-          status: 'expired',
-          completedAt: new Date()
-        });
         return;
       }
 
@@ -391,157 +379,88 @@ class DeadlineMonitor {
         return;
       }
 
-      // Get multisig wallet for signing
-      const wallet = await MultisigWallet.findOne({ dealId: deal._id }).select('+privateKey');
-      if (!wallet || !wallet.privateKey) {
-        console.error(`❌ Deal ${deal.dealId} has no multisig wallet key`);
-        await this.notifyRefundError(deal, 'Ключ кошелька не найден');
-        return;
-      }
+      // Calculate amounts
+      const commission = deal.commission;
+      const refundAmount = balance - commission;
 
-      console.log(`💸 Refunding ${refundAmount} ${deal.asset} to buyer ${buyerAddress}`);
-
-      // 🔋 RENT ENERGY FROM FEESAVER (if enabled)
-      if (feesaverService.isEnabled()) {
-        try {
-          console.log(`🔋 Attempting to rent energy for ${deal.multisigAddress}...`);
-          const rentalResult = await feesaverService.rentEnergyForDeal(deal.multisigAddress);
-          if (rentalResult.success) {
-            energyRented = true;
-            feesaverCost = rentalResult.cost;
-            console.log(`✅ Energy rental successful (cost: ${feesaverCost} TRX)`);
-          }
-        } catch (error) {
-          console.error(`⚠️ Energy rental failed: ${error.message}`);
-          console.log(`⚠️ Falling back to direct TRX usage`);
-          energyRented = false;
-        }
-      } else {
-        console.log(`ℹ️ FeeSaver disabled, using direct TRX for transactions`);
-      }
-
-      // 💰 FALLBACK: Send TRX from arbiter if energy rental failed
-      const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
-      if (!energyRented) {
-        try {
-          console.log(`💸 Sending ${FALLBACK_AMOUNT} TRX from arbiter to multisig for transaction fees...`);
-          const trxResult = await blockchainService.sendTRX(
-            process.env.ARBITER_PRIVATE_KEY,
-            deal.multisigAddress,
-            FALLBACK_AMOUNT
-          );
-
-          if (trxResult.success) {
-            console.log(`✅ Sent ${FALLBACK_AMOUNT} TRX to multisig: ${trxResult.txHash}`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          } else {
-            throw new Error(`Failed to send TRX to multisig: ${trxResult.message}`);
-          }
-        } catch (trxError) {
-          console.error(`❌ Failed to send TRX to multisig:`, trxError.message);
-          throw new Error(`Cannot proceed: both energy rental and TRX fallback failed`);
-        }
-      }
-
-      // 1. Create refund transaction to buyer
-      const refundTx = await blockchainService.createReleaseTransaction(
-        deal.multisigAddress,
-        buyerAddress,
-        refundAmount,
-        deal.asset
-      );
-
-      // Sign with multisig wallet private key
-      const signedRefundTx = await blockchainService.signTransaction(refundTx, wallet.privateKey);
-
-      // Broadcast refund transaction
-      const refundResult = await blockchainService.broadcastTransaction(signedRefundTx);
-
-      if (!refundResult.success) {
-        console.error(`❌ Failed to broadcast refund for ${deal.dealId}:`, refundResult.error);
-        await this.notifyRefundError(deal, `Ошибка транзакции: ${refundResult.error}`);
-        return;
-      }
-
-      console.log(`✅ Refund successful for deal ${deal.dealId}: ${refundResult.txHash}`);
-
-      // Record refund transaction
-      const refundTransaction = new Transaction({
-        dealId: deal._id,
-        type: 'refund',
-        asset: deal.asset,
-        amount: refundAmount,
-        txHash: refundResult.txHash,
-        status: 'confirmed',
-        fromAddress: deal.multisigAddress,
-        toAddress: buyerAddress
-      });
-      refundTransaction.generateExplorerLink();
-      await refundTransaction.save();
-
-      // 2. Transfer commission to service wallet
-      await new Promise(r => setTimeout(r, 3000));
-
-      if (commission > 0) {
-        const serviceTx = await blockchainService.createReleaseTransaction(
-          deal.multisigAddress,
-          process.env.SERVICE_WALLET_ADDRESS,
-          commission,
-          deal.asset
-        );
-        const signedServiceTx = await blockchainService.signTransaction(serviceTx, wallet.privateKey);
-        const serviceResult = await blockchainService.broadcastTransaction(signedServiceTx);
-
-        if (serviceResult.success) {
-          const serviceTransaction = new Transaction({
-            dealId: deal._id,
-            type: 'fee',
-            asset: deal.asset,
-            amount: commission,
-            txHash: serviceResult.txHash,
-            status: 'confirmed',
-            toAddress: process.env.SERVICE_WALLET_ADDRESS
-          });
-          serviceTransaction.generateExplorerLink();
-          await serviceTransaction.save();
-          console.log(`✅ Commission ${commission} ${deal.asset} transferred: ${serviceResult.txHash}`);
-        }
-      }
-
-      // Update deal status
+      // Update deal status to mark pending key validation
       await Deal.findByIdAndUpdate(deal._id, {
-        status: 'expired',
-        completedAt: new Date()
+        pendingKeyValidation: 'buyer_refund'
       });
 
-      // 💰 AUTO-RETURN ALL LEFTOVER TRX to arbiter
-      trxReturned = await this.returnLeftoverTRX(deal, wallet.privateKey, energyRented);
+      // Create key validation session for buyer
+      await Session.setSession(deal.buyerId, 'key_validation', {
+        dealId: deal.dealId,
+        type: 'buyer_refund',
+        attempts: 0,
+        refundAmount,
+        commission
+      }, 24); // TTL 24 hours
 
-      // 📊 SAVE OPERATIONAL COSTS TO DATABASE
-      await this.saveOperationalCosts(deal, energyRented, feesaverCost, trxReturned, 'auto_refund');
+      // Create mock ctx for messageManager
+      const ctx = { telegram: this.botInstance.telegram };
 
-      // Notify both parties
-      await this.notifyRefundComplete(deal, refundAmount, commission, refundResult.txHash);
+      // Notify buyer - request private key
+      const buyerText = `⏰ *Срок сделки истёк!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Работа не была выполнена в срок.
+
+💰 *Для возврата средств введите ваш приватный ключ:*
+
+💸 К возврату: *${refundAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут возвращены!*
+❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
+
+      const buyerKeyboard = {
+        inline_keyboard: [
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]
+      };
+
+      try {
+        await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
+        console.log(`📬 Key request sent to buyer for deal ${deal.dealId}`);
+      } catch (error) {
+        console.error(`Error sending key request to buyer:`, error.message);
+      }
+
+      // Notify seller (informational)
+      const sellerText = `⏰ *Срок сделки истёк*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Работа не была выполнена в срок.
+Покупателю отправлен запрос на возврат средств.`;
+
+      try {
+        await messageManager.showNotification(ctx, deal.sellerId, sellerText, buyerKeyboard);
+      } catch (error) {
+        console.error(`Error sending notification to seller:`, error.message);
+      }
 
       // Log audit
       await AuditLog.create({
-        action: 'DEAL_AUTO_REFUND',
+        action: 'DEAL_REFUND_KEY_REQUESTED',
         dealId: deal._id,
         details: {
           dealId: deal.dealId,
           refundAmount,
           commission,
-          buyerAddress,
-          txHash: refundResult.txHash,
-          energyMethod: energyRented ? 'feesaver' : 'trx',
-          feesaverCost,
-          trxReturned
+          buyerAddress
         }
       });
 
-      console.log(`✅ Auto-refund complete for deal ${deal.dealId}`);
+      console.log(`✅ Key request for refund sent for deal ${deal.dealId}`);
     } catch (error) {
-      console.error(`❌ Error processing auto-refund for ${deal.dealId}:`, error);
+      console.error(`❌ Error requesting key for refund for ${deal.dealId}:`, error);
       await this.notifyRefundError(deal, error.message);
     } finally {
       // Remove from processing set after delay
@@ -552,27 +471,23 @@ class DeadlineMonitor {
   }
 
   /**
-   * Process auto-release to seller (when work_submitted and buyer didn't respond)
-   * Full logic: FeeSaver → TRX fallback → release → commission → return TRX → log costs
+   * Request seller's private key for release (instead of auto-release)
+   * NO automatic payouts - seller must input their private key!
+   * Called when work_submitted and buyer didn't respond within grace period
    * @param {Object} deal - Deal document
    */
   async processAutoRelease(deal) {
     // Prevent double processing (reuse same Set)
     if (this.refundingDeals.has(deal.dealId)) {
-      console.log(`⏭️ Deal ${deal.dealId} already in release process, skipping...`);
+      console.log(`⏭️ Deal ${deal.dealId} already in release request process, skipping...`);
       return;
     }
 
     this.refundingDeals.add(deal.dealId);
 
-    let energyRented = false;
-    let feesaverCost = 0;
-    let trxReturned = 0;
-
     try {
       // Double-check deal status in DB
-      const currentDeal = await Deal.findById(deal._id)
-        .select('+buyerKey +sellerKey +arbiterKey');
+      const currentDeal = await Deal.findById(deal._id);
 
       if (!currentDeal) {
         console.log(`⏭️ Deal ${deal.dealId} not found, skipping...`);
@@ -585,7 +500,13 @@ class DeadlineMonitor {
         return;
       }
 
-      console.log(`🔄 Processing auto-release for deal ${deal.dealId} (work was submitted)...`);
+      // Check if key validation already requested
+      if (currentDeal.pendingKeyValidation === 'seller_release') {
+        console.log(`⏭️ Deal ${deal.dealId} already has pending key validation, skipping...`);
+        return;
+      }
+
+      console.log(`🔐 Requesting seller's private key for release on deal ${deal.dealId}...`);
 
       // Get multisig wallet balance
       const balance = await blockchainService.getBalance(deal.multisigAddress, deal.asset);
@@ -593,20 +514,6 @@ class DeadlineMonitor {
       if (balance <= 0) {
         console.log(`⏭️ Deal ${deal.dealId} has zero balance, marking as completed...`);
         await Deal.findByIdAndUpdate(deal._id, { status: 'completed', completedAt: new Date() });
-        return;
-      }
-
-      // Standard commission (no penalties)
-      const commission = deal.commission;
-      const releaseAmount = balance - commission;
-
-      if (releaseAmount <= 0) {
-        console.log(`⚠️ Deal ${deal.dealId} balance (${balance}) <= commission (${commission}), only commission will be taken`);
-        await this.transferCommissionForRelease(currentDeal, balance);
-        await Deal.findByIdAndUpdate(deal._id, {
-          status: 'completed',
-          completedAt: new Date()
-        });
         return;
       }
 
@@ -618,158 +525,92 @@ class DeadlineMonitor {
         return;
       }
 
-      // Get multisig wallet for signing
-      const wallet = await MultisigWallet.findOne({ dealId: deal._id }).select('+privateKey');
-      if (!wallet || !wallet.privateKey) {
-        console.error(`❌ Deal ${deal.dealId} has no multisig wallet key`);
-        await this.notifyReleaseError(deal, 'Ключ кошелька не найден');
-        return;
-      }
+      // Calculate amounts
+      const commission = deal.commission;
+      const releaseAmount = balance - commission;
 
-      console.log(`💸 Releasing ${releaseAmount} ${deal.asset} to seller ${sellerAddress}`);
-
-      // 🔋 RENT ENERGY FROM FEESAVER (if enabled)
-      if (feesaverService.isEnabled()) {
-        try {
-          console.log(`🔋 Attempting to rent energy for ${deal.multisigAddress}...`);
-          const rentalResult = await feesaverService.rentEnergyForDeal(deal.multisigAddress);
-          if (rentalResult.success) {
-            energyRented = true;
-            feesaverCost = rentalResult.cost;
-            console.log(`✅ Energy rental successful (cost: ${feesaverCost} TRX)`);
-          }
-        } catch (error) {
-          console.error(`⚠️ Energy rental failed: ${error.message}`);
-          console.log(`⚠️ Falling back to direct TRX usage`);
-          energyRented = false;
-        }
-      } else {
-        console.log(`ℹ️ FeeSaver disabled, using direct TRX for transactions`);
-      }
-
-      // 💰 FALLBACK: Send TRX from arbiter if energy rental failed
-      const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
-      if (!energyRented) {
-        try {
-          console.log(`💸 Sending ${FALLBACK_AMOUNT} TRX from arbiter to multisig for transaction fees...`);
-          const trxResult = await blockchainService.sendTRX(
-            process.env.ARBITER_PRIVATE_KEY,
-            deal.multisigAddress,
-            FALLBACK_AMOUNT
-          );
-
-          if (trxResult.success) {
-            console.log(`✅ Sent ${FALLBACK_AMOUNT} TRX to multisig: ${trxResult.txHash}`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          } else {
-            throw new Error(`Failed to send TRX to multisig: ${trxResult.message}`);
-          }
-        } catch (trxError) {
-          console.error(`❌ Failed to send TRX to multisig:`, trxError.message);
-          throw new Error(`Cannot proceed: both energy rental and TRX fallback failed`);
-        }
-      }
-
-      // 1. Create release transaction to seller
-      const releaseTx = await blockchainService.createReleaseTransaction(
-        deal.multisigAddress,
-        sellerAddress,
-        releaseAmount,
-        deal.asset
-      );
-
-      // Sign with multisig wallet private key
-      const signedReleaseTx = await blockchainService.signTransaction(releaseTx, wallet.privateKey);
-
-      // Broadcast release transaction
-      const releaseResult = await blockchainService.broadcastTransaction(signedReleaseTx);
-
-      if (!releaseResult.success) {
-        console.error(`❌ Failed to broadcast release for ${deal.dealId}:`, releaseResult.error);
-        await this.notifyReleaseError(deal, `Ошибка транзакции: ${releaseResult.error}`);
-        return;
-      }
-
-      console.log(`✅ Release successful for deal ${deal.dealId}: ${releaseResult.txHash}`);
-
-      // Record release transaction
-      const releaseTransaction = new Transaction({
-        dealId: deal._id,
-        type: 'release',
-        asset: deal.asset,
-        amount: releaseAmount,
-        txHash: releaseResult.txHash,
-        status: 'confirmed',
-        fromAddress: deal.multisigAddress,
-        toAddress: sellerAddress
-      });
-      releaseTransaction.generateExplorerLink();
-      await releaseTransaction.save();
-
-      // 2. Transfer commission to service wallet
-      await new Promise(r => setTimeout(r, 3000));
-
-      if (commission > 0) {
-        const serviceTx = await blockchainService.createReleaseTransaction(
-          deal.multisigAddress,
-          process.env.SERVICE_WALLET_ADDRESS,
-          commission,
-          deal.asset
-        );
-        const signedServiceTx = await blockchainService.signTransaction(serviceTx, wallet.privateKey);
-        const serviceResult = await blockchainService.broadcastTransaction(signedServiceTx);
-
-        if (serviceResult.success) {
-          const serviceTransaction = new Transaction({
-            dealId: deal._id,
-            type: 'fee',
-            asset: deal.asset,
-            amount: commission,
-            txHash: serviceResult.txHash,
-            status: 'confirmed',
-            toAddress: process.env.SERVICE_WALLET_ADDRESS
-          });
-          serviceTransaction.generateExplorerLink();
-          await serviceTransaction.save();
-          console.log(`✅ Commission ${commission} ${deal.asset} transferred: ${serviceResult.txHash}`);
-        }
-      }
-
-      // Update deal status
+      // Update deal status to mark pending key validation
       await Deal.findByIdAndUpdate(deal._id, {
-        status: 'completed',
-        completedAt: new Date()
+        pendingKeyValidation: 'seller_release'
       });
 
-      // 💰 AUTO-RETURN ALL LEFTOVER TRX to arbiter
-      trxReturned = await this.returnLeftoverTRX(deal, wallet.privateKey, energyRented);
+      // Create key validation session for seller
+      await Session.setSession(deal.sellerId, 'key_validation', {
+        dealId: deal.dealId,
+        type: 'seller_release',
+        attempts: 0,
+        releaseAmount,
+        commission
+      }, 24); // TTL 24 hours
 
-      // 📊 SAVE OPERATIONAL COSTS TO DATABASE
-      await this.saveOperationalCosts(deal, energyRented, feesaverCost, trxReturned, 'auto_release');
+      // Create mock ctx for messageManager
+      const ctx = { telegram: this.botInstance.telegram };
 
-      // Notify both parties
-      await this.notifyReleaseComplete(deal, releaseAmount, commission, releaseResult.txHash);
+      // Notify seller - request private key
+      const sellerText = `✅ *Работа принята автоматически!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Покупатель не ответил в течение 12 часов после сдачи работы.
+Работа принята автоматически!
+
+💰 *Для получения средств введите ваш приватный ключ:*
+
+💸 К получению: *${releaseAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут переведены!*
+❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
+
+      const sellerKeyboard = {
+        inline_keyboard: [
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]
+      };
+
+      try {
+        await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
+        console.log(`📬 Key request sent to seller for deal ${deal.dealId}`);
+      } catch (error) {
+        console.error(`Error sending key request to seller:`, error.message);
+      }
+
+      // Notify buyer (informational)
+      const buyerText = `⏰ *Время на проверку работы истекло*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Вы не ответили в течение 12 часов после сдачи работы.
+Работа принята автоматически.
+
+Средства будут переведены продавцу после подтверждения.`;
+
+      try {
+        await messageManager.showNotification(ctx, deal.buyerId, buyerText, sellerKeyboard);
+      } catch (error) {
+        console.error(`Error sending notification to buyer:`, error.message);
+      }
 
       // Log audit
       await AuditLog.create({
-        action: 'DEAL_AUTO_RELEASE',
+        action: 'DEAL_RELEASE_KEY_REQUESTED',
         dealId: deal._id,
         details: {
           dealId: deal.dealId,
           releaseAmount,
           commission,
           sellerAddress,
-          txHash: releaseResult.txHash,
-          reason: 'work_submitted_buyer_timeout',
-          energyMethod: energyRented ? 'feesaver' : 'trx',
-          feesaverCost,
-          trxReturned
+          reason: 'work_submitted_buyer_timeout'
         }
       });
 
-      console.log(`✅ Auto-release complete for deal ${deal.dealId}`);
+      console.log(`✅ Key request for release sent for deal ${deal.dealId}`);
     } catch (error) {
-      console.error(`❌ Error processing auto-release for ${deal.dealId}:`, error);
+      console.error(`❌ Error requesting key for release for ${deal.dealId}:`, error);
       await this.notifyReleaseError(deal, error.message);
     } finally {
       // Remove from processing set after delay

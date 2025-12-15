@@ -15,11 +15,11 @@ const sessionSchema = new mongoose.Schema({
     index: true
   },
 
-  // Session type: 'create_deal', 'dispute', 'navigation', 'screen_data'
+  // Session type: 'create_deal', 'dispute', 'navigation', 'screen_data', 'key_validation'
   type: {
     type: String,
     required: true,
-    enum: ['create_deal', 'dispute', 'navigation', 'screen_data'],
+    enum: ['create_deal', 'dispute', 'navigation', 'screen_data', 'key_validation'],
     index: true
   },
 

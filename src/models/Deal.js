@@ -124,6 +124,24 @@ const dealSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Private keys for pseudo-multisig validation
+  // Users must input these keys to receive payouts
+  buyerPrivateKey: {
+    type: String,
+    default: null,
+    select: false // Never return in queries by default
+  },
+  sellerPrivateKey: {
+    type: String,
+    default: null,
+    select: false
+  },
+  // Pending key validation status (for auto-payouts and disputes)
+  pendingKeyValidation: {
+    type: String,
+    enum: [null, 'buyer_refund', 'seller_release', 'seller_payout', 'dispute_buyer', 'dispute_seller'],
+    default: null
+  },
   depositTxHash: {
     type: String,
     default: null

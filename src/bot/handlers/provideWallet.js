@@ -110,12 +110,47 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       return true;
     }
 
-    // Update deal with seller address
+    // Generate private key for seller (pseudo-multisig)
+    const sellerKeys = await blockchainService.generateKeyPair();
+    const sellerPrivateKey = sellerKeys.privateKey;
+
+    // Update deal with seller address and private key
     deal.sellerAddress = text;
+    deal.sellerPrivateKey = sellerPrivateKey;
     deal.status = 'waiting_for_deposit';
     await deal.save();
 
     console.log(`✅ Seller wallet set for deal ${deal.dealId}: ${text}`);
+
+    // Show private key message (will be deleted in 60 seconds)
+    const keyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ!*
+Он понадобится для получения средств по сделке!
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+🔑 *Ключ:*
+\`${sellerPrivateKey}\`
+
+⏱ _Это сообщение удалится через 60 секунд!_
+
+❗️ *Если вы потеряете ключ, вы не сможете получить средства!*`;
+
+    // Send key message (separate from main message flow)
+    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+      parse_mode: 'Markdown'
+    });
+
+    // Delete key message after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+      } catch (e) {
+        // Message might already be deleted
+      }
+    }, 60000);
 
     // Show confirmation to seller (final screen)
     const sellerText = `✅ *Кошелек сохранен!*
@@ -124,6 +159,9 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${deal.productName}
+
+🔐 *Приватный ключ отправлен выше!*
+⚠️ Сохраните его - он нужен для получения средств!
 
 Ожидаем депозит от покупателя.
 Вы получите уведомление, когда средства поступят.`;
@@ -219,12 +257,47 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       return true;
     }
 
-    // Update deal with buyer address
+    // Generate private key for buyer (pseudo-multisig)
+    const buyerKeys = await blockchainService.generateKeyPair();
+    const buyerPrivateKey = buyerKeys.privateKey;
+
+    // Update deal with buyer address and private key
     deal.buyerAddress = text;
+    deal.buyerPrivateKey = buyerPrivateKey;
     deal.status = 'waiting_for_deposit';
     await deal.save();
 
     console.log(`✅ Buyer wallet set for deal ${deal.dealId}: ${text}`);
+
+    // Show private key message (will be deleted in 60 seconds)
+    const keyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ!*
+Он понадобится для возврата средств в случае спора или отмены!
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+🔑 *Ключ:*
+\`${buyerPrivateKey}\`
+
+⏱ _Это сообщение удалится через 60 секунд!_
+
+❗️ *Если вы потеряете ключ, вы не сможете вернуть средства!*`;
+
+    // Send key message (separate from main message flow)
+    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+      parse_mode: 'Markdown'
+    });
+
+    // Delete key message after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+      } catch (e) {
+        // Message might already be deleted
+      }
+    }, 60000);
 
     // Calculate deposit amount
     let depositAmount = deal.amount;
@@ -244,6 +317,9 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${deal.productName}
+
+🔐 *Приватный ключ отправлен выше!*
+⚠️ Сохраните его - он нужен для возврата средств!
 
 🔐 *Адрес для депозита (${deal.asset}):*
 \`${deal.multisigAddress}\`

@@ -4,6 +4,7 @@ require('dotenv').config();
 const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
 const deadlineMonitor = require('../services/deadlineMonitor');
+const disputeService = require('../services/disputeService');
 const notificationService = require('../services/notificationService');
 const blogNotificationService = require('../services/blogNotificationService');
 const messageManager = require('./utils/messageManager');
@@ -50,6 +51,11 @@ const {
   declineDeal,
   cancelDeal
 } = require('./handlers/provideWallet');
+const {
+  hasKeyValidationSession,
+  handleKeyValidationInput,
+  clearKeyValidationSession
+} = require('./handlers/keyValidation');
 
 // Initialize bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -81,6 +87,7 @@ bot.command('cancel', async (ctx) => {
   // Clear any active sessions
   await clearCreateDealSession(telegramId);
   await clearDisputeSession(telegramId);
+  await clearKeyValidationSession(telegramId);
 
   // Show main menu
   await mainMenuHandler(ctx);
@@ -188,6 +195,13 @@ bot.on('text', async (ctx) => {
   const telegramId = ctx.from.id;
   const text = ctx.message.text.trim();
 
+  // Handle key validation input FIRST (pseudo-multisig)
+  // This must be checked before any other handlers
+  if (await hasKeyValidationSession(telegramId)) {
+    await handleKeyValidationInput(ctx);
+    return;
+  }
+
   // Handle wallet input (both seller and buyer)
   // These return true if they handled the message
   if (await handleSellerWalletInput(ctx)) return;
@@ -249,6 +263,7 @@ const startBot = async () => {
     deadlineMonitor.setBotInstance(bot);
     deadlineMonitor.start();
 
+    disputeService.setBotInstance(bot);
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
 

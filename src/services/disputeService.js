@@ -1,6 +1,7 @@
 const Dispute = require('../models/Dispute');
 const Deal = require('../models/Deal');
 const User = require('../models/User');
+const Session = require('../models/Session');
 const AuditLog = require('../models/AuditLog');
 const Transaction = require('../models/Transaction');
 const MultisigWallet = require('../models/MultisigWallet');
@@ -11,6 +12,7 @@ const priceService = require('./priceService');
 const constants = require('../config/constants');
 const TronWeb = require('tronweb');
 const notificationService = require('./notificationService');
+const messageManager = require('../bot/utils/messageManager');
 
 class DisputeService {
   /**
@@ -105,7 +107,16 @@ class DisputeService {
   }
 
   /**
+   * Set bot instance for sending notifications
+   * @param {Object} bot - Telegraf bot instance
+   */
+  setBotInstance(bot) {
+    this.botInstance = bot;
+  }
+
+  /**
    * Resolve dispute (admin/arbiter action)
+   * NO automatic payouts - winner must input their private key!
    * @param {string} dealId
    * @param {string} decision - 'refund_buyer' or 'release_seller'
    * @param {number} arbiterId - Admin/arbiter user ID
@@ -133,31 +144,49 @@ class DisputeService {
     // Resolve dispute
     await dispute.resolve(decision, arbiterId);
 
-    // Update deal status
-    deal.status = 'resolved';
-    await deal.save();
-
-    // Update user dispute stats
+    // Determine winner and loser
     const winnerId = decision === 'refund_buyer' ? deal.buyerId : deal.sellerId;
     const loserId = decision === 'refund_buyer' ? deal.sellerId : deal.buyerId;
+    const winnerRole = decision === 'refund_buyer' ? 'buyer' : 'seller';
 
     const winner = await User.findOne({ telegramId: winnerId });
     const loser = await User.findOne({ telegramId: loserId });
 
+    // Update dispute stats BEFORE sending notifications (so loser sees correct streak)
     if (winner) {
-      await winner.updateDisputeStats(true); // Won
+      await winner.updateDisputeStats(true); // Won - resets loss streak
     }
 
     if (loser) {
-      await loser.updateDisputeStats(false); // Lost
+      await loser.updateDisputeStats(false); // Lost - increments loss streak
     }
 
-    // Check if autoban was triggered and send ban notification
-    const autobanTriggered = loser?.blacklisted && loser.disputeStats.lossStreak >= 3;
-    if (autobanTriggered) {
-      console.log(`🚫 Auto-ban triggered for user ${loserId} (3 consecutive dispute losses)`);
-      await this.sendBanNotification(loserId);
-    }
+    // Reload loser to get updated stats
+    const updatedLoser = await User.findOne({ telegramId: loserId });
+    const lossStreak = updatedLoser?.disputeStats?.lossStreak || 1;
+    const isNowBanned = updatedLoser?.blacklisted || false;
+
+    // Get balance and calculate amounts
+    const balance = await blockchainService.getBalance(deal.multisigAddress, deal.asset);
+    const commission = deal.commission;
+    const payoutAmount = balance - commission;
+
+    // Determine pending key validation type
+    const keyValidationType = decision === 'refund_buyer' ? 'dispute_buyer' : 'dispute_seller';
+
+    // Update deal status to mark pending key validation (NOT resolved yet - wait for key)
+    await Deal.findByIdAndUpdate(deal._id, {
+      pendingKeyValidation: keyValidationType
+    });
+
+    // Create key validation session for winner
+    await Session.setSession(winnerId, 'key_validation', {
+      dealId: deal.dealId,
+      type: keyValidationType,
+      attempts: 0,
+      payoutAmount,
+      commission
+    }, 24); // TTL 24 hours
 
     // Log decision
     await AuditLog.logArbitrageDecision(arbiterId, deal._id, dispute._id, {
@@ -165,31 +194,92 @@ class DisputeService {
       decision,
       winnerId,
       loserId,
-      loserNewStreak: loser?.disputeStats.lossStreak,
-      loserBanned: loser?.blacklisted
+      loserNewStreak: lossStreak,
+      loserBanned: isNowBanned
     });
 
     // =============================================
-    // Process actual payout (new functionality)
+    // Send notifications (NO auto-payout!)
     // =============================================
-    let payoutResult = null;
-    try {
-      payoutResult = await this.processDisputePayout(deal, decision, arbiterId);
-      console.log(`✅ Dispute payout completed for deal ${deal.dealId}`);
-    } catch (payoutError) {
-      console.error(`❌ Dispute payout failed for deal ${deal.dealId}:`, payoutError.message);
-      // Don't throw - dispute is resolved, payout failure should be handled separately
-      // The admin can retry the payout manually if needed
-      payoutResult = { success: false, error: payoutError.message };
+
+    // Create mock ctx for messageManager
+    const ctx = this.botInstance ? { telegram: this.botInstance.telegram } : null;
+
+    if (ctx) {
+      // Notify WINNER - request private key
+      const winnerText = `✅ *Спор решён в вашу пользу!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+💰 *Для получения средств введите ваш приватный ключ:*
+
+💸 К получению: *${payoutAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут переведены!*
+❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
+
+      const winnerKeyboard = {
+        inline_keyboard: [
+          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]
+      };
+
+      try {
+        await messageManager.showNotification(ctx, winnerId, winnerText, winnerKeyboard);
+        console.log(`📬 Key request sent to winner for deal ${deal.dealId}`);
+      } catch (error) {
+        console.error(`Error sending key request to winner:`, error.message);
+      }
+
+      // Notify LOSER - inform about loss streak
+      let loserText = `❌ *Спор решён не в вашу пользу*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+⚠️ *Проигранных споров подряд: ${lossStreak} из 3*`;
+
+      if (isNowBanned) {
+        loserText += `
+
+🚫 *Ваш аккаунт заблокирован!*
+Вы проиграли 3 спора подряд.
+
+Заблокированные пользователи не могут:
+• Создавать новые сделки
+• Участвовать в сделках как контрагент
+
+Для разблокировки обратитесь в поддержку: @mamlyga`;
+      } else {
+        loserText += `
+
+_После 3 проигранных споров подряд — автоматическая блокировка аккаунта._
+_Счётчик сбрасывается после первой победы в споре._`;
+      }
+
+      try {
+        await messageManager.showNotification(ctx, loserId, loserText, winnerKeyboard);
+        console.log(`📬 Loss notification sent to loser for deal ${deal.dealId}`);
+      } catch (error) {
+        console.error(`Error sending notification to loser:`, error.message);
+      }
     }
+
+    console.log(`🔐 Dispute resolved for deal ${deal.dealId}, awaiting winner's key for payout`);
 
     return {
       dispute,
       deal,
       winner,
-      loser,
-      autobanTriggered,
-      payout: payoutResult
+      loser: updatedLoser,
+      autobanTriggered: isNowBanned,
+      keyRequested: true,
+      winnerId,
+      payoutAmount
     };
   }
 
