@@ -283,6 +283,9 @@ const dealDetailsKeyboard = (dealId, userRole, dealStatus) => {
     buttons.push([
       Markup.button.callback('💳 Показать адрес депозита', `show_deposit:${dealId}`)
     ]);
+    buttons.push([
+      Markup.button.callback('❌ Отменить сделку', `cancel_deal:${dealId}`)
+    ]);
   }
 
   // Navigation
