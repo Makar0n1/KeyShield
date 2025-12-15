@@ -149,6 +149,16 @@ export function BlogPostEditorPage() {
       alert('Введите содержимое')
       return
     }
+    if (formData.seoTitle.length > 70) {
+      alert('SEO Title слишком длинный (максимум 70 символов)')
+      setActiveTab('seo')
+      return
+    }
+    if (formData.seoDescription.length > 160) {
+      alert('SEO Description слишком длинный (максимум 160 символов)')
+      setActiveTab('seo')
+      return
+    }
 
     setSaving(true)
     try {
@@ -305,7 +315,12 @@ export function BlogPostEditorPage() {
                   value={formData.seoTitle}
                   onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })}
                   placeholder="SEO заголовок (по умолчанию используется заголовок статьи)"
+                  className={formData.seoTitle.length > 70 ? 'border-red-500 focus:border-red-500' : ''}
                 />
+                <p className={`text-xs mt-1 ${formData.seoTitle.length > 70 ? 'text-red-500' : 'text-muted'}`}>
+                  {formData.seoTitle.length}/70 символов
+                  {formData.seoTitle.length > 70 && ' — слишком длинный заголовок'}
+                </p>
               </div>
 
               <div>
@@ -317,9 +332,11 @@ export function BlogPostEditorPage() {
                   onChange={(e) => setFormData({ ...formData, seoDescription: e.target.value })}
                   placeholder="Meta description (150-160 символов)"
                   rows={3}
+                  className={formData.seoDescription.length > 160 ? 'border-red-500 focus:border-red-500' : ''}
                 />
-                <p className="text-xs text-muted mt-1">
+                <p className={`text-xs mt-1 ${formData.seoDescription.length > 160 ? 'text-red-500' : 'text-muted'}`}>
                   {formData.seoDescription.length}/160 символов
+                  {formData.seoDescription.length > 160 && ' — слишком длинное описание'}
                 </p>
               </div>
 

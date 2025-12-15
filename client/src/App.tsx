@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PublicLayout, AdminLayout } from '@/components/layout'
 import { PartnerLayout } from '@/layouts/PartnerLayout'
 import { PartnerAuthProvider, usePartnerAuth } from '@/contexts/PartnerAuthContext'
+import { ScrollToTop, ScrollToTopButton } from '@/components/ui'
 
 // Protected route wrapper for partner pages
 function PartnerProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -80,6 +81,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
+        <ScrollToTopButton />
         <Routes>
           {/* Public Routes with Header/Footer */}
           <Route element={<PublicLayout />}>

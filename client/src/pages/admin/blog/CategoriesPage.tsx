@@ -89,6 +89,14 @@ export function BlogCategoriesPage() {
       alert('Введите название категории')
       return
     }
+    if (formData.seoTitle.length > 70) {
+      alert('SEO Title слишком длинный (максимум 70 символов)')
+      return
+    }
+    if (formData.seoDescription.length > 160) {
+      alert('SEO Description слишком длинный (максимум 160 символов)')
+      return
+    }
 
     setSaving(true)
     try {
@@ -274,7 +282,12 @@ export function BlogCategoriesPage() {
                       value={formData.seoTitle}
                       onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })}
                       placeholder="SEO заголовок"
+                      className={formData.seoTitle.length > 70 ? 'border-red-500 focus:border-red-500' : ''}
                     />
+                    <p className={`text-xs mt-1 ${formData.seoTitle.length > 70 ? 'text-red-500' : 'text-muted'}`}>
+                      {formData.seoTitle.length}/70 символов
+                      {formData.seoTitle.length > 70 && ' — слишком длинный'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -285,7 +298,12 @@ export function BlogCategoriesPage() {
                       onChange={(e) => setFormData({ ...formData, seoDescription: e.target.value })}
                       placeholder="Meta description"
                       rows={2}
+                      className={formData.seoDescription.length > 160 ? 'border-red-500 focus:border-red-500' : ''}
                     />
+                    <p className={`text-xs mt-1 ${formData.seoDescription.length > 160 ? 'text-red-500' : 'text-muted'}`}>
+                      {formData.seoDescription.length}/160 символов
+                      {formData.seoDescription.length > 160 && ' — слишком длинное'}
+                    </p>
                   </div>
                 </div>
               </div>
