@@ -143,7 +143,7 @@ const startHandler = async (ctx) => {
     await messageManager.deleteMainMessage(ctx, telegramId);
 
     // Reset navigation to main menu
-    messageManager.resetNavigation(telegramId);
+    await messageManager.resetNavigation(telegramId);
 
     // Choose text based on new/returning user
     const textToShow = isNewUser ? WELCOME_TEXT : MAIN_MENU_TEXT;
@@ -157,7 +157,7 @@ const startHandler = async (ctx) => {
 
     // Track main message (persisted to DB)
     await messageManager.setMainMessage(telegramId, msg.message_id);
-    messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
+    await messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
 
     console.log(`${isNewUser ? 'Welcome' : 'Main menu'} shown to user ${telegramId}, message ID: ${msg.message_id}`);
   } catch (error) {
@@ -170,17 +170,17 @@ const startHandler = async (ctx) => {
  */
 const mainMenuHandler = async (ctx) => {
   try {
-    await ctx.answerCbQuery();
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery();
+    }
 
     const telegramId = ctx.from.id;
 
-    // Reset navigation to main menu
-    messageManager.resetNavigation(telegramId);
+    // Reset navigation and show main menu (uses delete + send)
+    await messageManager.resetNavigation(telegramId);
 
-    // Show main menu
     const keyboard = mainMenuKeyboard();
-    await messageManager.editMainMessage(ctx, telegramId, MAIN_MENU_TEXT, keyboard);
-    messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+    await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
   } catch (error) {
     console.error('Error in main menu handler:', error);
   }
@@ -195,14 +195,13 @@ const backHandler = async (ctx) => {
 
     const telegramId = ctx.from.id;
 
-    // Try to go back
+    // Try to go back (uses delete + send)
     const previousScreen = await messageManager.goBack(ctx, telegramId);
 
     // If no previous screen, show main menu
     if (!previousScreen) {
       const keyboard = mainMenuKeyboard();
-      await messageManager.editMainMessage(ctx, telegramId, MAIN_MENU_TEXT, keyboard);
-      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+      await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
     }
   } catch (error) {
     console.error('Error in back handler:', error);

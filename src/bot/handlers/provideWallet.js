@@ -62,7 +62,7 @@ const enterWalletHandler = async (ctx) => {
 Введите адрес вашего TRON-кошелька (TRC-20):
 
 _Адрес должен начинаться с T и содержать 34 символа_
-_Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj_`;
+_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
 
     const keyboard = backButton();
     await messageManager.navigateToScreen(ctx, telegramId, `enter_wallet_${dealId}`, text, keyboard);
@@ -101,12 +101,12 @@ const handleSellerWalletInput = async (ctx) => {
       const errorText = `❌ *Неверный адрес кошелька!*
 
 Адрес должен начинаться с T и содержать 34 символа.
-_Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj_
+_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
 Попробуйте ещё раз:`;
 
       const keyboard = backButton();
-      await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+      await messageManager.updateScreen(ctx, telegramId, 'seller_wallet_error', errorText, keyboard);
       return true;
     }
 
@@ -210,12 +210,12 @@ const handleBuyerWalletInput = async (ctx) => {
       const errorText = `❌ *Неверный адрес кошелька!*
 
 Адрес должен начинаться с T и содержать 34 символа.
-_Пример: TQRfXYMDSspFQBXPf9MevZpkYgUXkviCSj_
+_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
 Попробуйте ещё раз:`;
 
       const keyboard = backButton();
-      await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+      await messageManager.updateScreen(ctx, telegramId, 'buyer_wallet_error', errorText, keyboard);
       return true;
     }
 

@@ -194,7 +194,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
 
 Введите другой @username:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_username', errorText, keyboard);
     return;
   }
 
@@ -210,7 +210,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
 
 Введите другой @username:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_username', errorText, keyboard);
     return;
   }
 
@@ -221,7 +221,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
 
 Введите другой @username:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_username', errorText, keyboard);
     return;
   }
 
@@ -232,7 +232,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
 
 Введите другой @username:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_username', errorText, keyboard);
     return;
   }
 
@@ -280,7 +280,7 @@ const handleProductName = async (ctx, session, text) => {
 
 Введите название:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_name', errorText, keyboard);
     return;
   }
 
@@ -320,7 +320,7 @@ const handleDescription = async (ctx, session, text) => {
 
 Введите описание:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_description', errorText, keyboard);
     return;
   }
 
@@ -390,7 +390,7 @@ const handleAmount = async (ctx, session, text) => {
 
 Введите сумму:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_amount', errorText, keyboard);
     return;
   }
 
@@ -435,7 +435,7 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
 
 Введите адрес:`;
     const keyboard = backButton();
-    await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_wallet', errorText, keyboard);
     return;
   }
 
@@ -569,8 +569,8 @@ const confirmCreateDeal = async (ctx) => {
 
     if (!session || session.step !== 'confirm') return;
 
-    // Show loading
-    await messageManager.editMainMessage(ctx, telegramId, '⏳ Создаём сделку и multisig-кошелёк...', {});
+    // Show loading (use updateScreen for silent edit)
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ Создаём сделку и multisig-кошелёк...', {});
 
     const result = await dealService.createDeal(session.data);
     const { deal, wallet } = result;

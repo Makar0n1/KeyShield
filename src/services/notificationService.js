@@ -1,6 +1,9 @@
 /**
  * Notification Service - sends Telegram notifications to users
+ * Uses DELETE + SEND pattern via messageManager for consistent UX
  */
+
+const messageManager = require('../bot/utils/messageManager');
 
 class NotificationService {
   constructor() {
@@ -25,22 +28,21 @@ class NotificationService {
   }
 
   /**
-   * Send a notification message to a user
+   * Send a notification message to a user using DELETE + SEND pattern
    * @param {number} userId - Telegram user ID
    * @param {string} text - Message text
-   * @param {Object} extra - Extra options (parse_mode, reply_markup, etc.)
+   * @param {Object} keyboard - Inline keyboard object
    */
-  async sendNotification(userId, text, extra = {}) {
+  async sendNotification(userId, text, keyboard = {}) {
     if (!this.bot) {
       console.error('❌ Bot instance not set in notification service');
       return false;
     }
 
     try {
-      await this.bot.telegram.sendMessage(userId, text, {
-        parse_mode: 'Markdown',
-        ...extra
-      });
+      // Create mock ctx for messageManager
+      const ctx = { telegram: this.bot.telegram };
+      await messageManager.showNotification(ctx, userId, text, keyboard);
       console.log(`📤 Notification sent to user ${userId}`);
       return true;
     } catch (error) {
@@ -56,35 +58,84 @@ class NotificationService {
    * @param {string} dealId - Deal ID
    */
   async notifyDisputeCancelled(buyerId, sellerId, dealId) {
-    const message = `⚠️ *Спор отменен администратором*\n\n` +
-      `Сделка: \`${dealId}\`\n\n` +
-      `Спор был отменен. Вы можете продолжить работу по сделке или открыть новый спор при необходимости.\n\n` +
-      `Используйте /my_deals для просмотра активных сделок.`;
+    const message = `⚠️ *Спор отменен администратором*
 
-    await this.sendNotification(buyerId, message);
-    await this.sendNotification(sellerId, message);
+Сделка: \`${dealId}\`
+
+Спор был отменен. Вы можете продолжить работу по сделке или открыть новый спор при необходимости.`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📋 Детали сделки', callback_data: `view_deal_${dealId}` }],
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+      ]
+    };
+
+    await this.sendNotification(buyerId, message, keyboard);
+    await this.sendNotification(sellerId, message, keyboard);
   }
 
   /**
    * Notify both parties about dispute resolution
+   * Uses showFinalScreen since dispute resolution is a final state
    * @param {number} buyerId - Buyer's Telegram ID
    * @param {number} sellerId - Seller's Telegram ID
    * @param {string} dealId - Deal ID
    * @param {string} decision - 'refund_buyer' or 'release_seller'
    */
   async notifyDisputeResolved(buyerId, sellerId, dealId, decision) {
-    const winner = decision === 'refund_buyer' ? 'покупателя' : 'продавца';
+    if (!this.bot) {
+      console.error('❌ Bot instance not set in notification service');
+      return;
+    }
+
+    // Create mock ctx for messageManager
+    const ctx = { telegram: this.bot.telegram };
+
+    // Final keyboard (no back button - dispute resolution is final)
+    const finalKeyboard = {
+      inline_keyboard: [
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+      ]
+    };
 
     const buyerMessage = decision === 'refund_buyer'
-      ? `✅ *Спор решен в вашу пользу*\n\nСделка: \`${dealId}\`\n\nАдминистратор решил спор в вашу пользу. Средства будут возвращены на ваш кошелек.`
-      : `❌ *Спор решен в пользу продавца*\n\nСделка: \`${dealId}\`\n\nАдминистратор решил спор в пользу продавца. Средства будут переведены продавцу.`;
+      ? `✅ *Спор решен в вашу пользу*
+
+Сделка: \`${dealId}\`
+
+Администратор решил спор в вашу пользу. Средства будут возвращены на ваш кошелек.`
+      : `❌ *Спор решен в пользу продавца*
+
+Сделка: \`${dealId}\`
+
+Администратор решил спор в пользу продавца. Средства будут переведены продавцу.`;
 
     const sellerMessage = decision === 'release_seller'
-      ? `✅ *Спор решен в вашу пользу*\n\nСделка: \`${dealId}\`\n\nАдминистратор решил спор в вашу пользу. Средства будут переведены на ваш кошелек.`
-      : `❌ *Спор решен в пользу покупателя*\n\nСделка: \`${dealId}\`\n\nАдминистратор решил спор в пользу покупателя. Средства будут возвращены покупателю.`;
+      ? `✅ *Спор решен в вашу пользу*
 
-    await this.sendNotification(buyerId, buyerMessage);
-    await this.sendNotification(sellerId, sellerMessage);
+Сделка: \`${dealId}\`
+
+Администратор решил спор в вашу пользу. Средства будут переведены на ваш кошелек.`
+      : `❌ *Спор решен в пользу покупателя*
+
+Сделка: \`${dealId}\`
+
+Администратор решил спор в пользу покупателя. Средства будут возвращены покупателю.`;
+
+    try {
+      await messageManager.showFinalScreen(ctx, buyerId, 'dispute_resolved', buyerMessage, finalKeyboard);
+      console.log(`📤 Dispute resolution sent to buyer ${buyerId}`);
+    } catch (error) {
+      console.error(`❌ Failed to notify buyer ${buyerId}:`, error.message);
+    }
+
+    try {
+      await messageManager.showFinalScreen(ctx, sellerId, 'dispute_resolved', sellerMessage, finalKeyboard);
+      console.log(`📤 Dispute resolution sent to seller ${sellerId}`);
+    } catch (error) {
+      console.error(`❌ Failed to notify seller ${sellerId}:`, error.message);
+    }
   }
 }
 

@@ -112,14 +112,14 @@ const showDealDetails = async (ctx, dealId) => {
     if (!deal) {
       const text = '❌ *Сделка не найдена*\n\nПроверьте ID сделки.';
       const keyboard = mainMenuButton();
-      await messageManager.editMainMessage(ctx, telegramId, text, keyboard);
+      await messageManager.updateScreen(ctx, telegramId, 'deal_not_found', text, keyboard);
       return;
     }
 
     if (!deal.isParticipant(telegramId)) {
       const text = '❌ *Доступ запрещён*\n\nВы не являетесь участником этой сделки.';
       const keyboard = mainMenuButton();
-      await messageManager.editMainMessage(ctx, telegramId, text, keyboard);
+      await messageManager.updateScreen(ctx, telegramId, 'deal_access_denied', text, keyboard);
       return;
     }
 
@@ -244,8 +244,8 @@ const acceptWork = async (ctx) => {
     const dealId = ctx.callbackQuery.data.split(':')[1];
     const telegramId = ctx.from.id;
 
-    // Show loading
-    await messageManager.editMainMessage(ctx, telegramId, '⏳ *Принятие работы*\n\nСоздаём транзакцию для перевода средств продавцу...', {});
+    // Show loading (silent edit - user stays on same screen)
+    await messageManager.updateScreen(ctx, telegramId, 'accept_work_loading', '⏳ *Принятие работы*\n\nСоздаём транзакцию для перевода средств продавцу...', {});
 
     const deal = await dealService.getDealById(dealId);
 

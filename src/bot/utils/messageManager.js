@@ -1,319 +1,311 @@
 /**
- * Message Manager - implements single-message navigation system
+ * Message Manager v2 - DELETE + SEND pattern
  *
  * CORE PRINCIPLE: Only 2 messages in chat at any time:
  * 1. User's /start command
- * 2. Bot's main editable message
+ * 2. Bot's main message (deleted and re-sent on every navigation)
  *
- * All user text inputs are deleted after processing.
- * All navigation happens via editMessageText.
- *
- * mainMessageId is persisted to MongoDB to survive bot restarts.
+ * NO IN-MEMORY CACHE - all state is read from MongoDB.
+ * This eliminates sync issues between bot and web server processes.
  */
 
 const User = require('../../models/User');
 
 class MessageManager {
   constructor() {
-    // Track main message ID for each user (userId -> messageId)
-    // Acts as a cache, with MongoDB as persistence layer
-    this.mainMessages = new Map();
-
-    // Navigation stack with full screen data for "Back" button
-    // userId -> [{ screen, text, keyboard }]
-    this.navigationStack = new Map();
-
-    // Current screen name for each user (userId -> screenName)
-    this.currentScreen = new Map();
-
-    // Current screen data (text + keyboard) for notifications
-    // userId -> { text, keyboard }
-    this.currentScreenData = new Map();
-
-    // Track last activity time for each user (userId -> timestamp)
-    this.lastActivity = new Map();
-
-    // Memory management settings
-    this.MAX_ENTRIES = 10000;
-    this.CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour (was 30 min)
-    this.INACTIVE_THRESHOLD = 24 * 60 * 60 * 1000; // 24 hours (was 2 hours)
-
-    // Start periodic cleanup
-    this.startCleanupInterval();
-  }
-
-  /**
-   * Start periodic cleanup of inactive users
-   */
-  startCleanupInterval() {
-    setInterval(() => this.cleanup(), this.CLEANUP_INTERVAL);
-    console.log('🧹 MessageManager cleanup interval started (every 1 hour, inactive threshold: 24h)');
-  }
-
-  /**
-   * Record user activity
-   */
-  recordActivity(userId) {
-    this.lastActivity.set(userId, Date.now());
-  }
-
-  /**
-   * Cleanup inactive users
-   */
-  cleanup() {
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    for (const [userId, lastActive] of this.lastActivity) {
-      if (now - lastActive > this.INACTIVE_THRESHOLD) {
-        this.clearUser(userId);
-        cleanedCount++;
-      }
-    }
-
-    if (this.mainMessages.size > this.MAX_ENTRIES) {
-      const entries = [...this.lastActivity.entries()]
-        .sort((a, b) => a[1] - b[1]);
-
-      const toRemove = entries.slice(0, this.mainMessages.size - this.MAX_ENTRIES);
-      for (const [userId] of toRemove) {
-        this.clearUser(userId);
-        cleanedCount++;
-      }
-    }
-
-    if (cleanedCount > 0) {
-      console.log(`🧹 MessageManager cleanup: removed ${cleanedCount} inactive users, ${this.mainMessages.size} active sessions`);
-    }
-  }
-
-  /**
-   * Clear all data for a specific user
-   */
-  clearUser(userId) {
-    this.mainMessages.delete(userId);
-    this.navigationStack.delete(userId);
-    this.currentScreen.delete(userId);
-    this.currentScreenData.delete(userId);
-    this.lastActivity.delete(userId);
-  }
-
-  /**
-   * Get memory stats
-   */
-  getStats() {
-    return {
-      mainMessages: this.mainMessages.size,
-      navigationStack: this.navigationStack.size,
-      currentScreen: this.currentScreen.size,
-      lastActivity: this.lastActivity.size
-    };
+    // No more in-memory Maps! Everything comes from DB.
   }
 
   // ============================================
-  // DATABASE PERSISTENCE FOR mainMessageId
+  // DATABASE OPERATIONS
   // ============================================
 
   /**
-   * Load mainMessageId from database (called when not in cache)
+   * Load user state from database
+   * @returns {Object|null} User data with navigation state
    */
-  async loadMainMessageFromDB(userId) {
-    const startTime = Date.now();
-    try {
-      const user = await User.findOne({ telegramId: userId }).select('mainMessageId').lean();
-      const duration = Date.now() - startTime;
-
-      if (duration > 1000) {
-        console.warn(`[loadMainMessageFromDB] SLOW QUERY for user ${userId}: ${duration}ms`);
-      }
-
-      if (user?.mainMessageId) {
-        this.mainMessages.set(userId, user.mainMessageId);
-        return user.mainMessageId;
-      }
-    } catch (error) {
-      console.error('Error loading mainMessageId from DB:', error.message);
-    }
-    return null;
-  }
-
-  /**
-   * Save mainMessageId to database
-   */
-  async saveMainMessageToDB(userId, messageId) {
-    try {
-      await User.updateOne(
-        { telegramId: userId },
-        { $set: { mainMessageId: messageId } }
-      );
-    } catch (error) {
-      console.error('Error saving mainMessageId to DB:', error.message);
-    }
-  }
-
-  /**
-   * Clear mainMessageId from database
-   */
-  async clearMainMessageFromDB(userId) {
-    try {
-      await User.updateOne(
-        { telegramId: userId },
-        { $set: { mainMessageId: null } }
-      );
-    } catch (error) {
-      console.error('Error clearing mainMessageId from DB:', error.message);
-    }
-  }
-
-  /**
-   * Load navigation data from database
-   */
-  async loadNavigationFromDB(userId) {
-    const startTime = Date.now();
+  async loadUserState(userId) {
     try {
       const user = await User.findOne({ telegramId: userId })
-        .select('navigationStack currentScreen currentScreenData lastActivity mainMessageId')
+        .select('mainMessageId navigationStack currentScreen currentScreenData lastActivity')
         .lean();
-
-      const duration = Date.now() - startTime;
-      console.log(`[loadNavigationFromDB] User ${userId}: found=${!!user}, stackLength=${user?.navigationStack?.length || 0}, currentScreen=${user?.currentScreen}, mainMessageId=${user?.mainMessageId}, duration=${duration}ms`);
-
-      if (user) {
-        if (user.navigationStack) this.navigationStack.set(userId, user.navigationStack);
-        if (user.currentScreen) this.currentScreen.set(userId, user.currentScreen);
-        if (user.currentScreenData) this.currentScreenData.set(userId, user.currentScreenData);
-        if (user.lastActivity) this.lastActivity.set(userId, user.lastActivity.getTime());
-        if (user.mainMessageId) this.mainMessages.set(userId, user.mainMessageId);
-      }
+      return user;
     } catch (error) {
-      console.error('Error loading navigation from DB:', error.message);
+      console.error(`[loadUserState] Error for user ${userId}:`, error.message);
+      return null;
     }
   }
 
   /**
-   * Save navigation data to database
+   * Save user state to database
    */
-  async saveNavigationToDB(userId) {
-    try {
-      const updateData = {
-        lastActivity: new Date()
-      };
-
-      if (this.navigationStack.has(userId)) {
-        updateData.navigationStack = this.navigationStack.get(userId);
-      }
-      if (this.currentScreen.has(userId)) {
-        updateData.currentScreen = this.currentScreen.get(userId);
-      }
-      if (this.currentScreenData.has(userId)) {
-        updateData.currentScreenData = this.currentScreenData.get(userId);
-      }
-
-      await User.updateOne(
-        { telegramId: userId },
-        { $set: updateData }
-      );
-    } catch (error) {
-      console.error('Error saving navigation to DB:', error.message);
-    }
-  }
-
-  /**
-   * Clear navigation data from database
-   */
-  async clearNavigationFromDB(userId) {
+  async saveUserState(userId, updates) {
     try {
       await User.updateOne(
         { telegramId: userId },
         {
           $set: {
-            navigationStack: [],
-            currentScreen: null,
-            currentScreenData: null
+            ...updates,
+            lastActivity: new Date()
           }
         }
       );
     } catch (error) {
-      console.error('Error clearing navigation from DB:', error.message);
+      console.error(`[saveUserState] Error for user ${userId}:`, error.message);
     }
   }
 
   // ============================================
-  // CORE MESSAGE OPERATIONS
+  // CORE: DELETE + SEND PATTERN
   // ============================================
 
   /**
-   * Edit the main message (or send new if doesn't exist)
-   * This is the PRIMARY method for showing content
-   * Persists mainMessageId to database to survive bot restarts
+   * Delete old message and send new one (triggers push notification!)
+   * This is the MAIN method for all screen transitions.
    */
-  async editMainMessage(ctx, userId, text, keyboard = null) {
-    const startTime = Date.now();
-    this.recordActivity(userId);
+  async sendNewMessage(ctx, userId, text, keyboard) {
+    const user = await this.loadUserState(userId);
+    const oldMessageId = user?.mainMessageId;
 
-    // Try cache first, then load from DB with timeout
-    let messageId = this.mainMessages.get(userId);
-    if (!messageId) {
-      // Load with 2 second timeout to prevent blocking
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
-      const loadPromise = this.loadMainMessageFromDB(userId);
-      messageId = await Promise.race([loadPromise, timeoutPromise]);
-
-      const loadTime = Date.now() - startTime;
-      if (loadTime > 500) {
-        console.log(`[editMainMessage] User ${userId}: loadMainMessageFromDB took ${loadTime}ms`);
+    // 1. Delete old message (silent)
+    if (oldMessageId) {
+      try {
+        await ctx.telegram.deleteMessage(userId, oldMessageId);
+      } catch (e) {
+        // Message already deleted or bot blocked - not critical
       }
     }
 
-    // Skip navigation load here - middleware should have done it already
-    // Only load if absolutely necessary and with timeout
-    if (!this.currentScreen.has(userId)) {
-      const navStart = Date.now();
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 1000));
-      const loadPromise = this.loadNavigationFromDB(userId);
-      await Promise.race([loadPromise, timeoutPromise]);
+    // 2. Send new message (this triggers PUSH notification!)
+    const extra = {
+      parse_mode: 'Markdown',
+      ...(keyboard ? { reply_markup: this.normalizeKeyboard(keyboard) } : {})
+    };
 
-      const navTime = Date.now() - navStart;
-      if (navTime > 500) {
-        console.log(`[editMainMessage] User ${userId}: loadNavigationFromDB took ${navTime}ms`);
+    try {
+      const newMsg = await ctx.telegram.sendMessage(userId, text, extra);
+
+      // 3. Update mainMessageId in DB
+      await this.saveUserState(userId, { mainMessageId: newMsg.message_id });
+
+      return newMsg.message_id;
+    } catch (error) {
+      console.error(`[sendNewMessage] Error for user ${userId}:`, error.message);
+
+      // If bot blocked or chat not found, clear mainMessageId
+      if (
+        error.description?.includes('bot was blocked') ||
+        error.description?.includes('chat not found') ||
+        error.description?.includes('user is deactivated')
+      ) {
+        await this.saveUserState(userId, { mainMessageId: null });
       }
+
+      return null;
+    }
+  }
+
+  /**
+   * Edit message in place (silent, no push notification)
+   * Used ONLY for updating current screen content (e.g., error messages, file count)
+   */
+  async editMessage(ctx, userId, text, keyboard) {
+    const user = await this.loadUserState(userId);
+    const messageId = user?.mainMessageId;
+
+    if (!messageId) {
+      // No message to edit - send new one
+      return await this.sendNewMessage(ctx, userId, text, keyboard);
     }
 
     const extra = {
       parse_mode: 'Markdown',
-      ...(keyboard ? { reply_markup: keyboard.reply_markup || keyboard } : {})
+      ...(keyboard ? { reply_markup: this.normalizeKeyboard(keyboard) } : {})
     };
 
     try {
-      if (messageId) {
-        // Try to edit existing message
-        try {
-          await ctx.telegram.editMessageText(userId, messageId, null, text, extra);
-          return messageId;
-        } catch (error) {
-          // Message might be deleted or too old, send new one
-          if (error.description?.includes('message is not modified')) {
-            return messageId; // Same content, no need to update
-          }
-          console.log(`Could not edit message ${messageId}, sending new one`);
-        }
+      await ctx.telegram.editMessageText(userId, messageId, null, text, extra);
+      return messageId;
+    } catch (error) {
+      if (error.description?.includes('message is not modified')) {
+        return messageId; // Same content, no need to update
       }
 
-      // Send new message
-      const newMsg = await ctx.telegram.sendMessage(userId, text, extra);
-      this.mainMessages.set(userId, newMsg.message_id);
-
-      // Persist to database (don't await - fire and forget)
-      this.saveMainMessageToDB(userId, newMsg.message_id).catch(err => {
-        console.error('Error saving mainMessageId:', err.message);
-      });
-
-      return newMsg.message_id;
-    } catch (error) {
-      console.error('Error in editMainMessage:', error.message);
-      return null;
+      // Message deleted or too old - send new one
+      console.log(`[editMessage] Cannot edit, sending new: ${error.message}`);
+      return await this.sendNewMessage(ctx, userId, text, keyboard);
     }
   }
+
+  // ============================================
+  // NAVIGATION WITH STACK
+  // ============================================
+
+  /**
+   * Navigate to a new screen (push current to stack, show new)
+   * Uses DELETE + SEND for push notification effect.
+   */
+  async navigateToScreen(ctx, userId, screenName, text, keyboard) {
+    const user = await this.loadUserState(userId);
+
+    // Build new navigation stack
+    const currentStack = user?.navigationStack || [];
+    const currentScreen = user?.currentScreen;
+    const currentScreenData = user?.currentScreenData;
+
+    // If we have current screen data, push it to stack
+    if (currentScreen && currentScreenData?.text) {
+      currentStack.push({
+        screen: currentScreen,
+        text: currentScreenData.text,
+        keyboard: currentScreenData.keyboard
+      });
+    }
+
+    // Save new state BEFORE sending message
+    await this.saveUserState(userId, {
+      navigationStack: currentStack,
+      currentScreen: screenName,
+      currentScreenData: { text, keyboard: this.normalizeKeyboard(keyboard) }
+    });
+
+    // Send new message (delete + send)
+    return await this.sendNewMessage(ctx, userId, text, keyboard);
+  }
+
+  /**
+   * Go back to previous screen (pop from stack, show previous)
+   * Uses DELETE + SEND for push notification effect.
+   * @returns {string|null} Previous screen name or null if at root
+   */
+  async goBack(ctx, userId) {
+    const user = await this.loadUserState(userId);
+    const stack = user?.navigationStack || [];
+
+    if (stack.length === 0) {
+      return null; // No previous screen
+    }
+
+    // Pop last screen from stack
+    const previousScreen = stack.pop();
+
+    // Save updated state
+    await this.saveUserState(userId, {
+      navigationStack: stack,
+      currentScreen: previousScreen.screen,
+      currentScreenData: {
+        text: previousScreen.text,
+        keyboard: previousScreen.keyboard
+      }
+    });
+
+    // Send previous screen content
+    await this.sendNewMessage(ctx, userId, previousScreen.text, previousScreen.keyboard);
+
+    return previousScreen.screen;
+  }
+
+  /**
+   * Update current screen content WITHOUT pushing to stack
+   * Uses EDIT (silent) - no push notification.
+   * Use this for: error messages, validation errors, file count updates.
+   */
+  async updateScreen(ctx, userId, screenName, text, keyboard) {
+    // Update screen data in DB
+    await this.saveUserState(userId, {
+      currentScreen: screenName,
+      currentScreenData: { text, keyboard: this.normalizeKeyboard(keyboard) }
+    });
+
+    // Edit message in place (silent)
+    return await this.editMessage(ctx, userId, text, keyboard);
+  }
+
+  /**
+   * Show final screen (clear stack, no "Back" possible)
+   * Uses DELETE + SEND for push notification effect.
+   */
+  async showFinalScreen(ctx, userId, screenName, text, keyboard) {
+    // Clear stack and set new screen
+    await this.saveUserState(userId, {
+      navigationStack: [],
+      currentScreen: screenName,
+      currentScreenData: { text, keyboard: this.normalizeKeyboard(keyboard) }
+    });
+
+    // Send new message
+    return await this.sendNewMessage(ctx, userId, text, keyboard);
+  }
+
+  /**
+   * Show notification to user (push current screen to stack, show notification)
+   * Uses DELETE + SEND for push notification effect.
+   */
+  async showNotification(ctx, userId, text, keyboard) {
+    const user = await this.loadUserState(userId);
+
+    // Build new navigation stack
+    const currentStack = user?.navigationStack || [];
+    const currentScreen = user?.currentScreen;
+    const currentScreenData = user?.currentScreenData;
+
+    // If we have current screen data, push it to stack
+    if (currentScreen && currentScreenData?.text) {
+      currentStack.push({
+        screen: currentScreen,
+        text: currentScreenData.text,
+        keyboard: currentScreenData.keyboard
+      });
+    }
+
+    // Save new state with notification as current
+    await this.saveUserState(userId, {
+      navigationStack: currentStack,
+      currentScreen: 'notification',
+      currentScreenData: { text, keyboard: this.normalizeKeyboard(keyboard) }
+    });
+
+    // Send notification (delete + send for push effect)
+    return await this.sendNewMessage(ctx, userId, text, keyboard);
+  }
+
+  // ============================================
+  // RESET / CLEAR OPERATIONS
+  // ============================================
+
+  /**
+   * Reset navigation to main menu (clear stack)
+   */
+  async resetNavigation(userId) {
+    await this.saveUserState(userId, {
+      navigationStack: [],
+      currentScreen: 'main_menu',
+      currentScreenData: null
+    });
+  }
+
+  /**
+   * Clear navigation stack but keep current screen
+   */
+  async clearStack(userId) {
+    await this.saveUserState(userId, {
+      navigationStack: []
+    });
+  }
+
+  /**
+   * Set current screen data (for initial screen after /start)
+   */
+  async setCurrentScreenData(userId, screenName, text, keyboard) {
+    await this.saveUserState(userId, {
+      currentScreen: screenName,
+      currentScreenData: { text, keyboard: this.normalizeKeyboard(keyboard) }
+    });
+  }
+
+  // ============================================
+  // MESSAGE MANAGEMENT
+  // ============================================
 
   /**
    * Delete user's message (for text inputs)
@@ -329,318 +321,95 @@ class MessageManager {
   }
 
   /**
-   * Delete bot's main message (used on /start to reset)
+   * Delete bot's main message
    */
   async deleteMainMessage(ctx, userId) {
-    const messageId = this.mainMessages.get(userId);
+    const user = await this.loadUserState(userId);
+    const messageId = user?.mainMessageId;
+
     if (messageId) {
       try {
         await ctx.telegram.deleteMessage(userId, messageId);
       } catch (error) {
-        // Ignore
+        // Ignore - message might already be deleted
       }
-      this.mainMessages.delete(userId);
-      // Clear from database
-      await this.clearMainMessageFromDB(userId);
+
+      await this.saveUserState(userId, { mainMessageId: null });
     }
   }
 
   /**
-   * Set main message ID (when sending externally)
-   * Also persists to database
+   * Set main message ID (when sending externally, e.g., from /start)
    */
   async setMainMessage(userId, messageId) {
-    this.mainMessages.set(userId, messageId);
-    await this.saveMainMessageToDB(userId, messageId);
+    await this.saveUserState(userId, { mainMessageId: messageId });
   }
 
   /**
-   * Get main message ID (from cache or database)
+   * Get main message ID
    */
   async getMainMessage(userId) {
-    let messageId = this.mainMessages.get(userId);
-    if (!messageId) {
-      messageId = await this.loadMainMessageFromDB(userId);
-    }
-    return messageId || null;
-  }
-
-  /**
-   * Get main message ID sync (cache only, for backward compat)
-   */
-  getMainMessageSync(userId) {
-    return this.mainMessages.get(userId) || null;
-  }
-
-  // ============================================
-  // NAVIGATION WITH FULL STATE
-  // ============================================
-
-  /**
-   * Push current screen to stack and navigate to new screen
-   * Saves full screen state for "Back" button
-   */
-  pushScreen(userId, screenName, text, keyboard) {
-    this.recordActivity(userId);
-
-    // Save current screen to stack (if exists)
-    const currentData = this.currentScreenData.get(userId);
-    const currentScreenName = this.currentScreen.get(userId);
-
-    if (currentScreenName && currentData) {
-      let stack = this.navigationStack.get(userId) || [];
-      stack.push({
-        screen: currentScreenName,
-        text: currentData.text,
-        keyboard: currentData.keyboard
-      });
-      this.navigationStack.set(userId, stack);
-    }
-
-    // Set new current screen
-    this.currentScreen.set(userId, screenName);
-    this.currentScreenData.set(userId, { text, keyboard });
-
-    // Persist to database
-    this.saveNavigationToDB(userId).catch(err =>
-      console.error('Failed to save navigation:', err.message)
-    );
-  }
-
-  /**
-   * Go back to previous screen
-   * Returns the previous screen data or null if at root
-   */
-  popScreen(userId) {
-    const stack = this.navigationStack.get(userId) || [];
-
-    if (stack.length === 0) {
-      return null;
-    }
-
-    const previousScreen = stack.pop();
-    this.navigationStack.set(userId, stack);
-
-    // Set as current screen
-    this.currentScreen.set(userId, previousScreen.screen);
-    this.currentScreenData.set(userId, {
-      text: previousScreen.text,
-      keyboard: previousScreen.keyboard
-    });
-
-    // Persist to database
-    this.saveNavigationToDB(userId).catch(err =>
-      console.error('Failed to save navigation:', err.message)
-    );
-
-    return previousScreen;
-  }
-
-  /**
-   * Navigate to screen and show it (combined push + edit)
-   */
-  async navigateToScreen(ctx, userId, screenName, text, keyboard) {
-    this.pushScreen(userId, screenName, text, keyboard);
-    return await this.editMainMessage(ctx, userId, text, keyboard);
-  }
-
-  /**
-   * Go back to previous screen and show it
-   */
-  async goBack(ctx, userId) {
-    const previousScreen = this.popScreen(userId);
-
-    if (!previousScreen) {
-      // No previous screen, go to main menu
-      return null;
-    }
-
-    await this.editMainMessage(ctx, userId, previousScreen.text, previousScreen.keyboard);
-    return previousScreen.screen;
+    const user = await this.loadUserState(userId);
+    return user?.mainMessageId || null;
   }
 
   /**
    * Get current screen name
    */
-  getCurrentScreen(userId) {
-    return this.currentScreen.get(userId) || null;
-  }
-
-  /**
-   * Reset navigation to main menu (clear stack)
-   */
-  resetNavigation(userId) {
-    this.navigationStack.delete(userId);
-    this.currentScreen.set(userId, 'main_menu');
-    this.currentScreenData.delete(userId);
-
-    // Persist to database
-    this.clearNavigationFromDB(userId).catch(err =>
-      console.error('Failed to clear navigation:', err.message)
-    );
-  }
-
-  /**
-   * Clear stack but keep current screen
-   */
-  clearStack(userId) {
-    this.navigationStack.delete(userId);
-
-    // Persist to database
-    this.saveNavigationToDB(userId).catch(err =>
-      console.error('Failed to save navigation:', err.message)
-    );
-  }
-
-  /**
-   * Set current screen data without pushing to stack
-   * Used for updating current screen content
-   */
-  setCurrentScreenData(userId, screenName, text, keyboard) {
-    this.currentScreen.set(userId, screenName);
-    this.currentScreenData.set(userId, { text, keyboard });
+  async getCurrentScreen(userId) {
+    const user = await this.loadUserState(userId);
+    return user?.currentScreen || null;
   }
 
   // ============================================
-  // NOTIFICATION HANDLING
+  // HELPERS
   // ============================================
 
   /**
-   * Show notification by pushing current screen and displaying notification
-   * Notification always has "Back" button to return to previous state
+   * Normalize keyboard to Telegram format
+   * Handles both Markup.inlineKeyboard() result and raw { inline_keyboard: [...] }
    */
-  async showNotification(ctx, userId, text, keyboard) {
-    this.recordActivity(userId);
+  normalizeKeyboard(keyboard) {
+    if (!keyboard) return null;
 
-    // Save current screen to stack
-    const currentData = this.currentScreenData.get(userId);
-    const currentScreenName = this.currentScreen.get(userId);
-
-    if (currentScreenName && currentData) {
-      let stack = this.navigationStack.get(userId) || [];
-      stack.push({
-        screen: currentScreenName,
-        text: currentData.text,
-        keyboard: currentData.keyboard
-      });
-      this.navigationStack.set(userId, stack);
+    // Already in correct format
+    if (keyboard.inline_keyboard) {
+      return keyboard;
     }
 
-    // Set notification as current screen
-    this.currentScreen.set(userId, 'notification');
-    this.currentScreenData.set(userId, { text, keyboard });
-
-    // Edit main message to show notification
-    return await this.editMainMessage(ctx, userId, text, keyboard);
-  }
-
-  /**
-   * Restore previous screen from stack with new message (for loud notifications)
-   * Deletes current message and sends new one - triggers push notification
-   */
-  async restoreFromStack(ctx, userId) {
-    // Always load fresh navigation data from DB
-    await this.loadNavigationFromDB(userId);
-
-    // Get stack AFTER loading from DB
-    const stack = this.navigationStack.get(userId) || [];
-    console.log(`[restoreFromStack] User ${userId}: stack length = ${stack.length}`);
-
-    if (stack.length === 0) {
-      return null; // No previous screen
+    // Wrapped in reply_markup
+    if (keyboard.reply_markup?.inline_keyboard) {
+      return keyboard.reply_markup;
     }
 
-    const previousScreen = this.popScreen(userId);
-    console.log(`[restoreFromStack] User ${userId}: previousScreen =`, previousScreen?.screen, 'hasText:', !!previousScreen?.text, 'hasKeyboard:', !!previousScreen?.keyboard);
-
-    if (!previousScreen || !previousScreen.text) {
-      return null;
-    }
-
-    // Delete current message
-    const currentMessageId = await this.getMainMessage(userId);
-    if (currentMessageId) {
-      try {
-        await ctx.telegram.deleteMessage(userId, currentMessageId);
-      } catch (e) {
-        // Already deleted - not critical
-      }
-    }
-
-    // Build keyboard - handle both formats (raw inline_keyboard or wrapped in reply_markup)
-    let replyMarkup = null;
-    if (previousScreen.keyboard) {
-      if (previousScreen.keyboard.inline_keyboard) {
-        // Already in correct format { inline_keyboard: [...] }
-        replyMarkup = previousScreen.keyboard;
-      } else if (previousScreen.keyboard.reply_markup) {
-        // Wrapped format { reply_markup: { inline_keyboard: [...] } }
-        replyMarkup = previousScreen.keyboard.reply_markup;
-      }
-    }
-
-    // Send new message with previous screen content
-    const extra = {
-      parse_mode: 'Markdown',
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
-    };
-
-    const newMsg = await ctx.telegram.sendMessage(userId, previousScreen.text, extra);
-
-    // Update mainMessageId
-    await this.setMainMessage(userId, newMsg.message_id);
-
-    // Save navigation to DB
-    await this.saveNavigationToDB(userId);
-
-    return previousScreen.screen;
-  }
-
-  /**
-   * Show final screen (clears stack, no "Back" possible)
-   */
-  async showFinalScreen(ctx, userId, screenName, text, keyboard) {
-    this.recordActivity(userId);
-
-    // Clear navigation stack
-    this.navigationStack.delete(userId);
-
-    // Set as current screen
-    this.currentScreen.set(userId, screenName);
-    this.currentScreenData.set(userId, { text, keyboard });
-
-    return await this.editMainMessage(ctx, userId, text, keyboard);
+    // Return as-is if we can't normalize
+    return keyboard;
   }
 
   // ============================================
-  // LEGACY COMPATIBILITY (sendOrEdit)
+  // LEGACY COMPATIBILITY
   // ============================================
 
   /**
-   * Legacy method - wraps editMainMessage
-   * @deprecated Use editMainMessage or navigateToScreen instead
+   * @deprecated Use updateScreen instead
+   */
+  async editMainMessage(ctx, userId, text, keyboard) {
+    return await this.updateScreen(ctx, userId, null, text, keyboard);
+  }
+
+  /**
+   * @deprecated Use sendNewMessage or navigateToScreen instead
    */
   async sendOrEdit(ctx, userId, text, extra = {}) {
-    return await this.editMainMessage(ctx, userId, text, extra);
+    return await this.editMessage(ctx, userId, text, extra);
   }
 
   /**
-   * Legacy navigation method
-   * @deprecated Use pushScreen instead
+   * Restore previous screen from stack (for blog_notification_back)
+   * @deprecated Use goBack instead
    */
-  navigateTo(userId, screenName) {
-    this.recordActivity(userId);
-
-    const current = this.currentScreen.get(userId);
-    if (current === screenName) return;
-
-    if (current) {
-      let stack = this.navigationStack.get(userId) || [];
-      stack.push({ screen: current, text: null, keyboard: null });
-      this.navigationStack.set(userId, stack);
-    }
-
-    this.currentScreen.set(userId, screenName);
+  async restoreFromStack(ctx, userId) {
+    return await this.goBack(ctx, userId);
   }
 }
 

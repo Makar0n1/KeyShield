@@ -72,7 +72,7 @@ const startDispute = async (ctx) => {
     }
 
     // Initialize dispute session
-    disputeSessions.set(telegramId, {
+    await setDisputeSession(telegramId, {
       dealId,
       step: 'reason',
       media: []
@@ -129,7 +129,7 @@ const handleDisputeInput = async (ctx) => {
 Текущая длина: ${text.length} символов`;
 
         const keyboard = backButton();
-        await messageManager.editMainMessage(ctx, telegramId, errorText, keyboard);
+        await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
         return true;
       }
 
@@ -153,7 +153,7 @@ _Добавлено файлов: ${session.media.length}_
 Нажмите *"Отправить спор"* когда закончите.`;
 
       const keyboard = disputeMediaKeyboard(session.dealId);
-      await messageManager.editMainMessage(ctx, telegramId, mediaText, keyboard);
+      await messageManager.updateScreen(ctx, telegramId, 'dispute_media', mediaText, keyboard);
       return true;
     }
 
@@ -226,7 +226,7 @@ const handleDisputeMedia = async (ctx) => {
 Нажмите *"Отправить спор"* когда закончите.`;
 
       const keyboard = disputeMediaKeyboard(session.dealId);
-      await messageManager.editMainMessage(ctx, telegramId, mediaText, keyboard);
+      await messageManager.updateScreen(ctx, telegramId, 'dispute_media', mediaText, keyboard);
       return true;
     }
 
@@ -266,8 +266,8 @@ const finalizeDisputeHandler = async (ctx) => {
       return;
     }
 
-    // Show loading
-    await messageManager.editMainMessage(ctx, telegramId, '⏳ *Создаём спор...*', {});
+    // Show loading (silent edit - user stays on same screen)
+    await messageManager.updateScreen(ctx, telegramId, 'dispute_loading', '⏳ *Создаём спор...*', {});
 
     // Create dispute
     const dispute = await disputeService.openDispute(
@@ -317,7 +317,7 @@ ${role} открыл спор по данной сделке.
     console.log(`⚠️ New dispute opened for deal ${session.dealId} by user ${telegramId}`);
   } catch (error) {
     console.error('Error finalizing dispute:', error);
-    disputeSessions.delete(ctx.from.id);
+    await deleteDisputeSession(ctx.from.id);
 
     const keyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, ctx.from.id, 'error', `❌ Ошибка при создании спора: ${error.message}`, keyboard);

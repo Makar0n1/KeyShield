@@ -1,5 +1,4 @@
 const { Telegraf } = require('telegraf');
-const mongoose = require('mongoose');
 require('dotenv').config();
 
 const connectDB = require('../config/database');
@@ -61,56 +60,10 @@ bot.catch((err, ctx) => {
 });
 
 // ============================================
-// MIDDLEWARE: Initialize user session after restart
+// NOTE: No middleware needed for session initialization!
+// All state is now stored in MongoDB and loaded on-demand by messageManager.
+// This eliminates cache sync issues between bot and web server processes.
 // ============================================
-// After bot restart, mainMessageId is loaded from DB but currentScreenData is lost.
-// This middleware ensures callback queries work by initializing session state.
-// IMPORTANT: Do NOT block on slow DB queries - use non-blocking initialization.
-bot.use(async (ctx, next) => {
-  if (ctx.callbackQuery) {
-    const telegramId = ctx.from.id;
-    const callbackData = ctx.callbackQuery.data;
-    const startTime = Date.now();
-
-    // Check cache first (sync, instant)
-    const hasScreenData = messageManager.getCurrentScreen(telegramId);
-
-    // If no screen data in cache, we need to initialize from DB
-    // But do it NON-BLOCKING to avoid "loading..." hang
-    if (!hasScreenData) {
-      const dbState = mongoose.connection.readyState; // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
-      console.log(`[MW] User ${telegramId} not in cache, loading from DB... (action: ${callbackData}, dbState: ${dbState})`);
-
-      // Load from DB with timeout (don't block forever)
-      const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 2000));
-      const loadPromise = messageManager.loadNavigationFromDB(telegramId).then(() => 'loaded');
-
-      // Race: either load completes or timeout
-      const result = await Promise.race([loadPromise, timeoutPromise]);
-      const loadDuration = Date.now() - startTime;
-
-      // Check again after load attempt
-      const hasScreenDataNow = messageManager.getCurrentScreen(telegramId);
-
-      if (!hasScreenDataNow) {
-        // Still no data - initialize with main_menu as fallback
-        const { mainMenuKeyboard } = require('./keyboards/main');
-        const { MAIN_MENU_TEXT } = require('./handlers/start');
-        messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
-        console.log(`[MW] User ${telegramId}: ${result}, fallback to main_menu (${loadDuration}ms)`);
-      } else {
-        console.log(`[MW] User ${telegramId}: ${result}, loaded from DB (${loadDuration}ms)`);
-      }
-    }
-
-    // Log total middleware time
-    const mwDuration = Date.now() - startTime;
-    if (mwDuration > 100) {
-      console.log(`[MW] User ${telegramId}: middleware took ${mwDuration}ms (action: ${callbackData})`);
-    }
-  }
-  return next();
-});
 
 // ============================================
 // COMMANDS
@@ -126,8 +79,8 @@ bot.command('cancel', async (ctx) => {
   await messageManager.deleteUserMessage(ctx);
 
   // Clear any active sessions
-  clearCreateDealSession(telegramId);
-  clearDisputeSession(telegramId);
+  await clearCreateDealSession(telegramId);
+  await clearDisputeSession(telegramId);
 
   // Show main menu
   await mainMenuHandler(ctx);
@@ -206,23 +159,21 @@ bot.action('how_it_works', howItWorks);
 bot.action('rules', rulesAndFees);
 bot.action('support', support);
 
-// Blog notification back button (uses delete + send for consistency)
+// Blog notification back button (uses goBack - delete + send pattern)
 bot.action('blog_notification_back', async (ctx) => {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
-    // Use restoreFromStack - deletes current message, sends new one
-    const previousScreen = await messageManager.restoreFromStack(ctx, telegramId);
+    // Use goBack - pops from stack and shows previous screen
+    const previousScreen = await messageManager.goBack(ctx, telegramId);
 
     if (!previousScreen) {
-      // No previous screen - show main menu via edit (more reliable)
+      // No previous screen - show main menu
       const { mainMenuKeyboard } = require('./keyboards/main');
       const keyboard = mainMenuKeyboard();
 
-      await messageManager.editMainMessage(ctx, telegramId, MAIN_MENU_TEXT, keyboard);
-      messageManager.setCurrentScreenData(telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
-      messageManager.clearStack(telegramId);
+      await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
     }
   } catch (error) {
     console.error('Error handling blog notification back:', error);
@@ -243,13 +194,13 @@ bot.on('text', async (ctx) => {
   if (await handleBuyerWalletInput(ctx)) return;
 
   // Handle deal creation flow
-  if (hasCreateDealSession(telegramId)) {
+  if (await hasCreateDealSession(telegramId)) {
     await handleCreateDealInput(ctx);
     return;
   }
 
   // Handle dispute flow
-  if (hasDisputeSession(telegramId)) {
+  if (await hasDisputeSession(telegramId)) {
     await handleDisputeInput(ctx);
     return;
   }
@@ -273,7 +224,7 @@ bot.on(['photo', 'video', 'document', 'voice'], async (ctx) => {
   const telegramId = ctx.from.id;
 
   // Handle dispute media
-  if (hasDisputeSession(telegramId)) {
+  if (await hasDisputeSession(telegramId)) {
     await handleDisputeMedia(ctx);
     return;
   }

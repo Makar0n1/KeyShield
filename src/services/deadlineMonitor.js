@@ -3,6 +3,7 @@ const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
 const blockchainService = require('./blockchain');
 const constants = require('../config/constants');
+const messageManager = require('../bot/utils/messageManager');
 
 /**
  * Deadline Monitor Service
@@ -209,6 +210,7 @@ class DeadlineMonitor {
 
   /**
    * Send expiration notification to both parties
+   * Uses DELETE + SEND pattern via messageManager
    * @param {Object} deal - Deal document
    */
   async sendExpirationNotification(deal) {
@@ -221,76 +223,72 @@ class DeadlineMonitor {
     const deadline = new Date(deal.deadline);
     const autoRefundTime = new Date(deadline.getTime() + this.GRACE_PERIOD_MS);
 
+    // Create mock ctx for messageManager (it needs ctx.telegram)
+    const ctx = { telegram: this.botInstance.telegram };
+
+    // Buyer notification
+    const buyerText = `⚠️ *Срок сделки истёк!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+💰 Сумма: ${deal.amount} ${deal.asset}
+
+⏰ Дедлайн был: ${deadline.toLocaleString('ru-RU')}
+
+У вас есть *${hoursRemaining} часов* чтобы:
+• Подтвердить выполнение работы
+• Или открыть спор
+
+🔄 *Автовозврат:* ${autoRefundTime.toLocaleString('ru-RU')}
+
+Если вы не примете решение, средства будут автоматически возвращены на ваш кошелёк за вычетом комиссии сервиса.`;
+
+    const buyerKeyboard = {
+      inline_keyboard: [
+        [{ text: '✅ Подтвердить работу', callback_data: `confirm_work_${deal.dealId}` }],
+        [{ text: '⚠️ Открыть спор', callback_data: `open_dispute_${deal.dealId}` }],
+        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: '↩️ Назад', callback_data: 'back' }]
+      ]
+    };
+
     try {
-      // Notify buyer
-      await this.botInstance.telegram.sendMessage(
-        deal.buyerId,
-        `⚠️ *Срок сделки истёк!*\n\n` +
-        `🆔 Сделка: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n` +
-        `💰 Сумма: ${deal.amount} ${deal.asset}\n\n` +
-        `⏰ Дедлайн был: ${deadline.toLocaleString('ru-RU')}\n\n` +
-        `У вас есть *${hoursRemaining} часов* чтобы:\n` +
-        `• Подтвердить выполнение работы\n` +
-        `• Или открыть спор\n\n` +
-        `🔄 *Автовозврат:* ${autoRefundTime.toLocaleString('ru-RU')}\n\n` +
-        `Если вы не примете решение, средства будут автоматически возвращены ` +
-        `на ваш кошелёк за вычетом комиссии сервиса.`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '✅ Подтвердить работу', callback_data: `confirm_work_${deal.dealId}` }
-              ],
-              [
-                { text: '⚠️ Открыть спор', callback_data: `open_dispute_${deal.dealId}` }
-              ],
-              [
-                { text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }
-              ]
-            ]
-          }
-        }
-      );
+      await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
       console.log(`📬 Expiration notification sent to buyer for deal ${deal.dealId}`);
     } catch (error) {
       console.error(`Error sending buyer notification for ${deal.dealId}:`, error.message);
     }
 
+    // Seller notification
+    const sellerText = `⚠️ *Срок сделки истёк!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+💰 Сумма: ${deal.amount} ${deal.asset}
+
+⏰ Дедлайн был: ${deadline.toLocaleString('ru-RU')}
+
+У вас есть *${hoursRemaining} часов* чтобы:
+• Отметить работу как сданную
+• Или открыть спор
+
+🔄 *Автовозврат покупателю:* ${autoRefundTime.toLocaleString('ru-RU')}
+
+⚠️ *Внимание!* Если покупатель не подтвердит работу и вы не откроете спор, средства будут автоматически возвращены покупателю.
+
+Комиссия сервиса удерживается в любом случае.`;
+
+    const sellerKeyboard = {
+      inline_keyboard: [
+        [{ text: '📤 Работа сдана', callback_data: `work_done_${deal.dealId}` }],
+        [{ text: '⚠️ Открыть спор', callback_data: `open_dispute_${deal.dealId}` }],
+        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: '↩️ Назад', callback_data: 'back' }]
+      ]
+    };
+
     try {
-      // Notify seller
-      await this.botInstance.telegram.sendMessage(
-        deal.sellerId,
-        `⚠️ *Срок сделки истёк!*\n\n` +
-        `🆔 Сделка: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n` +
-        `💰 Сумма: ${deal.amount} ${deal.asset}\n\n` +
-        `⏰ Дедлайн был: ${deadline.toLocaleString('ru-RU')}\n\n` +
-        `У вас есть *${hoursRemaining} часов* чтобы:\n` +
-        `• Отметить работу как сданную\n` +
-        `• Или открыть спор\n\n` +
-        `🔄 *Автовозврат покупателю:* ${autoRefundTime.toLocaleString('ru-RU')}\n\n` +
-        `⚠️ *Внимание!* Если покупатель не подтвердит работу и вы не откроете спор, ` +
-        `средства будут автоматически возвращены покупателю.\n\n` +
-        `Комиссия сервиса удерживается в любом случае.`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '📤 Работа сдана', callback_data: `work_done_${deal.dealId}` }
-              ],
-              [
-                { text: '⚠️ Открыть спор', callback_data: `open_dispute_${deal.dealId}` }
-              ],
-              [
-                { text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }
-              ]
-            ]
-          }
-        }
-      );
+      await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
       console.log(`📬 Expiration notification sent to seller for deal ${deal.dealId}`);
     } catch (error) {
       console.error(`Error sending seller notification for ${deal.dealId}:`, error.message);
@@ -522,41 +520,56 @@ class DeadlineMonitor {
 
   /**
    * Notify both parties about successful refund
+   * Uses DELETE + SEND pattern via messageManager (final screen - no back button)
    */
   async notifyRefundComplete(deal, refundAmount, commission, txHash) {
     if (!this.botInstance) return;
 
+    // Create mock ctx for messageManager
+    const ctx = { telegram: this.botInstance.telegram };
+
+    // Final screen keyboard (no back button - this is a final state)
+    const finalKeyboard = {
+      inline_keyboard: [
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+      ]
+    };
+
+    // Buyer notification
+    const buyerText = `✅ *Автовозврат выполнен!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+💸 Возвращено: *${refundAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
+
+Срок сделки истёк, средства возвращены на ваш кошелёк.
+
+[Транзакция](https://tronscan.org/#/transaction/${txHash})`;
+
     try {
-      // Notify buyer
-      await this.botInstance.telegram.sendMessage(
-        deal.buyerId,
-        `✅ *Автовозврат выполнен!*\n\n` +
-        `🆔 Сделка: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n\n` +
-        `💸 Возвращено: *${refundAmount.toFixed(2)} ${deal.asset}*\n` +
-        `📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}\n\n` +
-        `Срок сделки истёк, средства возвращены на ваш кошелёк.\n\n` +
-        `[Транзакция](https://tronscan.org/#/transaction/${txHash})`,
-        { parse_mode: 'Markdown' }
-      );
+      await messageManager.showFinalScreen(ctx, deal.buyerId, 'auto_refund_complete', buyerText, finalKeyboard);
     } catch (error) {
       console.error(`Error notifying buyer about refund:`, error.message);
     }
 
+    // Seller notification
+    const sellerText = `⚠️ *Сделка завершена автовозвратом*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Срок сделки истёк без подтверждения выполнения.
+Средства возвращены покупателю.
+
+💸 Возвращено покупателю: ${refundAmount.toFixed(2)} ${deal.asset}
+📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
+
+[Транзакция](https://tronscan.org/#/transaction/${txHash})`;
+
     try {
-      // Notify seller
-      await this.botInstance.telegram.sendMessage(
-        deal.sellerId,
-        `⚠️ *Сделка завершена автовозвратом*\n\n` +
-        `🆔 Сделка: \`${deal.dealId}\`\n` +
-        `📦 ${deal.productName}\n\n` +
-        `Срок сделки истёк без подтверждения выполнения.\n` +
-        `Средства возвращены покупателю.\n\n` +
-        `💸 Возвращено покупателю: ${refundAmount.toFixed(2)} ${deal.asset}\n` +
-        `📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}\n\n` +
-        `[Транзакция](https://tronscan.org/#/transaction/${txHash})`,
-        { parse_mode: 'Markdown' }
-      );
+      await messageManager.showFinalScreen(ctx, deal.sellerId, 'auto_refund_complete', sellerText, finalKeyboard);
     } catch (error) {
       console.error(`Error notifying seller about refund:`, error.message);
     }
@@ -564,23 +577,36 @@ class DeadlineMonitor {
 
   /**
    * Notify about refund error
+   * Uses DELETE + SEND pattern via messageManager
    */
   async notifyRefundError(deal, errorMessage) {
     if (!this.botInstance) return;
 
-    const message = `❌ *Ошибка автовозврата*\n\n` +
-      `🆔 Сделка: \`${deal.dealId}\`\n` +
-      `Ошибка: ${errorMessage}\n\n` +
-      `Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+    // Create mock ctx for messageManager
+    const ctx = { telegram: this.botInstance.telegram };
+
+    const errorText = `❌ *Ошибка автовозврата*
+
+🆔 Сделка: \`${deal.dealId}\`
+Ошибка: ${errorMessage}
+
+Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+      ]
+    };
 
     try {
-      await this.botInstance.telegram.sendMessage(deal.buyerId, message, { parse_mode: 'Markdown' });
+      await messageManager.showNotification(ctx, deal.buyerId, errorText, keyboard);
     } catch (error) {
       console.error('Error notifying buyer about error:', error.message);
     }
 
     try {
-      await this.botInstance.telegram.sendMessage(deal.sellerId, message, { parse_mode: 'Markdown' });
+      await messageManager.showNotification(ctx, deal.sellerId, errorText, keyboard);
     } catch (error) {
       console.error('Error notifying seller about error:', error.message);
     }
