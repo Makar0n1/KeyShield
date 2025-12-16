@@ -738,9 +738,10 @@ async function returnLeftoverTRX(deal, walletPrivateKey, energyRented) {
     await new Promise(r => setTimeout(r, 5000)); // Wait for previous tx to settle
 
     const trxBalance = await blockchainService.getBalance(deal.multisigAddress, 'TRX');
-    const returnAmount = trxBalance - 3; // Keep 3 TRX for fees
+    // Keep only 1.1 TRX for tx fee, return the rest
+    const returnAmount = trxBalance - 1.1;
 
-    if (returnAmount > 1) {
+    if (returnAmount > 0.5) {
       const arbiterAddress = blockchainService.privateKeyToAddress(process.env.ARBITER_PRIVATE_KEY);
       const returnTx = await blockchainService.tronWeb.transactionBuilder.sendTrx(
         arbiterAddress,
@@ -751,12 +752,14 @@ async function returnLeftoverTRX(deal, walletPrivateKey, energyRented) {
       const returnResult = await blockchainService.broadcastTransaction(signedReturnTx);
 
       if (returnResult.success) {
-        console.log(`✅ Returned ${returnAmount.toFixed(2)} TRX to arbiter`);
+        console.log(`✅ Returned ${returnAmount.toFixed(2)} TRX to arbiter from ${deal.dealId}`);
         return returnAmount;
       }
+    } else {
+      console.log(`ℹ️ TRX balance too low to return: ${trxBalance} TRX on ${deal.dealId}`);
     }
   } catch (error) {
-    console.error('Error returning TRX:', error.message);
+    console.error(`Error returning TRX from ${deal.dealId}:`, error.message);
   }
 
   return 0;
