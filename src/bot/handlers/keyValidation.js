@@ -730,10 +730,10 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 
 /**
  * Return leftover TRX from multisig to arbiter
+ * Always try to return TRX - there's activation TRX even if FeeSaver was used
  */
 async function returnLeftoverTRX(deal, walletPrivateKey, energyRented) {
-  if (energyRented) return 0; // No TRX to return if energy was rented
-
+  // Don't skip based on energyRented - activation TRX is always sent!
   try {
     await new Promise(r => setTimeout(r, 5000)); // Wait for previous tx to settle
 
@@ -772,10 +772,13 @@ async function saveOperationalCosts(deal, energyRented, feesaverCost, trxReturne
   try {
     const updateData = {
       'operationalCosts.energyMethod': energyRented ? 'feesaver' : 'trx',
-      'operationalCosts.feesaverCostTrx': feesaverCost
+      'operationalCosts.feesaverCostTrx': feesaverCost,
+      // Always save activation TRX returned (activation TRX is always sent at deposit)
+      'operationalCosts.activationTrxReturned': trxReturned
     };
 
     if (!energyRented) {
+      // If fallback was used, also save fallback data
       const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
       updateData['operationalCosts.fallbackTrxSent'] = FALLBACK_AMOUNT;
       updateData['operationalCosts.fallbackTrxReturned'] = trxReturned;
