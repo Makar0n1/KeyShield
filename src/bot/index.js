@@ -135,6 +135,16 @@ bot.action(/^show_deposit:/, showDepositAddress);
 bot.action(/^decline_deal:/, declineDeal);
 bot.action(/^cancel_deal:/, cancelDeal);
 
+// Key saved button - just delete the message
+bot.action(/^key_saved:/, async (ctx) => {
+  try {
+    await ctx.answerCbQuery('✅ Ключ сохранён!');
+    await ctx.deleteMessage();
+  } catch (e) {
+    // Message might already be deleted
+  }
+});
+
 // Deadline expiration actions (from deadlineMonitor notifications)
 bot.action(/^confirm_work_/, async (ctx) => {
   const dealId = ctx.callbackQuery.data.replace('confirm_work_', '');

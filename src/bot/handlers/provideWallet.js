@@ -1,6 +1,7 @@
 const Deal = require('../../models/Deal');
 const blockchainService = require('../../services/blockchain');
 const dealService = require('../../services/dealService');
+const { Markup } = require('telegraf');
 const {
   mainMenuButton,
   depositWarningKeyboard,
@@ -128,37 +129,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
     console.log(`✅ Seller wallet set for deal ${deal.dealId}: ${text}`);
 
-    // Show private key message (will be deleted in 60 seconds)
-    const keyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ!*
-Он понадобится для получения средств по сделке!
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-🔑 *Ключ:*
-\`${sellerPrivateKey}\`
-
-⏱ _Это сообщение удалится через 60 секунд!_
-
-❗️ *Если вы потеряете ключ, вы не сможете получить средства!*`;
-
-    // Send key message (separate from main message flow)
-    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
-      parse_mode: 'Markdown'
-    });
-
-    // Delete key message after 60 seconds
-    setTimeout(async () => {
-      try {
-        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
-      } catch (e) {
-        // Message might already be deleted
-      }
-    }, 60000);
-
-    // Show confirmation to seller (final screen)
+    // Show confirmation to seller FIRST (main message)
     const sellerText = `✅ *Кошелек сохранен!*
 
 Адрес: \`${text}\`
@@ -166,14 +137,45 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
 
-🔐 *Приватный ключ отправлен выше!*
-⚠️ Сохраните его - он нужен для получения средств!
-
 Ожидаем депозит от покупателя.
 Вы получите уведомление, когда средства поступят.`;
 
     const sellerKeyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, telegramId, 'wallet_saved', sellerText, sellerKeyboard);
+
+    // ========== SHOW PRIVATE KEY (separate message below with button) ==========
+    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ продавца:
+\`${sellerPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете получить средства по сделке!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+    const keyKeyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    ]);
+
+    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyKeyboard.reply_markup
+    });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+      } catch (e) {
+        // Already deleted by button
+      }
+    }, 60000);
 
     // Calculate deposit amount for buyer notification
     let depositAmount = deal.amount;
@@ -275,36 +277,6 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
     console.log(`✅ Buyer wallet set for deal ${deal.dealId}: ${text}`);
 
-    // Show private key message (will be deleted in 60 seconds)
-    const buyerKeyText = `🔐 *ВАШ ПРИВАТНЫЙ КЛЮЧ*
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ!*
-Он понадобится для возврата средств в случае спора или отмены!
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-🔑 *Ключ:*
-\`${buyerPrivateKey}\`
-
-⏱ _Это сообщение удалится через 60 секунд!_
-
-❗️ *Если вы потеряете ключ, вы не сможете вернуть средства!*`;
-
-    // Send key message (separate from main message flow)
-    const buyerKeyMsg = await ctx.telegram.sendMessage(telegramId, buyerKeyText, {
-      parse_mode: 'Markdown'
-    });
-
-    // Delete key message after 60 seconds
-    setTimeout(async () => {
-      try {
-        await ctx.telegram.deleteMessage(telegramId, buyerKeyMsg.message_id);
-      } catch (e) {
-        // Message might already be deleted
-      }
-    }, 60000);
-
     // Calculate deposit amount
     let depositAmount = deal.amount;
     let depositNote = '';
@@ -318,14 +290,11 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
     }
 
-    // Show deposit instructions to buyer (final screen with deposit info)
+    // Show deposit instructions to buyer FIRST (main message)
     const buyerDepositText = `✅ *Кошелек сохранен! Теперь внесите депозит.*
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
-
-🔐 *Приватный ключ отправлен выше!*
-⚠️ Сохраните его - он нужен для возврата средств!
 
 🔐 *Адрес для депозита (${deal.asset}):*
 \`${deal.multisigAddress}\`
@@ -343,6 +312,40 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
     const buyerKeyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
+
+    // ========== SHOW PRIVATE KEY (separate message below with button) ==========
+    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ покупателя:
+\`${buyerPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+    const keyKeyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    ]);
+
+    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyKeyboard.reply_markup
+    });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+      } catch (e) {
+        // Already deleted by button
+      }
+    }, 60000);
 
     // Notify seller
     const sellerNotifyText = `✅ *Покупатель указал кошелек!*
