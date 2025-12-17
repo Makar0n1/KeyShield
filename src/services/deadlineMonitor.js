@@ -142,10 +142,13 @@ class DeadlineMonitor {
       const now = new Date();
 
       // Find deals that are locked/in_progress/work_submitted and past deadline
+      // CRITICAL: Only these 3 statuses - explicitly prevents spam on completed deals
       const expiredDeals = await Deal.find({
         status: { $in: ['locked', 'in_progress', 'work_submitted'] },
         deadline: { $lt: now },
-        multisigAddress: { $ne: null }
+        multisigAddress: { $ne: null },
+        // Extra safety: exclude deals that have completedAt set (belt and suspenders)
+        completedAt: null
       }).lean();
 
       if (expiredDeals.length === 0) {
@@ -187,33 +190,43 @@ class DeadlineMonitor {
    */
   async processDeal(deal) {
     try {
+      // CRITICAL: Double-check deal status from DB (prevents spam on completed deals)
+      const currentDeal = await Deal.findById(deal._id).lean();
+      if (!currentDeal) return;
+
+      // Skip if deal is already completed, cancelled, expired, or resolved
+      if (['completed', 'cancelled', 'expired', 'resolved'].includes(currentDeal.status)) {
+        console.log(`⏭️ Deal ${deal.dealId} is ${currentDeal.status}, skipping deadline processing`);
+        return;
+      }
+
       const now = new Date();
       const deadlineTime = new Date(deal.deadline).getTime();
       const timeSinceDeadline = now.getTime() - deadlineTime;
       const gracePeriodPassed = timeSinceDeadline >= this.GRACE_PERIOD_MS;
 
-      // Check if we already sent expiration notification
-      const notificationKey = `expired_${deal.dealId}`;
-      const alreadyNotified = this.notifiedDeals.has(notificationKey);
+      // Check if we already sent expiration notification (from DB, not memory!)
+      // Using deadlineNotificationSent field for persistence across restarts
+      const alreadyNotified = currentDeal.deadlineNotificationSent === true;
 
       if (!alreadyNotified) {
+        // Mark as notified BEFORE sending (prevents duplicates even if send fails)
+        await Deal.updateOne(
+          { _id: deal._id },
+          { $set: { deadlineNotificationSent: true } }
+        );
+
         // Send expiration notification with action buttons
         await this.sendExpirationNotification(deal);
-        this.notifiedDeals.add(notificationKey);
 
-        // Clean up old notifications (keep last 1000)
-        if (this.notifiedDeals.size > 1000) {
-          const first = this.notifiedDeals.values().next().value;
-          this.notifiedDeals.delete(first);
-        }
+        // Also track in memory for current session (optimization)
+        this.notifiedDeals.add(`expired_${deal.dealId}`);
+
+        console.log(`📬 Deadline notification sent and persisted for deal ${deal.dealId}`);
       }
 
       // If grace period passed → auto-refund or auto-release based on status
       if (gracePeriodPassed) {
-        // Check current status from DB (might have changed)
-        const currentDeal = await Deal.findById(deal._id).lean();
-        if (!currentDeal) return;
-
         if (currentDeal.status === 'work_submitted') {
           // Work was submitted but buyer didn't respond → release to seller
           await this.processAutoRelease(deal);

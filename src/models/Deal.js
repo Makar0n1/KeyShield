@@ -159,6 +159,11 @@ const dealSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Flag to prevent duplicate deadline expiration notifications (persisted across restarts)
+  deadlineNotificationSent: {
+    type: Boolean,
+    default: false
+  },
   // Operational costs tracking
   operationalCosts: {
     // Activation costs (5 TRX sent, minus what was returned)
