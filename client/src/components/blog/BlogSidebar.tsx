@@ -97,7 +97,7 @@ export function BlogSidebar({
       {recentPosts.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
           <h3 className="text-white font-semibold mb-4">📝 Последние статьи</h3>
-          <ul className="space-y-4 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <ul className="space-y-4 max-h-[150px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             {recentPosts.map((post) => (
               <li key={post._id}>
                 <Link to={`/blog/${post.slug}`} className="flex gap-3 group">
