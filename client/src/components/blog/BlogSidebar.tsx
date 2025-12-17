@@ -57,7 +57,7 @@ export function BlogSidebar({
       {categories.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
           <h3 className="text-white font-semibold mb-4">📁 Категории</h3>
-          <ul className="space-y-2 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pr-1">
+          <ul className="space-y-2 max-h-[140px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             <li>
               <Link
                 to="/blog"
@@ -97,7 +97,7 @@ export function BlogSidebar({
       {recentPosts.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
           <h3 className="text-white font-semibold mb-4">📝 Последние статьи</h3>
-          <ul className="space-y-4 max-h-[240px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pr-1">
+          <ul className="space-y-4 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             {recentPosts.map((post) => (
               <li key={post._id}>
                 <Link to={`/blog/${post.slug}`} className="flex gap-3 group">
@@ -131,7 +131,7 @@ export function BlogSidebar({
       {tags.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
           <h3 className="text-white font-semibold mb-4">🏷️ Теги</h3>
-          <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pr-1">
+          <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             {tags.map((tag) => (
               <Link
                 key={tag._id}
