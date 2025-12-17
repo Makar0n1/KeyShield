@@ -411,7 +411,7 @@ export function BlogPostPage() {
 
           {/* Sidebar */}
           <div className="hidden lg:block">
-            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            <div className="sticky top-24">
               <BlogSidebar
                 categories={sidebar.categories}
                 tags={sidebar.tags}
