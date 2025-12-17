@@ -155,14 +155,8 @@ class DealService {
     // Calculate commission
     const commission = Deal.calculateCommission(amount);
 
-    // Generate deal ID
-    let dealId;
-    let isUnique = false;
-    while (!isUnique) {
-      dealId = Deal.generateDealId();
-      const existing = await Deal.findOne({ dealId });
-      isUnique = !existing;
-    }
+    // Generate deal ID (atomic - guaranteed unique, no loops needed)
+    const dealId = await Deal.generateDealId();
 
     // Calculate deadline
     const deadline = new Date();

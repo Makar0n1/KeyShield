@@ -9,6 +9,9 @@ const notificationService = require('../services/notificationService');
 const blogNotificationService = require('../services/blogNotificationService');
 const messageManager = require('./utils/messageManager');
 
+// Middleware for high-load optimization
+const { deduplicationMiddleware } = require('./middleware/deduplication');
+
 // Handlers
 const { startHandler, mainMenuHandler, backHandler, MAIN_MENU_TEXT } = require('./handlers/start');
 const {
@@ -64,6 +67,14 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 bot.catch((err, ctx) => {
   console.error('Bot error:', err);
 });
+
+// ============================================
+// MIDDLEWARE FOR HIGH-LOAD OPTIMIZATION
+// ============================================
+
+// 1. Callback deduplication - prevents double-tap issues
+// User clicks button twice quickly → only first click is processed
+bot.use(deduplicationMiddleware);
 
 // ============================================
 // NOTE: No middleware needed for session initialization!

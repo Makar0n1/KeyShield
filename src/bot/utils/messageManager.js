@@ -7,13 +7,18 @@
  *
  * NO IN-MEMORY CACHE - all state is read from MongoDB.
  * This eliminates sync issues between bot and web server processes.
+ *
+ * RATE LIMITING: Uses TelegramQueue for high-load scenarios (1000+ users)
  */
 
 const User = require('../../models/User');
+const telegramQueue = require('../../utils/TelegramQueue');
 
 class MessageManager {
   constructor() {
     // No more in-memory Maps! Everything comes from DB.
+    // Rate limiting is handled by TelegramQueue
+    this.useQueue = true; // Enable queue for production
   }
 
   // ============================================
@@ -62,15 +67,20 @@ class MessageManager {
   /**
    * Delete old message and send new one (triggers push notification!)
    * This is the MAIN method for all screen transitions.
+   * Uses TelegramQueue for rate limiting under high load.
    */
   async sendNewMessage(ctx, userId, text, keyboard) {
     const user = await this.loadUserState(userId);
     const oldMessageId = user?.mainMessageId;
 
-    // 1. Delete old message (silent)
+    // 1. Delete old message (silent) - via queue for rate limiting
     if (oldMessageId) {
       try {
-        await ctx.telegram.deleteMessage(userId, oldMessageId);
+        if (this.useQueue) {
+          await telegramQueue.deleteMessage(ctx.telegram, userId, oldMessageId);
+        } else {
+          await ctx.telegram.deleteMessage(userId, oldMessageId);
+        }
       } catch (e) {
         // Message already deleted or bot blocked - not critical
       }
@@ -83,7 +93,18 @@ class MessageManager {
     };
 
     try {
-      const newMsg = await ctx.telegram.sendMessage(userId, text, extra);
+      let newMsg;
+      if (this.useQueue) {
+        newMsg = await telegramQueue.sendMessage(ctx.telegram, userId, text, extra);
+      } else {
+        newMsg = await ctx.telegram.sendMessage(userId, text, extra);
+      }
+
+      if (!newMsg) {
+        // User blocked bot or deleted - handled by queue
+        await this.saveUserState(userId, { mainMessageId: null });
+        return null;
+      }
 
       // 3. Update mainMessageId in DB
       await this.saveUserState(userId, { mainMessageId: newMsg.message_id });
@@ -108,6 +129,7 @@ class MessageManager {
   /**
    * Edit message in place (silent, no push notification)
    * Used ONLY for updating current screen content (e.g., error messages, file count)
+   * Uses TelegramQueue for rate limiting under high load.
    */
   async editMessage(ctx, userId, text, keyboard) {
     const user = await this.loadUserState(userId);
@@ -124,7 +146,11 @@ class MessageManager {
     };
 
     try {
-      await ctx.telegram.editMessageText(userId, messageId, null, text, extra);
+      if (this.useQueue) {
+        await telegramQueue.editMessageText(ctx.telegram, userId, messageId, text, extra);
+      } else {
+        await ctx.telegram.editMessageText(userId, messageId, null, text, extra);
+      }
       return messageId;
     } catch (error) {
       if (error.description?.includes('message is not modified')) {

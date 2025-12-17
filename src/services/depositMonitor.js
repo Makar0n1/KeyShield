@@ -7,6 +7,10 @@ const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const { depositReceivedKeyboard } = require('../bot/keyboards/main');
 
+// High-load optimization utilities
+const RateLimiter = require('../utils/RateLimiter');
+const BoundedSet = require('../utils/BoundedSet');
+
 class DepositMonitor {
   constructor() {
     this.isRunning = false;
@@ -18,12 +22,15 @@ class DepositMonitor {
     this.BATCH_SIZE = 8; // Process 8 deals in parallel (TronGrid limit ~10 req/sec)
     this.BATCH_DELAY = 1000; // 1 second delay between batches
 
+    // TronGrid rate limiter (8 req/sec to stay under 10 limit)
+    this.rateLimiter = new RateLimiter({ maxReqPerSec: 8 });
+
     // Activation queue to prevent parallel blockchain transactions from same wallet
     this.activationQueue = [];
     this.isProcessingActivations = false;
 
-    // Track processed deposits to prevent duplicates
-    this.processedDeposits = new Set();
+    // Track processed deposits to prevent duplicates (bounded to prevent memory leaks)
+    this.processedDeposits = new BoundedSet(5000);
   }
 
   /**
@@ -216,6 +223,9 @@ class DepositMonitor {
         expectedAmount = deal.amount + (deal.commission / 2);
       }
 
+      // Wait for rate limit token before API call
+      await this.rateLimiter.waitForToken();
+
       // Check blockchain for deposit (pass 0 as amount to get any deposit)
       const deposit = await blockchainService.checkDeposit(
         deal.multisigAddress,
@@ -264,14 +274,8 @@ class DepositMonitor {
             console.log(`💰 Overpayment detected: ${overpayment} ${deal.asset} - will go to service wallet`);
           }
 
-          // Double-check deal status in DB (another process might have updated it)
-          const currentDeal = await Deal.findById(deal._id).lean();
-          if (currentDeal.status !== 'waiting_for_deposit') {
-            console.log(`⏭️ Deal ${deal.dealId} status changed to ${currentDeal.status}, skipping...`);
-            return;
-          }
-
-          // Update deal using findByIdAndUpdate (works with lean objects)
+          // ATOMIC status update - prevents race conditions!
+          // Only update if status is still 'waiting_for_deposit'
           const updateData = {
             status: 'locked',
             depositTxHash: deposit.txHash,
@@ -285,7 +289,18 @@ class DepositMonitor {
             console.log(`💼 Saved buyer address: ${deposit.from}`);
           }
 
-          await Deal.findByIdAndUpdate(deal._id, updateData);
+          // Atomic update: only succeeds if status is still 'waiting_for_deposit'
+          const updatedDeal = await Deal.findOneAndUpdate(
+            { _id: deal._id, status: 'waiting_for_deposit' }, // Atomic condition!
+            { $set: updateData },
+            { new: true }
+          );
+
+          if (!updatedDeal) {
+            // Another process already updated this deal (cancelled, etc.)
+            console.log(`⏭️ Deal ${deal.dealId} status changed by another process, skipping...`);
+            return;
+          }
 
           // Queue activation (processed sequentially to avoid blockchain conflicts)
           try {

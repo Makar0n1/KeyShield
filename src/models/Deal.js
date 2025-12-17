@@ -217,8 +217,17 @@ dealSchema.index({ platformId: 1, status: 1 });
 // Index for deadline monitor queries
 dealSchema.index({ status: 1, deadline: 1 });
 
-// Static method to generate unique deal ID
-dealSchema.statics.generateDealId = function() {
+// Static method to generate unique deal ID (ATOMIC - no race conditions!)
+// Uses Counter model for guaranteed uniqueness under high load
+dealSchema.statics.generateDealId = async function() {
+  const Counter = require('./Counter');
+  const nextValue = await Counter.getNextValue('deal_id');
+  return `DL-${String(nextValue).padStart(6, '0')}`;
+};
+
+// Legacy sync version (DEPRECATED - only for backwards compatibility)
+// DO NOT USE for new deal creation - use async version above
+dealSchema.statics.generateDealIdSync = function() {
   const randomPart = Math.floor(100000 + Math.random() * 900000);
   return `DL-${randomPart}`;
 };

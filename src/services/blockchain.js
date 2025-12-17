@@ -1,5 +1,6 @@
 const { tronWeb, USDT_CONTRACT_ADDRESS } = require('../config/tron');
 const constants = require('../config/constants');
+const CircuitBreaker = require('../utils/CircuitBreaker');
 
 /**
  * Blockchain Service
@@ -8,11 +9,20 @@ const constants = require('../config/constants');
  *
  * SECURITY NOTE: In production, buyer/seller keys should be generated client-side.
  * This MVP generates keys server-side for simplicity but is marked for security review.
+ *
+ * HIGH-LOAD: Uses CircuitBreaker to prevent cascading failures when TronGrid is down.
  */
 
 class BlockchainService {
   constructor() {
     this.tronWeb = tronWeb;
+
+    // Circuit breaker for TronGrid API (opens after 5 failures in 30 sec)
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: 5,
+      resetTimeoutMs: 60000,     // Wait 1 min before retry
+      failureWindowMs: 30000    // Count failures in 30 sec window
+    });
   }
 
   /**
@@ -132,6 +142,16 @@ class BlockchainService {
    * @returns {Promise<Object|null>} - Transaction details or null
    */
   async checkDeposit(address, asset, expectedAmount) {
+    // Use circuit breaker to prevent cascading failures
+    return await this.circuitBreaker.execute(async () => {
+      return await this._checkDepositInternal(address, asset, expectedAmount);
+    });
+  }
+
+  /**
+   * Internal deposit check (wrapped by circuit breaker)
+   */
+  async _checkDepositInternal(address, asset, expectedAmount) {
     try {
       if (asset === 'USDT') {
         // Query TronGrid for TRC20 transfers

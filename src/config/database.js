@@ -6,12 +6,14 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      // Connection pool settings
-      maxPoolSize: 10,
-      minPoolSize: 2,
+      // Connection pool settings (optimized for 1000+ concurrent users)
+      maxPoolSize: 100,        // Up from 10 - handles 1000+ concurrent operations
+      minPoolSize: 20,         // Keep 20 connections warm
+      maxIdleTimeMS: 60000,    // Close idle connections after 1 min
       // Timeouts
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      waitQueueTimeoutMS: 10000,  // Fail fast if queue is full
       // Keep connection alive
       heartbeatFrequencyMS: 10000,
     });

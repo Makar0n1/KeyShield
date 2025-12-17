@@ -10,6 +10,9 @@ const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const TronWeb = require('tronweb');
 
+// High-load optimization utilities
+const BoundedSet = require('../utils/BoundedSet');
+
 /**
  * Deadline Monitor Service
  * Monitors deals for deadline expiration and handles auto-refunds/releases
@@ -39,13 +42,14 @@ class DeadlineMonitor {
     this.BATCH_SIZE = 5; // Process 5 deals at a time
     this.BATCH_DELAY = 2000; // 2 seconds between batches
 
-    // Track notified deals to avoid duplicate notifications
-    this.notifiedDeals = new Set();
+    // Track notified deals to avoid duplicate notifications (bounded to prevent memory leaks)
+    // Note: Primary deduplication is now via DB field 'deadlineNotificationSent'
+    this.notifiedDeals = new BoundedSet(1000);
 
-    // Track deals in refund process to prevent double processing
-    this.refundingDeals = new Set();
+    // Track deals in refund process to prevent double processing (bounded)
+    this.refundingDeals = new BoundedSet(500);
 
-    // Cleanup interval for memory management
+    // Cleanup interval for memory management (less critical now with BoundedSet)
     this.CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
     this.cleanupTimer = null;
   }
@@ -101,29 +105,11 @@ class DeadlineMonitor {
   }
 
   /**
-   * Cleanup old entries from tracking Sets to prevent memory leaks
+   * Cleanup old entries from tracking Sets
+   * Note: BoundedSet handles this automatically now, but we log stats
    */
   cleanup() {
-    const notifiedBefore = this.notifiedDeals.size;
-    const refundingBefore = this.refundingDeals.size;
-
-    // Keep only last 500 notified deals
-    if (this.notifiedDeals.size > 500) {
-      const arr = Array.from(this.notifiedDeals);
-      this.notifiedDeals = new Set(arr.slice(-500));
-    }
-
-    // refundingDeals should auto-clean via setTimeout, but safety check
-    if (this.refundingDeals.size > 100) {
-      this.refundingDeals.clear();
-    }
-
-    const notifiedAfter = this.notifiedDeals.size;
-    const refundingAfter = this.refundingDeals.size;
-
-    if (notifiedBefore !== notifiedAfter || refundingBefore !== refundingAfter) {
-      console.log(`🧹 DeadlineMonitor cleanup: notified ${notifiedBefore}→${notifiedAfter}, refunding ${refundingBefore}→${refundingAfter}`);
-    }
+    console.log(`📊 DeadlineMonitor stats: notified=${this.notifiedDeals.size}, refunding=${this.refundingDeals.size}`);
   }
 
   /**
