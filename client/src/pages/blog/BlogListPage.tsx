@@ -125,7 +125,7 @@ export function BlogListPage() {
             ) : posts.length > 0 ? (
               <>
                 {/* Featured Post (first post on first page) */}
-                {page === 1 && posts.length > 0 && posts[0].featured && (
+                {page === 1 && posts.length > 0 && posts[0].featured && !query && (
                   <div className="mb-8">
                     <PostCard post={posts[0]} featured />
                   </div>
@@ -134,9 +134,9 @@ export function BlogListPage() {
                 {/* Posts Grid */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
                   {posts
-                    .slice(page === 1 && posts[0]?.featured ? 1 : 0)
+                    .slice(page === 1 && posts[0]?.featured && !query ? 1 : 0)
                     .map((post) => (
-                      <PostCard key={post._id} post={post} />
+                      <PostCard key={post._id} post={post} searchQuery={query || undefined} />
                     ))}
                 </div>
 

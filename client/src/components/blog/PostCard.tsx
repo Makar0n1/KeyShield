@@ -8,6 +8,56 @@ import { Badge } from '@/components/ui/badge'
 interface PostCardProps {
   post: BlogPost
   featured?: boolean
+  searchQuery?: string
+}
+
+// Get text snippet centered around the query match
+function getSnippetAroundMatch(text: string, query: string, maxLength = 100): string {
+  const plainText = stripHtml(text)
+  if (!query || query.length < 3) {
+    return plainText.length > maxLength ? plainText.slice(0, maxLength) + '...' : plainText
+  }
+
+  const lowerText = plainText.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const index = lowerText.indexOf(lowerQuery)
+
+  if (index === -1) {
+    return plainText.length > maxLength ? plainText.slice(0, maxLength) + '...' : plainText
+  }
+
+  const halfLength = Math.floor((maxLength - query.length) / 2)
+  const start = Math.max(0, index - halfLength)
+  const end = Math.min(plainText.length, index + query.length + halfLength)
+  let snippet = plainText.slice(start, end)
+
+  if (start > 0) snippet = '...' + snippet
+  if (end < plainText.length) snippet = snippet + '...'
+
+  return snippet
+}
+
+// Highlight matching text
+function highlightText(text: string, query: string) {
+  if (!query || query.length < 3) return <>{text}</>
+
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-primary/30 text-white font-semibold rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  )
 }
 
 // Image with loading state, blur background and contain mode
@@ -40,8 +90,18 @@ function CardImage({ src, alt, className }: { src: string; alt: string; classNam
   )
 }
 
-export function PostCard({ post, featured = false }: PostCardProps) {
-  const excerpt = post.summary || post.excerpt || stripHtml(post.content).slice(0, 150) + '...'
+export function PostCard({ post, featured = false, searchQuery }: PostCardProps) {
+  const rawExcerpt = post.summary || post.excerpt || stripHtml(post.content).slice(0, 150) + '...'
+
+  // If searching, get snippet around match; otherwise use normal excerpt
+  const excerpt = searchQuery
+    ? getSnippetAroundMatch(post.summary || post.content || '', searchQuery, 120)
+    : rawExcerpt
+
+  // Get title snippet if searching
+  const titleDisplay = searchQuery
+    ? getSnippetAroundMatch(post.title, searchQuery, 60)
+    : post.title
 
   if (featured) {
     return (
@@ -63,9 +123,11 @@ export function PostCard({ post, featured = false }: PostCardProps) {
                 {post.featured && <Badge variant="secondary">Избранное</Badge>}
               </div>
               <h2 className="text-2xl font-bold text-white group-hover:text-primary transition-colors mb-4">
-                {post.title}
+                {searchQuery ? highlightText(titleDisplay, searchQuery) : post.title}
               </h2>
-              <p className="text-muted line-clamp-3 mb-6">{excerpt}</p>
+              <p className="text-muted line-clamp-3 mb-6">
+                {searchQuery ? highlightText(excerpt, searchQuery) : excerpt}
+              </p>
               <div className="flex items-center gap-4 text-sm text-muted">
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
@@ -119,9 +181,11 @@ export function PostCard({ post, featured = false }: PostCardProps) {
             )}
           </div>
           <h2 className="text-xl font-semibold text-white group-hover:text-primary transition-colors mb-2 line-clamp-2">
-            {post.title}
+            {searchQuery ? highlightText(titleDisplay, searchQuery) : post.title}
           </h2>
-          <p className="text-muted line-clamp-2 mb-4">{excerpt}</p>
+          <p className="text-muted line-clamp-2 mb-4">
+            {searchQuery ? highlightText(excerpt, searchQuery) : excerpt}
+          </p>
           <div className="flex items-center gap-4 text-sm text-muted">
             <span className="flex items-center gap-1">
               <Eye className="w-4 h-4" />

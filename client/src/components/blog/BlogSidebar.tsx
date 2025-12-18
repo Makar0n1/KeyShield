@@ -20,6 +20,33 @@ function stripHtml(html: string): string {
   return doc.body.textContent || ''
 }
 
+// Get text snippet centered around the query match
+function getSnippetAroundMatch(text: string, query: string, maxLength = 60): string {
+  const plainText = stripHtml(text)
+  if (!query || query.length < 3) {
+    return plainText.length > maxLength ? plainText.slice(0, maxLength) + '...' : plainText
+  }
+
+  const lowerText = plainText.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const index = lowerText.indexOf(lowerQuery)
+
+  if (index === -1) {
+    return plainText.length > maxLength ? plainText.slice(0, maxLength) + '...' : plainText
+  }
+
+  // Center the snippet around the match
+  const halfLength = Math.floor((maxLength - query.length) / 2)
+  const start = Math.max(0, index - halfLength)
+  const end = Math.min(plainText.length, index + query.length + halfLength)
+  let snippet = plainText.slice(start, end)
+
+  if (start > 0) snippet = '...' + snippet
+  if (end < plainText.length) snippet = snippet + '...'
+
+  return snippet
+}
+
 // Highlight matching text with <mark> tags
 function highlightText(text: string, query: string) {
   if (!query || query.length < 3) return <>{text}</>
@@ -41,28 +68,6 @@ function highlightText(text: string, query: string) {
       )}
     </>
   )
-}
-
-// Get snippet from content around the query match
-function getSnippet(content: string, query: string, maxLength = 120): string {
-  const plainText = stripHtml(content)
-  if (!query || query.length < 3) return plainText.slice(0, maxLength) + '...'
-
-  const lowerText = plainText.toLowerCase()
-  const lowerQuery = query.toLowerCase()
-  const index = lowerText.indexOf(lowerQuery)
-
-  if (index === -1) return plainText.slice(0, maxLength) + '...'
-
-  // Get text around the match
-  const start = Math.max(0, index - 40)
-  const end = Math.min(plainText.length, index + query.length + 80)
-  let snippet = plainText.slice(start, end)
-
-  if (start > 0) snippet = '...' + snippet
-  if (end < plainText.length) snippet = snippet + '...'
-
-  return snippet
 }
 
 export function BlogSidebar({
@@ -211,11 +216,14 @@ export function BlogSidebar({
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm text-white font-medium line-clamp-1">
-                        {highlightText(post.title, searchQuery)}
+                        {highlightText(
+                          getSnippetAroundMatch(post.title, searchQuery, 50),
+                          searchQuery
+                        )}
                       </h4>
                       <p className="text-xs text-muted mt-1 line-clamp-2">
                         {highlightText(
-                          getSnippet(post.summary || post.content || '', searchQuery),
+                          getSnippetAroundMatch(post.summary || post.content || '', searchQuery, 80),
                           searchQuery
                         )}
                       </p>
