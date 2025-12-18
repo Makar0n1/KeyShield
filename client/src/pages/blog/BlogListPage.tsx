@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ArrowUpDown } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { ArrowUpDown, ChevronRight } from 'lucide-react'
 import { blogService } from '@/services/blog'
 import { BlogSidebar, PostCard } from '@/components/blog'
 import { SEO } from '@/components/SEO'
@@ -75,6 +75,27 @@ export function BlogListPage() {
         description="Полезные статьи о криптовалюте, безопасных сделках и технологии multisig от KeyShield"
         url="/blog"
       />
+
+      {/* Breadcrumbs - only show for search results */}
+      {query && (
+        <div className="bg-dark-light border-b border-border">
+          <div className="container mx-auto px-4 py-3">
+            <nav className="flex items-center gap-2 text-sm text-muted">
+              <Link to="/" className="hover:text-white">
+                Главная
+              </Link>
+              <ChevronRight className="w-4 h-4" />
+              <Link to="/blog" className="hover:text-white">
+                Блог
+              </Link>
+              <ChevronRight className="w-4 h-4" />
+              <span className="text-white truncate max-w-[200px]" title={`Результаты поиска: ${query}`}>
+                Результаты поиска: {query}
+              </span>
+            </nav>
+          </div>
+        </div>
+      )}
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-primary/20 via-transparent to-secondary/10 py-16">
