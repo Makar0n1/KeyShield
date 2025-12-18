@@ -345,10 +345,21 @@ function BlogSection() {
                 className="bg-dark-light rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 group hover:-translate-y-1"
               >
                 {post.coverImage && (
-                  <div
-                    className="h-40 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${post.coverImage})` }}
-                  />
+                  <div className="h-40 relative overflow-hidden bg-dark">
+                    {/* Blurred background */}
+                    <img
+                      src={post.coverImage}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-40"
+                    />
+                    {/* Main image */}
+                    <img
+                      src={post.coverImage}
+                      alt={post.title}
+                      className="absolute inset-0 w-full h-full object-contain"
+                    />
+                  </div>
                 )}
                 <div className="p-4">
                   <div className="flex items-center gap-2 text-xs text-muted mb-2">

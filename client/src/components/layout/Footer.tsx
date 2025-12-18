@@ -87,11 +87,21 @@ export function Footer() {
                       className="group flex items-start gap-2.5 text-muted hover:text-white text-sm transition-colors"
                     >
                       {post.coverImage && (
-                        <img
-                          src={post.coverImage}
-                          alt=""
-                          className="w-10 h-10 rounded object-cover shrink-0"
-                        />
+                        <div className="w-10 h-10 rounded shrink-0 relative overflow-hidden bg-dark">
+                          {/* Blurred background */}
+                          <img
+                            src={post.coverImage}
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
+                          />
+                          {/* Main image */}
+                          <img
+                            src={post.coverImage}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-contain"
+                          />
+                        </div>
                       )}
                       <span className="line-clamp-2 leading-snug pt-0.5">{post.title}</span>
                     </Link>

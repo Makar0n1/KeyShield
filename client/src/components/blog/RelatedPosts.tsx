@@ -35,11 +35,19 @@ export function RelatedPosts({ posts, currentPostId, maxPosts = 3 }: RelatedPost
             <article className="h-full bg-dark-light rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300">
               {/* Cover Image */}
               {post.coverImage ? (
-                <div className="aspect-video overflow-hidden">
+                <div className="aspect-video overflow-hidden relative bg-dark">
+                  {/* Blurred background */}
+                  <img
+                    src={post.coverImage}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-40 group-hover:scale-[1.15] transition-transform duration-300"
+                  />
+                  {/* Main image */}
                   <img
                     src={post.coverImage}
                     alt={post.coverImageAlt || post.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="absolute inset-0 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
               ) : (

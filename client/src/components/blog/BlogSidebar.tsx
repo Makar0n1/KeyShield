@@ -102,11 +102,21 @@ export function BlogSidebar({
               <li key={post._id}>
                 <Link to={`/blog/${post.slug}`} className="flex gap-3 group">
                   {post.coverImage ? (
-                    <img
-                      src={post.coverImage}
-                      alt={post.coverImageAlt || post.title}
-                      className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                    />
+                    <div className="w-16 h-16 rounded-lg flex-shrink-0 relative overflow-hidden bg-dark">
+                      {/* Blurred background */}
+                      <img
+                        src={post.coverImage}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
+                      />
+                      {/* Main image */}
+                      <img
+                        src={post.coverImage}
+                        alt={post.coverImageAlt || post.title}
+                        className="absolute inset-0 w-full h-full object-contain"
+                      />
+                    </div>
                   ) : (
                     <div className="w-16 h-16 bg-dark rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
                       📄

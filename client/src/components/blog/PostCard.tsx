@@ -10,7 +10,7 @@ interface PostCardProps {
   featured?: boolean
 }
 
-// Image with loading state to prevent flash
+// Image with loading state, blur background and contain mode
 function CardImage({ src, alt, className }: { src: string; alt: string; className: string }) {
   const [loaded, setLoaded] = useState(false)
 
@@ -22,10 +22,18 @@ function CardImage({ src, alt, className }: { src: string; alt: string; classNam
           <div className="absolute inset-0 bg-gradient-to-r from-dark-lighter via-dark-light to-dark-lighter bg-[length:200%_100%] animate-shimmer" />
         </div>
       )}
+      {/* Blurred background image */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className={`absolute inset-0 w-full h-full object-cover blur-xl scale-110 transition-opacity duration-300 ${loaded ? 'opacity-40' : 'opacity-0'}`}
+      />
+      {/* Main image - contain mode */}
       <img
         src={src}
         alt={alt}
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setLoaded(true)}
       />
     </div>
