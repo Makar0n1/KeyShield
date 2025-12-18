@@ -197,10 +197,10 @@ export function BlogSidebar({
                   const summaryHasMatch = containsQuery(post.summary || '', searchQuery)
                   const contentHasMatch = containsQuery(post.content || '', searchQuery)
 
-                  // Title display
+                  // Title display - shorter snippet to ensure highlight is visible
                   const titleDisplay = titleHasMatch
-                    ? getSnippetAroundMatch(post.title, searchQuery, 50)
-                    : post.title.length > 50 ? post.title.slice(0, 50) + '...' : post.title
+                    ? getSnippetAroundMatch(post.title, searchQuery, 40)
+                    : post.title.length > 45 ? post.title.slice(0, 45) + '...' : post.title
 
                   // Excerpt display - depends on where match is
                   let excerptText: string
@@ -209,18 +209,19 @@ export function BlogSidebar({
                   if (titleHasMatch) {
                     // Match in title - show normal summary (strip HTML)
                     const plainSummary = stripHtml(post.summary || post.content || '')
-                    excerptText = plainSummary.slice(0, 100)
-                    if (plainSummary.length > 100) excerptText += '...'
+                    excerptText = plainSummary.slice(0, 80)
+                    if (plainSummary.length > 80) excerptText += '...'
                   } else if (summaryHasMatch) {
-                    excerptText = getSnippetAroundMatch(post.summary || '', searchQuery, 100)
+                    // Shorter snippet (60 chars) to ensure highlight is visible on mobile
+                    excerptText = getSnippetAroundMatch(post.summary || '', searchQuery, 60)
                     highlightExcerpt = true
                   } else if (contentHasMatch) {
-                    excerptText = getSnippetAroundMatch(post.content || '', searchQuery, 100)
+                    excerptText = getSnippetAroundMatch(post.content || '', searchQuery, 60)
                     highlightExcerpt = true
                   } else {
                     const plainSummary = stripHtml(post.summary || post.content || '')
-                    excerptText = plainSummary.slice(0, 100)
-                    if (plainSummary.length > 100) excerptText += '...'
+                    excerptText = plainSummary.slice(0, 80)
+                    if (plainSummary.length > 80) excerptText += '...'
                   }
 
                   return (
@@ -252,11 +253,11 @@ export function BlogSidebar({
                       )}
 
                       {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm text-white font-medium line-clamp-1">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <h4 className={`text-sm text-white font-medium ${titleHasMatch ? 'truncate' : 'line-clamp-1'}`}>
                           {titleHasMatch ? highlightText(titleDisplay, searchQuery) : titleDisplay}
                         </h4>
-                        <p className="text-xs text-muted mt-1 line-clamp-2">
+                        <p className={`text-xs text-muted mt-1 ${highlightExcerpt ? 'line-clamp-3' : 'line-clamp-2'}`}>
                           {highlightExcerpt ? highlightText(excerptText, searchQuery) : excerptText}
                         </p>
                       </div>
