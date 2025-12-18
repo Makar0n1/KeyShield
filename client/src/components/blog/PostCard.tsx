@@ -11,6 +11,12 @@ interface PostCardProps {
   searchQuery?: string
 }
 
+// Check if text contains query
+function containsQuery(text: string, query: string): boolean {
+  if (!text || !query || query.length < 3) return false
+  return stripHtml(text).toLowerCase().includes(query.toLowerCase())
+}
+
 // Get text snippet centered around the query match
 function getSnippetAroundMatch(text: string, query: string, maxLength = 100): string {
   const plainText = stripHtml(text)
@@ -93,15 +99,39 @@ function CardImage({ src, alt, className }: { src: string; alt: string; classNam
 export function PostCard({ post, featured = false, searchQuery }: PostCardProps) {
   const rawExcerpt = post.summary || post.excerpt || stripHtml(post.content).slice(0, 150) + '...'
 
-  // If searching, get snippet around match; otherwise use normal excerpt
-  const excerpt = searchQuery
-    ? getSnippetAroundMatch(post.summary || post.content || '', searchQuery, 120)
-    : rawExcerpt
+  // Determine where the match is and what to highlight
+  const titleHasMatch = containsQuery(post.title, searchQuery || '')
+  const summaryHasMatch = containsQuery(post.summary || '', searchQuery || '')
+  const contentHasMatch = containsQuery(post.content || '', searchQuery || '')
 
-  // Get title snippet if searching
-  const titleDisplay = searchQuery
+  // Title: show snippet around match only if match is in title
+  const titleDisplay = searchQuery && titleHasMatch
     ? getSnippetAroundMatch(post.title, searchQuery, 60)
     : post.title
+
+  // Excerpt: depends on where match is found
+  // - If match in title: show normal summary (no highlight needed in excerpt)
+  // - If match in summary: show snippet from summary with highlight
+  // - If match only in content: show snippet from content with highlight
+  let excerpt: string
+  let highlightExcerpt = false
+
+  if (!searchQuery) {
+    excerpt = rawExcerpt
+  } else if (titleHasMatch) {
+    // Match in title - show normal summary without highlight
+    excerpt = rawExcerpt
+  } else if (summaryHasMatch) {
+    // Match in summary - show snippet from summary
+    excerpt = getSnippetAroundMatch(post.summary || '', searchQuery, 120)
+    highlightExcerpt = true
+  } else if (contentHasMatch) {
+    // Match only in content - show snippet from content
+    excerpt = getSnippetAroundMatch(post.content || '', searchQuery, 120)
+    highlightExcerpt = true
+  } else {
+    excerpt = rawExcerpt
+  }
 
   if (featured) {
     return (
@@ -123,10 +153,10 @@ export function PostCard({ post, featured = false, searchQuery }: PostCardProps)
                 {post.featured && <Badge variant="secondary">Избранное</Badge>}
               </div>
               <h2 className="text-2xl font-bold text-white group-hover:text-primary transition-colors mb-4">
-                {searchQuery ? highlightText(titleDisplay, searchQuery) : post.title}
+                {searchQuery && titleHasMatch ? highlightText(titleDisplay, searchQuery) : post.title}
               </h2>
               <p className="text-muted line-clamp-3 mb-6">
-                {searchQuery ? highlightText(excerpt, searchQuery) : excerpt}
+                {highlightExcerpt ? highlightText(excerpt, searchQuery || '') : excerpt}
               </p>
               <div className="flex items-center gap-4 text-sm text-muted">
                 <span className="flex items-center gap-1">
@@ -181,10 +211,10 @@ export function PostCard({ post, featured = false, searchQuery }: PostCardProps)
             )}
           </div>
           <h2 className="text-xl font-semibold text-white group-hover:text-primary transition-colors mb-2 line-clamp-2">
-            {searchQuery ? highlightText(titleDisplay, searchQuery) : post.title}
+            {searchQuery && titleHasMatch ? highlightText(titleDisplay, searchQuery) : post.title}
           </h2>
           <p className="text-muted line-clamp-2 mb-4">
-            {searchQuery ? highlightText(excerpt, searchQuery) : excerpt}
+            {highlightExcerpt ? highlightText(excerpt, searchQuery || '') : excerpt}
           </p>
           <div className="flex items-center gap-4 text-sm text-muted">
             <span className="flex items-center gap-1">

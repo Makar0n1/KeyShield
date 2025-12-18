@@ -20,6 +20,12 @@ function stripHtml(html: string): string {
   return doc.body.textContent || ''
 }
 
+// Check if text contains query
+function containsQuery(text: string, query: string): boolean {
+  if (!text || !query || query.length < 3) return false
+  return stripHtml(text).toLowerCase().includes(query.toLowerCase())
+}
+
 // Get text snippet centered around the query match
 function getSnippetAroundMatch(text: string, query: string, maxLength = 60): string {
   const plainText = stripHtml(text)
@@ -185,51 +191,76 @@ export function BlogSidebar({
           {showResults && searchResults.length > 0 && (
             <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-dark border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-                {searchResults.map((post) => (
-                  <button
-                    key={post._id}
-                    type="button"
-                    onClick={() => handleResultClick(post.slug)}
-                    className="w-full text-left p-3 hover:bg-dark-light transition-colors border-b border-border last:border-b-0 flex gap-3"
-                  >
-                    {/* Thumbnail */}
-                    {post.coverImage ? (
-                      <div className="w-14 h-14 rounded-lg flex-shrink-0 relative overflow-hidden bg-dark-lighter">
-                        <img
-                          src={post.coverImage}
-                          alt=""
-                          aria-hidden="true"
-                          className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
-                        />
-                        <img
-                          src={post.coverImage}
-                          alt=""
-                          className="absolute inset-0 w-full h-full object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 bg-dark-lighter rounded-lg flex items-center justify-center text-xl flex-shrink-0">
-                        📄
-                      </div>
-                    )}
+                {searchResults.map((post) => {
+                  // Determine where match is
+                  const titleHasMatch = containsQuery(post.title, searchQuery)
+                  const summaryHasMatch = containsQuery(post.summary || '', searchQuery)
+                  const contentHasMatch = containsQuery(post.content || '', searchQuery)
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm text-white font-medium line-clamp-1">
-                        {highlightText(
-                          getSnippetAroundMatch(post.title, searchQuery, 50),
-                          searchQuery
-                        )}
-                      </h4>
-                      <p className="text-xs text-muted mt-1 line-clamp-2">
-                        {highlightText(
-                          getSnippetAroundMatch(post.summary || post.content || '', searchQuery, 80),
-                          searchQuery
-                        )}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                  // Title display
+                  const titleDisplay = titleHasMatch
+                    ? getSnippetAroundMatch(post.title, searchQuery, 50)
+                    : post.title.length > 50 ? post.title.slice(0, 50) + '...' : post.title
+
+                  // Excerpt display - depends on where match is
+                  let excerptText: string
+                  let highlightExcerpt = false
+
+                  if (titleHasMatch) {
+                    // Match in title - show normal summary
+                    excerptText = (post.summary || post.content || '').slice(0, 80)
+                    if (excerptText.length === 80) excerptText += '...'
+                  } else if (summaryHasMatch) {
+                    excerptText = getSnippetAroundMatch(post.summary || '', searchQuery, 80)
+                    highlightExcerpt = true
+                  } else if (contentHasMatch) {
+                    excerptText = getSnippetAroundMatch(post.content || '', searchQuery, 80)
+                    highlightExcerpt = true
+                  } else {
+                    excerptText = (post.summary || post.content || '').slice(0, 80)
+                    if (excerptText.length === 80) excerptText += '...'
+                  }
+
+                  return (
+                    <button
+                      key={post._id}
+                      type="button"
+                      onClick={() => handleResultClick(post.slug)}
+                      className="w-full text-left p-3 hover:bg-dark-light transition-colors border-b border-border last:border-b-0 flex gap-3"
+                    >
+                      {/* Thumbnail */}
+                      {post.coverImage ? (
+                        <div className="w-14 h-14 rounded-lg flex-shrink-0 relative overflow-hidden bg-dark-lighter">
+                          <img
+                            src={post.coverImage}
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
+                          />
+                          <img
+                            src={post.coverImage}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 bg-dark-lighter rounded-lg flex items-center justify-center text-xl flex-shrink-0">
+                          📄
+                        </div>
+                      )}
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm text-white font-medium line-clamp-1">
+                          {titleHasMatch ? highlightText(titleDisplay, searchQuery) : titleDisplay}
+                        </h4>
+                        <p className="text-xs text-muted mt-1 line-clamp-2">
+                          {highlightExcerpt ? highlightText(excerptText, searchQuery) : excerptText}
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
 
               {/* View all results link */}

@@ -311,20 +311,39 @@ blogPostSchema.statics.search = async function(query, limit = 10) {
     .select('title slug summary content coverImage coverImageAlt category publishedAt')
     .lean();
 
-  // Приоритизация: сначала совпадения в title, потом в summary, потом в content
+  // Приоритизация с учетом позиции слова
+  // title: 1000000 - позиция (чем раньше, тем выше)
+  // summary: 10000 - позиция
+  // content: 100 - позиция
   const scored = posts.map(post => {
     let score = 0;
-    if (regex.test(post.title)) score += 100;
-    if (regex.test(post.summary || '')) score += 10;
-    if (regex.test(post.content || '')) score += 1;
-    return { ...post, _searchScore: score };
+    let matchSource = 'content'; // где найдено совпадение для отображения
+
+    const titleLower = (post.title || '').toLowerCase();
+    const summaryLower = (post.summary || '').toLowerCase();
+    const contentLower = (post.content || '').toLowerCase();
+    const queryLower = query.toLowerCase();
+
+    const titlePos = titleLower.indexOf(queryLower);
+    const summaryPos = summaryLower.indexOf(queryLower);
+    const contentPos = contentLower.indexOf(queryLower);
+
+    if (titlePos !== -1) {
+      score = 1000000 - titlePos; // title - самый приоритетный
+      matchSource = 'title';
+    } else if (summaryPos !== -1) {
+      score = 10000 - summaryPos; // summary - второй
+      matchSource = 'summary';
+    } else if (contentPos !== -1) {
+      score = 100 - Math.min(contentPos / 100, 99); // content - третий
+      matchSource = 'content';
+    }
+
+    return { ...post, _searchScore: score, _matchSource: matchSource };
   });
 
-  // Сортировка по score (desc), затем по дате
-  scored.sort((a, b) => {
-    if (b._searchScore !== a._searchScore) return b._searchScore - a._searchScore;
-    return new Date(b.publishedAt) - new Date(a.publishedAt);
-  });
+  // Сортировка по score (desc)
+  scored.sort((a, b) => b._searchScore - a._searchScore);
 
   return scored.slice(0, limit);
 };
