@@ -474,22 +474,27 @@ export function BlogContent({ content, postId, recentPosts }: BlogContentProps) 
       })
     }
 
-    // STEP 4: Vertical images
+    // STEP 4: Process all standalone images (both vertical and horizontal)
     const processImages = () => {
       node.querySelectorAll('img').forEach((img) => {
+        if (img.parentElement?.classList.contains('content-image-wrapper')) return
         if (img.parentElement?.classList.contains('vertical-image-wrapper')) return
         if (img.closest('.image-gallery') || img.closest('.gallery-carousel')) return
 
         const process = () => {
+          if (img.parentElement?.classList.contains('content-image-wrapper')) return
           if (img.parentElement?.classList.contains('vertical-image-wrapper')) return
-          if (img.naturalHeight <= img.naturalWidth) return
+
+          const isVertical = img.naturalHeight > img.naturalWidth
 
           const wrapper = document.createElement('div')
-          wrapper.className = 'vertical-image-wrapper'
+          wrapper.className = isVertical ? 'vertical-image-wrapper' : 'content-image-wrapper'
           wrapper.style.cssText = 'position:relative;width:100%;aspect-ratio:16/9;border-radius:0.75rem;overflow:hidden;margin:1.5rem 0;background:#1e293b;'
 
           const bg = img.cloneNode() as HTMLImageElement
-          bg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;filter:blur(20px);transform:scale(1.1);opacity:0.6;z-index:0;'
+          bg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;filter:blur(20px);transform:scale(1.1);opacity:0.4;z-index:0;'
+          bg.removeAttribute('alt')
+          bg.setAttribute('aria-hidden', 'true')
 
           img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;margin:0;border-radius:0;z-index:1;cursor:pointer;'
           img.onclick = () => openLightbox([img.src], 0)
