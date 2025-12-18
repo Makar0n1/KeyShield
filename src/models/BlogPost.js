@@ -292,22 +292,41 @@ blogPostSchema.statics.getPublished = async function(options = {}) {
   };
 };
 
-// Статический метод: поиск по заголовку и описанию
+// Статический метод: поиск по заголовку, описанию и контенту с приоритизацией
 blogPostSchema.statics.search = async function(query, limit = 10) {
   // Экранирование спецсимволов regex
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escapedQuery, 'i');
 
-  return this.find({
+  // Находим все совпадения
+  const posts = await this.find({
     status: 'published',
     $or: [
-      { title: { $regex: escapedQuery, $options: 'i' } },
-      { summary: { $regex: escapedQuery, $options: 'i' } }
+      { title: { $regex: regex } },
+      { summary: { $regex: regex } },
+      { content: { $regex: regex } }
     ]
   })
     .populate('category', 'name slug')
-    .sort({ publishedAt: -1 })
-    .limit(limit)
+    .select('title slug summary content coverImage coverImageAlt category publishedAt')
     .lean();
+
+  // Приоритизация: сначала совпадения в title, потом в summary, потом в content
+  const scored = posts.map(post => {
+    let score = 0;
+    if (regex.test(post.title)) score += 100;
+    if (regex.test(post.summary || '')) score += 10;
+    if (regex.test(post.content || '')) score += 1;
+    return { ...post, _searchScore: score };
+  });
+
+  // Сортировка по score (desc), затем по дате
+  scored.sort((a, b) => {
+    if (b._searchScore !== a._searchScore) return b._searchScore - a._searchScore;
+    return new Date(b.publishedAt) - new Date(a.publishedAt);
+  });
+
+  return scored.slice(0, limit);
 };
 
 // Статический метод: получить последние посты

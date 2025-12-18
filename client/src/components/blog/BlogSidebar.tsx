@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 import type { BlogCategory, BlogTag, BlogPost } from '@/types'
 import { formatDateShort } from '@/utils/format'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { blogService } from '@/services/blog'
 
 interface BlogSidebarProps {
   categories: BlogCategory[]
@@ -12,6 +12,57 @@ interface BlogSidebarProps {
   recentPosts: BlogPost[]
   currentCategorySlug?: string
   currentTagSlug?: string
+}
+
+// Strip HTML tags from content
+function stripHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return doc.body.textContent || ''
+}
+
+// Highlight matching text with <mark> tags
+function highlightText(text: string, query: string) {
+  if (!query || query.length < 3) return <>{text}</>
+
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-primary/30 text-white font-semibold rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  )
+}
+
+// Get snippet from content around the query match
+function getSnippet(content: string, query: string, maxLength = 120): string {
+  const plainText = stripHtml(content)
+  if (!query || query.length < 3) return plainText.slice(0, maxLength) + '...'
+
+  const lowerText = plainText.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const index = lowerText.indexOf(lowerQuery)
+
+  if (index === -1) return plainText.slice(0, maxLength) + '...'
+
+  // Get text around the match
+  const start = Math.max(0, index - 40)
+  const end = Math.min(plainText.length, index + query.length + 80)
+  let snippet = plainText.slice(start, end)
+
+  if (start > 0) snippet = '...' + snippet
+  if (end < plainText.length) snippet = snippet + '...'
+
+  return snippet
 }
 
 export function BlogSidebar({
@@ -22,11 +73,78 @@ export function BlogSidebar({
   currentTagSlug,
 }: BlogSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<BlogPost[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
-  const handleSearch = (e: React.FormEvent) => {
+  // Debounced search
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const performSearch = useCallback(async (query: string) => {
+    if (query.length < 3) {
+      setSearchResults([])
+      setShowResults(false)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const results = await blogService.search(query, 8)
+      setSearchResults(results)
+      setShowResults(true)
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }, [])
+
+  // Handle search input change with debounce
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchQuery(value)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (value.length >= 3) {
+      searchTimeoutRef.current = setTimeout(() => {
+        performSearch(value)
+      }, 300)
+    } else {
+      setSearchResults([])
+      setShowResults(false)
+    }
+  }
+
+  // Handle click outside to close results
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Handle result click
+  const handleResultClick = (slug: string) => {
+    setShowResults(false)
+    setSearchQuery('')
+    navigate(`/blog/${slug}`)
+  }
+
+  // Handle form submit (Enter key)
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
+      setShowResults(false)
       navigate(`/blog?q=${encodeURIComponent(searchQuery.trim())}`)
     }
   }
@@ -34,22 +152,98 @@ export function BlogSidebar({
   return (
     <aside className="space-y-8">
       {/* Search */}
-      <div className="bg-dark-light rounded-xl p-6 border border-border">
+      <div className="bg-dark-light rounded-xl p-6 border border-border" ref={searchContainerRef}>
         <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
           <Search className="w-4 h-4" />
           Поиск
         </h3>
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск статей..."
-            className="flex-1"
-          />
-          <Button type="submit" size="icon">
-            <Search className="w-4 h-4" />
-          </Button>
+        <form onSubmit={handleSubmit} className="relative">
+          <div className="relative">
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onFocus={() => searchResults.length > 0 && setShowResults(true)}
+              placeholder="Поиск статей..."
+              className="w-full pr-10"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {isSearching ? (
+                <Loader2 className="w-4 h-4 text-muted animate-spin" />
+              ) : (
+                <Search className="w-4 h-4 text-muted" />
+              )}
+            </div>
+          </div>
+
+          {/* Search Results Dropdown */}
+          {showResults && searchResults.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-dark border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                {searchResults.map((post) => (
+                  <button
+                    key={post._id}
+                    type="button"
+                    onClick={() => handleResultClick(post.slug)}
+                    className="w-full text-left p-3 hover:bg-dark-light transition-colors border-b border-border last:border-b-0 flex gap-3"
+                  >
+                    {/* Thumbnail */}
+                    {post.coverImage ? (
+                      <div className="w-14 h-14 rounded-lg flex-shrink-0 relative overflow-hidden bg-dark-lighter">
+                        <img
+                          src={post.coverImage}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
+                        />
+                        <img
+                          src={post.coverImage}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 bg-dark-lighter rounded-lg flex items-center justify-center text-xl flex-shrink-0">
+                        📄
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm text-white font-medium line-clamp-1">
+                        {highlightText(post.title, searchQuery)}
+                      </h4>
+                      <p className="text-xs text-muted mt-1 line-clamp-2">
+                        {highlightText(
+                          getSnippet(post.summary || post.content || '', searchQuery),
+                          searchQuery
+                        )}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* View all results link */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResults(false)
+                  navigate(`/blog?q=${encodeURIComponent(searchQuery.trim())}`)
+                }}
+                className="w-full p-3 text-center text-sm text-primary hover:bg-dark-light transition-colors border-t border-border"
+              >
+                Показать все результаты →
+              </button>
+            </div>
+          )}
+
+          {/* No results message */}
+          {showResults && searchQuery.length >= 3 && searchResults.length === 0 && !isSearching && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-dark border border-border rounded-xl shadow-xl p-4 text-center text-muted text-sm">
+              Ничего не найдено
+            </div>
+          )}
         </form>
       </div>
 
