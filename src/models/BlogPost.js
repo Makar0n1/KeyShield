@@ -308,7 +308,7 @@ blogPostSchema.statics.search = async function(query, limit = 10) {
     ]
   })
     .populate('category', 'name slug')
-    .select('title slug summary content coverImage coverImageAlt category publishedAt')
+    .select('title slug summary content coverImage coverImageAlt category publishedAt createdAt views likes commentsCount readTime')
     .lean();
 
   // Приоритизация с учетом позиции слова
