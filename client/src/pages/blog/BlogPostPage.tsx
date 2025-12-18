@@ -20,7 +20,7 @@ import { PageLoading } from '@/components/ui/loading'
 import { Button } from '@/components/ui/button'
 import type { BlogPost, BlogComment, BlogSidebarData } from '@/types'
 
-// Cover image with skeleton placeholder - fixed height, contain mode
+// Cover image with blurred background and contain overlay
 function CoverImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false)
 
@@ -32,10 +32,18 @@ function CoverImage({ src, alt }: { src: string; alt: string }) {
           <div className="absolute inset-0 bg-gradient-to-r from-dark-light via-dark-lighter to-dark-light bg-[length:200%_100%] animate-shimmer" />
         </div>
       )}
+      {/* Blurred background image - object-fit cover */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className={`absolute inset-0 w-full h-full object-cover blur-xl scale-110 transition-opacity duration-300 ${loaded ? 'opacity-40' : 'opacity-0'}`}
+      />
+      {/* Main image - object-fit contain */}
       <img
         src={src}
         alt={alt}
-        className={`w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`relative w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setLoaded(true)}
       />
     </div>
