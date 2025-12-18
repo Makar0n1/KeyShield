@@ -150,18 +150,27 @@ app.get('/sitemap.xml', async (req, res) => {
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
 
-    // Static pages
+    // Current date for static pages lastmod
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get latest post date for /blog page lastmod
+    const latestPostDate = posts.length > 0 && posts[0].updatedAt
+      ? new Date(posts[0].updatedAt).toISOString().split('T')[0]
+      : today;
+
+    // Static pages with lastmod
     const staticPages = [
-      { loc: '/', priority: '1.0', changefreq: 'weekly' },
-      { loc: '/blog', priority: '0.9', changefreq: 'daily' },
-      { loc: '/offer', priority: '0.3', changefreq: 'monthly' },
-      { loc: '/terms', priority: '0.3', changefreq: 'monthly' },
-      { loc: '/privacy', priority: '0.3', changefreq: 'monthly' }
+      { loc: '/', priority: '1.0', changefreq: 'weekly', lastmod: today },
+      { loc: '/blog', priority: '0.9', changefreq: 'weekly', lastmod: latestPostDate },
+      { loc: '/offer', priority: '0.3', changefreq: 'monthly', lastmod: '2024-01-01' },
+      { loc: '/terms', priority: '0.3', changefreq: 'monthly', lastmod: '2024-01-01' },
+      { loc: '/privacy', priority: '0.3', changefreq: 'monthly', lastmod: '2024-01-01' }
     ];
 
     for (const page of staticPages) {
       xml += '  <url>\n';
       xml += `    <loc>${SITE_URL}${page.loc}</loc>\n`;
+      xml += `    <lastmod>${page.lastmod}</lastmod>\n`;
       xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
       xml += `    <priority>${page.priority}</priority>\n`;
       xml += '  </url>\n';
@@ -169,12 +178,12 @@ app.get('/sitemap.xml', async (req, res) => {
 
     // Blog posts
     for (const post of posts) {
-      const lastmod = post.updatedAt || post.publishedAt;
+      const postLastmod = post.updatedAt || post.publishedAt
+        ? new Date(post.updatedAt || post.publishedAt).toISOString().split('T')[0]
+        : today;
       xml += '  <url>\n';
       xml += `    <loc>${SITE_URL}/blog/${post.slug}</loc>\n`;
-      if (lastmod) {
-        xml += `    <lastmod>${new Date(lastmod).toISOString().split('T')[0]}</lastmod>\n`;
-      }
+      xml += `    <lastmod>${postLastmod}</lastmod>\n`;
       xml += '    <changefreq>weekly</changefreq>\n';
       xml += '    <priority>0.8</priority>\n';
       xml += '  </url>\n';
@@ -182,11 +191,12 @@ app.get('/sitemap.xml', async (req, res) => {
 
     // Categories
     for (const cat of categories) {
+      const catLastmod = cat.updatedAt
+        ? new Date(cat.updatedAt).toISOString().split('T')[0]
+        : today;
       xml += '  <url>\n';
       xml += `    <loc>${SITE_URL}/category/${cat.slug}</loc>\n`;
-      if (cat.updatedAt) {
-        xml += `    <lastmod>${new Date(cat.updatedAt).toISOString().split('T')[0]}</lastmod>\n`;
-      }
+      xml += `    <lastmod>${catLastmod}</lastmod>\n`;
       xml += '    <changefreq>weekly</changefreq>\n';
       xml += '    <priority>0.6</priority>\n';
       xml += '  </url>\n';
@@ -194,11 +204,12 @@ app.get('/sitemap.xml', async (req, res) => {
 
     // Tags
     for (const tag of tags) {
+      const tagLastmod = tag.updatedAt
+        ? new Date(tag.updatedAt).toISOString().split('T')[0]
+        : today;
       xml += '  <url>\n';
       xml += `    <loc>${SITE_URL}/tag/${tag.slug}</loc>\n`;
-      if (tag.updatedAt) {
-        xml += `    <lastmod>${new Date(tag.updatedAt).toISOString().split('T')[0]}</lastmod>\n`;
-      }
+      xml += `    <lastmod>${tagLastmod}</lastmod>\n`;
       xml += '    <changefreq>weekly</changefreq>\n';
       xml += '    <priority>0.5</priority>\n';
       xml += '  </url>\n';
@@ -226,18 +237,47 @@ app.get('/robots.txt', (req, res) => {
   const robotsTxt = `# KeyShield - Robots.txt
 # ${SITE_URL}
 
+# Default rules for all crawlers
 User-agent: *
 Allow: /
-Allow: /blog
-Allow: /blog/*
-Allow: /category/*
-Allow: /tag/*
-
-# Disallow admin and private areas
 Disallow: /admin
-Disallow: /admin/*
 Disallow: /api/
 Disallow: /partner/
+
+# AI Training bots - disallow training on our content
+User-agent: GPTBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+# Allow OpenAI SearchBot for citations/references in ChatGPT search
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /partner/
+
+# Content signals (Cloudflare standard)
+# search=yes - allow in search results
+# ai-input=no - don't use as input for AI responses
+# ai-train=no - don't use for AI training
+Content-signal: search=yes,ai-input=no,ai-train=no
 
 # Sitemap location
 Sitemap: ${SITE_URL}/sitemap.xml
