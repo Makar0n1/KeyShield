@@ -77,7 +77,6 @@ export function TagPage() {
         title={`#${tag.name} — статьи по тегу`}
         description={`Статьи с тегом ${tag.name} в блоге KeyShield`}
         url={`/tag/${tag.slug}`}
-        noindex={true}
       />
 
       {/* Breadcrumbs */}
