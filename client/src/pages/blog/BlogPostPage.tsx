@@ -20,16 +20,12 @@ import { PageLoading } from '@/components/ui/loading'
 import { Button } from '@/components/ui/button'
 import type { BlogPost, BlogComment, BlogSidebarData } from '@/types'
 
-// Cover image with skeleton placeholder to prevent layout shift
+// Cover image with skeleton placeholder - fixed height, contain mode
 function CoverImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false)
-  const [aspectRatio, setAspectRatio] = useState(16 / 9) // Default aspect ratio
 
   return (
-    <div
-      className="relative w-full rounded-xl mb-8 overflow-hidden bg-dark-light"
-      style={{ paddingBottom: `${(1 / aspectRatio) * 100}%` }}
-    >
+    <div className="relative w-full h-[300px] md:h-[400px] rounded-xl mb-8 overflow-hidden bg-dark-light">
       {/* Skeleton placeholder */}
       {!loaded && (
         <div className="absolute inset-0 bg-dark-light animate-pulse">
@@ -39,14 +35,8 @@ function CoverImage({ src, alt }: { src: string; alt: string }) {
       <img
         src={src}
         alt={alt}
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={(e) => {
-          const img = e.currentTarget
-          if (img.naturalWidth && img.naturalHeight) {
-            setAspectRatio(img.naturalWidth / img.naturalHeight)
-          }
-          setLoaded(true)
-        }}
+        className={`w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
       />
     </div>
   )

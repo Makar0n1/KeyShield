@@ -66,7 +66,7 @@ const features = [
   {
     icon: '&#x1F512;',
     title: 'Multisig защита',
-    description: 'Для каждой сделки создается уникальный кошелек с 3 ключами. Для перемещения средств нужны 2 из 3 подписей.',
+    description: 'Для каждой сделки создается уникальный кошелек. Каждый участник получает свой приватный ключ для подписи транзакций.',
   },
   {
     icon: '&#x26A1;',
@@ -131,8 +131,8 @@ const steps = [
   },
   {
     number: 2,
-    title: 'Multisig кошелек',
-    description: 'Автоматически создается защищенный multisig-кошелек с тремя ключами: покупатель, продавец, арбитр.',
+    title: 'Получение ключа',
+    description: 'Каждый участник получает свой приватный ключ для подписи. Сохраните его — он понадобится для подтверждения выплаты.',
   },
   {
     number: 3,
@@ -174,12 +174,16 @@ function HowItWorksSection() {
 
         {/* Deadline Warning */}
         <div className="max-w-3xl mx-auto mt-12 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-          <h3 className="text-xl font-semibold text-yellow-400 mb-2">
+          <h3 className="text-xl font-semibold text-yellow-400 mb-3">
             &#x23F0; Важно: Срок выполнения
           </h3>
           <p className="text-gray-300">
             Если срок сделки истёк и в течение <strong>12 часов</strong> не будет
-            подтверждения или спора — средства автоматически возвращаются покупателю.
+            подтверждения или спора — инициируется возврат средств покупателю.
+          </p>
+          <p className="text-gray-300 mt-2">
+            <strong className="text-yellow-400">Для получения средств потребуется приватный ключ</strong> —
+            система запросит его для подписи транзакции возврата.
           </p>
           <p className="text-gray-300 mt-2">
             <strong>Комиссия сервиса удерживается в любом случае</strong> — она идёт
@@ -232,14 +236,30 @@ function PricingSection() {
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto mt-8 text-center text-muted text-sm">
-          <p>
-            <strong className="text-white">Кто платит комиссию?</strong> При создании сделки стороны
-            договариваются: покупатель платит всю комиссию, продавец платит всю комиссию, или 50/50.
-          </p>
-          <p className="mt-2">
-            <strong className="text-white">Без скрытых платежей.</strong> Комиссия включает все операционные расходы.
-          </p>
+        {/* Commission Info Cards */}
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-10">
+          <div className="bg-dark rounded-xl p-5 border border-border flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">&#x1F4B3;</span>
+            </div>
+            <div>
+              <h4 className="text-white font-semibold mb-1">Кто платит комиссию?</h4>
+              <p className="text-muted text-sm">
+                При создании сделки стороны договариваются: покупатель, продавец или 50/50.
+              </p>
+            </div>
+          </div>
+          <div className="bg-dark rounded-xl p-5 border border-border flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">&#x2705;</span>
+            </div>
+            <div>
+              <h4 className="text-white font-semibold mb-1">Без скрытых платежей</h4>
+              <p className="text-muted text-sm">
+                Комиссия включает все операционные расходы: активация кошелька, транзакции, арбитраж.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </section>

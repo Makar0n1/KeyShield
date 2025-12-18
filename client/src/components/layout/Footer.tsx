@@ -10,8 +10,8 @@ const footerLinks = {
     { href: '/offer', label: 'Публичная оферта' },
   ],
   support: [
-    { href: 'https://t.me/mamlyga', label: 'Telegram: @mamlyga', external: true },
-    { href: 'mailto:amroids@tutamail.com', label: 'Email: amroids@tutamail.com', external: true },
+    { href: 'https://t.me/keyshield_support', label: 'Telegram: @keyshield_support', external: true },
+    { href: 'mailto:support@keyshield.me', label: 'Email: support@keyshield.me', external: true },
   ],
 }
 

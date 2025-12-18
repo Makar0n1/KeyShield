@@ -134,7 +134,7 @@ async function handleKeyValidationInput(ctx) {
 
 Попытка ${session.attempts}
 
-⚠️ Если вы потеряли ключ, обратитесь в поддержку: @mamlyga
+⚠️ Если вы потеряли ключ, обратитесь в поддержку: @keyshield_support
 
 Попробуйте ещё раз:`;
   } else {
@@ -342,7 +342,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${error.message}
 
-Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, telegramId, 'payout_error', errorText, keyboard);
@@ -539,7 +539,7 @@ async function processBuyerRefund(ctx, deal) {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${error.message}
 
-Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, telegramId, 'refund_error', errorText, keyboard);
@@ -717,7 +717,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${error.message}
 
-Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, winnerId, 'dispute_payout_error', errorText, keyboard);

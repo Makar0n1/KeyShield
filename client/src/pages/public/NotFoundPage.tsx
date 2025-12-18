@@ -40,7 +40,7 @@ export function NotFoundPage() {
             Документы
           </Link>
           <span>•</span>
-          <a href="https://t.me/mamlyga" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+          <a href="https://t.me/keyshield_support" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
             Поддержка
           </a>
         </div>

@@ -805,7 +805,7 @@ class DeadlineMonitor {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${errorMessage}
 
-Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = {
       inline_keyboard: [
@@ -900,7 +900,7 @@ class DeadlineMonitor {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${errorMessage}
 
-Пожалуйста, свяжитесь с поддержкой: @mamlyga`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = {
       inline_keyboard: [

@@ -113,7 +113,8 @@ export function PrivacyPage() {
         <Paragraph>4.2. <strong>Безопасность хранения:</strong></Paragraph>
         <List
           items={[
-            'Приватные ключи хранятся в зашифрованном виде',
+            'Приватные ключи пользователей (покупателя и продавца) выдаются им и НЕ ХРАНЯТСЯ на наших серверах',
+            'Ключ арбитра хранится в зашифрованном виде',
             'Доступ к базе данных защищен паролями и шифрованием',
             'Применяются современные стандарты безопасности',
             'Регулярное резервное копирование данных',
@@ -176,7 +177,7 @@ export function PrivacyPage() {
         />
 
         <Paragraph>
-          7.3. Для реализации ваших прав обращайтесь: @mamlyga или amroids@tutamail.com
+          7.3. Для реализации ваших прав обращайтесь: @keyshield_support или amroids@tutamail.com
         </Paragraph>
       </Section>
 
@@ -190,7 +191,7 @@ export function PrivacyPage() {
         <Paragraph>9.1. Сервис не предназначен для лиц младше 18 лет.</Paragraph>
         <Paragraph>9.2. Мы сознательно не собираем информацию от лиц младше 18 лет.</Paragraph>
         <Paragraph>
-          9.3. Если вам стало известно, что несовершеннолетний использует Сервис, свяжитесь с нами: @mamlyga
+          9.3. Если вам стало известно, что несовершеннолетний использует Сервис, свяжитесь с нами: @keyshield_support
         </Paragraph>
       </Section>
 
@@ -258,7 +259,7 @@ export function PrivacyPage() {
         <Paragraph>Если у вас есть вопросы о настоящей Политике конфиденциальности, свяжитесь с нами:</Paragraph>
         <List
           items={[
-            'Telegram: @mamlyga',
+            'Telegram: @keyshield_support',
             'Email: amroids@tutamail.com',
           ]}
         />
