@@ -237,14 +237,17 @@ app.get('/robots.txt', (req, res) => {
   const robotsTxt = `# KeyShield - Robots.txt
 # ${SITE_URL}
 
-# Default rules for all crawlers
+# Default rules for all crawlers (search engines)
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/
 Disallow: /partner/
 
-# AI Training bots - disallow training on our content
+# ============================================
+# AI TRAINING BOTS - Block (we don't want our content used for training)
+# ============================================
+
 User-agent: GPTBot
 Disallow: /
 
@@ -266,17 +269,40 @@ Disallow: /
 User-agent: meta-externalagent
 Disallow: /
 
-# Allow OpenAI SearchBot for citations/references in ChatGPT search
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+# ============================================
+# AI SEARCH/CITATION BOTS - Allow (we WANT to be cited as source)
+# ============================================
+
+# OpenAI SearchBot - for ChatGPT search citations
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /admin
 Disallow: /api/
 Disallow: /partner/
 
-# Content signals (Cloudflare standard)
-# search=yes - allow in search results
-# ai-input=no - don't use as input for AI responses
-# ai-train=no - don't use for AI training
+# Perplexity - for Perplexity AI citations
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /partner/
+
+# Bing - powers Microsoft Copilot citations (already allowed via User-agent: *)
+# Googlebot - powers Google AI Overview citations (already allowed via User-agent: *)
+
+# ============================================
+# CONTENT SIGNALS
+# ============================================
+# Cloudflare standard for AI usage preferences:
+# search=yes - include in search results and AI search citations
+# ai-input=no - don't use as real-time input for AI responses
+# ai-train=no - don't use for AI model training
 Content-signal: search=yes,ai-input=no,ai-train=no
 
 # Sitemap location
