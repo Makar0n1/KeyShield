@@ -120,6 +120,133 @@ app.get('/api/admin/verify', adminAuth, (req, res) => {
 // Public blog API
 app.use('/api/blog', blogPublicRoutes);
 
+// ============ SEO: Sitemap & Robots ============
+
+// Models for sitemap
+const BlogPost = (await import('../src/models/BlogPost.js')).default;
+const BlogCategory = (await import('../src/models/BlogCategory.js')).default;
+const BlogTag = (await import('../src/models/BlogTag.js')).default;
+
+// Dynamic sitemap.xml
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const SITE_URL = process.env.WEB_DOMAIN
+      ? (process.env.WEB_DOMAIN.includes('localhost')
+        ? `http://${process.env.WEB_DOMAIN}`
+        : `https://${process.env.WEB_DOMAIN}`)
+      : 'https://keyshield.me';
+
+    // Fetch all published posts, categories, and tags
+    const [posts, categories, tags] = await Promise.all([
+      BlogPost.find({ status: 'published' })
+        .select('slug updatedAt publishedAt')
+        .sort({ publishedAt: -1 })
+        .lean(),
+      BlogCategory.find().select('slug updatedAt').lean(),
+      BlogTag.find().select('slug updatedAt').lean()
+    ]);
+
+    // Build XML
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+    // Static pages
+    const staticPages = [
+      { loc: '/', priority: '1.0', changefreq: 'weekly' },
+      { loc: '/blog', priority: '0.9', changefreq: 'daily' },
+      { loc: '/offer', priority: '0.3', changefreq: 'monthly' },
+      { loc: '/terms', priority: '0.3', changefreq: 'monthly' },
+      { loc: '/privacy', priority: '0.3', changefreq: 'monthly' }
+    ];
+
+    for (const page of staticPages) {
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}${page.loc}</loc>\n`;
+      xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
+      xml += `    <priority>${page.priority}</priority>\n`;
+      xml += '  </url>\n';
+    }
+
+    // Blog posts
+    for (const post of posts) {
+      const lastmod = post.updatedAt || post.publishedAt;
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}/blog/${post.slug}</loc>\n`;
+      if (lastmod) {
+        xml += `    <lastmod>${new Date(lastmod).toISOString().split('T')[0]}</lastmod>\n`;
+      }
+      xml += '    <changefreq>weekly</changefreq>\n';
+      xml += '    <priority>0.8</priority>\n';
+      xml += '  </url>\n';
+    }
+
+    // Categories
+    for (const cat of categories) {
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}/category/${cat.slug}</loc>\n`;
+      if (cat.updatedAt) {
+        xml += `    <lastmod>${new Date(cat.updatedAt).toISOString().split('T')[0]}</lastmod>\n`;
+      }
+      xml += '    <changefreq>weekly</changefreq>\n';
+      xml += '    <priority>0.6</priority>\n';
+      xml += '  </url>\n';
+    }
+
+    // Tags
+    for (const tag of tags) {
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}/tag/${tag.slug}</loc>\n`;
+      if (tag.updatedAt) {
+        xml += `    <lastmod>${new Date(tag.updatedAt).toISOString().split('T')[0]}</lastmod>\n`;
+      }
+      xml += '    <changefreq>weekly</changefreq>\n';
+      xml += '    <priority>0.5</priority>\n';
+      xml += '  </url>\n';
+    }
+
+    xml += '</urlset>';
+
+    res.set('Content-Type', 'application/xml');
+    res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.send(xml);
+  } catch (error) {
+    console.error('Error generating sitemap:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+// Robots.txt (serve from public or generate)
+app.get('/robots.txt', (req, res) => {
+  const SITE_URL = process.env.WEB_DOMAIN
+    ? (process.env.WEB_DOMAIN.includes('localhost')
+      ? `http://${process.env.WEB_DOMAIN}`
+      : `https://${process.env.WEB_DOMAIN}`)
+    : 'https://keyshield.me';
+
+  const robotsTxt = `# KeyShield - Robots.txt
+# ${SITE_URL}
+
+User-agent: *
+Allow: /
+Allow: /blog
+Allow: /blog/*
+Allow: /category/*
+Allow: /tag/*
+
+# Disallow admin and private areas
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /api/
+Disallow: /partner/
+
+# Sitemap location
+Sitemap: ${SITE_URL}/sitemap.xml
+`;
+
+  res.set('Content-Type', 'text/plain');
+  res.send(robotsTxt);
+});
+
 // Blog admin routes
 app.use('/api/admin/blog', adminAuth, blogAdminRoutes);
 
