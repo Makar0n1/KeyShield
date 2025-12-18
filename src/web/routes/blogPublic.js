@@ -55,7 +55,32 @@ setInterval(() => {
 // GET /api/blog/posts - list published posts with pagination
 router.get('/posts', async (req, res) => {
   try {
-    const { page = 1, limit = 6, sort = 'newest', category, tag } = req.query;
+    const { page = 1, limit = 6, sort = 'newest', category, tag, q } = req.query;
+
+    // If search query provided, use search method with prioritization
+    if (q && q.length >= 3) {
+      const query = q.substring(0, 100);
+      const pageNum = parseInt(page);
+      const limitNum = parseInt(limit);
+
+      // Get all search results (sorted by priority)
+      const allResults = await BlogPost.search(query, 100);
+
+      // Paginate results
+      const total = allResults.length;
+      const totalPages = Math.ceil(total / limitNum);
+      const skip = (pageNum - 1) * limitNum;
+      const posts = allResults.slice(skip, skip + limitNum);
+
+      return res.json({
+        success: true,
+        posts,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages
+      });
+    }
 
     const result = await BlogPost.getPublished({
       page: parseInt(page),
