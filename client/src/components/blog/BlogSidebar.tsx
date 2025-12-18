@@ -189,7 +189,7 @@ export function BlogSidebar({
 
           {/* Search Results Dropdown */}
           {showResults && searchResults.length > 0 && (
-            <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-dark border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute z-50 top-full left-0 mt-2 bg-dark border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 w-full lg:w-[400px]">
               <div className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 {searchResults.map((post) => {
                   // Determine where match is
@@ -207,18 +207,20 @@ export function BlogSidebar({
                   let highlightExcerpt = false
 
                   if (titleHasMatch) {
-                    // Match in title - show normal summary
-                    excerptText = (post.summary || post.content || '').slice(0, 80)
-                    if (excerptText.length === 80) excerptText += '...'
+                    // Match in title - show normal summary (strip HTML)
+                    const plainSummary = stripHtml(post.summary || post.content || '')
+                    excerptText = plainSummary.slice(0, 100)
+                    if (plainSummary.length > 100) excerptText += '...'
                   } else if (summaryHasMatch) {
-                    excerptText = getSnippetAroundMatch(post.summary || '', searchQuery, 80)
+                    excerptText = getSnippetAroundMatch(post.summary || '', searchQuery, 100)
                     highlightExcerpt = true
                   } else if (contentHasMatch) {
-                    excerptText = getSnippetAroundMatch(post.content || '', searchQuery, 80)
+                    excerptText = getSnippetAroundMatch(post.content || '', searchQuery, 100)
                     highlightExcerpt = true
                   } else {
-                    excerptText = (post.summary || post.content || '').slice(0, 80)
-                    if (excerptText.length === 80) excerptText += '...'
+                    const plainSummary = stripHtml(post.summary || post.content || '')
+                    excerptText = plainSummary.slice(0, 100)
+                    if (plainSummary.length > 100) excerptText += '...'
                   }
 
                   return (
