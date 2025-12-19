@@ -137,11 +137,12 @@ const deadlineKeyboard = () => {
 
 /**
  * Deal confirmation keyboard
+ * No "Back" button - wallet already verified, can only create or cancel
  */
 const dealConfirmationKeyboard = () => {
   return Markup.inlineKeyboard([
     [Markup.button.callback('✅ Создать сделку', 'confirm:create_deal')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback('❌ Отменить', 'cancel_create_deal')]
   ]);
 };
 

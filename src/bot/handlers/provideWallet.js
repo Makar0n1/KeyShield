@@ -169,6 +169,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
 Подготовка данных...`;
 
+    await User.findOneAndUpdate({ telegramId }, { currentScreen: 'wallet_verified' });
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
     await new Promise(resolve => setTimeout(resolve, 3000));
 
@@ -357,13 +358,14 @@ ${verification.error}
     }
 
     // ========== STEP 4: Verification passed! Show success message for 3 seconds ==========
+    // Don't show balance for privacy
     const successText = `✅ *Кошелёк проверен!*
 
-💰 Баланс: ${verification.balance.toFixed(2)} USDT
 ✓ Баланс достаточен для совершения сделки.
 
 Подготовка данных...`;
 
+    await User.findOneAndUpdate({ telegramId }, { currentScreen: 'wallet_verified' });
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
 
     // Wait 3 seconds before proceeding

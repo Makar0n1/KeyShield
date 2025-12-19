@@ -515,14 +515,14 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
       return;
     }
 
-    // Wallet valid - show success for 3 seconds
+    // Wallet valid - show success for 3 seconds (don't show balance for privacy)
     const successText = `✅ *Кошелёк проверен!*
 
 Адрес: \`${address}\`
-Баланс: *${verification.balance.toFixed(2)} USDT*
 
 Переходим к подтверждению...`;
 
+    await User.updateOne({ telegramId }, { currentScreen: 'wallet_verified' });
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, {});
     await new Promise(resolve => setTimeout(resolve, 3000));
 
@@ -567,6 +567,7 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
 
 Переходим к подтверждению...`;
 
+    await User.updateOne({ telegramId }, { currentScreen: 'wallet_verified' });
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, {});
     await new Promise(resolve => setTimeout(resolve, 3000));
   }
