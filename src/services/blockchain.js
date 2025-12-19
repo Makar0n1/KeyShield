@@ -137,6 +137,80 @@ class BlockchainService {
   }
 
   /**
+   * Verify wallet exists on TRON network (for seller validation)
+   * Less strict than buyer verification - just checks if address is valid and exists
+   * @param {string} address - TRON address to verify
+   * @returns {Promise<Object>} - { valid, error, errorType }
+   *
+   * errorType can be:
+   * - 'invalid_address' - Address format is invalid
+   * - 'not_found' - Address not found/not activated on TRON network
+   * - 'api_error' - TRON API is unavailable
+   */
+  async verifyWalletExists(address) {
+    // Check cache first (reuse balance cache with different key)
+    const cacheKey = `exists:${address}`;
+    const cached = this.balanceCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
+      return cached.result;
+    }
+
+    try {
+      // Step 1: Validate address format
+      if (!this.isValidAddress(address)) {
+        return {
+          valid: false,
+          error: 'Неверный формат адреса. Адрес должен начинаться с T и содержать 34 символа.',
+          errorType: 'invalid_address'
+        };
+      }
+
+      // Step 2: Check if address exists on network
+      let accountExists = false;
+      try {
+        const account = await this.tronWeb.trx.getAccount(address);
+        accountExists = account && (account.address || account.balance !== undefined);
+      } catch (err) {
+        accountExists = false;
+      }
+
+      // Step 3: If account doesn't seem to exist, double-check with balance
+      if (!accountExists) {
+        const trxBalance = await this.getBalance(address, 'TRX');
+        const usdtBalance = await this.getBalance(address, 'USDT');
+
+        // If both balances are 0 and account doesn't exist - it's not activated
+        if (trxBalance === 0 && usdtBalance === 0) {
+          const result = {
+            valid: false,
+            error: 'Кошелёк не найден в сети TRON. Убедитесь, что адрес корректный и был активирован (имеет хотя бы одну транзакцию).',
+            errorType: 'not_found'
+          };
+          this.balanceCache.set(cacheKey, { result, timestamp: Date.now() });
+          return result;
+        }
+      }
+
+      // Wallet exists!
+      const result = {
+        valid: true,
+        error: null,
+        errorType: null
+      };
+      this.balanceCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
+
+    } catch (error) {
+      console.error('Error verifying wallet existence:', error);
+      return {
+        valid: false,
+        error: 'Не удалось проверить кошелёк. Пожалуйста, попробуйте позже.',
+        errorType: 'api_error'
+      };
+    }
+  }
+
+  /**
    * Create a new TRON account with multisig permissions (2-of-3)
    * @param {string} buyerPublicKey - Buyer's public key
    * @param {string} sellerPublicKey - Seller's public key

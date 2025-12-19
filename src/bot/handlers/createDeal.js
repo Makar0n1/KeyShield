@@ -12,10 +12,12 @@ const {
   dealCreatedKeyboard,
   backButton,
   mainMenuButton,
-  newDealNotificationKeyboard
+  newDealNotificationKeyboard,
+  walletVerificationErrorKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
+const blockchainService = require('../../services/blockchain');
 
 // Escape special Markdown characters
 function escapeMarkdown(text) {
@@ -82,7 +84,7 @@ const startCreateDeal = async (ctx) => {
 
     const text = `📝 *Создание сделки*
 
-*Шаг 1 из 8: Выберите вашу роль*
+*Шаг 1 из 9: Выберите вашу роль*
 
 Покупатель — вносит депозит и получает товар/услугу.
 
@@ -117,7 +119,7 @@ const handleRoleSelection = async (ctx) => {
 
     const text = `📝 *Создание сделки*
 
-*Шаг 2 из 8: Укажите ${counterpartyLabel}*
+*Шаг 2 из 9: Укажите ${counterpartyLabel}*
 
 Введите Telegram username в формате @username
 
@@ -260,7 +262,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
 
 📝 *Создание сделки*
 
-*Шаг 3 из 8: Название*
+*Шаг 3 из 9: Название*
 
 Введите краткое название товара или услуги.
 (от 5 до 200 символов)
@@ -296,7 +298,7 @@ const handleProductName = async (ctx, session, text) => {
 
   const successText = `📝 *Создание сделки*
 
-*Шаг 4 из 8: Описание*
+*Шаг 4 из 9: Описание*
 
 Опишите подробно условия работы:
 • Что именно нужно сделать
@@ -336,7 +338,7 @@ const handleDescription = async (ctx, session, text) => {
 
   const successText = `📝 *Создание сделки*
 
-*Шаг 5 из 8: Выбор актива*
+*Шаг 5 из 9: Выбор актива*
 
 Выберите криптовалюту для сделки:`;
 
@@ -364,7 +366,7 @@ const handleAssetSelection = async (ctx) => {
 
     const text = `📝 *Создание сделки*
 
-*Шаг 6 из 8: Сумма*
+*Шаг 6 из 9: Сумма*
 
 Введите сумму сделки в ${asset}.
 
@@ -401,35 +403,33 @@ const handleAmount = async (ctx, session, text) => {
   }
 
   session.data.amount = amount;
-  session.step = 'creator_wallet';
+  session.step = 'commission';
   await setCreateDealSession(telegramId, session);
 
-  const creatorRole = session.data.creatorRole;
-  const walletPurpose = creatorRole === 'buyer'
-    ? 'для возврата средств при отмене/споре'
-    : 'для получения оплаты';
+  const { asset } = session.data;
+  const commission = Deal.calculateCommission(amount);
 
   const successText = `📝 *Создание сделки*
 
-*Шаг 7 из 8: Ваш кошелёк*
+*Шаг 7 из 9: Комиссия*
 
-Введите адрес TRON-кошелька (TRC-20) ${walletPurpose}.
+Сумма сделки: ${amount} ${asset}
+Комиссия сервиса: ${commission} ${asset}
 
-Формат: начинается с T, 34 символа
+Кто оплачивает комиссию?`;
 
-Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
-
-  const keyboard = backButton();
-  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', successText, keyboard);
+  const keyboard = commissionTypeKeyboard(amount, asset);
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_commission', successText, keyboard);
 };
 
 // ============================================
-// STEP 7: CREATOR WALLET
+// STEP 9: CREATOR WALLET (with validation)
+// - Buyer: balance check (amount + 5 USDT buffer)
+// - Seller: existence check only
 // ============================================
 
 const handleCreatorWallet = async (ctx, session, inputText) => {
   const telegramId = ctx.from.id;
-  const blockchainService = require('../../services/blockchain');
   const address = inputText.trim();
 
   if (!blockchainService.isValidAddress(address)) {
@@ -445,30 +445,179 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
     return;
   }
 
+  const { data } = session;
+  const creatorRole = data.creatorRole;
+
   // Store wallet based on creator role
-  if (session.data.creatorRole === 'buyer') {
+  if (creatorRole === 'buyer') {
     session.data.buyerAddress = address;
   } else {
     session.data.sellerAddress = address;
   }
 
-  session.step = 'commission';
+  // Show verification loading for both roles
+  await User.updateOne({ telegramId }, { currentScreen: 'wallet_verification' });
+  await messageManager.updateScreen(ctx, telegramId, 'wallet_verification', `⏳ *Проверяем ваш адрес...*
+
+Проверка кошелька в сети TRON.`, {});
+
+  // For BUYER: verify wallet has sufficient balance
+  if (creatorRole === 'buyer') {
+    // Calculate required amount
+    const commission = Deal.calculateCommission(data.amount);
+    let depositAmount = data.amount;
+    if (data.commissionType === 'buyer') {
+      depositAmount = data.amount + commission;
+    } else if (data.commissionType === 'split') {
+      depositAmount = data.amount + (commission / 2);
+    }
+    const requiredAmount = depositAmount + 5; // +5 USDT buffer
+
+    // Verify wallet balance
+    const verification = await blockchainService.verifyBuyerWallet(address, requiredAmount, depositAmount);
+
+    if (!verification.valid) {
+      // Store session for retry
+      session.step = 'creator_wallet';
+      await setCreateDealSession(telegramId, session);
+
+      let errorMessage;
+      if (verification.errorType === 'invalid_address') {
+        errorMessage = `❌ *Неверный адрес*
+
+Адрес не является действительным TRON-адресом.
+
+Введите другой адрес:`;
+      } else if (verification.errorType === 'not_found') {
+        errorMessage = `❌ *Кошелёк не найден*
+
+Этот адрес не активирован в сети TRON.
+
+Введите другой адрес:`;
+      } else if (verification.errorType === 'insufficient_funds' || verification.errorType === 'no_buffer') {
+        const currentBalance = verification.balance || 0;
+        errorMessage = `❌ *Недостаточно средств*
+
+Для создания сделки на вашем кошельке должно быть минимум *${requiredAmount} USDT*.
+
+Текущий баланс: *${currentBalance.toFixed(2)} USDT*
+Необходимо: *${depositAmount} USDT* (депозит) + *5 USDT* (буфер)
+
+Пополните кошелёк или укажите другой:`;
+      } else {
+        errorMessage = `❌ *Ошибка проверки*
+
+Не удалось проверить баланс кошелька. Попробуйте позже или укажите другой адрес.`;
+      }
+
+      const keyboard = backButton();
+      await messageManager.updateScreen(ctx, telegramId, 'create_deal_wallet', errorMessage, keyboard);
+      return;
+    }
+
+    // Wallet valid - show success for 3 seconds
+    const successText = `✅ *Кошелёк проверен!*
+
+Адрес: \`${address}\`
+Баланс: *${verification.balance.toFixed(2)} USDT*
+
+Переходим к подтверждению...`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, {});
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+  } else {
+    // For SELLER: verify wallet exists (no balance check needed)
+    const verification = await blockchainService.verifyWalletExists(address);
+
+    if (!verification.valid) {
+      // Store session for retry
+      session.step = 'creator_wallet';
+      await setCreateDealSession(telegramId, session);
+
+      let errorMessage;
+      if (verification.errorType === 'invalid_address') {
+        errorMessage = `❌ *Неверный адрес*
+
+Адрес не является действительным TRON-адресом.
+
+Введите другой адрес:`;
+      } else if (verification.errorType === 'not_found') {
+        errorMessage = `❌ *Кошелёк не найден*
+
+Этот адрес не активирован в сети TRON.
+Убедитесь, что кошелёк имеет хотя бы одну транзакцию.
+
+Введите другой адрес:`;
+      } else {
+        errorMessage = `❌ *Ошибка проверки*
+
+Не удалось проверить кошелёк. Попробуйте позже или укажите другой адрес.`;
+      }
+
+      const keyboard = backButton();
+      await messageManager.updateScreen(ctx, telegramId, 'create_deal_wallet', errorMessage, keyboard);
+      return;
+    }
+
+    // Wallet valid - show success for 3 seconds
+    const successText = `✅ *Кошелёк проверен!*
+
+Адрес: \`${address}\`
+
+Переходим к подтверждению...`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, {});
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+
+  // Proceed to confirmation (for both buyer and seller)
+  session.step = 'confirm';
   await setCreateDealSession(telegramId, session);
 
-  const { amount, asset } = session.data;
-  const commission = Deal.calculateCommission(amount);
+  await showDealConfirmation(ctx, telegramId, session.data);
+};
 
-  const text = `📝 *Создание сделки*
+/**
+ * Show deal confirmation screen
+ */
+const showDealConfirmation = async (ctx, telegramId, data) => {
+  const commission = Deal.calculateCommission(data.amount);
 
-*Шаг 8 из 8: Комиссия*
+  let commissionText;
+  if (data.commissionType === 'buyer') {
+    commissionText = `Покупатель платит ${commission.toFixed(2)} ${data.asset}`;
+  } else if (data.commissionType === 'seller') {
+    commissionText = `Продавец платит ${commission.toFixed(2)} ${data.asset}`;
+  } else {
+    commissionText = `50/50 — по ${(commission / 2).toFixed(2)} ${data.asset}`;
+  }
 
-Сумма сделки: ${amount} ${asset}
-Комиссия сервиса: ${commission} ${asset}
+  const counterpartyLabel = data.creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
+  const counterpartyUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
 
-Кто оплачивает комиссию?`;
+  const hours = data.deadlineHours;
+  const deadlineText = hours < 24 ? `${hours} часов` :
+    hours === 24 ? '24 часа' :
+      hours === 48 ? '48 часов' :
+        `${Math.floor(hours / 24)} дней`;
 
-  const keyboard = commissionTypeKeyboard(amount, asset);
-  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_commission', text, keyboard);
+  const text = `✅ *Подтверждение сделки*
+
+📦 *Название:* ${escapeMarkdown(data.productName)}
+
+📝 *Описание:*
+${escapeMarkdown(data.description.substring(0, 200))}${data.description.length > 200 ? '...' : ''}
+
+👤 *${counterpartyLabel}:* @${counterpartyUsername}
+💰 *Сумма:* ${data.amount} ${data.asset}
+💸 *Комиссия:* ${commissionText}
+⏰ *Срок:* ${deadlineText}
+
+Всё верно?`;
+
+  const keyboard = dealConfirmationKeyboard();
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_confirm', text, keyboard);
 };
 
 // ============================================
@@ -491,7 +640,7 @@ const handleCommissionSelection = async (ctx) => {
 
     const text = `📝 *Создание сделки*
 
-*Выберите срок выполнения*
+*Шаг 8 из 9: Срок выполнения*
 
 После истечения срока обе стороны получат уведомление.
 Через 12 часов после дедлайна — автовозврат покупателю.`;
@@ -518,45 +667,26 @@ const handleDeadlineSelection = async (ctx) => {
 
     const hours = parseInt(ctx.callbackQuery.data.split(':')[1]);
     session.data.deadlineHours = hours;
-    session.step = 'confirm';
+    session.step = 'creator_wallet';
     await setCreateDealSession(telegramId, session);
 
-    const { data } = session;
-    const commission = Deal.calculateCommission(data.amount);
+    const creatorRole = session.data.creatorRole;
+    const walletPurpose = creatorRole === 'buyer'
+      ? 'для возврата средств при отмене/споре'
+      : 'для получения оплаты';
 
-    let commissionText;
-    if (data.commissionType === 'buyer') {
-      commissionText = `Покупатель платит ${commission.toFixed(2)} ${data.asset}`;
-    } else if (data.commissionType === 'seller') {
-      commissionText = `Продавец платит ${commission.toFixed(2)} ${data.asset}`;
-    } else {
-      commissionText = `50/50 — по ${(commission / 2).toFixed(2)} ${data.asset}`;
-    }
+    const text = `📝 *Создание сделки*
 
-    const counterpartyLabel = data.creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
-    const counterpartyUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
+*Шаг 9 из 9: Ваш кошелёк*
 
-    const deadlineText = hours < 24 ? `${hours} часов` :
-      hours === 24 ? '24 часа' :
-        hours === 48 ? '48 часов' :
-          `${Math.floor(hours / 24)} дней`;
+Введите адрес TRON-кошелька (TRC-20) ${walletPurpose}.
 
-    const text = `✅ *Подтверждение сделки*
+Формат: начинается с T, 34 символа
 
-📦 *Название:* ${data.productName}
+Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
 
-📝 *Описание:*
-${data.description.substring(0, 200)}${data.description.length > 200 ? '...' : ''}
-
-👤 *${counterpartyLabel}:* @${counterpartyUsername}
-💰 *Сумма:* ${data.amount} ${data.asset}
-💸 *Комиссия:* ${commissionText}
-⏰ *Срок:* ${deadlineText}
-
-Всё верно?`;
-
-    const keyboard = dealConfirmationKeyboard();
-    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_confirm', text, keyboard);
+    const keyboard = backButton();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', text, keyboard);
   } catch (error) {
     console.error('Error handling deadline selection:', error);
   }

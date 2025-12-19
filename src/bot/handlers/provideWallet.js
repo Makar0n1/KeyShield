@@ -81,11 +81,12 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
 };
 
 // ============================================
-// SELLER WALLET INPUT
+// SELLER WALLET INPUT (with existence verification)
 // ============================================
 
 /**
  * Handle seller providing wallet address (text input)
+ * Now includes wallet verification: address validity, existence check
  */
 const handleSellerWalletInput = async (ctx) => {
   try {
@@ -105,7 +106,7 @@ const handleSellerWalletInput = async (ctx) => {
       return false; // Not waiting for wallet
     }
 
-    // Validate TRON address
+    // Validate TRON address format
     if (!blockchainService.isValidAddress(text)) {
       const errorText = `❌ *Неверный адрес кошелька!*
 
@@ -119,7 +120,59 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       return true;
     }
 
-    // Generate private key for seller (pseudo-multisig)
+    // ========== STEP 1: Show verification loading screen ==========
+    await User.findOneAndUpdate(
+      { telegramId },
+      { currentScreen: 'wallet_verification' }
+    );
+
+    const verifyingText = `⏳ *Проверяем ваш адрес...*
+
+Проверка кошелька в сети TRON.`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verification', verifyingText, null);
+
+    // ========== STEP 2: Verify wallet exists ==========
+    const verification = await blockchainService.verifyWalletExists(text);
+
+    if (!verification.valid) {
+      // Wallet verification failed - show error
+      let errorMessage;
+      if (verification.errorType === 'invalid_address') {
+        errorMessage = `❌ *Неверный адрес*
+
+Адрес не является действительным TRON-адресом.
+
+Введите другой адрес:`;
+      } else if (verification.errorType === 'not_found') {
+        errorMessage = `❌ *Кошелёк не найден*
+
+Этот адрес не активирован в сети TRON.
+Убедитесь, что кошелёк имеет хотя бы одну транзакцию.
+
+Введите другой адрес:`;
+      } else {
+        errorMessage = `❌ *Ошибка проверки*
+
+Не удалось проверить кошелёк. Попробуйте позже или укажите другой адрес.`;
+      }
+
+      const keyboard = backButton();
+      await messageManager.updateScreen(ctx, telegramId, 'seller_wallet_error', errorMessage, keyboard);
+      return true;
+    }
+
+    // ========== STEP 3: Verification passed! Show success ==========
+    const successText = `✅ *Кошелёк проверен!*
+
+Адрес: \`${text}\`
+
+Подготовка данных...`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // ========== STEP 4: Generate private key and save deal ==========
     const sellerKeys = await blockchainService.generateKeyPair();
     const sellerPrivateKey = sellerKeys.privateKey;
 
@@ -129,7 +182,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
     deal.status = 'waiting_for_deposit';
     await deal.save();
 
-    console.log(`✅ Seller wallet set for deal ${deal.dealId}: ${text}`);
+    console.log(`✅ Seller wallet verified and set for deal ${deal.dealId}: ${text}`);
 
     // Show confirmation to seller FIRST (main message)
     const sellerText = `✅ *Кошелек сохранен!*
