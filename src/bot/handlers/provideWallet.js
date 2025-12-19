@@ -209,7 +209,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 Комиссия сервиса (${deal.commission} ${deal.asset}) остаётся у сервиса.
 
 4️⃣ *Точная сумма*
-Переведите ТОЧНО ${depositAmount} ${deal.asset}. Допуск: -2 ${deal.asset}.
+Переведите ТОЧНО ${depositAmount} ${deal.asset}.
 
 5️⃣ *Срок 24 часа*
 Если не внесёте депозит в течение 24 часов, сделка будет отменена.
@@ -303,7 +303,6 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
 ⚠️ *ВАЖНО:*
 • Переведите ТОЧНО ${depositAmount} ${deal.asset}
-• Допустимое отклонение: до -2 ${deal.asset}
 • Срок: 24 часа
 
 ⏱ Система автоматически обнаружит депозит.
@@ -419,7 +418,6 @@ const handleDepositWarningConfirmation = async (ctx) => {
 
 ⚠️ *ВАЖНО:*
 • Переведите ТОЧНО ${depositAmount} ${deal.asset}
-• Допустимое отклонение: до -2 ${deal.asset}
 • Срок: 24 часа
 
 ⏱ Система автоматически обнаружит депозит в течение 1-3 минут.
@@ -492,7 +490,6 @@ const showDepositAddress = async (ctx) => {
 
 ⚠️ *ВАЖНО:*
 • Переведите ТОЧНО ${depositAmount} ${deal.asset}
-• Допустимое отклонение: до -2 ${deal.asset}
 • Срок: 24 часа
 
 ⏱ Система автоматически обнаружит депозит.
