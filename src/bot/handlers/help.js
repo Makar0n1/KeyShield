@@ -162,7 +162,7 @@ const support = async (ctx) => {
 Если у вас возникли проблемы или вопросы:
 
 📧 Email: support@keyshield.me
-💬 Telegram: @keyshield_support
+💬 Telegram: @keyshield\\_support
 
 ⏰ Время ответа: обычно в течение 24 часов
 

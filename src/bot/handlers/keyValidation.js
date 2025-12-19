@@ -146,7 +146,7 @@ _Аренда энергии и отправка транзакций..._`;
 
 Попытка ${session.attempts}
 
-⚠️ Если вы потеряли ключ, обратитесь в поддержку: @keyshield_support
+⚠️ Если вы потеряли ключ, обратитесь в поддержку: @keyshield\\_support
 
 Попробуйте ещё раз:`;
   } else {
@@ -402,7 +402,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${error.message}
 
-Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
 
     const keyboard = mainMenuButton();
     // Update the "Processing..." message to show error
@@ -651,7 +651,7 @@ async function processBuyerRefund(ctx, deal) {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${error.message}
 
-Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
 
     const keyboard = mainMenuButton();
     // Update the "Processing..." message to show error
@@ -881,7 +881,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 🆔 Сделка: \`${deal.dealId}\`
 Ошибка: ${error.message}
 
-Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
+Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
 
     const keyboard = mainMenuButton();
     // Update the "Processing..." message to show error
