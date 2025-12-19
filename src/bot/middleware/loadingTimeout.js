@@ -38,24 +38,48 @@ function getRequestKey(ctx) {
   return `${userId}:${updateId}`;
 }
 
+// Screens where loading message should NOT be shown (already have their own loading state)
+const EXCLUDED_SCREENS = [
+  'payout_processing',
+  'payout_complete',
+  'payout_error',
+  'refund_error',
+  'dispute_payout_complete',
+  'dispute_payout_error'
+];
+
 /**
- * Get message ID to edit (from callback or stored in DB)
+ * Get message ID and current screen to edit (from callback or stored in DB)
  */
-async function getMessageId(ctx, userId) {
+async function getMessageIdAndScreen(ctx, userId) {
   // For callback queries - edit the message that contains the button
   if (ctx.callbackQuery?.message?.message_id) {
-    return ctx.callbackQuery.message.message_id;
+    // Get current screen from DB
+    try {
+      const user = await User.findOne({ telegramId: userId })
+        .select('currentScreen')
+        .lean();
+      return {
+        messageId: ctx.callbackQuery.message.message_id,
+        currentScreen: user?.currentScreen
+      };
+    } catch (error) {
+      return { messageId: ctx.callbackQuery.message.message_id, currentScreen: null };
+    }
   }
 
-  // For text messages - get mainMessageId from DB
+  // For text messages - get mainMessageId and currentScreen from DB
   try {
     const user = await User.findOne({ telegramId: userId })
-      .select('mainMessageId')
+      .select('mainMessageId currentScreen')
       .lean();
-    return user?.mainMessageId;
+    return {
+      messageId: user?.mainMessageId,
+      currentScreen: user?.currentScreen
+    };
   } catch (error) {
     console.error('[loadingTimeout] Error getting messageId:', error.message);
-    return null;
+    return { messageId: null, currentScreen: null };
   }
 }
 
@@ -104,11 +128,16 @@ const loadingTimeoutMiddleware = async (ctx, next) => {
   const userId = ctx.from.id;
   const requestKey = getRequestKey(ctx);
 
-  // Get message ID to edit BEFORE starting handler
-  const messageId = await getMessageId(ctx, userId);
+  // Get message ID and current screen BEFORE starting handler
+  const { messageId, currentScreen } = await getMessageIdAndScreen(ctx, userId);
 
   // If no message to edit, skip loading mechanism
   if (!messageId) {
+    return next();
+  }
+
+  // Skip if current screen is in excluded list (e.g., payout processing)
+  if (currentScreen && EXCLUDED_SCREENS.includes(currentScreen)) {
     return next();
   }
 

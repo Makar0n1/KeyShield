@@ -106,14 +106,9 @@ async function handleKeyValidationInput(ctx) {
     await clearKeyValidationSession(telegramId);
 
     // Show "Processing payout..." message immediately
-    const processingText = `⏳ *Идёт выплата...*
+    const processingText = `⏳ *Загрузка...*
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Пожалуйста, подождите. Это может занять до 30 секунд.
-
-_Аренда энергии и отправка транзакций..._`;
+Идёт процесс выплаты, пожалуйста подождите.`;
 
     await messageManager.updateScreen(ctx, telegramId, 'payout_processing', processingText, { inline_keyboard: [] });
 
