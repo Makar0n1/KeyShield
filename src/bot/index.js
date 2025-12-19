@@ -23,6 +23,7 @@ const {
   handleCommissionSelection,
   handleRoleSelection,
   confirmCreateDeal,
+  cancelCreateDeal,
   hasCreateDealSession,
   clearCreateDealSession
 } = require('./handlers/createDeal');
@@ -151,6 +152,7 @@ bot.action(/^confirm_deposit_warning:/, handleDepositWarningConfirmation);
 bot.action(/^show_deposit:/, showDepositAddress);
 bot.action(/^decline_deal:/, declineDeal);
 bot.action(/^cancel_deal:/, cancelDeal);
+bot.action('cancel_create_deal', cancelCreateDeal);
 
 // Key saved button - just delete the message
 bot.action(/^key_saved:/, async (ctx) => {
