@@ -108,7 +108,8 @@ const handleRoleSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session || session.step !== 'role_selection') return;
+    // Allow re-selection for back navigation (don't check step strictly)
+    if (!session) return;
 
     const role = ctx.callbackQuery.data.split(':')[1];
     session.data.creatorRole = role;
@@ -357,7 +358,8 @@ const handleAssetSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session || session.step !== 'asset') return;
+    // Allow re-selection for back navigation (don't check step strictly)
+    if (!session) return;
 
     const asset = ctx.callbackQuery.data.split(':')[1];
     session.data.asset = asset;
@@ -632,7 +634,8 @@ const handleCommissionSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session || session.step !== 'commission') return;
+    // Allow re-selection for back navigation (don't check step strictly)
+    if (!session) return;
 
     const commissionType = ctx.callbackQuery.data.split(':')[1];
     session.data.commissionType = commissionType;
@@ -664,7 +667,8 @@ const handleDeadlineSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session || session.step !== 'deadline') return;
+    // Allow re-selection for back navigation (don't check step strictly)
+    if (!session) return;
 
     const hours = parseInt(ctx.callbackQuery.data.split(':')[1]);
     session.data.deadlineHours = hours;
@@ -903,6 +907,272 @@ const cancelCreateDeal = async (ctx) => {
   }
 };
 
+// ============================================
+// BACK NAVIGATION HANDLER (for deal creation)
+// Updates session.step when going back
+// ============================================
+
+/**
+ * Map screen names to session steps and display functions
+ */
+const SCREEN_TO_STEP = {
+  'create_deal_role': 'role_selection',
+  'create_deal_username': 'counterparty_username',
+  'create_deal_name': 'product_name',
+  'create_deal_description': 'description',
+  'create_deal_asset': 'asset',
+  'create_deal_amount': 'amount',
+  'create_deal_commission': 'commission',
+  'create_deal_deadline': 'deadline',
+  'create_deal_wallet': 'creator_wallet',
+  'create_deal_confirm': 'confirm'
+};
+
+/**
+ * Handle back navigation during deal creation
+ * Updates session step and shows previous screen with saved data
+ */
+const handleCreateDealBack = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+    const session = await getCreateDealSession(telegramId);
+
+    if (!session) {
+      // No session - just go back normally
+      return false;
+    }
+
+    // Get user's navigation stack to find previous screen
+    const user = await User.findOne({ telegramId }).select('navigationStack').lean();
+    const stack = user?.navigationStack || [];
+
+    if (stack.length === 0) {
+      // No previous screen - clear session and go to main menu
+      await deleteCreateDealSession(telegramId);
+      return false;
+    }
+
+    // Get previous screen from stack
+    const previousScreen = stack[stack.length - 1];
+    const previousScreenName = previousScreen?.screen;
+
+    // Check if previous screen is part of deal creation
+    const previousStep = SCREEN_TO_STEP[previousScreenName];
+
+    if (!previousStep) {
+      // Previous screen is not part of deal creation - clear session
+      await deleteCreateDealSession(telegramId);
+      return false;
+    }
+
+    // Update session step to match the screen we're returning to
+    session.step = previousStep;
+    await setCreateDealSession(telegramId, session);
+
+    // Show the previous screen with correct content and working buttons
+    await showDealCreationScreen(ctx, telegramId, session, previousStep);
+
+    return true;
+  } catch (error) {
+    console.error('Error in handleCreateDealBack:', error);
+    return false;
+  }
+};
+
+/**
+ * Show a specific deal creation screen with session data
+ */
+const showDealCreationScreen = async (ctx, telegramId, session, step) => {
+  const { data } = session;
+  let text, keyboard;
+
+  switch (step) {
+    case 'role_selection':
+      text = `📝 *Создание сделки*
+
+*Шаг 1 из 9: Выберите вашу роль*
+
+Покупатель — вносит депозит и получает товар/услугу.
+
+Продавец — выполняет работу и получает оплату после подтверждения.`;
+      if (data.creatorRole) {
+        text += `\n\n✏️ _Ранее выбрано: ${data.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец'}_`;
+      }
+      keyboard = roleSelectionKeyboard();
+      break;
+
+    case 'counterparty_username':
+      const counterpartyLabel1 = data.creatorRole === 'buyer' ? 'продавца' : 'покупателя';
+      text = `📝 *Создание сделки*
+
+*Шаг 2 из 9: Укажите ${counterpartyLabel1}*
+
+Введите Telegram username в формате @username
+
+⚠️ Второй участник должен уже запустить бота!`;
+      if (data.sellerUsername || data.buyerUsername) {
+        const savedUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
+        if (savedUsername) {
+          text += `\n\n✏️ _Ранее указано: @${savedUsername}_`;
+        }
+      }
+      keyboard = backButton();
+      break;
+
+    case 'product_name':
+      const counterpartyLabel2 = data.creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
+      const counterpartyUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
+      text = `✅ ${counterpartyLabel2} найден: @${counterpartyUsername}
+
+📝 *Создание сделки*
+
+*Шаг 3 из 9: Название*
+
+Введите краткое название товара или услуги.
+(от 5 до 200 символов)
+
+Пример: "Разработка логотипа"`;
+      if (data.productName) {
+        text += `\n\n✏️ _Ранее указано: "${escapeMarkdown(data.productName)}"_`;
+      }
+      keyboard = backButton();
+      break;
+
+    case 'description':
+      text = `📝 *Создание сделки*
+
+*Шаг 4 из 9: Описание*
+
+Опишите подробно условия работы:
+• Что именно нужно сделать
+• Требования к результату
+• Формат сдачи
+
+⚠️ Это описание будет использовано арбитром при спорах!
+
+(от 20 до 5000 символов)`;
+      if (data.description) {
+        const shortDesc = data.description.substring(0, 100);
+        text += `\n\n✏️ _Ранее указано: "${escapeMarkdown(shortDesc)}${data.description.length > 100 ? '...' : ''}"_`;
+      }
+      keyboard = backButton();
+      break;
+
+    case 'asset':
+      text = `📝 *Создание сделки*
+
+*Шаг 5 из 9: Выбор актива*
+
+Выберите криптовалюту для сделки:`;
+      if (data.asset) {
+        text += `\n\n✏️ _Ранее выбрано: ${data.asset}_`;
+      }
+      keyboard = assetSelectionKeyboard();
+      break;
+
+    case 'amount':
+      text = `📝 *Создание сделки*
+
+*Шаг 6 из 9: Сумма*
+
+Введите сумму сделки в ${data.asset || 'USDT'}.
+
+⚠️ Минимальная сумма: 50 ${data.asset || 'USDT'}
+
+Комиссия сервиса:
+• До 300 USDT — 15 USDT
+• От 300 USDT — 5%`;
+      if (data.amount) {
+        text += `\n\n✏️ _Ранее указано: ${data.amount} ${data.asset || 'USDT'}_`;
+      }
+      keyboard = backButton();
+      break;
+
+    case 'commission':
+      const commission = Deal.calculateCommission(data.amount);
+      text = `📝 *Создание сделки*
+
+*Шаг 7 из 9: Комиссия*
+
+Сумма сделки: ${data.amount} ${data.asset}
+Комиссия сервиса: ${commission} ${data.asset}
+
+Кто оплачивает комиссию?`;
+      if (data.commissionType) {
+        const commTypeText = data.commissionType === 'buyer' ? 'Покупатель' :
+          data.commissionType === 'seller' ? 'Продавец' : '50/50';
+        text += `\n\n✏️ _Ранее выбрано: ${commTypeText}_`;
+      }
+      keyboard = commissionTypeKeyboard(data.amount, data.asset);
+      break;
+
+    case 'deadline':
+      text = `📝 *Создание сделки*
+
+*Шаг 8 из 9: Срок выполнения*
+
+После истечения срока обе стороны получат уведомление.
+Через 12 часов после дедлайна — автовозврат покупателю.`;
+      if (data.deadlineHours) {
+        const hours = data.deadlineHours;
+        const deadlineText = hours < 24 ? `${hours} часов` :
+          hours === 24 ? '24 часа' :
+            hours === 48 ? '48 часов' :
+              `${Math.floor(hours / 24)} дней`;
+        text += `\n\n✏️ _Ранее выбрано: ${deadlineText}_`;
+      }
+      keyboard = deadlineKeyboard();
+      break;
+
+    case 'creator_wallet':
+      const walletPurpose = data.creatorRole === 'buyer'
+        ? 'для возврата средств при отмене/споре'
+        : 'для получения оплаты';
+      text = `📝 *Создание сделки*
+
+*Шаг 9 из 9: Ваш кошелёк*
+
+Введите адрес TRON-кошелька (TRC-20) ${walletPurpose}.
+
+Формат: начинается с T, 34 символа
+
+Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
+      const savedWallet = data.creatorRole === 'buyer' ? data.buyerAddress : data.sellerAddress;
+      if (savedWallet) {
+        text += `\n\n✏️ _Ранее указано: ${savedWallet}_`;
+      }
+      keyboard = backButton();
+      break;
+
+    default:
+      // Unknown step - go to main menu
+      await deleteCreateDealSession(telegramId);
+      const { mainMenuKeyboard } = require('../keyboards/main');
+      const { MAIN_MENU_TEXT } = require('./start');
+      await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, mainMenuKeyboard());
+      return;
+  }
+
+  // Pop the screen from navigation stack and show the content
+  const user = await User.findOne({ telegramId }).lean();
+  const stack = user?.navigationStack || [];
+  stack.pop(); // Remove last screen
+
+  await User.updateOne(
+    { telegramId },
+    {
+      $set: {
+        navigationStack: stack,
+        currentScreen: `create_deal_${step}`,
+        currentScreenData: { text, keyboard: messageManager.normalizeKeyboard(keyboard) }
+      }
+    }
+  );
+
+  await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+};
+
 module.exports = {
   startCreateDeal,
   handleCreateDealInput,
@@ -912,6 +1182,7 @@ module.exports = {
   handleRoleSelection,
   confirmCreateDeal,
   cancelCreateDeal,
+  handleCreateDealBack,
   hasCreateDealSession,
   clearCreateDealSession: deleteCreateDealSession
 };

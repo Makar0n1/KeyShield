@@ -24,6 +24,7 @@ const {
   handleRoleSelection,
   confirmCreateDeal,
   cancelCreateDeal,
+  handleCreateDealBack,
   hasCreateDealSession,
   clearCreateDealSession
 } = require('./handlers/createDeal');
@@ -116,7 +117,19 @@ bot.command('cancel', async (ctx) => {
 
 // Navigation
 bot.action('main_menu', mainMenuHandler);
-bot.action('back', backHandler);
+// Smart back handler: check if in deal creation first
+bot.action('back', async (ctx) => {
+  const telegramId = ctx.from.id;
+
+  // Check if user is in deal creation session
+  if (await hasCreateDealSession(telegramId)) {
+    const handled = await handleCreateDealBack(ctx);
+    if (handled) return;
+  }
+
+  // Default back handler
+  await backHandler(ctx);
+});
 
 // Create deal flow
 bot.action('create_deal', startCreateDeal);
