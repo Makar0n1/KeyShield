@@ -114,8 +114,8 @@ export const adminService = {
     return data
   },
 
-  cancelDispute: async (id: string, reason: string): Promise<ApiResponse> => {
-    const { data } = await api.post(`/admin/disputes/${id}/cancel`, { reason })
+  cancelDispute: async (id: string, deadlineHours: number): Promise<ApiResponse> => {
+    const { data } = await api.post(`/admin/disputes/${id}/cancel`, { deadlineHours })
     return data
   },
 

@@ -5,6 +5,7 @@ import type { Dispute, Deal } from '@/types'
 import { Card } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
+import { DeadlineSelectModal } from '@/components/ui/DeadlineSelectModal'
 import { formatDateShort, truncate } from '@/utils/format'
 import { Eye, Filter, CheckCircle, XCircle } from 'lucide-react'
 
@@ -21,6 +22,11 @@ export function AdminDisputesPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
+
+  // Modal state
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [cancelDisputeId, setCancelDisputeId] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const page = parseInt(searchParams.get('page') || '1')
   const status = searchParams.get('status') || ''
@@ -75,15 +81,24 @@ export function AdminDisputesPage() {
     }
   }
 
-  const handleCancel = async (disputeId: string) => {
-    const reason = prompt('Причина отмены спора:')
-    if (!reason) return
+  const openCancelModal = (disputeId: string) => {
+    setCancelDisputeId(disputeId)
+    setCancelModalOpen(true)
+  }
+
+  const handleCancelConfirm = async (deadlineHours: number) => {
+    if (!cancelDisputeId) return
+    setCancelling(true)
     try {
-      await adminService.cancelDispute(disputeId, reason)
+      await adminService.cancelDispute(cancelDisputeId, deadlineHours)
+      setCancelModalOpen(false)
+      setCancelDisputeId(null)
       fetchDisputes()
     } catch (error) {
       console.error('Cancel error:', error)
       alert('Ошибка при отмене спора')
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -221,7 +236,7 @@ export function AdminDisputesPage() {
                                 <CheckCircle size={18} />
                               </button>
                               <button
-                                onClick={() => handleCancel(dispute._id)}
+                                onClick={() => openCancelModal(dispute._id)}
                                 className="p-2 text-red-400 hover:text-red-300 hover:bg-dark-lighter rounded-lg transition-colors"
                                 title="Отменить спор"
                               >
@@ -250,6 +265,17 @@ export function AdminDisputesPage() {
           />
         </div>
       )}
+
+      {/* Cancel Dispute Modal */}
+      <DeadlineSelectModal
+        isOpen={cancelModalOpen}
+        onClose={() => {
+          setCancelModalOpen(false)
+          setCancelDisputeId(null)
+        }}
+        onConfirm={handleCancelConfirm}
+        loading={cancelling}
+      />
     </div>
   )
 }

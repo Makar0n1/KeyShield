@@ -170,22 +170,48 @@ _Добавлено файлов: ${session.media.length}_
 
 /**
  * Handle media attachments for dispute
+ * Accepts media at both 'reason' step (with caption as reason) and 'media' step
  */
 const handleDisputeMedia = async (ctx) => {
   try {
     const telegramId = ctx.from.id;
     const session = await getDisputeSession(telegramId);
 
-    if (!session || session.step !== 'media') {
+    if (!session) {
       return false;
+    }
+
+    // If still on reason step but user sent media, check for caption as reason text
+    if (session.step === 'reason') {
+      const caption = ctx.message.caption?.trim();
+
+      if (!caption || caption.length < 20) {
+        // Delete user message
+        await messageManager.deleteUserMessage(ctx);
+
+        const errorText = `❌ *Сначала опишите проблему*
+
+${caption ? `Описание слишком короткое (${caption.length} символов).` : 'Отправьте текстовое описание проблемы (минимум 20 символов), затем прикрепите доказательства.'}
+
+Или отправьте фото/документ с подписью — описанием проблемы (минимум 20 символов).`;
+
+        const keyboard = backButton();
+        await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
+        return true;
+      }
+
+      // Use caption as reason, advance to media step
+      session.reasonText = caption;
+      session.step = 'media';
     }
 
     // Delete user message (media)
     await messageManager.deleteUserMessage(ctx);
 
-    // Get file_id based on message type
+    // Get file_id and convert to URL
     let fileId;
     let fileType;
+    let fileUrl;
 
     if (ctx.message.photo) {
       fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
@@ -202,9 +228,20 @@ const handleDisputeMedia = async (ctx) => {
     }
 
     if (fileId) {
-      // Store file_id
+      // Get permanent file URL from Telegram
+      try {
+        const fileLink = await ctx.telegram.getFileLink(fileId);
+        fileUrl = fileLink.href || fileLink.toString();
+        console.log(`📎 Got file URL for dispute: ${fileUrl}`);
+      } catch (err) {
+        console.error('Error getting file link:', err.message);
+        fileUrl = fileId; // Fallback to file_id if URL fails
+      }
+
+      // Store file info with URL
       session.media.push({
         fileId,
+        fileUrl,
         type: fileType
       });
 
@@ -269,12 +306,12 @@ const finalizeDisputeHandler = async (ctx) => {
     // Show loading (silent edit - user stays on same screen)
     await messageManager.updateScreen(ctx, telegramId, 'dispute_loading', '⏳ *Создаём спор...*', {});
 
-    // Create dispute
+    // Create dispute - use fileUrl (falls back to fileId if URL failed)
     const dispute = await disputeService.openDispute(
       session.dealId,
       telegramId,
       session.reasonText,
-      session.media.map(m => m.fileId)
+      session.media.map(m => m.fileUrl || m.fileId)
     );
 
     // Clean up session

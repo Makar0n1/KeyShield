@@ -4,6 +4,7 @@ import { adminService } from '@/services/admin'
 import type { Dispute, Deal } from '@/types'
 import { Card, Button } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
+import { DeadlineSelectModal } from '@/components/ui/DeadlineSelectModal'
 import { formatDate, formatCurrency } from '@/utils/format'
 import {
   ArrowLeft,
@@ -13,6 +14,9 @@ import {
   CheckCircle,
   XCircle,
   ExternalLink,
+  File,
+  Video,
+  Mic,
 } from 'lucide-react'
 
 export function AdminDisputeDetailsPage() {
@@ -21,6 +25,10 @@ export function AdminDisputeDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
+
+  // Modal state
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   const fetchDispute = async () => {
     if (!id) return
@@ -54,19 +62,18 @@ export function AdminDisputeDetailsPage() {
     }
   }
 
-  const handleCancel = async () => {
+  const handleCancelConfirm = async (deadlineHours: number) => {
     if (!dispute) return
-    const reason = prompt('Причина отмены спора:')
-    if (!reason) return
-    setResolving(true)
+    setCancelling(true)
     try {
-      await adminService.cancelDispute(dispute._id, reason)
+      await adminService.cancelDispute(dispute._id, deadlineHours)
+      setCancelModalOpen(false)
       fetchDispute()
     } catch (error) {
       console.error('Cancel error:', error)
       alert('Ошибка при отмене спора')
     } finally {
-      setResolving(false)
+      setCancelling(false)
     }
   }
 
@@ -90,6 +97,70 @@ export function AdminDisputeDetailsPage() {
   }
 
   const deal = typeof dispute.dealId === 'object' ? dispute.dealId as Deal : null
+
+  // Helper to determine file type from URL
+  const getFileType = (url: string): 'image' | 'video' | 'audio' | 'document' => {
+    const lowerUrl = url.toLowerCase()
+    if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i)) return 'image'
+    if (lowerUrl.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) return 'video'
+    if (lowerUrl.match(/\.(mp3|ogg|wav|oga)(\?|$)/i)) return 'audio'
+    // Telegram API URLs for photos contain 'photos' in path
+    if (lowerUrl.includes('/photos/')) return 'image'
+    // Default to image for Telegram file URLs (most evidence is photos)
+    if (lowerUrl.includes('api.telegram.org/file/')) return 'image'
+    return 'document'
+  }
+
+  // Render media item based on type
+  const renderMediaItem = (url: string, idx: number) => {
+    const fileType = getFileType(url)
+
+    return (
+      <a
+        key={idx}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block relative aspect-square bg-dark rounded-lg overflow-hidden group"
+      >
+        {fileType === 'image' ? (
+          <img
+            src={url}
+            alt={`Доказательство ${idx + 1}`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // On error, show placeholder
+              const target = e.target as HTMLImageElement
+              target.style.display = 'none'
+              target.parentElement?.querySelector('.error-placeholder')?.classList.remove('hidden')
+            }}
+          />
+        ) : fileType === 'video' ? (
+          <div className="w-full h-full flex items-center justify-center bg-dark-lighter">
+            <Video size={48} className="text-muted" />
+          </div>
+        ) : fileType === 'audio' ? (
+          <div className="w-full h-full flex items-center justify-center bg-dark-lighter">
+            <Mic size={48} className="text-muted" />
+          </div>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-dark-lighter">
+            <File size={48} className="text-muted" />
+          </div>
+        )}
+        {/* Error placeholder (hidden by default) */}
+        <div className="error-placeholder hidden w-full h-full flex items-center justify-center bg-dark-lighter absolute inset-0">
+          <File size={48} className="text-muted" />
+        </div>
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <ExternalLink className="text-white" size={24} />
+        </div>
+        <div className="absolute bottom-2 right-2 text-xs text-white bg-black/70 px-2 py-1 rounded">
+          #{idx + 1}
+        </div>
+      </a>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -135,7 +206,7 @@ export function AdminDisputeDetailsPage() {
               Продавцу
             </Button>
             <Button
-              onClick={handleCancel}
+              onClick={() => setCancelModalOpen(true)}
               variant="destructive"
               disabled={resolving}
             >
@@ -263,24 +334,7 @@ export function AdminDisputeDetailsPage() {
           </h2>
           {(dispute.media || dispute.evidence) && (dispute.media || dispute.evidence).length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {(dispute.media || dispute.evidence || []).map((url, idx) => (
-                <a
-                  key={idx}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block relative aspect-square bg-dark rounded-lg overflow-hidden group"
-                >
-                  <img
-                    src={url}
-                    alt={`Доказательство ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <ExternalLink className="text-white" size={24} />
-                  </div>
-                </a>
-              ))}
+              {(dispute.media || dispute.evidence || []).map((url, idx) => renderMediaItem(url, idx))}
             </div>
           ) : (
             <p className="text-muted text-center py-8">Доказательства не предоставлены</p>
@@ -295,28 +349,19 @@ export function AdminDisputeDetailsPage() {
               Доказательства ответчика ({dispute.counterEvidence.length})
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {dispute.counterEvidence.map((url, idx) => (
-                <a
-                  key={idx}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block relative aspect-square bg-dark rounded-lg overflow-hidden group"
-                >
-                  <img
-                    src={url}
-                    alt={`Доказательство ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <ExternalLink className="text-white" size={24} />
-                  </div>
-                </a>
-              ))}
+              {dispute.counterEvidence.map((url, idx) => renderMediaItem(url, idx))}
             </div>
           </Card>
         )}
       </div>
+
+      {/* Cancel Dispute Modal */}
+      <DeadlineSelectModal
+        isOpen={cancelModalOpen}
+        onClose={() => setCancelModalOpen(false)}
+        onConfirm={handleCancelConfirm}
+        loading={cancelling}
+      />
     </div>
   )
 }

@@ -76,6 +76,57 @@ class NotificationService {
   }
 
   /**
+   * Format date for Russian locale
+   * @param {Date} date - Date to format
+   * @returns {string} Formatted date string
+   */
+  formatDeadline(date) {
+    const options = {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Moscow'
+    };
+    return new Date(date).toLocaleString('ru-RU', options);
+  }
+
+  /**
+   * Notify both parties about dispute cancellation with deadline info
+   * @param {number} buyerId - Buyer's Telegram ID
+   * @param {number} sellerId - Seller's Telegram ID
+   * @param {string} dealId - Deal ID
+   * @param {string} productName - Product/service name
+   * @param {Date} deadline - New/current deadline
+   * @param {boolean} isNewDeadline - Whether deadline was updated
+   */
+  async notifyDisputeCancelledWithDeadline(buyerId, sellerId, dealId, productName, deadline, isNewDeadline) {
+    const deadlineText = this.formatDeadline(deadline);
+    const deadlineLabel = isNewDeadline ? 'Новый дедлайн' : 'Дедлайн';
+
+    const message = `✅ *Спор отменен по соглашению сторон*
+
+🆔 Сделка: \`${dealId}\`
+📦 ${productName}
+
+${deadlineLabel}: *${deadlineText}*
+
+Сделка продолжается. Выполняйте свои обязательства вовремя!`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📋 Детали сделки', callback_data: `view_deal_${dealId}` }],
+        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+      ]
+    };
+
+    await this.sendNotification(buyerId, message, keyboard);
+    await this.sendNotification(sellerId, message, keyboard);
+    console.log(`📤 Dispute cancelled notifications sent to buyer ${buyerId} and seller ${sellerId}`);
+  }
+
+  /**
    * Notify both parties about dispute resolution
    * Uses showFinalScreen since dispute resolution is a final state
    * @param {number} buyerId - Buyer's Telegram ID

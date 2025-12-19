@@ -767,17 +767,50 @@ app.post('/api/admin/disputes/:id/resolve', adminAuth, async (req, res) => {
 
 app.post('/api/admin/disputes/:id/cancel', adminAuth, async (req, res) => {
   try {
+    const { deadlineHours } = req.body;
     const dispute = await Dispute.findById(req.params.id).populate('dealId');
     if (!dispute) return res.status(404).json({ error: 'Dispute not found' });
 
-    if (dispute.dealId) {
-      dispute.dealId.status = 'in_progress';
-      await dispute.dealId.save();
+    const deal = dispute.dealId;
+    if (!deal) return res.status(404).json({ error: 'Deal not found' });
+
+    // Update deal status back to in_progress
+    deal.status = 'in_progress';
+
+    // Reset deadline notification flag so new deadline triggers new notification
+    deal.deadlineNotificationSent = false;
+
+    // Calculate new deadline if hours specified (0 means keep current)
+    let newDeadline = deal.deadline;
+    if (deadlineHours > 0) {
+      newDeadline = new Date();
+      // Check for test mode
+      const testDeadlineMinutes = parseInt(process.env.TEST_DEADLINE_MINUTES);
+      if (testDeadlineMinutes > 0) {
+        console.log(`⚠️ TEST MODE: Using ${testDeadlineMinutes} minutes deadline instead of ${deadlineHours} hours`);
+        newDeadline.setMinutes(newDeadline.getMinutes() + testDeadlineMinutes);
+      } else {
+        newDeadline.setHours(newDeadline.getHours() + deadlineHours);
+      }
+      deal.deadline = newDeadline;
     }
+
+    await deal.save();
+
+    // Send notifications to both parties
+    await notificationService.notifyDisputeCancelledWithDeadline(
+      deal.buyerId,
+      deal.sellerId,
+      deal.dealId,
+      deal.productName,
+      newDeadline,
+      deadlineHours > 0
+    );
 
     await Dispute.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
+    console.error('Cancel dispute error:', error);
     res.status(500).json({ error: error.message });
   }
 });
