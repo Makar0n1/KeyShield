@@ -42,6 +42,12 @@ const app = express();
 const PORT = process.env.WEB_PORT || 3001;
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Track server start time for uptime calculation
+const serverStartTime = Date.now();
+
+// Import mongoose for health check
+import mongoose from 'mongoose';
+
 // Trust proxy (for nginx/cloudflare) - required for rate limiting behind reverse proxy
 app.set('trust proxy', 1);
 
@@ -202,6 +208,72 @@ const adminAuth = (req, res, next) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
+
+// ============ HEALTH CHECK ============
+
+// Health check (for UptimeRobot and diagnostics)
+app.get('/health', async (req, res) => {
+  const full = req.query.full === '1' || req.query.full === 'true';
+
+  // Calculate uptime
+  const uptimeMs = Date.now() - serverStartTime;
+  const days = Math.floor(uptimeMs / 86400000);
+  const hours = Math.floor((uptimeMs % 86400000) / 3600000);
+  const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+  const uptime = days > 0 ? `${days}d ${hours}h ${minutes}m` : `${hours}h ${minutes}m`;
+
+  // Check MongoDB connection
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+
+  // Determine overall status
+  const isHealthy = dbState === 1;
+
+  // Basic response for UptimeRobot
+  const response = {
+    status: isHealthy ? 'ok' : 'error',
+    service: 'KeyShield Web Admin',
+    uptime,
+    timestamp: new Date().toISOString()
+  };
+
+  // Extended info if requested
+  if (full) {
+    // Memory usage
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+
+    // Get counts
+    let stats = {};
+    try {
+      const [totalDeals, activeDeals, totalUsers, openDisputes] = await Promise.all([
+        Deal.countDocuments(),
+        Deal.countDocuments({ status: { $in: ['waiting_for_deposit', 'locked', 'in_progress', 'dispute'] } }),
+        User.countDocuments(),
+        Dispute.countDocuments({ status: { $in: ['open', 'pending', 'in_review'] } })
+      ]);
+      stats = { totalDeals, activeDeals, totalUsers, openDisputes };
+    } catch (e) {
+      stats = { error: 'Failed to fetch stats' };
+    }
+
+    response.services = {
+      database: dbStatus,
+      mode: isDev ? 'development' : 'production'
+    };
+
+    response.stats = {
+      ...stats,
+      memory: `${heapUsedMB}MB / ${heapTotalMB}MB`,
+      nodeVersion: process.version,
+      pid: process.pid
+    };
+  }
+
+  // Return 503 if unhealthy (UptimeRobot will detect this)
+  res.status(isHealthy ? 200 : 503).json(response);
+});
 
 // ============ API ROUTES ============
 

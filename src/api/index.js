@@ -7,6 +7,10 @@ require('dotenv').config();
 const connectDB = require('../config/database');
 const { testConnection } = require('../config/tron');
 const errorHandler = require('./middleware/errorHandler');
+const mongoose = require('mongoose');
+
+// Track server start time for uptime calculation
+const serverStartTime = Date.now();
 
 // Routes (internal API for bot/system operations)
 const dealsRouter = require('./routes/deals');
@@ -36,13 +40,70 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'KeyShield Multisig Escrow API',
+// Health check (for UptimeRobot and diagnostics)
+app.get('/health', async (req, res) => {
+  const full = req.query.full === '1' || req.query.full === 'true';
+
+  // Calculate uptime
+  const uptimeMs = Date.now() - serverStartTime;
+  const days = Math.floor(uptimeMs / 86400000);
+  const hours = Math.floor((uptimeMs % 86400000) / 3600000);
+  const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+  const uptime = days > 0 ? `${days}d ${hours}h ${minutes}m` : `${hours}h ${minutes}m`;
+
+  // Check MongoDB connection
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
+
+  // Determine overall status
+  const isHealthy = dbState === 1;
+
+  // Basic response for UptimeRobot
+  const response = {
+    status: isHealthy ? 'ok' : 'error',
+    service: 'KeyShield Bot API',
+    uptime,
     timestamp: new Date().toISOString()
-  });
+  };
+
+  // Extended info if requested
+  if (full) {
+    // Get monitors status
+    const depositMonitor = require('../services/depositMonitor');
+    const deadlineMonitor = require('../services/deadlineMonitor');
+
+    // Memory usage
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+
+    // Get active deals count
+    let activeDeals = 0;
+    try {
+      const Deal = require('../models/Deal');
+      activeDeals = await Deal.countDocuments({
+        status: { $in: ['waiting_for_deposit', 'locked', 'in_progress', 'dispute'] }
+      });
+    } catch (e) {
+      // Ignore
+    }
+
+    response.services = {
+      database: dbStatus,
+      depositMonitor: depositMonitor.isRunning ? 'active' : 'stopped',
+      deadlineMonitor: deadlineMonitor.isRunning ? 'active' : 'stopped'
+    };
+
+    response.stats = {
+      activeDeals,
+      memory: `${heapUsedMB}MB / ${heapTotalMB}MB`,
+      nodeVersion: process.version,
+      pid: process.pid
+    };
+  }
+
+  // Return 503 if unhealthy (UptimeRobot will detect this)
+  res.status(isHealthy ? 200 : 503).json(response);
 });
 
 // IP check endpoint for FeeSaver whitelist debugging
