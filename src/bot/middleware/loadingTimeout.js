@@ -45,7 +45,8 @@ const EXCLUDED_SCREENS = [
   'payout_error',
   'refund_error',
   'dispute_payout_complete',
-  'dispute_payout_error'
+  'dispute_payout_error',
+  'wallet_verification' // Buyer wallet verification (has own loading message)
 ];
 
 /**

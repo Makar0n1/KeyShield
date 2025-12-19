@@ -146,6 +146,7 @@ bot.action(/^finalize_dispute:/, finalizeDisputeHandler);
 
 // Wallet & deposit actions
 bot.action(/^enter_wallet:/, enterWalletHandler);
+bot.action(/^retry_wallet:/, enterWalletHandler); // Same handler - re-enter wallet
 bot.action(/^confirm_deposit_warning:/, handleDepositWarningConfirmation);
 bot.action(/^show_deposit:/, showDepositAddress);
 bot.action(/^decline_deal:/, declineDeal);

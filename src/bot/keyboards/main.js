@@ -324,6 +324,17 @@ const depositWarningKeyboard = (dealId) => {
 };
 
 /**
+ * Wallet verification error keyboard (for buyer)
+ * Shows when wallet verification fails (insufficient funds, not found, etc.)
+ */
+const walletVerificationErrorKeyboard = (dealId) => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('💳 Указать другой кошелёк', `retry_wallet:${dealId}`)],
+    [Markup.button.callback('❌ Отменить сделку', `cancel_deal:${dealId}`)]
+  ]);
+};
+
+/**
  * Deposit received notification keyboard
  */
 const depositReceivedKeyboard = (dealId) => {
@@ -464,6 +475,7 @@ module.exports = {
   // Notifications
   newDealNotificationKeyboard,
   depositWarningKeyboard,
+  walletVerificationErrorKeyboard,
   depositReceivedKeyboard,
   workSubmittedKeyboard,
   deadlineExpiredKeyboard,

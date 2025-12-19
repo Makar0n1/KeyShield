@@ -12,6 +12,8 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import { Telegraf } from 'telegraf';
 import { createServer as createViteServer } from 'vite';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 // Get __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -45,10 +47,97 @@ const webBot = new Telegraf(process.env.BOT_TOKEN);
 notificationService.setBotInstance(webBot);
 blogNotificationService.setBotInstance(webBot);
 
+// ============ SECURITY CONFIGURATION ============
+
+// Allowed origins for CORS
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'localhost:3000,localhost:3001,localhost:5173')
+  .split(',')
+  .map(origin => origin.trim());
+
+// Helper: Check if origin is allowed
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // Allow server-to-server requests (no Origin header)
+
+  // Extract hostname from origin
+  try {
+    const url = new URL(origin);
+    const host = url.host; // includes port if present
+    const hostname = url.hostname;
+
+    return ALLOWED_ORIGINS.some(allowed => {
+      // Check exact match with port
+      if (host === allowed) return true;
+      // Check hostname only (without port)
+      if (hostname === allowed) return true;
+      // Check if allowed is a subdomain pattern
+      if (hostname.endsWith('.' + allowed)) return true;
+      return false;
+    });
+  } catch {
+    return false;
+  }
+}
+
+// Helper: Escape regex special characters (for NoSQL injection prevention)
+function escapeRegex(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// Security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: isDev ? false : {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.trongrid.io", "https://tronscan.org"],
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Rate limiting for admin login (anti brute-force)
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP
+  message: { success: false, error: 'Too many login attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Use default keyGenerator (handles IPv6 properly)
+  validate: { xForwardedForHeader: false }
+});
+
+// Rate limiting for API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute per IP
+  message: { success: false, error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/blog') // Skip for public blog (higher traffic)
+});
+
+// Rate limiting for search endpoints
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 searches per minute per IP
+  message: { success: false, error: 'Too many search requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Apply rate limiters
+app.use('/api/admin', apiLimiter);
 
 // Handle aborted requests gracefully (prevents ECONNABORTED errors in logs)
 app.use((req, res, next) => {
@@ -67,11 +156,30 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// CORS for dev
+// CORS with whitelist
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+
+  // Check if origin is allowed
+  if (isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  } else if (isDev) {
+    // In dev mode, be more permissive but log suspicious requests
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    if (origin) {
+      console.log(`[CORS] Allowing dev request from: ${origin}`);
+    }
+  } else {
+    // In production, reject unknown origins for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Internal-Token');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
   if (req.method === 'OPTIONS') return res.status(200).end();
   next();
 });
@@ -94,8 +202,8 @@ const adminAuth = (req, res, next) => {
 
 // ============ API ROUTES ============
 
-// Admin login
-app.post('/api/admin/login', (req, res) => {
+// Admin login (with rate limiting)
+app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
   const { username, password } = req.body;
   const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
@@ -460,8 +568,8 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
   }
 });
 
-// Deals API
-app.get('/api/admin/deals', adminAuth, async (req, res) => {
+// Deals API (with search rate limiting)
+app.get('/api/admin/deals', adminAuth, searchLimiter, async (req, res) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -473,10 +581,12 @@ app.get('/api/admin/deals', adminAuth, async (req, res) => {
       query.status = status;
     }
     if (search) {
+      // Escape regex special characters to prevent NoSQL injection
+      const safeSearch = escapeRegex(search);
       const searchNum = parseInt(search);
       const searchConditions = [
-        { dealId: new RegExp(search, 'i') },
-        { productName: new RegExp(search, 'i') }
+        { dealId: new RegExp(safeSearch, 'i') },
+        { productName: new RegExp(safeSearch, 'i') }
       ];
       // If search is a number, also search by buyerId/sellerId
       if (!isNaN(searchNum)) {
@@ -527,16 +637,18 @@ app.get('/api/admin/deals/:id', adminAuth, async (req, res) => {
   }
 });
 
-// Users API
-app.get('/api/admin/users', adminAuth, async (req, res) => {
+// Users API (with search rate limiting)
+app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
   try {
     const { search, blacklisted, page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     let query = {};
     if (search) {
+      // Escape regex special characters to prevent NoSQL injection
+      const safeSearch = escapeRegex(search);
       query.$or = [
-        { username: new RegExp(search, 'i') },
+        { username: new RegExp(safeSearch, 'i') },
         { telegramId: parseInt(search) || 0 }
       ];
     }
@@ -783,9 +895,10 @@ async function findUserByIdOrUsername(identifier) {
     if (userById) return userById;
   }
 
-  // Try as username (case-insensitive)
+  // Try as username (case-insensitive) - escape regex to prevent injection
+  const safeCleanId = escapeRegex(cleanId);
   const userByUsername = await User.findOne({
-    username: { $regex: new RegExp(`^${cleanId}$`, 'i') }
+    username: { $regex: new RegExp(`^${safeCleanId}$`, 'i') }
   }).lean();
 
   return userByUsername;

@@ -23,6 +23,117 @@ class BlockchainService {
       resetTimeoutMs: 60000,     // Wait 1 min before retry
       failureWindowMs: 30000    // Count failures in 30 sec window
     });
+
+    // Balance verification cache (30 seconds TTL)
+    this.balanceCache = new Map();
+    this.BALANCE_CACHE_TTL = 30000; // 30 seconds
+  }
+
+  /**
+   * Verify buyer wallet: check if address exists and has sufficient balance
+   * @param {string} address - TRON address to verify
+   * @param {number} requiredAmount - Required USDT amount (deal amount + 5 USDT buffer)
+   * @param {number} dealAmount - Just the deal amount (for error messages)
+   * @returns {Promise<Object>} - { valid, balance, error, errorType }
+   *
+   * errorType can be:
+   * - 'invalid_address' - Address format is invalid
+   * - 'not_found' - Address not found on TRON network
+   * - 'insufficient_funds' - Balance < dealAmount
+   * - 'no_buffer' - Balance >= dealAmount but < requiredAmount (no 5 USDT buffer)
+   * - 'api_error' - TRON API is unavailable
+   */
+  async verifyBuyerWallet(address, requiredAmount, dealAmount) {
+    // Check cache first
+    const cacheKey = `${address}:${requiredAmount}`;
+    const cached = this.balanceCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.BALANCE_CACHE_TTL) {
+      return cached.result;
+    }
+
+    try {
+      // Step 1: Validate address format
+      if (!this.isValidAddress(address)) {
+        return {
+          valid: false,
+          balance: 0,
+          error: 'Неверный формат адреса. Адрес должен начинаться с T и содержать 34 символа.',
+          errorType: 'invalid_address'
+        };
+      }
+
+      // Step 2: Check if address exists on network (get account info)
+      let accountExists = false;
+      try {
+        const account = await this.tronWeb.trx.getAccount(address);
+        accountExists = account && (account.address || account.balance !== undefined);
+      } catch (err) {
+        // Account doesn't exist or API error
+        accountExists = false;
+      }
+
+      // Step 3: Get USDT balance (even if account seems to not exist, try anyway)
+      const balance = await this.getBalance(address, 'USDT');
+
+      // If balance is 0 and account doesn't exist, it's likely not found
+      if (!accountExists && balance === 0) {
+        // Double-check by trying to get TRX balance too
+        const trxBalance = await this.getBalance(address, 'TRX');
+        if (trxBalance === 0) {
+          const result = {
+            valid: false,
+            balance: 0,
+            error: 'Кошелёк не найден в сети TRON. Убедитесь, что адрес корректный и был активирован.',
+            errorType: 'not_found'
+          };
+          this.balanceCache.set(cacheKey, { result, timestamp: Date.now() });
+          return result;
+        }
+      }
+
+      // Step 4: Check balance against deal amount
+      if (balance < dealAmount) {
+        const result = {
+          valid: false,
+          balance,
+          error: `Недостаточно средств. Баланс: ${balance.toFixed(2)} USDT. Требуется: ${requiredAmount.toFixed(2)} USDT (сумма сделки + 5 USDT запас).`,
+          errorType: 'insufficient_funds'
+        };
+        this.balanceCache.set(cacheKey, { result, timestamp: Date.now() });
+        return result;
+      }
+
+      // Step 5: Check if balance covers deal + 5 USDT buffer
+      if (balance < requiredAmount) {
+        const result = {
+          valid: false,
+          balance,
+          error: `На вашем кошельке есть сумма для покрытия сделки, но нет запаса на случай комиссий.\n\nБаланс: ${balance.toFixed(2)} USDT\nРекомендуем: ${requiredAmount.toFixed(2)} USDT (сумма + 5 USDT)\n\nМы обеспечиваем безопасность платёжеспособности покупателей!`,
+          errorType: 'no_buffer'
+        };
+        this.balanceCache.set(cacheKey, { result, timestamp: Date.now() });
+        return result;
+      }
+
+      // All checks passed!
+      const result = {
+        valid: true,
+        balance,
+        error: null,
+        errorType: null
+      };
+      this.balanceCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
+
+    } catch (error) {
+      console.error('Error verifying buyer wallet:', error);
+      return {
+        valid: false,
+        balance: 0,
+        error: 'Не удалось проверить кошелёк. Пожалуйста, попробуйте позже или обратитесь в поддержку.',
+        errorType: 'api_error'
+      };
+    }
   }
 
   /**

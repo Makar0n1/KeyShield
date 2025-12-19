@@ -5,8 +5,10 @@ const { Markup } = require('telegraf');
 const {
   mainMenuButton,
   depositWarningKeyboard,
+  walletVerificationErrorKeyboard,
   backButton
 } = require('../keyboards/main');
+const User = require('../../models/User');
 const messageManager = require('../utils/messageManager');
 
 // Escape special Markdown characters
@@ -227,11 +229,12 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 };
 
 // ============================================
-// BUYER WALLET INPUT
+// BUYER WALLET INPUT (with balance verification)
 // ============================================
 
 /**
  * Handle buyer providing wallet address (text input)
+ * Now includes wallet verification: address validity, USDT balance check
  */
 const handleBuyerWalletInput = async (ctx) => {
   try {
@@ -251,47 +254,90 @@ const handleBuyerWalletInput = async (ctx) => {
       return false; // Not waiting for wallet
     }
 
-    // Validate TRON address
-    if (!blockchainService.isValidAddress(text)) {
-      const errorText = `❌ *Неверный адрес кошелька!*
+    // ========== STEP 1: Show verification loading screen ==========
+    // Set currentScreen to wallet_verification to exclude from loading middleware
+    await User.findOneAndUpdate(
+      { telegramId },
+      { currentScreen: 'wallet_verification' }
+    );
 
-Адрес должен начинаться с T и содержать 34 символа.
-_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
+    const verifyingText = `⏳ *Проверяем ваш адрес...*
 
-Попробуйте ещё раз:`;
+Пожалуйста, подождите. Мы проверяем:
+• Корректность адреса
+• Наличие средств на кошельке
 
-      const keyboard = backButton();
-      await messageManager.updateScreen(ctx, telegramId, 'buyer_wallet_error', errorText, keyboard);
+Это может занять несколько секунд.`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verification', verifyingText, null);
+
+    // ========== STEP 2: Calculate required amount ==========
+    let depositAmount = deal.amount;
+    if (deal.commissionType === 'buyer') {
+      depositAmount = deal.amount + deal.commission;
+    } else if (deal.commissionType === 'split') {
+      depositAmount = deal.amount + deal.commission / 2;
+    }
+
+    // Required amount = deposit amount + 5 USDT buffer
+    const requiredAmount = depositAmount + 5;
+
+    // ========== STEP 3: Verify wallet ==========
+    const verification = await blockchainService.verifyBuyerWallet(text, requiredAmount, depositAmount);
+
+    if (!verification.valid) {
+      // Wallet verification failed - show error with options
+      let errorIcon = '❌';
+      if (verification.errorType === 'no_buffer') {
+        errorIcon = '⚠️';
+      }
+
+      const errorText = `${errorIcon} *Проверка кошелька не пройдена*
+
+${verification.error}
+
+Выберите действие:`;
+
+      const keyboard = walletVerificationErrorKeyboard(deal.dealId);
+      await messageManager.updateScreen(ctx, telegramId, 'wallet_verification_error', errorText, keyboard);
       return true;
     }
 
-    // Generate private key for buyer (pseudo-multisig)
+    // ========== STEP 4: Verification passed! Show success message for 3 seconds ==========
+    const successText = `✅ *Кошелёк проверен!*
+
+💰 Баланс: ${verification.balance.toFixed(2)} USDT
+✓ Баланс достаточен для совершения сделки.
+
+Подготовка данных...`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
+
+    // Wait 3 seconds before proceeding
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // ========== STEP 5: Generate private key and save deal ==========
     const buyerKeys = await blockchainService.generateKeyPair();
     const buyerPrivateKey = buyerKeys.privateKey;
 
-    // Update deal with buyer address and private key
     deal.buyerAddress = text;
     deal.buyerPrivateKey = buyerPrivateKey;
     deal.status = 'waiting_for_deposit';
     await deal.save();
 
-    console.log(`✅ Buyer wallet set for deal ${deal.dealId}: ${text}`);
+    console.log(`✅ Buyer wallet verified and set for deal ${deal.dealId}: ${text} (balance: ${verification.balance} USDT)`);
 
-    // Calculate deposit amount
-    let depositAmount = deal.amount;
+    // Calculate deposit note for display
     let depositNote = '';
-
     if (deal.commissionType === 'buyer') {
-      depositAmount = deal.amount + deal.commission;
       depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
     } else if (deal.commissionType === 'split') {
       const halfCommission = deal.commission / 2;
-      depositAmount = deal.amount + halfCommission;
       depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
     }
 
-    // Show deposit instructions to buyer FIRST (main message)
-    const buyerDepositText = `✅ *Кошелек сохранен! Теперь внесите депозит.*
+    // ========== STEP 6: Show deposit instructions ==========
+    const buyerDepositText = `✅ *Кошелек подтверждён! Теперь внесите депозит.*
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
@@ -299,10 +345,10 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 🔐 *Адрес для депозита (${deal.asset}):*
 \`${deal.multisigAddress}\`
 
-💸 *К оплате: ${depositAmount} ${deal.asset}*${depositNote}
+💸 *К оплате: ${depositAmount.toFixed(2)} ${deal.asset}*${depositNote}
 
 ⚠️ *ВАЖНО:*
-• Переведите ТОЧНО ${depositAmount} ${deal.asset}
+• Переведите ТОЧНО ${depositAmount.toFixed(2)} ${deal.asset}
 • Срок: 24 часа
 
 ⏱ Система автоматически обнаружит депозит.
@@ -312,7 +358,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
     const buyerKeyboard = mainMenuButton();
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
-    // ========== SHOW PRIVATE KEY (separate message below with button) ==========
+    // ========== STEP 7: Show private key (separate message) ==========
     const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
 
 🆔 Сделка: \`${deal.dealId}\`
@@ -346,7 +392,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       }
     }, 60000);
 
-    // Notify seller
+    // ========== STEP 8: Notify seller ==========
     const sellerNotifyText = `✅ *Покупатель указал кошелек!*
 
 🆔 Сделка: \`${deal.dealId}\`
