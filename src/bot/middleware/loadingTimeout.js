@@ -128,16 +128,11 @@ const loadingTimeoutMiddleware = async (ctx, next) => {
   const userId = ctx.from.id;
   const requestKey = getRequestKey(ctx);
 
-  // Get message ID and current screen BEFORE starting handler
-  const { messageId, currentScreen } = await getMessageIdAndScreen(ctx, userId);
+  // Get message ID BEFORE starting handler
+  const { messageId } = await getMessageIdAndScreen(ctx, userId);
 
   // If no message to edit, skip loading mechanism
   if (!messageId) {
-    return next();
-  }
-
-  // Skip if current screen is in excluded list (e.g., payout processing)
-  if (currentScreen && EXCLUDED_SCREENS.includes(currentScreen)) {
     return next();
   }
 
@@ -152,6 +147,21 @@ const loadingTimeoutMiddleware = async (ctx, next) => {
   const timer = setTimeout(async () => {
     // Don't show if handler already completed
     if (handlerCompleted) return;
+
+    // Check current screen AT THE MOMENT of showing loading (not before handler starts)
+    // This allows handlers to set payout_processing screen before timer fires
+    try {
+      const user = await User.findOne({ telegramId: userId })
+        .select('currentScreen')
+        .lean();
+
+      if (user?.currentScreen && EXCLUDED_SCREENS.includes(user.currentScreen)) {
+        // Screen is now in excluded list - don't show loading
+        return;
+      }
+    } catch (error) {
+      // Continue with showing loading if DB check fails
+    }
 
     loadingShown = true;
     loadingShownAt = Date.now();
