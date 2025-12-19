@@ -168,9 +168,24 @@ _Добавлено файлов: ${session.media.length}_
 // HANDLE MEDIA ATTACHMENTS
 // ============================================
 
+// Track processed media groups to avoid duplicate error messages and debounce screen updates
+const processedMediaGroups = new Map(); // media_group_id -> { reasonSet: boolean, count: number, timestamp: number, updateTimeout: NodeJS.Timeout }
+
+// Clean old entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of processedMediaGroups) {
+    if (now - value.timestamp > 60000) { // 1 minute TTL
+      if (value.updateTimeout) clearTimeout(value.updateTimeout);
+      processedMediaGroups.delete(key);
+    }
+  }
+}, 300000);
+
 /**
  * Handle media attachments for dispute
  * Accepts media at both 'reason' step (with caption as reason) and 'media' step
+ * Supports media groups (multiple photos sent at once)
  */
 const handleDisputeMedia = async (ctx) => {
   try {
@@ -181,28 +196,64 @@ const handleDisputeMedia = async (ctx) => {
       return false;
     }
 
+    const mediaGroupId = ctx.message.media_group_id;
+
     // If still on reason step but user sent media, check for caption as reason text
     if (session.step === 'reason') {
       const caption = ctx.message.caption?.trim();
 
-      if (!caption || caption.length < 20) {
-        // Delete user message
-        await messageManager.deleteUserMessage(ctx);
+      // For media groups: first photo with caption sets the reason, others just add media
+      if (mediaGroupId) {
+        const groupState = processedMediaGroups.get(mediaGroupId);
 
-        const errorText = `❌ *Сначала опишите проблему*
+        if (groupState?.reasonSet) {
+          // Reason already set by first photo in group, just add this as media
+          session.step = 'media';
+        } else if (caption && caption.length >= 20) {
+          // First photo with valid caption - set reason
+          session.reasonText = caption;
+          session.step = 'media';
+          processedMediaGroups.set(mediaGroupId, { reasonSet: true, timestamp: Date.now() });
+        } else if (!groupState) {
+          // First photo without valid caption - show error once
+          processedMediaGroups.set(mediaGroupId, { reasonSet: false, timestamp: Date.now() });
+
+          await messageManager.deleteUserMessage(ctx);
+
+          const errorText = `❌ *Сначала опишите проблему*
+
+${caption ? `Описание слишком короткое (${caption.length} символов).` : 'Отправьте текстовое описание проблемы (минимум 20 символов), затем прикрепите доказательства.'}
+
+Или отправьте группу фото с подписью — описанием проблемы (минимум 20 символов).`;
+
+          const keyboard = backButton();
+          await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
+          return true;
+        } else {
+          // Subsequent photos in group without reason - just delete silently
+          await messageManager.deleteUserMessage(ctx);
+          return true;
+        }
+      } else {
+        // Single photo (not in group)
+        if (!caption || caption.length < 20) {
+          await messageManager.deleteUserMessage(ctx);
+
+          const errorText = `❌ *Сначала опишите проблему*
 
 ${caption ? `Описание слишком короткое (${caption.length} символов).` : 'Отправьте текстовое описание проблемы (минимум 20 символов), затем прикрепите доказательства.'}
 
 Или отправьте фото/документ с подписью — описанием проблемы (минимум 20 символов).`;
 
-        const keyboard = backButton();
-        await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
-        return true;
-      }
+          const keyboard = backButton();
+          await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
+          return true;
+        }
 
-      // Use caption as reason, advance to media step
-      session.reasonText = caption;
-      session.step = 'media';
+        // Single photo with valid caption - set reason
+        session.reasonText = caption;
+        session.step = 'media';
+      }
     }
 
     // Delete user message (media)
@@ -247,7 +298,50 @@ ${caption ? `Описание слишком короткое (${caption.length}
 
       await setDisputeSession(telegramId, session);
 
-      // Update screen with new count
+      // For media groups, debounce screen update to avoid spamming editMessageText
+      if (mediaGroupId) {
+        const groupState = processedMediaGroups.get(mediaGroupId) || { reasonSet: false, count: 0, timestamp: Date.now() };
+        groupState.count = session.media.length;
+        groupState.timestamp = Date.now();
+
+        // Clear previous timeout if exists
+        if (groupState.updateTimeout) {
+          clearTimeout(groupState.updateTimeout);
+        }
+
+        // Schedule screen update after 500ms (when all photos in group are received)
+        groupState.updateTimeout = setTimeout(async () => {
+          try {
+            // Re-fetch session to get latest media count
+            const latestSession = await getDisputeSession(telegramId);
+            if (!latestSession) return;
+
+            const mediaText = `📎 *Прикрепите доказательства*
+
+🆔 Сделка: \`${latestSession.dealId}\`
+
+Отправьте файлы для подтверждения:
+• Скриншоты переписки
+• Фото/видео товара
+• Документы
+• Голосовые сообщения
+
+✅ *Добавлено файлов: ${latestSession.media.length}*
+
+Нажмите *"Отправить спор"* когда закончите.`;
+
+            const keyboard = disputeMediaKeyboard(latestSession.dealId);
+            await messageManager.updateScreen(ctx, telegramId, 'dispute_media_group', mediaText, keyboard);
+          } catch (err) {
+            console.error('Error updating screen for media group:', err.message);
+          }
+        }, 500);
+
+        processedMediaGroups.set(mediaGroupId, groupState);
+        return true;
+      }
+
+      // Single file - update screen immediately
       const mediaText = `📎 *Прикрепите доказательства*
 
 🆔 Сделка: \`${session.dealId}\`
