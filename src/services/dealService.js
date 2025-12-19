@@ -159,8 +159,15 @@ class DealService {
     const dealId = await Deal.generateDealId();
 
     // Calculate deadline
+    // TEST MODE: Use minutes instead of hours if TEST_DEADLINE_MINUTES is set
     const deadline = new Date();
-    deadline.setHours(deadline.getHours() + deadlineHours);
+    const testDeadlineMinutes = parseInt(process.env.TEST_DEADLINE_MINUTES);
+    if (testDeadlineMinutes > 0) {
+      console.log(`⚠️ TEST MODE: Using ${testDeadlineMinutes} minutes deadline instead of ${deadlineHours} hours`);
+      deadline.setMinutes(deadline.getMinutes() + testDeadlineMinutes);
+    } else {
+      deadline.setHours(deadline.getHours() + deadlineHours);
+    }
 
     // Generate unique key
     const uniqueKey = Deal.generateUniqueKey(buyerId, sellerId, description);

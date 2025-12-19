@@ -32,11 +32,22 @@ class DeadlineMonitor {
     this.interval = null;
     this.botInstance = null;
 
-    // Check interval: every 5 minutes
-    this.CHECK_INTERVAL = 5 * 60 * 1000;
+    // Check interval: every 5 minutes (or 30 seconds in test mode)
+    const testGraceMinutes = parseInt(process.env.TEST_GRACE_MINUTES);
+    if (testGraceMinutes > 0) {
+      this.CHECK_INTERVAL = 30 * 1000; // Check every 30 seconds in test mode
+      console.log(`⚠️ TEST MODE: Checking deadlines every 30 seconds`);
+    } else {
+      this.CHECK_INTERVAL = 5 * 60 * 1000;
+    }
 
-    // Grace period after deadline: 12 hours
-    this.GRACE_PERIOD_MS = 12 * 60 * 60 * 1000;
+    // Grace period after deadline: 12 hours (or TEST_GRACE_MINUTES for testing)
+    if (testGraceMinutes > 0) {
+      console.log(`⚠️ TEST MODE: Using ${testGraceMinutes} minutes grace period instead of 12 hours`);
+      this.GRACE_PERIOD_MS = testGraceMinutes * 60 * 1000;
+    } else {
+      this.GRACE_PERIOD_MS = 12 * 60 * 60 * 1000;
+    }
 
     // Batch processing settings
     this.BATCH_SIZE = 5; // Process 5 deals at a time
