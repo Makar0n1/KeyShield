@@ -159,8 +159,8 @@ async function handleKeyValidationInput(ctx) {
  */
 async function processSellerPayout(ctx, deal, buyerId) {
   const telegramId = deal.sellerId;
-  let energyRented = false;
-  let feesaverCost = 0;
+  let energyMethod = 'none';
+  let totalFeesaverCost = 0;
   let trxReturned = 0;
 
   try {
@@ -186,23 +186,13 @@ async function processSellerPayout(ctx, deal, buyerId) {
 
     console.log(`💸 Processing seller payout for deal ${deal.dealId}: ${releaseAmount} ${deal.asset}`);
 
-    // 🔋 RENT ENERGY FROM FEESAVER (if enabled)
-    if (feesaverService.isEnabled()) {
-      try {
-        const rentalResult = await feesaverService.rentEnergyForDeal(deal.multisigAddress);
-        if (rentalResult.success) {
-          energyRented = true;
-          feesaverCost = rentalResult.cost;
-          console.log(`✅ Energy rental successful (cost: ${feesaverCost} TRX)`);
-        }
-      } catch (error) {
-        console.error(`⚠️ Energy rental failed: ${error.message}`);
-      }
-    }
-
-    // 💰 FALLBACK: Send TRX if energy rental failed
+    // Check if FeeSaver is available
+    const useFeeSaver = feesaverService.isEnabled();
     const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
-    if (!energyRented) {
+
+    // If not using FeeSaver, send fallback TRX upfront
+    if (!useFeeSaver) {
+      console.log(`⚠️ FeeSaver not available, using TRX fallback (${FALLBACK_AMOUNT} TRX)`);
       const trxResult = await blockchainService.sendTRX(
         process.env.ARBITER_PRIVATE_KEY,
         deal.multisigAddress,
@@ -211,12 +201,47 @@ async function processSellerPayout(ctx, deal, buyerId) {
       if (trxResult.success) {
         console.log(`✅ Sent ${FALLBACK_AMOUNT} TRX to multisig: ${trxResult.txHash}`);
         await new Promise(r => setTimeout(r, 3000));
+        energyMethod = 'trx';
       } else {
         throw new Error(`Failed to send TRX: ${trxResult.message}`);
       }
     }
 
-    // 1. Create release transaction to seller
+    // ============================================
+    // 1. FIRST TRANSFER: Release to seller
+    // ============================================
+
+    // 🔋 Rent 65k energy for first transfer (if using FeeSaver)
+    if (useFeeSaver) {
+      try {
+        console.log(`🔋 Renting 65k energy for main payout...`);
+        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+        if (rental1.status === 'Filled') {
+          totalFeesaverCost += parseFloat(rental1.summa) || 0;
+          energyMethod = 'feesaver';
+          console.log(`✅ Energy rental #1 successful (cost: ${rental1.summa} TRX)`);
+          await feesaverService.waitForDelegation(10);
+        } else {
+          throw new Error('Energy rental not filled');
+        }
+      } catch (error) {
+        console.error(`⚠️ Energy rental #1 failed: ${error.message}`);
+        // Fallback to TRX
+        const trxResult = await blockchainService.sendTRX(
+          process.env.ARBITER_PRIVATE_KEY,
+          deal.multisigAddress,
+          FALLBACK_AMOUNT
+        );
+        if (trxResult.success) {
+          await new Promise(r => setTimeout(r, 3000));
+          energyMethod = 'trx';
+        } else {
+          throw new Error(`Failed to send fallback TRX: ${trxResult.message}`);
+        }
+      }
+    }
+
+    // Create and send release transaction
     const releaseTx = await blockchainService.createReleaseTransaction(
       deal.multisigAddress,
       deal.sellerAddress,
@@ -224,14 +249,11 @@ async function processSellerPayout(ctx, deal, buyerId) {
       deal.asset
     );
 
-    // Sign with multisig wallet private key
     const signedReleaseTx = await blockchainService.signTransaction(releaseTx, wallet.privateKey);
-
-    // Broadcast
     const releaseResult = await blockchainService.broadcastTransaction(signedReleaseTx);
 
     if (!releaseResult.success) {
-      throw new Error(`Transaction failed: ${releaseResult.error}`);
+      throw new Error(`Release transaction failed: ${releaseResult.error}`);
     }
 
     console.log(`✅ Release successful: ${releaseResult.txHash}`);
@@ -250,10 +272,31 @@ async function processSellerPayout(ctx, deal, buyerId) {
     releaseTransaction.generateExplorerLink();
     await releaseTransaction.save();
 
-    // 2. Transfer commission
-    await new Promise(r => setTimeout(r, 3000));
+    // ============================================
+    // 2. SECOND TRANSFER: Commission to service
+    // ============================================
 
     if (commission > 0) {
+      // Wait a bit before second transfer
+      await new Promise(r => setTimeout(r, 3000));
+
+      // 🔋 Rent 65k energy for commission transfer (if using FeeSaver)
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        try {
+          console.log(`🔋 Renting 65k energy for commission transfer...`);
+          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+          if (rental2.status === 'Filled') {
+            totalFeesaverCost += parseFloat(rental2.summa) || 0;
+            console.log(`✅ Energy rental #2 successful (cost: ${rental2.summa} TRX)`);
+            await feesaverService.waitForDelegation(10);
+          } else {
+            console.warn(`⚠️ Energy rental #2 not filled, trying anyway...`);
+          }
+        } catch (error) {
+          console.error(`⚠️ Energy rental #2 failed: ${error.message}, trying anyway...`);
+        }
+      }
+
       const commissionTx = await blockchainService.createReleaseTransaction(
         deal.multisigAddress,
         process.env.SERVICE_WALLET_ADDRESS,
@@ -276,6 +319,8 @@ async function processSellerPayout(ctx, deal, buyerId) {
         commissionTransaction.generateExplorerLink();
         await commissionTransaction.save();
         console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
+      } else {
+        console.error(`❌ Commission transfer failed: ${commissionResult.error}`);
       }
     }
 
@@ -286,11 +331,13 @@ async function processSellerPayout(ctx, deal, buyerId) {
       completedAt: new Date()
     });
 
-    // Return leftover TRX
-    trxReturned = await returnLeftoverTRX(deal, wallet.privateKey, energyRented);
+    // Return leftover TRX only if fallback was used (FeeSaver keeps 1 TRX for bandwidth)
+    if (energyMethod === 'trx') {
+      trxReturned = await returnLeftoverTRX(deal, wallet.privateKey);
+    }
 
     // Save operational costs
-    await saveOperationalCosts(deal, energyRented, feesaverCost, trxReturned, 'seller_payout');
+    await saveOperationalCosts(deal, energyMethod, totalFeesaverCost, trxReturned, 'seller_payout');
 
     // Notify seller (success)
     const sellerText = `✅ *Средства получены!*
@@ -362,8 +409,8 @@ async function processSellerRelease(ctx, deal) {
  */
 async function processBuyerRefund(ctx, deal) {
   const telegramId = deal.buyerId;
-  let energyRented = false;
-  let feesaverCost = 0;
+  let energyMethod = 'none';
+  let totalFeesaverCost = 0;
   let trxReturned = 0;
 
   try {
@@ -389,22 +436,13 @@ async function processBuyerRefund(ctx, deal) {
 
     console.log(`💸 Processing buyer refund for deal ${deal.dealId}: ${refundAmount} ${deal.asset}`);
 
-    // 🔋 RENT ENERGY FROM FEESAVER (if enabled)
-    if (feesaverService.isEnabled()) {
-      try {
-        const rentalResult = await feesaverService.rentEnergyForDeal(deal.multisigAddress);
-        if (rentalResult.success) {
-          energyRented = true;
-          feesaverCost = rentalResult.cost;
-        }
-      } catch (error) {
-        console.error(`⚠️ Energy rental failed: ${error.message}`);
-      }
-    }
-
-    // 💰 FALLBACK: Send TRX if energy rental failed
+    // Check if FeeSaver is available
+    const useFeeSaver = feesaverService.isEnabled();
     const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
-    if (!energyRented) {
+
+    // If not using FeeSaver, send fallback TRX upfront
+    if (!useFeeSaver) {
+      console.log(`⚠️ FeeSaver not available, using TRX fallback (${FALLBACK_AMOUNT} TRX)`);
       const trxResult = await blockchainService.sendTRX(
         process.env.ARBITER_PRIVATE_KEY,
         deal.multisigAddress,
@@ -412,12 +450,46 @@ async function processBuyerRefund(ctx, deal) {
       );
       if (trxResult.success) {
         await new Promise(r => setTimeout(r, 3000));
+        energyMethod = 'trx';
       } else {
         throw new Error(`Failed to send TRX: ${trxResult.message}`);
       }
     }
 
-    // 1. Create refund transaction to buyer
+    // ============================================
+    // 1. FIRST TRANSFER: Refund to buyer
+    // ============================================
+
+    // 🔋 Rent 65k energy for first transfer (if using FeeSaver)
+    if (useFeeSaver) {
+      try {
+        console.log(`🔋 Renting 65k energy for refund...`);
+        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+        if (rental1.status === 'Filled') {
+          totalFeesaverCost += parseFloat(rental1.summa) || 0;
+          energyMethod = 'feesaver';
+          console.log(`✅ Energy rental #1 successful (cost: ${rental1.summa} TRX)`);
+          await feesaverService.waitForDelegation(10);
+        } else {
+          throw new Error('Energy rental not filled');
+        }
+      } catch (error) {
+        console.error(`⚠️ Energy rental #1 failed: ${error.message}`);
+        const trxResult = await blockchainService.sendTRX(
+          process.env.ARBITER_PRIVATE_KEY,
+          deal.multisigAddress,
+          FALLBACK_AMOUNT
+        );
+        if (trxResult.success) {
+          await new Promise(r => setTimeout(r, 3000));
+          energyMethod = 'trx';
+        } else {
+          throw new Error(`Failed to send fallback TRX: ${trxResult.message}`);
+        }
+      }
+    }
+
+    // Create and send refund transaction
     const refundTx = await blockchainService.createReleaseTransaction(
       deal.multisigAddress,
       deal.buyerAddress,
@@ -429,7 +501,7 @@ async function processBuyerRefund(ctx, deal) {
     const refundResult = await blockchainService.broadcastTransaction(signedRefundTx);
 
     if (!refundResult.success) {
-      throw new Error(`Transaction failed: ${refundResult.error}`);
+      throw new Error(`Refund transaction failed: ${refundResult.error}`);
     }
 
     console.log(`✅ Refund successful: ${refundResult.txHash}`);
@@ -448,10 +520,30 @@ async function processBuyerRefund(ctx, deal) {
     refundTransaction.generateExplorerLink();
     await refundTransaction.save();
 
-    // 2. Transfer commission
-    await new Promise(r => setTimeout(r, 3000));
+    // ============================================
+    // 2. SECOND TRANSFER: Commission to service
+    // ============================================
 
     if (commission > 0) {
+      await new Promise(r => setTimeout(r, 3000));
+
+      // 🔋 Rent 65k energy for commission transfer (if using FeeSaver)
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        try {
+          console.log(`🔋 Renting 65k energy for commission transfer...`);
+          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+          if (rental2.status === 'Filled') {
+            totalFeesaverCost += parseFloat(rental2.summa) || 0;
+            console.log(`✅ Energy rental #2 successful (cost: ${rental2.summa} TRX)`);
+            await feesaverService.waitForDelegation(10);
+          } else {
+            console.warn(`⚠️ Energy rental #2 not filled, trying anyway...`);
+          }
+        } catch (error) {
+          console.error(`⚠️ Energy rental #2 failed: ${error.message}, trying anyway...`);
+        }
+      }
+
       const commissionTx = await blockchainService.createReleaseTransaction(
         deal.multisigAddress,
         process.env.SERVICE_WALLET_ADDRESS,
@@ -473,6 +565,9 @@ async function processBuyerRefund(ctx, deal) {
         });
         commissionTransaction.generateExplorerLink();
         await commissionTransaction.save();
+        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
+      } else {
+        console.error(`❌ Commission transfer failed: ${commissionResult.error}`);
       }
     }
 
@@ -483,11 +578,13 @@ async function processBuyerRefund(ctx, deal) {
       completedAt: new Date()
     });
 
-    // Return leftover TRX
-    trxReturned = await returnLeftoverTRX(deal, wallet.privateKey, energyRented);
+    // Return leftover TRX only if fallback was used
+    if (energyMethod === 'trx') {
+      trxReturned = await returnLeftoverTRX(deal, wallet.privateKey);
+    }
 
     // Save operational costs
-    await saveOperationalCosts(deal, energyRented, feesaverCost, trxReturned, 'buyer_refund');
+    await saveOperationalCosts(deal, energyMethod, totalFeesaverCost, trxReturned, 'buyer_refund');
 
     // Notify buyer (success)
     const buyerText = `✅ *Возврат выполнен!*
@@ -554,8 +651,8 @@ async function processDisputePayout(ctx, deal, winnerRole) {
   const loserId = winnerRole === 'buyer' ? deal.sellerId : deal.buyerId;
   const winnerAddress = winnerRole === 'buyer' ? deal.buyerAddress : deal.sellerAddress;
 
-  let energyRented = false;
-  let feesaverCost = 0;
+  let energyMethod = 'none';
+  let totalFeesaverCost = 0;
   let trxReturned = 0;
 
   try {
@@ -581,22 +678,13 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 
     console.log(`💸 Processing dispute payout for deal ${deal.dealId}: ${payoutAmount} ${deal.asset} to ${winnerRole}`);
 
-    // 🔋 RENT ENERGY FROM FEESAVER
-    if (feesaverService.isEnabled()) {
-      try {
-        const rentalResult = await feesaverService.rentEnergyForDeal(deal.multisigAddress);
-        if (rentalResult.success) {
-          energyRented = true;
-          feesaverCost = rentalResult.cost;
-        }
-      } catch (error) {
-        console.error(`⚠️ Energy rental failed: ${error.message}`);
-      }
-    }
-
-    // 💰 FALLBACK
+    // Check if FeeSaver is available
+    const useFeeSaver = feesaverService.isEnabled();
     const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
-    if (!energyRented) {
+
+    // If not using FeeSaver, send fallback TRX upfront
+    if (!useFeeSaver) {
+      console.log(`⚠️ FeeSaver not available, using TRX fallback (${FALLBACK_AMOUNT} TRX)`);
       const trxResult = await blockchainService.sendTRX(
         process.env.ARBITER_PRIVATE_KEY,
         deal.multisigAddress,
@@ -604,12 +692,46 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       );
       if (trxResult.success) {
         await new Promise(r => setTimeout(r, 3000));
+        energyMethod = 'trx';
       } else {
         throw new Error(`Failed to send TRX: ${trxResult.message}`);
       }
     }
 
-    // 1. Create payout transaction to winner
+    // ============================================
+    // 1. FIRST TRANSFER: Payout to winner
+    // ============================================
+
+    // 🔋 Rent 65k energy for first transfer (if using FeeSaver)
+    if (useFeeSaver) {
+      try {
+        console.log(`🔋 Renting 65k energy for dispute payout...`);
+        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+        if (rental1.status === 'Filled') {
+          totalFeesaverCost += parseFloat(rental1.summa) || 0;
+          energyMethod = 'feesaver';
+          console.log(`✅ Energy rental #1 successful (cost: ${rental1.summa} TRX)`);
+          await feesaverService.waitForDelegation(10);
+        } else {
+          throw new Error('Energy rental not filled');
+        }
+      } catch (error) {
+        console.error(`⚠️ Energy rental #1 failed: ${error.message}`);
+        const trxResult = await blockchainService.sendTRX(
+          process.env.ARBITER_PRIVATE_KEY,
+          deal.multisigAddress,
+          FALLBACK_AMOUNT
+        );
+        if (trxResult.success) {
+          await new Promise(r => setTimeout(r, 3000));
+          energyMethod = 'trx';
+        } else {
+          throw new Error(`Failed to send fallback TRX: ${trxResult.message}`);
+        }
+      }
+    }
+
+    // Create and send payout transaction
     const payoutTx = await blockchainService.createReleaseTransaction(
       deal.multisigAddress,
       winnerAddress,
@@ -621,7 +743,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     const payoutResult = await blockchainService.broadcastTransaction(signedPayoutTx);
 
     if (!payoutResult.success) {
-      throw new Error(`Transaction failed: ${payoutResult.error}`);
+      throw new Error(`Payout transaction failed: ${payoutResult.error}`);
     }
 
     console.log(`✅ Dispute payout successful: ${payoutResult.txHash}`);
@@ -640,10 +762,30 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     payoutTransaction.generateExplorerLink();
     await payoutTransaction.save();
 
-    // 2. Transfer commission
-    await new Promise(r => setTimeout(r, 3000));
+    // ============================================
+    // 2. SECOND TRANSFER: Commission to service
+    // ============================================
 
     if (commission > 0) {
+      await new Promise(r => setTimeout(r, 3000));
+
+      // 🔋 Rent 65k energy for commission transfer (if using FeeSaver)
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        try {
+          console.log(`🔋 Renting 65k energy for commission transfer...`);
+          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+          if (rental2.status === 'Filled') {
+            totalFeesaverCost += parseFloat(rental2.summa) || 0;
+            console.log(`✅ Energy rental #2 successful (cost: ${rental2.summa} TRX)`);
+            await feesaverService.waitForDelegation(10);
+          } else {
+            console.warn(`⚠️ Energy rental #2 not filled, trying anyway...`);
+          }
+        } catch (error) {
+          console.error(`⚠️ Energy rental #2 failed: ${error.message}, trying anyway...`);
+        }
+      }
+
       const commissionTx = await blockchainService.createReleaseTransaction(
         deal.multisigAddress,
         process.env.SERVICE_WALLET_ADDRESS,
@@ -665,6 +807,9 @@ async function processDisputePayout(ctx, deal, winnerRole) {
         });
         commissionTransaction.generateExplorerLink();
         await commissionTransaction.save();
+        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
+      } else {
+        console.error(`❌ Commission transfer failed: ${commissionResult.error}`);
       }
     }
 
@@ -675,11 +820,13 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       completedAt: new Date()
     });
 
-    // Return leftover TRX
-    trxReturned = await returnLeftoverTRX(deal, wallet.privateKey, energyRented);
+    // Return leftover TRX only if fallback was used
+    if (energyMethod === 'trx') {
+      trxReturned = await returnLeftoverTRX(deal, wallet.privateKey);
+    }
 
     // Save operational costs
-    await saveOperationalCosts(deal, energyRented, feesaverCost, trxReturned, 'dispute_payout');
+    await saveOperationalCosts(deal, energyMethod, totalFeesaverCost, trxReturned, 'dispute_payout');
 
     // Notify winner
     const winnerText = `✅ *Средства получены!*
@@ -730,15 +877,15 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 
 /**
  * Return leftover TRX from multisig to arbiter
- * Always try to return TRX - there's activation TRX even if FeeSaver was used
+ * Called ONLY when fallback TRX was used (not FeeSaver)
+ * Returns: (balance - 1.1 TRX) to keep minimum for potential future fees
  */
-async function returnLeftoverTRX(deal, walletPrivateKey, energyRented) {
-  // Don't skip based on energyRented - activation TRX is always sent!
+async function returnLeftoverTRX(deal, walletPrivateKey) {
   try {
     await new Promise(r => setTimeout(r, 5000)); // Wait for previous tx to settle
 
     const trxBalance = await blockchainService.getBalance(deal.multisigAddress, 'TRX');
-    // Keep only 1.1 TRX for tx fee, return the rest
+    // Keep 1.1 TRX for potential future fees, return the rest
     const returnAmount = trxBalance - 1.1;
 
     if (returnAmount > 0.5) {
@@ -752,7 +899,7 @@ async function returnLeftoverTRX(deal, walletPrivateKey, energyRented) {
       const returnResult = await blockchainService.broadcastTransaction(signedReturnTx);
 
       if (returnResult.success) {
-        console.log(`✅ Returned ${returnAmount.toFixed(2)} TRX to arbiter from ${deal.dealId}`);
+        console.log(`✅ Returned ${returnAmount.toFixed(2)} TRX to service wallet from ${deal.dealId}`);
         return returnAmount;
       }
     } else {
@@ -767,25 +914,101 @@ async function returnLeftoverTRX(deal, walletPrivateKey, energyRented) {
 
 /**
  * Save operational costs to deal
+ *
+ * COST BREAKDOWN:
+ *
+ * 1. Activation (always):
+ *    - activationTrxSent: 1 TRX (MULTISIG_ACTIVATION_TRX)
+ *    - activationTxFee: 1.1 TRX (fee for sending TRX from service wallet)
+ *    - Total activation: 2.1 TRX
+ *
+ * 2a. FeeSaver scenario:
+ *    - feesaverCostTrx: ~6.5 TRX (2x 65k energy @ ~3.25 TRX each)
+ *    - No TRX returned (1 TRX stays for bandwidth)
+ *    - Total: 2.1 + 6.5 = ~8.6 TRX
+ *
+ * 2b. Fallback scenario:
+ *    - fallbackTrxSent: 30 TRX (FALLBACK_TRX_AMOUNT)
+ *    - fallbackTxFee: 1.1 TRX (fee for sending TRX)
+ *    - fallbackTrxReturned: varies (balance - 1.1 TRX)
+ *    - Total: 2.1 + 30 + 1.1 - returned
+ *
+ * @param {Object} deal - Deal object
+ * @param {string} energyMethod - 'feesaver', 'trx', or 'none'
+ * @param {number} feesaverCost - Total FeeSaver cost in TRX
+ * @param {number} trxReturned - TRX returned to service wallet
+ * @param {string} operationType - Type of operation for logging
  */
-async function saveOperationalCosts(deal, energyRented, feesaverCost, trxReturned, operationType) {
+async function saveOperationalCosts(deal, energyMethod, feesaverCost, trxReturned, operationType) {
   try {
+    const priceService = require('../../services/priceService');
+    const TX_FEE = 1.1; // Standard TRON transaction fee
+    const activationTrx = parseInt(process.env.MULTISIG_ACTIVATION_TRX) || 1;
+    const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
+
     const updateData = {
-      'operationalCosts.energyMethod': energyRented ? 'feesaver' : 'trx',
-      'operationalCosts.feesaverCostTrx': feesaverCost,
-      // Always save activation TRX returned (activation TRX is always sent at deposit)
-      'operationalCosts.activationTrxReturned': trxReturned
+      'operationalCosts.energyMethod': energyMethod,
+      'operationalCosts.activationTrxSent': activationTrx,
+      'operationalCosts.activationTxFee': TX_FEE
     };
 
-    if (!energyRented) {
-      // If fallback was used, also save fallback data
-      const FALLBACK_AMOUNT = parseInt(process.env.FALLBACK_TRX_AMOUNT) || 30;
+    let totalTrxSpent = activationTrx + TX_FEE; // Activation + its tx fee
+
+    if (energyMethod === 'feesaver') {
+      // FeeSaver was used - record cost (2x 65k energy = ~6.5 TRX total)
+      updateData['operationalCosts.feesaverCostTrx'] = feesaverCost;
+      updateData['operationalCosts.activationTrxReturned'] = 0;
+      updateData['operationalCosts.fallbackTrxSent'] = 0;
+      updateData['operationalCosts.fallbackTxFee'] = 0;
+      updateData['operationalCosts.fallbackTrxReturned'] = 0;
+      updateData['operationalCosts.fallbackTrxNet'] = 0;
+
+      // FeeSaver: activation (2.1) + feesaver cost
+      totalTrxSpent += feesaverCost;
+
+    } else if (energyMethod === 'trx') {
+      // Fallback TRX was used
+      updateData['operationalCosts.feesaverCostTrx'] = 0;
       updateData['operationalCosts.fallbackTrxSent'] = FALLBACK_AMOUNT;
+      updateData['operationalCosts.fallbackTxFee'] = TX_FEE;
       updateData['operationalCosts.fallbackTrxReturned'] = trxReturned;
-      updateData['operationalCosts.fallbackTrxNet'] = FALLBACK_AMOUNT - trxReturned;
+      updateData['operationalCosts.fallbackTrxNet'] = FALLBACK_AMOUNT + TX_FEE - trxReturned;
+      updateData['operationalCosts.activationTrxReturned'] = 0; // Nothing returned from activation
+
+      // Fallback: activation (2.1) + fallback (30 + 1.1) - returned
+      totalTrxSpent += FALLBACK_AMOUNT + TX_FEE - trxReturned;
+    }
+
+    // Calculate net activation cost (sent + fee - returned)
+    const activationNet = activationTrx + TX_FEE;
+    updateData['operationalCosts.activationTrxNet'] = activationNet;
+
+    updateData['operationalCosts.totalTrxSpent'] = totalTrxSpent;
+
+    // Get TRX price and calculate USD cost
+    try {
+      const trxPrice = await priceService.getTrxPrice();
+      const totalCostUsd = totalTrxSpent * trxPrice;
+      updateData['operationalCosts.totalCostUsd'] = totalCostUsd;
+      updateData['operationalCosts.trxPriceAtCompletion'] = trxPrice;
+    } catch (priceError) {
+      console.warn('Could not get TRX price:', priceError.message);
     }
 
     await Deal.findByIdAndUpdate(deal._id, { $set: updateData });
+
+    console.log(`\n📊 Operational costs saved for ${deal.dealId}:`);
+    console.log(`   Type: ${operationType}`);
+    console.log(`   Method: ${energyMethod}`);
+    console.log(`   Activation: ${activationTrx} + ${TX_FEE} fee = ${activationNet.toFixed(2)} TRX`);
+    if (energyMethod === 'feesaver') {
+      console.log(`   FeeSaver: ${feesaverCost.toFixed(2)} TRX`);
+    } else if (energyMethod === 'trx') {
+      console.log(`   Fallback: ${FALLBACK_AMOUNT} + ${TX_FEE} fee - ${trxReturned.toFixed(2)} returned = ${(FALLBACK_AMOUNT + TX_FEE - trxReturned).toFixed(2)} TRX`);
+    }
+    console.log(`   ════════════════════════════`);
+    console.log(`   TOTAL: ${totalTrxSpent.toFixed(2)} TRX\n`);
+
   } catch (error) {
     console.error('Error saving operational costs:', error.message);
   }

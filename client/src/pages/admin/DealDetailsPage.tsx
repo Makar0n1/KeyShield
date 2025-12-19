@@ -398,7 +398,7 @@ export function AdminDealDetailsPage() {
           </Card>
         )}
 
-        {/* Operational Costs - Detailed like old admin */}
+        {/* Operational Costs - Detailed breakdown */}
         {deal.operationalCosts && (
           <Card className="p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -411,12 +411,18 @@ export function AdminDealDetailsPage() {
                 <h3 className="text-sm font-medium text-muted uppercase mb-3">Активация мультисига</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted">Отправлено:</span>
-                    <span className="text-orange-400">{deal.operationalCosts.activationTrxSent || config.trx.multisigActivation} TRX</span>
+                    <span className="text-muted">Отправлено на мультисиг:</span>
+                    <span className="text-orange-400">{deal.operationalCosts.activationTrxSent || config?.trx?.multisigActivation || 1} TRX</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted">Комиссия TX:</span>
+                    <span className="text-muted">Комиссия за отправку:</span>
                     <span className="text-orange-400">{deal.operationalCosts.activationTxFee || 1.1} TRX</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
+                    <span className="text-white font-medium">Итого активация:</span>
+                    <span className="text-orange-400 font-medium">
+                      {((deal.operationalCosts.activationTrxSent || 1) + (deal.operationalCosts.activationTxFee || 1.1)).toFixed(2)} TRX
+                    </span>
                   </div>
                 </div>
               </div>
@@ -426,7 +432,7 @@ export function AdminDealDetailsPage() {
                 <h3 className="text-sm font-medium text-muted uppercase mb-3">
                   Энергия: {' '}
                   {deal.operationalCosts.energyMethod === 'feesaver' ? (
-                    <span className="text-green-400">FeeSaver</span>
+                    <span className="text-green-400">FeeSaver (2×65k)</span>
                   ) : deal.operationalCosts.energyMethod === 'trx' ? (
                     <span className="text-orange-400">TRX Fallback</span>
                   ) : (
@@ -435,19 +441,36 @@ export function AdminDealDetailsPage() {
                 </h3>
                 <div className="space-y-2 text-sm">
                   {deal.operationalCosts.energyMethod === 'feesaver' ? (
-                    <div className="flex justify-between">
-                      <span className="text-muted">Аренда энергии:</span>
-                      <span className="text-green-400">{(deal.operationalCosts.feesaverCostTrx || 0).toFixed(2)} TRX</span>
-                    </div>
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted">Аренда энергии (2×65k):</span>
+                        <span className="text-green-400">{(deal.operationalCosts.feesaverCostTrx || 0).toFixed(2)} TRX</span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        1 TRX остаётся для bandwidth
+                      </div>
+                    </>
                   ) : deal.operationalCosts.energyMethod === 'trx' ? (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-muted">Отправлено:</span>
-                        <span className="text-orange-400">{deal.operationalCosts.fallbackTrxSent || config.trx.fallbackAmount} TRX</span>
+                        <span className="text-muted">Отправлено на мультисиг:</span>
+                        <span className="text-orange-400">{deal.operationalCosts.fallbackTrxSent || config?.trx?.fallbackAmount || 30} TRX</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted">Комиссия TX:</span>
+                        <span className="text-muted">Комиссия за отправку:</span>
                         <span className="text-orange-400">{deal.operationalCosts.fallbackTxFee || 1.1} TRX</span>
+                      </div>
+                      {(deal.operationalCosts.fallbackTrxReturned || 0) > 0 && (
+                        <div className="flex justify-between text-green-400">
+                          <span className="text-muted">Возвращено:</span>
+                          <span>-{(deal.operationalCosts.fallbackTrxReturned || 0).toFixed(2)} TRX</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
+                        <span className="text-white font-medium">Итого fallback:</span>
+                        <span className="text-orange-400 font-medium">
+                          {(deal.operationalCosts.fallbackTrxNet || 0).toFixed(2)} TRX
+                        </span>
                       </div>
                     </>
                   ) : (
@@ -457,22 +480,40 @@ export function AdminDealDetailsPage() {
               </div>
             </div>
 
-            {/* Total Returned - common row */}
-            {(() => {
-              const totalReturned = (deal.operationalCosts.activationTrxReturned || 0) +
-                (deal.operationalCosts.fallbackTrxReturned || 0);
-              if (totalReturned > 0) {
-                return (
-                  <div className="mt-4 p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted">Возвращено с мультисига:</span>
-                      <span className="text-green-400 font-bold text-lg">-{totalReturned.toFixed(2)} TRX</span>
-                    </div>
+            {/* Cost Breakdown Summary */}
+            <div className="mt-4 p-4 bg-dark-lighter rounded-lg border border-border">
+              <h4 className="text-sm font-medium text-white mb-3">Разбивка расходов:</h4>
+              <div className="space-y-1 text-sm font-mono">
+                <div className="flex justify-between">
+                  <span className="text-muted">Активация (отправка + комиссия):</span>
+                  <span className="text-orange-400">
+                    +{((deal.operationalCosts.activationTrxSent || 1) + (deal.operationalCosts.activationTxFee || 1.1)).toFixed(2)} TRX
+                  </span>
+                </div>
+                {deal.operationalCosts.energyMethod === 'feesaver' && (
+                  <div className="flex justify-between">
+                    <span className="text-muted">FeeSaver энергия:</span>
+                    <span className="text-green-400">+{(deal.operationalCosts.feesaverCostTrx || 0).toFixed(2)} TRX</span>
                   </div>
-                );
-              }
-              return null;
-            })()}
+                )}
+                {deal.operationalCosts.energyMethod === 'trx' && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted">Fallback (отправка + комиссия):</span>
+                      <span className="text-orange-400">
+                        +{((deal.operationalCosts.fallbackTrxSent || 30) + (deal.operationalCosts.fallbackTxFee || 1.1)).toFixed(2)} TRX
+                      </span>
+                    </div>
+                    {(deal.operationalCosts.fallbackTrxReturned || 0) > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted">Возвращено:</span>
+                        <span className="text-green-400">-{(deal.operationalCosts.fallbackTrxReturned || 0).toFixed(2)} TRX</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
 
             {/* Total Costs */}
             <div className="mt-4 bg-purple-900/30 border-2 border-purple-500/50 rounded-lg p-4">
@@ -482,10 +523,10 @@ export function AdminDealDetailsPage() {
                   <span className="text-red-400 font-bold text-lg">{(deal.operationalCosts.totalTrxSpent || 0).toFixed(2)} TRX</span>
                 </div>
                 <div className="flex justify-between sm:flex-col">
-                  <span className="text-white font-medium">Курс на момент:</span>
+                  <span className="text-white font-medium">Курс TRX:</span>
                   <span className="text-muted">
                     {deal.operationalCosts.trxPriceAtCompletion
-                      ? `$${deal.operationalCosts.trxPriceAtCompletion.toFixed(6)}`
+                      ? `$${deal.operationalCosts.trxPriceAtCompletion.toFixed(4)}`
                       : 'N/A'}
                   </span>
                 </div>
@@ -497,17 +538,17 @@ export function AdminDealDetailsPage() {
             </div>
 
             {/* Net Profit for this deal - only show for completed deals */}
-            {deal.commission && deal.operationalCosts.totalCostUsd &&
+            {deal.commission && deal.operationalCosts.totalCostUsd !== undefined &&
              ['completed', 'resolved', 'expired', 'refunded'].includes(deal.status) && (
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex justify-between items-center">
                   <span className="text-white font-medium">Чистая прибыль по сделке:</span>
                   <span className={`font-bold text-xl ${
-                    (deal.commission - deal.operationalCosts.totalCostUsd) >= 0
+                    (deal.commission - (deal.operationalCosts.totalCostUsd || 0)) >= 0
                       ? 'text-green-400'
                       : 'text-red-400'
                   }`}>
-                    ${(deal.commission - deal.operationalCosts.totalCostUsd).toFixed(2)}
+                    ${(deal.commission - (deal.operationalCosts.totalCostUsd || 0)).toFixed(2)}
                   </span>
                 </div>
                 <p className="text-xs text-muted mt-1">
