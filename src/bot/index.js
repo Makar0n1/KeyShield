@@ -11,6 +11,7 @@ const messageManager = require('./utils/messageManager');
 
 // Middleware for high-load optimization
 const { deduplicationMiddleware } = require('./middleware/deduplication');
+const { loadingTimeoutMiddleware } = require('./middleware/loadingTimeout');
 
 // Handlers
 const { startHandler, mainMenuHandler, backHandler, MAIN_MENU_TEXT } = require('./handlers/start');
@@ -75,6 +76,10 @@ bot.catch((err, ctx) => {
 // 1. Callback deduplication - prevents double-tap issues
 // User clicks button twice quickly → only first click is processed
 bot.use(deduplicationMiddleware);
+
+// 2. Loading timeout - shows "Loading..." if response takes > 2 seconds
+// Prevents users from seeing a "hanging" state during high load
+bot.use(loadingTimeoutMiddleware);
 
 // ============================================
 // NOTE: No middleware needed for session initialization!

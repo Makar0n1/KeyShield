@@ -105,6 +105,18 @@ async function handleKeyValidationInput(ctx) {
     // ✅ KEY CORRECT - process payout
     await clearKeyValidationSession(telegramId);
 
+    // Show "Processing payout..." message immediately
+    const processingText = `⏳ *Идёт выплата...*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Пожалуйста, подождите. Это может занять до 30 секунд.
+
+_Аренда энергии и отправка транзакций..._`;
+
+    await messageManager.updateScreen(ctx, telegramId, 'payout_processing', processingText, { inline_keyboard: [] });
+
     // Process payout based on type
     switch (session.type) {
       case 'seller_payout':
@@ -351,7 +363,8 @@ async function processSellerPayout(ctx, deal, buyerId) {
 [Транзакция](https://tronscan.org/#/transaction/${releaseResult.txHash})`;
 
     const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, telegramId, 'payout_complete', sellerText, keyboard);
+    // Update the "Processing..." message to show success (EDIT, not new message)
+    await messageManager.updateScreen(ctx, telegramId, 'payout_complete', sellerText, keyboard);
 
     // Notify buyer
     if (buyerId) {
@@ -392,7 +405,8 @@ async function processSellerPayout(ctx, deal, buyerId) {
 Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, telegramId, 'payout_error', errorText, keyboard);
+    // Update the "Processing..." message to show error
+    await messageManager.updateScreen(ctx, telegramId, 'payout_error', errorText, keyboard);
   }
 }
 
@@ -598,7 +612,8 @@ async function processBuyerRefund(ctx, deal) {
 [Транзакция](https://tronscan.org/#/transaction/${refundResult.txHash})`;
 
     const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, telegramId, 'refund_complete', buyerText, keyboard);
+    // Update the "Processing..." message to show success (EDIT, not new message)
+    await messageManager.updateScreen(ctx, telegramId, 'refund_complete', buyerText, keyboard);
 
     // Notify seller
     const sellerText = `⚠️ *Сделка завершена возвратом*
@@ -639,7 +654,8 @@ async function processBuyerRefund(ctx, deal) {
 Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, telegramId, 'refund_error', errorText, keyboard);
+    // Update the "Processing..." message to show error
+    await messageManager.updateScreen(ctx, telegramId, 'refund_error', errorText, keyboard);
   }
 }
 
@@ -840,7 +856,8 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 [Транзакция](https://tronscan.org/#/transaction/${payoutResult.txHash})`;
 
     const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, winnerId, 'dispute_payout_complete', winnerText, keyboard);
+    // Update the "Processing..." message to show success (EDIT, not new message)
+    await messageManager.updateScreen(ctx, winnerId, 'dispute_payout_complete', winnerText, keyboard);
 
     // Audit log
     await AuditLog.create({
@@ -867,7 +884,8 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 Пожалуйста, свяжитесь с поддержкой: @keyshield_support`;
 
     const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, winnerId, 'dispute_payout_error', errorText, keyboard);
+    // Update the "Processing..." message to show error
+    await messageManager.updateScreen(ctx, winnerId, 'dispute_payout_error', errorText, keyboard);
   }
 }
 
