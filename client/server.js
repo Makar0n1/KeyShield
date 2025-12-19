@@ -780,12 +780,26 @@ app.post('/api/admin/disputes/:id/cancel', adminAuth, async (req, res) => {
     // Reset deadline notification flag so new deadline triggers new notification
     deal.deadlineNotificationSent = false;
 
-    // Calculate new deadline if hours specified (0 means keep current)
+    // Calculate new deadline
     let newDeadline = deal.deadline;
-    if (deadlineHours > 0) {
+    let deadlineWasUpdated = deadlineHours > 0;
+    const testDeadlineMinutes = parseInt(process.env.TEST_DEADLINE_MINUTES);
+
+    // If "keep current" selected but deadline already passed, force minimum deadline
+    if (deadlineHours === 0 && new Date(deal.deadline) <= new Date()) {
+      console.log(`⚠️ Deadline already passed, forcing minimum deadline`);
+      deadlineWasUpdated = true;
       newDeadline = new Date();
-      // Check for test mode
-      const testDeadlineMinutes = parseInt(process.env.TEST_DEADLINE_MINUTES);
+      if (testDeadlineMinutes > 0) {
+        console.log(`⚠️ TEST MODE: Using ${testDeadlineMinutes} minutes deadline`);
+        newDeadline.setMinutes(newDeadline.getMinutes() + testDeadlineMinutes);
+      } else {
+        // Default to 12 hours if deadline passed
+        newDeadline.setHours(newDeadline.getHours() + 12);
+      }
+      deal.deadline = newDeadline;
+    } else if (deadlineHours > 0) {
+      newDeadline = new Date();
       if (testDeadlineMinutes > 0) {
         console.log(`⚠️ TEST MODE: Using ${testDeadlineMinutes} minutes deadline instead of ${deadlineHours} hours`);
         newDeadline.setMinutes(newDeadline.getMinutes() + testDeadlineMinutes);
@@ -804,7 +818,7 @@ app.post('/api/admin/disputes/:id/cancel', adminAuth, async (req, res) => {
       deal.dealId,
       deal.productName,
       newDeadline,
-      deadlineHours > 0
+      deadlineWasUpdated
     );
 
     await Dispute.findByIdAndDelete(req.params.id);
