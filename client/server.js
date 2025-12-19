@@ -42,6 +42,9 @@ const app = express();
 const PORT = process.env.WEB_PORT || 3001;
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Trust proxy (for nginx/cloudflare) - required for rate limiting behind reverse proxy
+app.set('trust proxy', 1);
+
 // Create bot instance for notifications
 const webBot = new Telegraf(process.env.BOT_TOKEN);
 notificationService.setBotInstance(webBot);
