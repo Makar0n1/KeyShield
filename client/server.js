@@ -45,9 +45,6 @@ const isDev = process.env.NODE_ENV !== 'production';
 // Track server start time for uptime calculation
 const serverStartTime = Date.now();
 
-// Import mongoose for health check
-import mongoose from 'mongoose';
-
 // Trust proxy (for nginx/cloudflare) - required for rate limiting behind reverse proxy
 app.set('trust proxy', 1);
 
@@ -222,8 +219,8 @@ app.get('/health', async (req, res) => {
   const minutes = Math.floor((uptimeMs % 3600000) / 60000);
   const uptime = days > 0 ? `${days}d ${hours}h ${minutes}m` : `${hours}h ${minutes}m`;
 
-  // Check MongoDB connection
-  const dbState = mongoose.connection.readyState;
+  // Check MongoDB connection via model's connection (same instance as connectDB)
+  const dbState = Deal.db.readyState;
   const dbStatus = dbState === 1 ? 'connected' : dbState === 2 ? 'connecting' : 'disconnected';
 
   // Determine overall status
