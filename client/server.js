@@ -774,11 +774,12 @@ app.post('/api/admin/disputes/:id/cancel', adminAuth, async (req, res) => {
     const deal = dispute.dealId;
     if (!deal) return res.status(404).json({ error: 'Deal not found' });
 
-    // Update deal status back to in_progress
-    deal.status = 'in_progress';
-
-    // Reset deadline notification flag so new deadline triggers new notification
+    // Reset deal to locked state (deposit received, work not started)
+    deal.status = 'locked';
     deal.deadlineNotificationSent = false;
+    deal.workSubmitted = false;
+    deal.workSubmittedAt = null;
+    deal.pendingKeyValidation = null;
 
     // Calculate new deadline
     let newDeadline = deal.deadline;

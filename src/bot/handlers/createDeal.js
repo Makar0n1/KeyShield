@@ -66,6 +66,61 @@ const startCreateDeal = async (ctx) => {
       return;
     }
 
+    // Check if user has a deal pending key validation
+    const pendingDeal = await dealService.getDealPendingKeyValidation(telegramId);
+    if (pendingDeal) {
+      const isBuyer = pendingDeal.buyerId === telegramId;
+      const refundAmount = pendingDeal.amount - pendingDeal.commission;
+
+      if (pendingDeal.pendingKeyValidation === 'buyer_refund' && isBuyer) {
+        const text = `⚠️ *Невозможно создать сделку*
+
+У вас есть незавершённая сделка \`${pendingDeal.dealId}\`, ожидающая возврата средств.
+
+💰 *Для возврата средств введите ваш приватный ключ:*
+
+💸 К возврату: *${refundAmount.toFixed(2)} ${pendingDeal.asset}*
+📊 Комиссия сервиса: ${pendingDeal.commission.toFixed(2)} ${pendingDeal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут возвращены!*`;
+
+        const keyboard = mainMenuButton();
+        await messageManager.navigateToScreen(ctx, telegramId, 'pending_refund', text, keyboard);
+        return;
+      }
+
+      if ((pendingDeal.pendingKeyValidation === 'seller_payout' || pendingDeal.pendingKeyValidation === 'seller_release') && !isBuyer) {
+        const text = `⚠️ *Невозможно создать сделку*
+
+У вас есть незавершённая сделка \`${pendingDeal.dealId}\`, ожидающая получения средств.
+
+💰 *Для получения средств введите ваш приватный ключ:*
+
+💸 К получению: *${refundAmount.toFixed(2)} ${pendingDeal.asset}*
+📊 Комиссия сервиса: ${pendingDeal.commission.toFixed(2)} ${pendingDeal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут переведены!*`;
+
+        const keyboard = mainMenuButton();
+        await messageManager.navigateToScreen(ctx, telegramId, 'pending_payout', text, keyboard);
+        return;
+      }
+
+      // Other party has pending validation - inform them
+      const text = `⚠️ *У вас есть незавершённая сделка*
+
+Сделка \`${pendingDeal.dealId}\` ожидает действий от другого участника.
+
+Дождитесь завершения текущей сделки перед созданием новой.`;
+      const keyboard = mainMenuButton();
+      await messageManager.navigateToScreen(ctx, telegramId, 'pending_deal', text, keyboard);
+      return;
+    }
+
     // Check if user already has an active deal
     if (await dealService.hasActiveDeal(telegramId)) {
       const text = '⚠️ *У вас уже есть активная сделка*\n\n' +

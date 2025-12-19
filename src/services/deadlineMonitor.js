@@ -393,8 +393,9 @@ class DeadlineMonitor {
       const commission = deal.commission;
       const refundAmount = balance - commission;
 
-      // Update deal status to mark pending key validation
+      // Update deal status to expired and mark pending key validation
       await Deal.findByIdAndUpdate(deal._id, {
+        status: 'expired',
         pendingKeyValidation: 'buyer_refund'
       });
 

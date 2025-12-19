@@ -4,6 +4,7 @@ const {
   myDealsEmptyKeyboard,
   dealDetailsKeyboard,
   mainMenuButton,
+  backAndMainMenu,
   finalScreenKeyboard,
   workSubmittedKeyboard,
   getStatusIcon
@@ -127,6 +128,134 @@ const showDealDetails = async (ctx, dealId) => {
 
     const role = deal.getUserRole(telegramId);
     const commission = dealService.getCommissionBreakdown(deal);
+
+    // Handle pending key validation states - show special screens
+    if (deal.pendingKeyValidation === 'buyer_refund') {
+      if (role === 'buyer') {
+        // Buyer needs to enter key for refund
+        const refundAmount = deal.amount - deal.commission;
+        const text = `⏰ *Срок сделки истёк!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Работа не была выполнена в срок.
+
+💰 *Для возврата средств введите ваш приватный ключ:*
+
+💸 К возврату: *${refundAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут возвращены!*
+❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
+
+        const keyboard = backAndMainMenu();
+        await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_refund`, text, keyboard);
+        return;
+      } else {
+        // Seller sees info that deal expired
+        const text = `⏰ *Срок сделки истёк*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Работа не была выполнена в срок.
+Дедлайн и grace-период были проигнорированы.
+
+💸 Средства возвращаются покупателю (за вычетом комиссии сервиса).
+
+Покупателю отправлен запрос на ввод приватного ключа для возврата.`;
+
+        const keyboard = backAndMainMenu();
+        await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_expired`, text, keyboard);
+        return;
+      }
+    }
+
+    if (deal.pendingKeyValidation === 'seller_release') {
+      if (role === 'seller') {
+        // Seller needs to enter key for release (work accepted by timeout)
+        const releaseAmount = deal.amount - deal.commission;
+        const text = `✅ *Работа принята автоматически!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Покупатель не ответил в течение 12 часов после сдачи работы.
+Работа принята автоматически!
+
+💰 *Для получения средств введите ваш приватный ключ:*
+
+💸 К получению: *${releaseAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ *Без ввода ключа средства НЕ будут переведены!*`;
+
+        const keyboard = backAndMainMenu();
+        await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_release`, text, keyboard);
+        return;
+      } else {
+        // Buyer sees info that work was accepted
+        const text = `✅ *Работа принята автоматически*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+Вы не ответили в течение 12 часов после сдачи работы.
+Работа принята автоматически.
+
+💸 Средства переводятся продавцу (за вычетом комиссии сервиса).
+
+Продавцу отправлен запрос на ввод приватного ключа для получения средств.`;
+
+        const keyboard = backAndMainMenu();
+        await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_auto_accepted`, text, keyboard);
+        return;
+      }
+    }
+
+    if (deal.pendingKeyValidation === 'seller_payout') {
+      if (role === 'seller') {
+        // Seller needs to enter key for payout (work accepted by buyer)
+        const releaseAmount = deal.amount - deal.commission;
+        const text = `🎉 *Покупатель принял работу!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+💰 *Для получения средств введите ваш приватный ключ:*
+
+💸 К получению: *${releaseAmount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
+
+⚠️ Это ключ, который был выдан вам при указании кошелька.
+
+❗️ Без ввода ключа средства НЕ будут переведены!`;
+
+        const keyboard = backAndMainMenu();
+        await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_payout`, text, keyboard);
+        return;
+      } else {
+        // Buyer sees waiting for seller
+        const text = `✅ *Работа принята!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+⏳ *Ожидаем подтверждение от продавца*
+
+Продавец должен ввести свой приватный ключ для получения средств.
+Вы получите уведомление, когда сделка будет завершена.`;
+
+        const keyboard = backAndMainMenu();
+        await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_waiting_seller`, text, keyboard);
+        return;
+      }
+    }
 
     let text = `📋 *Сделка ${deal.dealId}*\n\n`;
     text += `📦 *Название:* ${deal.productName}\n\n`;

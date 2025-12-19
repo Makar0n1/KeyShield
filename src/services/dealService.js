@@ -25,6 +25,23 @@ class DealService {
   }
 
   /**
+   * Check if user has a deal pending key validation (refund/release)
+   * @param {number} telegramId
+   * @returns {Promise<Object|null>} Deal with pending key validation or null
+   */
+  async getDealPendingKeyValidation(telegramId) {
+    const deal = await Deal.findOne({
+      $or: [
+        { buyerId: telegramId },
+        { sellerId: telegramId }
+      ],
+      pendingKeyValidation: { $ne: null }
+    }).lean();
+
+    return deal;
+  }
+
+  /**
    * Check if both users have started the bot
    * @param {number} buyerId
    * @param {number} sellerId
