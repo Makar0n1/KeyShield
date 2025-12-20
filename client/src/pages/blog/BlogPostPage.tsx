@@ -4,6 +4,7 @@ import { ChevronRight, Eye, ThumbsUp, ThumbsDown, Clock, Calendar } from 'lucide
 import { blogService } from '@/services/blog'
 import { getVisitorId } from '@/utils/visitor'
 import { formatDate, formatNumber } from '@/utils/format'
+import { trackEvent } from '@/hooks/useMetaPixel'
 import {
   BlogSidebar,
   CommentSection,
@@ -51,10 +52,11 @@ function CoverImage({ src, alt }: { src: string; alt: string }) {
 }
 
 // Isolated voting component - has its own state, doesn't cause parent re-render
-function VoteButtons({ postId, initialLikes, initialDislikes }: {
+function VoteButtons({ postId, initialLikes, initialDislikes, postSlug }: {
   postId: string
   initialLikes: number
   initialDislikes: number
+  postSlug?: string
 }) {
   const [likes, setLikes] = useState(initialLikes)
   const [dislikes, setDislikes] = useState(initialDislikes)
@@ -72,6 +74,7 @@ function VoteButtons({ postId, initialLikes, initialDislikes }: {
       setLikes(result.likes)
       setDislikes(result.dislikes)
       setUserVote(voteType)
+      trackEvent('ViewContent', { content_name: `post_${voteType}`, content_category: postSlug || postId })
     } catch {
       // Silently fail
     } finally {
@@ -380,6 +383,7 @@ export function BlogPostPage() {
                 postId={post._id}
                 initialLikes={post.likes}
                 initialDislikes={post.dislikes}
+                postSlug={post.slug}
               />
 
               <ShareButtons postId={post._id} title={post.title} />

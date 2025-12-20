@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SEO } from '@/components/SEO'
+import { trackEvent } from '@/hooks/useMetaPixel'
 
 // ========== Constants ==========
 const BOT_URL = 'https://t.me/keyshield_bot'
@@ -99,7 +100,12 @@ function Header() {
 
           {/* CTA */}
           <Button size="sm" asChild>
-            <a href={getBotLink('header')} target="_blank" rel="noopener noreferrer">
+            <a
+              href={getBotLink('header')}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackEvent('Lead', { content_name: 'deal_guard_header' })}
+            >
               {CTA_TEXT}
             </a>
           </Button>
@@ -130,7 +136,12 @@ function StickyCTA() {
     >
       <div className="flex flex-col gap-2">
         <Button size="lg" className="w-full" asChild>
-          <a href={getBotLink('sticky_mobile')} target="_blank" rel="noopener noreferrer">
+          <a
+            href={getBotLink('sticky_mobile')}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('Lead', { content_name: 'deal_guard_sticky' })}
+          >
             {CTA_TEXT}
           </a>
         </Button>
@@ -170,7 +181,12 @@ function HeroSection() {
 
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <Button size="lg" asChild>
-                <a href={getBotLink('hero_primary')} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={getBotLink('hero_primary')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackEvent('Lead', { content_name: 'deal_guard_hero' })}
+                >
                   {CTA_TEXT}
                 </a>
               </Button>
@@ -659,7 +675,12 @@ function FinalCTASection() {
           Откройте бота и создайте сделку за 2 минуты.
         </p>
         <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-gray-100" asChild>
-          <a href={getBotLink('final_cta')} target="_blank" rel="noopener noreferrer">
+          <a
+            href={getBotLink('final_cta')}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('Lead', { content_name: 'deal_guard_final' })}
+          >
             {CTA_TEXT}
           </a>
         </Button>

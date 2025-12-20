@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SEO, generateOrganizationSchema } from '@/components/SEO'
 import { blogService } from '@/services/blog'
+import { trackEvent } from '@/hooks/useMetaPixel'
 import type { BlogPost } from '@/types'
 import { formatDateShort } from '@/utils/format'
 
@@ -25,7 +26,12 @@ function HeroSection() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
-              <a href="https://t.me/keyshield_bot" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://t.me/keyshield_bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackEvent('Lead', { content_name: 'hero_cta' })}
+              >
                 Начать работу
               </a>
             </Button>
@@ -278,7 +284,12 @@ function CTASection() {
           Присоединяйтесь к KeyShield и защитите свои криптовалютные транзакции
         </p>
         <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-gray-100" asChild>
-          <a href="https://t.me/keyshield_bot" target="_blank" rel="noopener noreferrer">
+          <a
+            href="https://t.me/keyshield_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('Lead', { content_name: 'cta_section' })}
+          >
             Открыть Telegram бота
           </a>
         </Button>

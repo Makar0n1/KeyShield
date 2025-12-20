@@ -4,6 +4,13 @@ import { PublicLayout, AdminLayout } from '@/components/layout'
 import { PartnerLayout } from '@/layouts/PartnerLayout'
 import { PartnerAuthProvider, usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { ScrollToTop, ScrollToTopButton } from '@/components/ui'
+import { useMetaPixel } from '@/hooks'
+
+// Meta Pixel tracker component
+function MetaPixelTracker() {
+  useMetaPixel()
+  return null
+}
 
 // Protected route wrapper for partner pages
 function PartnerProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -82,6 +89,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <MetaPixelTracker />
         <ScrollToTop />
         <ScrollToTopButton />
         <Routes>

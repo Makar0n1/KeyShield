@@ -1,4 +1,5 @@
 import { ExternalLink, Shield } from 'lucide-react'
+import { trackEvent } from '@/hooks/useMetaPixel'
 
 interface ArticleCTAProps {
   botUsername?: string
@@ -35,6 +36,7 @@ export function ArticleCTA({ botUsername = 'keyshield_bot' }: ArticleCTAProps) {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all hover:scale-105"
+              onClick={() => trackEvent('Lead', { content_name: 'article_cta' })}
             >
               Создать сделку
               <ExternalLink className="w-4 h-4" />
