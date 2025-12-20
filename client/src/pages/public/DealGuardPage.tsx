@@ -688,10 +688,66 @@ function Footer() {
   )
 }
 
+// ========== Meta Pixel ==========
+const META_PIXEL_ID = '3191405417733446'
+
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void
+    _fbq?: unknown
+  }
+}
+
+function useMetaPixel() {
+  useEffect(() => {
+    // Skip if already loaded
+    if (window.fbq) return
+
+    // Initialize fbq function
+    const fbq = (...args: unknown[]) => {
+      if (window.fbq && 'callMethod' in window.fbq) {
+        (window.fbq as (...args: unknown[]) => void)(...args)
+      } else {
+        (fbq as unknown as { queue: unknown[] }).queue.push(args)
+      }
+    }
+    (fbq as unknown as { queue: unknown[]; loaded: boolean; version: string }).queue = []
+    ;(fbq as unknown as { queue: unknown[]; loaded: boolean; version: string }).loaded = true
+    ;(fbq as unknown as { queue: unknown[]; loaded: boolean; version: string }).version = '2.0'
+
+    window.fbq = fbq
+    if (!window._fbq) window._fbq = fbq
+
+    // Load Facebook SDK
+    const script = document.createElement('script')
+    script.async = true
+    script.src = 'https://connect.facebook.net/en_US/fbevents.js'
+    const firstScript = document.getElementsByTagName('script')[0]
+    firstScript?.parentNode?.insertBefore(script, firstScript)
+
+    // Track
+    window.fbq('init', META_PIXEL_ID)
+    window.fbq('track', 'PageView')
+  }, [])
+}
+
 // ========== Main Component ==========
 export function DealGuardPage() {
+  // Initialize Meta Pixel
+  useMetaPixel()
+
   return (
     <>
+      {/* Meta Pixel noscript fallback */}
+      <noscript>
+        <img
+          height="1"
+          width="1"
+          style={{ display: 'none' }}
+          src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+          alt=""
+        />
+      </noscript>
       <SEO
         title="Безопасные сделки в Telegram с оплатой после приемки | KeyShield"
         description="Договоритесь о правилах, зафиксируйте сумму и завершите сделку после проверки результата. Сервис не может перевести сумму в одиночку. 2 из 3 подтверждения для выплаты."
