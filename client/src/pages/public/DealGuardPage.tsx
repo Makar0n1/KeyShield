@@ -696,7 +696,7 @@ export function DealGuardPage() {
         title="Безопасные сделки в Telegram с оплатой после приемки | KeyShield"
         description="Договоритесь о правилах, зафиксируйте сумму и завершите сделку после проверки результата. Сервис не может перевести сумму в одиночку. 2 из 3 подтверждения для выплаты."
         url="/deal-guard"
-        noIndex={false}
+        noindex={false}
       />
       <div className="min-h-screen bg-dark">
         <Header />
