@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { trackEvent } from '@/hooks/useMetaPixel'
 
 interface FaqItem {
   question: string
@@ -15,8 +16,12 @@ interface FaqAccordionProps {
 export function FaqAccordion({ items, className }: FaqAccordionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
-  const toggleItem = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index)
+  const toggleItem = (index: number, question: string) => {
+    const isOpening = openIndex !== index
+    setOpenIndex(isOpening ? index : null)
+    if (isOpening) {
+      trackEvent('ViewContent', { content_name: 'faq_expand', content_category: question })
+    }
   }
 
   if (items.length === 0) {
@@ -35,7 +40,7 @@ export function FaqAccordion({ items, className }: FaqAccordionProps) {
             className="bg-dark-light rounded-xl border border-border overflow-hidden"
           >
             <button
-              onClick={() => toggleItem(index)}
+              onClick={() => toggleItem(index, item.question)}
               className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-dark-lighter/50 transition-colors"
             >
               <h3 className="text-white font-semibold pr-4">

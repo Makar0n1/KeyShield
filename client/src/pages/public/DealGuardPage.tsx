@@ -87,13 +87,25 @@ function Header() {
 
           {/* Nav */}
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#how-it-works" className="text-gray-300 hover:text-white transition-colors">
+            <a
+              href="#how-it-works"
+              className="text-gray-300 hover:text-white transition-colors"
+              onClick={() => trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })}
+            >
               Как работает
             </a>
-            <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">
+            <a
+              href="#pricing"
+              className="text-gray-300 hover:text-white transition-colors"
+              onClick={() => trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'pricing' })}
+            >
               Комиссия
             </a>
-            <a href="#faq" className="text-gray-300 hover:text-white transition-colors">
+            <a
+              href="#faq"
+              className="text-gray-300 hover:text-white transition-colors"
+              onClick={() => trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'faq' })}
+            >
               FAQ
             </a>
           </nav>
@@ -147,7 +159,10 @@ function StickyCTA() {
         </Button>
         <button
           className="text-xs text-muted text-center"
-          onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+          onClick={() => {
+            trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })
+            document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
+          }}
         >
           Как это работает
         </button>
@@ -193,7 +208,10 @@ function HeroSection() {
               <Button
                 size="lg"
                 variant="secondary"
-                onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => {
+                  trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })
+                  document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
+                }}
               >
                 Как это работает
               </Button>
@@ -591,6 +609,14 @@ function PricingSection() {
 function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
+  const handleFaqToggle = (index: number, question: string) => {
+    const isOpening = openIndex !== index
+    setOpenIndex(isOpening ? index : null)
+    if (isOpening) {
+      trackEvent('ViewContent', { content_name: 'faq_expand', content_category: question })
+    }
+  }
+
   const faqs = [
     {
       q: 'Нужна ли регистрация?',
@@ -637,7 +663,7 @@ function FAQSection() {
             <div key={i} className="bg-dark rounded-lg border border-border overflow-hidden">
               <button
                 className="w-full flex items-center justify-between p-4 text-left hover:bg-dark-light/50 transition-colors"
-                onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                onClick={() => handleFaqToggle(i, faq.q)}
               >
                 <span className="text-white font-medium">{faq.q}</span>
                 <span className={`text-muted transition-transform duration-200 ${openIndex === i ? 'rotate-180' : ''}`}>

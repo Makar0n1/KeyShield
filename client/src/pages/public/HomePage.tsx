@@ -39,6 +39,7 @@ function HeroSection() {
               size="lg"
               variant="secondary"
               onClick={() => {
+                trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })
                 document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
