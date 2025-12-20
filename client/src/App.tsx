@@ -29,6 +29,7 @@ import {
   TermsPage,
   PrivacyPage,
   OfferPage,
+  DealGuardPage,
 } from '@/pages/public'
 import {
   BlogListPage,
@@ -100,6 +101,9 @@ function App() {
             {/* 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Route>
+
+          {/* Deal Guard Landing (standalone, no PublicLayout) */}
+          <Route path="/deal-guard" element={<DealGuardPage />} />
 
           {/* Admin Login (no layout) */}
           <Route path="/admin/login" element={<AdminLoginPage />} />

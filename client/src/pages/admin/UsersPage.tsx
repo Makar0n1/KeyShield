@@ -164,7 +164,7 @@ export function AdminUsersPage() {
                   <th className="text-left p-4 text-sm font-medium text-muted">ID</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Username</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Имя</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted">Роль</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted">Источник</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Споры</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Статус</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Регистрация</th>
@@ -195,9 +195,17 @@ export function AdminUsersPage() {
                       {user.firstName || '—'} {user.lastName || ''}
                     </td>
                     <td className="p-4">
-                      <Badge variant="secondary" className="capitalize">
-                        {user.role}
-                      </Badge>
+                      {user.source?.startsWith('fb:') ? (
+                        <Badge variant="default" className="bg-blue-600 text-xs">
+                          FB
+                        </Badge>
+                      ) : user.platformCode ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {user.platformCode}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted text-sm">—</span>
+                      )}
                     </td>
                     <td className="p-4 text-sm">
                       <span className="text-green-400">+{user.disputeStats.totalWon}</span>

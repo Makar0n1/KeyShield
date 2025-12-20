@@ -198,6 +198,20 @@ export function AdminUserDetailsPage() {
                 <dd className="text-white">{user.platformCode}</dd>
               </div>
             )}
+            {user.source && user.source !== 'direct' && (
+              <div>
+                <dt className="text-muted text-sm">Источник</dt>
+                <dd>
+                  {user.source.startsWith('fb:') ? (
+                    <Badge variant="default" className="bg-blue-600">
+                      Facebook: {user.source.replace('fb:', '')}
+                    </Badge>
+                  ) : (
+                    <span className="text-white">{user.source}</span>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
 

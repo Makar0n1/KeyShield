@@ -198,6 +198,7 @@ export interface User {
     lossStreak: number
   }
   platformCode?: string
+  source?: string
   referralCode?: string
   referredBy?: string
   createdAt: string
