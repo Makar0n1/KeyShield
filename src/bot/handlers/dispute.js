@@ -8,6 +8,7 @@ const {
   disputeOpenedKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+const adminAlertService = require('../../services/adminAlertService');
 
 // ============================================
 // SESSION HELPERS (MongoDB persistence)
@@ -444,6 +445,9 @@ ${role} открыл спор по данной сделке.
 
     const otherKeyboard = disputeOpenedKeyboard(session.dealId);
     await messageManager.showNotification(ctx, otherPartyId, otherText, otherKeyboard);
+
+    // Alert admin about new dispute
+    await adminAlertService.alertDisputeOpened(deal, telegramId, session.reasonText);
 
     console.log(`⚠️ New dispute opened for deal ${session.dealId} by user ${telegramId}`);
   } catch (error) {

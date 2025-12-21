@@ -6,6 +6,7 @@ const Session = require('../models/Session');
 const blockchainService = require('./blockchain');
 const feesaverService = require('./feesaver');
 const priceService = require('./priceService');
+const adminAlertService = require('./adminAlertService');
 const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const TronWeb = require('tronweb');
@@ -215,6 +216,9 @@ class DeadlineMonitor {
 
         // Send expiration notification with action buttons
         await this.sendExpirationNotification(deal);
+
+        // Alert admin about deadline expiration
+        await adminAlertService.alertDeadlineExpired(deal);
 
         // Also track in memory for current session (optimization)
         this.notifiedDeals.add(`expired_${deal.dealId}`);
@@ -438,6 +442,9 @@ class DeadlineMonitor {
       try {
         await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
         console.log(`📬 Key request sent to buyer for deal ${deal.dealId}`);
+
+        // Alert admin about auto-refund
+        await adminAlertService.alertAutoAction(deal, 'refund');
       } catch (error) {
         console.error(`Error sending key request to buyer:`, error.message);
       }
@@ -585,6 +592,9 @@ class DeadlineMonitor {
       try {
         await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
         console.log(`📬 Key request sent to seller for deal ${deal.dealId}`);
+
+        // Alert admin about auto-release
+        await adminAlertService.alertAutoAction(deal, 'release');
       } catch (error) {
         console.error(`Error sending key request to seller:`, error.message);
       }

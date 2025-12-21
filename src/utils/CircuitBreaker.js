@@ -19,6 +19,12 @@ class CircuitBreaker {
     // Time window to count failures (ms)
     this.failureWindowMs = options.failureWindowMs || 30000; // 30 seconds
 
+    // Service name for identification
+    this.serviceName = options.serviceName || 'Unknown';
+
+    // Callback for state changes (for admin alerts)
+    this.onStateChange = options.onStateChange || null;
+
     // Current state
     this.state = 'CLOSED';
 
@@ -106,13 +112,23 @@ class CircuitBreaker {
    */
   setState(newState) {
     if (this.state !== newState) {
-      console.log(`⚡ CircuitBreaker: ${this.state} → ${newState}`);
+      const oldState = this.state;
+      console.log(`⚡ CircuitBreaker [${this.serviceName}]: ${oldState} → ${newState}`);
       this.stats.stateChanges.push({
-        from: this.state,
+        from: oldState,
         to: newState,
         at: new Date().toISOString()
       });
       this.state = newState;
+
+      // Call state change callback (for admin alerts)
+      if (this.onStateChange) {
+        try {
+          this.onStateChange(this.serviceName, oldState, newState);
+        } catch (e) {
+          console.error('CircuitBreaker onStateChange callback error:', e);
+        }
+      }
     }
   }
 

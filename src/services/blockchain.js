@@ -1,6 +1,7 @@
 const { tronWeb, USDT_CONTRACT_ADDRESS } = require('../config/tron');
 const constants = require('../config/constants');
 const CircuitBreaker = require('../utils/CircuitBreaker');
+const adminAlertService = require('./adminAlertService');
 
 /**
  * Blockchain Service
@@ -21,7 +22,12 @@ class BlockchainService {
     this.circuitBreaker = new CircuitBreaker({
       failureThreshold: 5,
       resetTimeoutMs: 60000,     // Wait 1 min before retry
-      failureWindowMs: 30000    // Count failures in 30 sec window
+      failureWindowMs: 30000,   // Count failures in 30 sec window
+      serviceName: 'TronGrid API',
+      onStateChange: (serviceName, oldState, newState) => {
+        // Alert admin when circuit breaker state changes
+        adminAlertService.alertCircuitBreakerChange(serviceName, oldState, newState);
+      }
     });
 
     // Balance verification cache (30 seconds TTL)

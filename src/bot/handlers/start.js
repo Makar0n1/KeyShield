@@ -2,6 +2,7 @@ const User = require('../../models/User');
 const Platform = require('../../models/Platform');
 const { mainMenuKeyboard } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+const adminAlertService = require('../../services/adminAlertService');
 
 // Welcome text for NEW users
 const WELCOME_TEXT = `👋 *Добро пожаловать в KeyShield!*
@@ -112,6 +113,9 @@ const startHandler = async (ctx) => {
       });
       await user.save();
       console.log(`✅ New user registered: ${telegramId} (@${username}) from: ${source}`);
+
+      // Alert admin about new user
+      await adminAlertService.alertNewUser(user);
 
       // Update platform stats
       if (platformId) {

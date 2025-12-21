@@ -16,6 +16,7 @@ const MultisigWallet = require('../../models/MultisigWallet');
 const AuditLog = require('../../models/AuditLog');
 const blockchainService = require('../../services/blockchain');
 const feesaverService = require('../../services/feesaver');
+const adminAlertService = require('../../services/adminAlertService');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton, backButton } = require('../keyboards/main');
 
@@ -389,8 +390,14 @@ async function processSellerPayout(ctx, deal, buyerId) {
       }
     });
 
+    // Alert admin about completed payout
+    await adminAlertService.alertPayoutCompleted(deal, releaseAmount, commission, releaseResult.txHash, 'release');
+
   } catch (error) {
     console.error(`❌ Error processing seller payout:`, error);
+
+    // Alert admin about error
+    await adminAlertService.alertError(`Seller payout ${deal.dealId}`, error);
 
     const errorText = `❌ *Ошибка выплаты*
 
@@ -638,8 +645,14 @@ async function processBuyerRefund(ctx, deal) {
       }
     });
 
+    // Alert admin about completed refund
+    await adminAlertService.alertPayoutCompleted(deal, refundAmount, commission, refundResult.txHash, 'refund');
+
   } catch (error) {
     console.error(`❌ Error processing buyer refund:`, error);
+
+    // Alert admin about error
+    await adminAlertService.alertError(`Buyer refund ${deal.dealId}`, error);
 
     const errorText = `❌ *Ошибка возврата*
 
@@ -868,8 +881,14 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       }
     });
 
+    // Alert admin about dispute payout
+    await adminAlertService.alertPayoutCompleted(deal, payoutAmount, commission, payoutResult.txHash, 'dispute');
+
   } catch (error) {
     console.error(`❌ Error processing dispute payout:`, error);
+
+    // Alert admin about error
+    await adminAlertService.alertError(`Dispute payout ${deal.dealId}`, error);
 
     const errorText = `❌ *Ошибка выплаты*
 

@@ -3,6 +3,7 @@ const Transaction = require('../models/Transaction');
 const MultisigWallet = require('../models/MultisigWallet');
 const AuditLog = require('../models/AuditLog');
 const blockchainService = require('./blockchain');
+const adminAlertService = require('./adminAlertService');
 const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const { depositReceivedKeyboard } = require('../bot/keyboards/main');
@@ -393,6 +394,9 @@ class DepositMonitor {
                 { _id: deal._id },
                 { $set: { depositNotificationSent: true } }
               );
+
+              // Alert admin about deposit
+              await adminAlertService.alertDepositReceived(deal, deposit.amount);
 
               console.log(`📬 Notifications sent to buyer and seller for deal ${deal.dealId}`);
             } catch (error) {

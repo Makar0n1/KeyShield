@@ -18,6 +18,7 @@ const {
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
 const blockchainService = require('../../services/blockchain');
+const adminAlertService = require('../../services/adminAlertService');
 
 // Escape special Markdown characters
 function escapeMarkdown(text) {
@@ -929,6 +930,9 @@ const confirmCreateDeal = async (ctx) => {
       const buyerKeyboard = newDealNotificationKeyboard(deal.dealId);
       await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
     }
+
+    // Alert admin about new deal
+    await adminAlertService.alertNewDeal(deal);
 
     console.log(`✅ Deal ${deal.dealId} created by ${telegramId}`);
   } catch (error) {
