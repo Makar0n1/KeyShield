@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SEO } from '@/components/SEO'
-import { trackEvent } from '@/hooks/useMetaPixel'
+import { trackLead, trackViewContent } from '@/hooks/useMetaPixel'
 
 // ========== Constants ==========
 const BOT_URL = 'https://t.me/keyshield_bot'
@@ -90,21 +90,21 @@ function Header() {
             <a
               href="#how-it-works"
               className="text-gray-300 hover:text-white transition-colors"
-              onClick={() => trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })}
+              onClick={() => trackViewContent({ content_name: 'section_scroll', content_category: 'how-it-works' })}
             >
               Как работает
             </a>
             <a
               href="#pricing"
               className="text-gray-300 hover:text-white transition-colors"
-              onClick={() => trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'pricing' })}
+              onClick={() => trackViewContent({ content_name: 'section_scroll', content_category: 'pricing' })}
             >
               Комиссия
             </a>
             <a
               href="#faq"
               className="text-gray-300 hover:text-white transition-colors"
-              onClick={() => trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'faq' })}
+              onClick={() => trackViewContent({ content_name: 'section_scroll', content_category: 'faq' })}
             >
               FAQ
             </a>
@@ -116,7 +116,7 @@ function Header() {
               href={getBotLink('header')}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => trackEvent('Lead', { content_name: 'deal_guard_header' })}
+              onClick={() => trackLead({ content_name: 'deal_guard_header', content_category: 'telegram_bot' })}
             >
               {CTA_TEXT}
             </a>
@@ -152,7 +152,7 @@ function StickyCTA() {
             href={getBotLink('sticky_mobile')}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackEvent('Lead', { content_name: 'deal_guard_sticky' })}
+            onClick={() => trackLead({ content_name: 'deal_guard_sticky', content_category: 'telegram_bot' })}
           >
             {CTA_TEXT}
           </a>
@@ -160,7 +160,7 @@ function StickyCTA() {
         <button
           className="text-xs text-muted text-center"
           onClick={() => {
-            trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })
+            trackViewContent({ content_name: 'section_scroll', content_category: 'how-it-works' })
             document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
           }}
         >
@@ -200,7 +200,7 @@ function HeroSection() {
                   href={getBotLink('hero_primary')}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => trackEvent('Lead', { content_name: 'deal_guard_hero' })}
+                  onClick={() => trackLead({ content_name: 'deal_guard_hero', content_category: 'telegram_bot' })}
                 >
                   {CTA_TEXT}
                 </a>
@@ -209,7 +209,7 @@ function HeroSection() {
                 size="lg"
                 variant="secondary"
                 onClick={() => {
-                  trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })
+                  trackViewContent({ content_name: 'section_scroll', content_category: 'how-it-works' })
                   document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
                 }}
               >
@@ -613,7 +613,7 @@ function FAQSection() {
     const isOpening = openIndex !== index
     setOpenIndex(isOpening ? index : null)
     if (isOpening) {
-      trackEvent('ViewContent', { content_name: 'faq_expand', content_category: question })
+      trackViewContent({ content_name: 'faq_expand', content_category: question })
     }
   }
 
@@ -705,7 +705,7 @@ function FinalCTASection() {
             href={getBotLink('final_cta')}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackEvent('Lead', { content_name: 'deal_guard_final' })}
+            onClick={() => trackLead({ content_name: 'deal_guard_final', content_category: 'telegram_bot' })}
           >
             {CTA_TEXT}
           </a>

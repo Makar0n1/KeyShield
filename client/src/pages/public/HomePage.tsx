@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SEO, generateOrganizationSchema } from '@/components/SEO'
 import { blogService } from '@/services/blog'
-import { trackEvent } from '@/hooks/useMetaPixel'
+import { trackLead, trackViewContent } from '@/hooks/useMetaPixel'
 import type { BlogPost } from '@/types'
 import { formatDateShort } from '@/utils/format'
 
@@ -30,7 +30,7 @@ function HeroSection() {
                 href="https://t.me/keyshield_bot"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackEvent('Lead', { content_name: 'hero_cta' })}
+                onClick={() => trackLead({ content_name: 'hero_cta', content_category: 'telegram_bot' })}
               >
                 Начать работу
               </a>
@@ -39,7 +39,7 @@ function HeroSection() {
               size="lg"
               variant="secondary"
               onClick={() => {
-                trackEvent('ViewContent', { content_name: 'section_scroll', content_category: 'how-it-works' })
+                trackViewContent({ content_name: 'section_scroll', content_category: 'how-it-works' })
                 document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
@@ -289,7 +289,7 @@ function CTASection() {
             href="https://t.me/keyshield_bot"
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackEvent('Lead', { content_name: 'cta_section' })}
+            onClick={() => trackLead({ content_name: 'cta_section', content_category: 'telegram_bot' })}
           >
             Открыть Telegram бота
           </a>

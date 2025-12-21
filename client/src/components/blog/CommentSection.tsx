@@ -4,7 +4,7 @@ import type { BlogComment } from '@/types'
 import { formatRelativeDate, formatNumber } from '@/utils/format'
 import { getVisitorId } from '@/utils/visitor'
 import { blogService } from '@/services/blog'
-import { trackEvent } from '@/hooks/useMetaPixel'
+import { trackContact, trackViewContent } from '@/hooks/useMetaPixel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -47,7 +47,7 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
       setAuthorName('')
       setContent('')
       setSuccess('Комментарий отправлен на модерацию')
-      trackEvent('Contact', { content_name: 'comment_submitted', content_category: postSlug })
+      trackContact({ content_name: 'comment_submitted', content_category: postSlug })
       onCommentAdded()
     } catch {
       setError('Ошибка при отправке комментария')
@@ -60,7 +60,7 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
     const visitorId = getVisitorId()
     try {
       await blogService.vote('comment', commentId, voteType, visitorId)
-      trackEvent('ViewContent', { content_name: `comment_${voteType}`, content_category: postSlug })
+      trackViewContent({ content_name: `comment_${voteType}`, content_category: postSlug })
       onCommentAdded() // Refresh comments
     } catch {
       // Silently fail

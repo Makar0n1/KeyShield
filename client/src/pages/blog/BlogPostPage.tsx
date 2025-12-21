@@ -4,7 +4,7 @@ import { ChevronRight, Eye, ThumbsUp, ThumbsDown, Clock, Calendar } from 'lucide
 import { blogService } from '@/services/blog'
 import { getVisitorId } from '@/utils/visitor'
 import { formatDate, formatNumber } from '@/utils/format'
-import { trackEvent } from '@/hooks/useMetaPixel'
+import { trackViewContent } from '@/hooks/useMetaPixel'
 import {
   BlogSidebar,
   CommentSection,
@@ -74,7 +74,7 @@ function VoteButtons({ postId, initialLikes, initialDislikes, postSlug }: {
       setLikes(result.likes)
       setDislikes(result.dislikes)
       setUserVote(voteType)
-      trackEvent('ViewContent', { content_name: `post_${voteType}`, content_category: postSlug || postId })
+      trackViewContent({ content_name: `post_${voteType}`, content_category: postSlug || postId })
     } catch {
       // Silently fail
     } finally {

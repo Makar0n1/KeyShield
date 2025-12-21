@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { trackEvent } from '@/hooks/useMetaPixel'
+import { trackViewContent } from '@/hooks/useMetaPixel'
 
 interface FaqItem {
   question: string
@@ -20,7 +20,7 @@ export function FaqAccordion({ items, className }: FaqAccordionProps) {
     const isOpening = openIndex !== index
     setOpenIndex(isOpening ? index : null)
     if (isOpening) {
-      trackEvent('ViewContent', { content_name: 'faq_expand', content_category: question })
+      trackViewContent({ content_name: 'faq_expand', content_category: question })
     }
   }
 
