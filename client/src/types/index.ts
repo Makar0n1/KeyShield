@@ -178,6 +178,7 @@ export interface Deal {
     description: string
     submittedAt: string
   }
+  isHidden?: boolean
 }
 
 // ========== User Types ==========

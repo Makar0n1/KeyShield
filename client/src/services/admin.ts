@@ -63,6 +63,11 @@ export const adminService = {
     return data
   },
 
+  toggleDealHidden: async (id: string): Promise<{ success: boolean; deal: { _id: string; dealId: string; isHidden: boolean } }> => {
+    const { data } = await api.post(`/admin/deals/${id}/toggle-hidden`)
+    return data
+  },
+
   // ========== Users ==========
 
   getUsers: async (params?: {

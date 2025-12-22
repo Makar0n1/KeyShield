@@ -6,7 +6,7 @@ import { Card, Button, Input } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
 import { formatCurrency, formatDateShort, truncate } from '@/utils/format'
-import { Search, Eye, Download, Filter } from 'lucide-react'
+import { Search, Eye, EyeOff, Download, Filter, FileText } from 'lucide-react'
 
 const statusLabels: Record<DealStatus, string> = {
   created: 'Создана',
@@ -123,6 +123,19 @@ export function AdminDealsPage() {
     }
   }
 
+  const handleToggleHidden = async (dealId: string) => {
+    try {
+      const result = await adminService.toggleDealHidden(dealId)
+      // Update local state
+      setDeals(deals.map(d =>
+        d._id === dealId ? { ...d, isHidden: result.deal.isHidden } : d
+      ))
+    } catch (error) {
+      console.error('Toggle hidden error:', error)
+      alert('Ошибка изменения видимости сделки.')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -197,7 +210,7 @@ export function AdminDealsPage() {
               </thead>
               <tbody>
                 {deals.map((deal) => (
-                  <tr key={deal._id} className="border-b border-border hover:bg-dark-lighter/50">
+                  <tr key={deal._id} className={`border-b border-border hover:bg-dark-lighter/50 ${deal.isHidden ? 'opacity-50' : ''}`}>
                     <td className="p-4">
                       <span className="font-mono text-sm text-gray-300">{deal.dealId}</span>
                     </td>
@@ -225,12 +238,23 @@ export function AdminDealsPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleToggleHidden(deal._id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            deal.isHidden
+                              ? 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10'
+                              : 'text-gray-400 hover:text-white hover:bg-dark-lighter'
+                          }`}
+                          title={deal.isHidden ? 'Показать в статистике' : 'Скрыть из статистики'}
+                        >
+                          {deal.isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                         <Link
                           to={`/admin/deals/${deal._id}`}
                           className="p-2 text-gray-400 hover:text-white hover:bg-dark-lighter rounded-lg transition-colors"
                           title="Детали"
                         >
-                          <Eye size={18} />
+                          <FileText size={18} />
                         </Link>
                         <button
                           onClick={() => handleExport(deal._id)}

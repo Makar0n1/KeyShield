@@ -164,6 +164,12 @@ const dealSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Flag to hide deal from admin dashboard statistics (for test deals)
+  isHidden: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   // Operational costs tracking
   operationalCosts: {
     // Activation costs (5 TRX sent, minus what was returned)

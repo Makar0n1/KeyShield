@@ -505,21 +505,26 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     // Get current TRX price
     const TRX_TO_USDT = await priceService.getTrxPrice();
 
-    const totalDeals = await Deal.countDocuments();
+    // Base filter to exclude hidden deals from all statistics
+    const notHidden = { isHidden: { $ne: true } };
+
+    const totalDeals = await Deal.countDocuments(notHidden);
     const activeDeals = await Deal.countDocuments({
+      ...notHidden,
       status: { $in: ['waiting_for_deposit', 'locked', 'in_progress'] }
     });
-    const completedDeals = await Deal.countDocuments({ status: 'completed' });
-    const disputedDeals = await Deal.countDocuments({ status: 'dispute' });
-    const resolvedDeals = await Deal.countDocuments({ status: 'resolved' });
-    const cancelledDeals = await Deal.countDocuments({ status: 'cancelled' });
-    const expiredDeals = await Deal.countDocuments({ status: 'expired' });
+    const completedDeals = await Deal.countDocuments({ ...notHidden, status: 'completed' });
+    const disputedDeals = await Deal.countDocuments({ ...notHidden, status: 'dispute' });
+    const resolvedDeals = await Deal.countDocuments({ ...notHidden, status: 'resolved' });
+    const cancelledDeals = await Deal.countDocuments({ ...notHidden, status: 'cancelled' });
+    const expiredDeals = await Deal.countDocuments({ ...notHidden, status: 'expired' });
 
     const totalUsers = await User.countDocuments();
     const bannedUsers = await User.countDocuments({ blacklisted: true });
 
-    // Calculate finances from finished deals
+    // Calculate finances from finished deals (excluding hidden)
     const finishedDeals = await Deal.find({
+      ...notHidden,
       status: { $in: ['completed', 'resolved', 'expired'] }
     }).lean();
 
@@ -705,6 +710,39 @@ app.get('/api/admin/deals/:id', adminAuth, async (req, res) => {
     res.json({ deal });
   } catch (error) {
     console.error('Error fetching deal:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Toggle deal visibility (hide/unhide from statistics)
+app.post('/api/admin/deals/:id/toggle-hidden', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let deal = null;
+
+    // Try by MongoDB ObjectId first
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      deal = await Deal.findById(id);
+    }
+
+    // If not found, try by dealId code
+    if (!deal) {
+      deal = await Deal.findOne({ dealId: id });
+    }
+
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+
+    // Toggle the isHidden flag
+    deal.isHidden = !deal.isHidden;
+    await deal.save();
+
+    console.log(`👁️ Deal ${deal.dealId} visibility toggled: isHidden=${deal.isHidden}`);
+
+    res.json({ success: true, deal: { _id: deal._id, dealId: deal.dealId, isHidden: deal.isHidden } });
+  } catch (error) {
+    console.error('Error toggling deal visibility:', error);
     res.status(500).json({ error: error.message });
   }
 });

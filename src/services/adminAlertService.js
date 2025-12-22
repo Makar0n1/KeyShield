@@ -346,9 +346,11 @@ ${newState === 'OPEN' ? '⚠️ Сервис временно недоступе
       try {
         if (feesaverService.isEnabled()) {
           const balanceData = await feesaverService.checkBalance();
-          feesaverBalance = balanceData.balance_trx || 0;
+          // API returns balance_trx field
+          feesaverBalance = balanceData.balance_trx || balanceData.balance || 0;
         }
       } catch (e) {
+        console.error('Error getting FeeSaver balance:', e.message);
         feesaverBalance = -1; // Error indicator
       }
 
