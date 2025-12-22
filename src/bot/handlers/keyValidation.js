@@ -220,11 +220,11 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // 1. FIRST TRANSFER: Release to seller
     // ============================================
 
-    // 🔋 Rent 65k energy for first transfer (if using FeeSaver)
+    // 🔋 Rent energy for first transfer (if using FeeSaver)
     if (useFeeSaver) {
       try {
-        console.log(`🔋 Renting 65k energy for main payout...`);
-        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+        console.log(`🔋 Renting energy for main payout...`);
+        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress);
         if (rental1.status === 'Filled') {
           totalFeesaverCost += parseFloat(rental1.summa) || 0;
           energyMethod = 'feesaver';
@@ -289,11 +289,11 @@ async function processSellerPayout(ctx, deal, buyerId) {
       // Wait a bit before second transfer
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Rent 65k energy for commission transfer (if using FeeSaver)
+      // 🔋 Rent energy for commission transfer (if using FeeSaver)
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          console.log(`🔋 Renting 65k energy for commission transfer...`);
-          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+          console.log(`🔋 Renting energy for commission transfer...`);
+          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress);
           if (rental2.status === 'Filled') {
             totalFeesaverCost += parseFloat(rental2.summa) || 0;
             console.log(`✅ Energy rental #2 successful (cost: ${rental2.summa} TRX)`);
@@ -492,11 +492,11 @@ async function processBuyerRefund(ctx, deal) {
     // 1. FIRST TRANSFER: Refund to buyer
     // ============================================
 
-    // 🔋 Rent 65k energy for first transfer (if using FeeSaver)
+    // 🔋 Rent energy for first transfer (if using FeeSaver)
     if (useFeeSaver) {
       try {
-        console.log(`🔋 Renting 65k energy for refund...`);
-        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+        console.log(`🔋 Renting energy for refund...`);
+        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress);
         if (rental1.status === 'Filled') {
           totalFeesaverCost += parseFloat(rental1.summa) || 0;
           energyMethod = 'feesaver';
@@ -559,11 +559,11 @@ async function processBuyerRefund(ctx, deal) {
     if (commission > 0) {
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Rent 65k energy for commission transfer (if using FeeSaver)
+      // 🔋 Rent energy for commission transfer (if using FeeSaver)
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          console.log(`🔋 Renting 65k energy for commission transfer...`);
-          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+          console.log(`🔋 Renting energy for commission transfer...`);
+          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress);
           if (rental2.status === 'Filled') {
             totalFeesaverCost += parseFloat(rental2.summa) || 0;
             console.log(`✅ Energy rental #2 successful (cost: ${rental2.summa} TRX)`);
@@ -757,11 +757,11 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     // 1. FIRST TRANSFER: Payout to winner
     // ============================================
 
-    // 🔋 Rent 65k energy for first transfer (if using FeeSaver)
+    // 🔋 Rent energy for first transfer (if using FeeSaver)
     if (useFeeSaver) {
       try {
-        console.log(`🔋 Renting 65k energy for dispute payout...`);
-        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+        console.log(`🔋 Renting energy for dispute payout...`);
+        const rental1 = await feesaverService.rentEnergy(deal.multisigAddress);
         if (rental1.status === 'Filled') {
           totalFeesaverCost += parseFloat(rental1.summa) || 0;
           energyMethod = 'feesaver';
@@ -824,11 +824,11 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     if (commission > 0) {
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Rent 65k energy for commission transfer (if using FeeSaver)
+      // 🔋 Rent energy for commission transfer (if using FeeSaver)
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          console.log(`🔋 Renting 65k energy for commission transfer...`);
-          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress, 65000, '1h');
+          console.log(`🔋 Renting energy for commission transfer...`);
+          const rental2 = await feesaverService.rentEnergy(deal.multisigAddress);
           if (rental2.status === 'Filled') {
             totalFeesaverCost += parseFloat(rental2.summa) || 0;
             console.log(`✅ Energy rental #2 successful (cost: ${rental2.summa} TRX)`);
@@ -1033,7 +1033,7 @@ async function saveOperationalCosts(deal, energyMethod, feesaverCost, trxReturne
     let totalTrxSpent = activationTrx + TX_FEE; // Activation + its tx fee
 
     if (energyMethod === 'feesaver') {
-      // FeeSaver was used - record cost (2x 65k energy = ~6.5 TRX total)
+      // FeeSaver was used - record cost (energy amount from FEESAVER_ENERGY_AMOUNT env)
       updateData['operationalCosts.feesaverCostTrx'] = feesaverCost;
       updateData['operationalCosts.activationTrxReturned'] = 0;
       updateData['operationalCosts.fallbackTrxSent'] = 0;
