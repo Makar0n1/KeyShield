@@ -3,6 +3,7 @@ const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
 const MultisigWallet = require('../models/MultisigWallet');
 const Session = require('../models/Session');
+const ServiceStatus = require('../models/ServiceStatus');
 const blockchainService = require('./blockchain');
 const feesaverService = require('./feesaver');
 const priceService = require('./priceService');
@@ -13,6 +14,8 @@ const TronWeb = require('tronweb');
 
 // High-load optimization utilities
 const BoundedSet = require('../utils/BoundedSet');
+
+const SERVICE_NAME = 'DeadlineMonitor';
 
 /**
  * Deadline Monitor Service
@@ -77,7 +80,7 @@ class DeadlineMonitor {
   /**
    * Start monitoring
    */
-  start() {
+  async start() {
     if (this.isRunning) {
       console.log('⚠️ Deadline monitor already running');
       return;
@@ -85,6 +88,13 @@ class DeadlineMonitor {
 
     console.log('✅ Starting deadline monitor...');
     this.isRunning = true;
+
+    // Mark service as started in DB
+    try {
+      await ServiceStatus.markStarted(SERVICE_NAME);
+    } catch (e) {
+      console.error('Failed to update service status:', e.message);
+    }
 
     // Run immediately
     this.checkDeadlines();
@@ -103,7 +113,7 @@ class DeadlineMonitor {
   /**
    * Stop monitoring
    */
-  stop() {
+  async stop() {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
@@ -113,6 +123,14 @@ class DeadlineMonitor {
       this.cleanupTimer = null;
     }
     this.isRunning = false;
+
+    // Mark service as stopped in DB
+    try {
+      await ServiceStatus.markStopped(SERVICE_NAME);
+    } catch (e) {
+      console.error('Failed to update service status:', e.message);
+    }
+
     console.log('⛔ Deadline monitor stopped');
   }
 
@@ -175,8 +193,24 @@ class DeadlineMonitor {
       }
 
       console.log(`✅ Deadline check cycle completed for ${expiredDeals.length} deal(s)`);
+
+      // Update heartbeat in DB
+      try {
+        await ServiceStatus.heartbeat(SERVICE_NAME, {
+          lastCheckDeals: expiredDeals.length,
+          lastCheckAt: new Date()
+        });
+      } catch (e) {
+        // Ignore heartbeat errors
+      }
     } catch (error) {
       console.error('Error in deadline monitor:', error);
+      // Log error to service status
+      try {
+        await ServiceStatus.logError(SERVICE_NAME, error);
+      } catch (e) {
+        // Ignore
+      }
     } finally {
       this.isChecking = false;
     }

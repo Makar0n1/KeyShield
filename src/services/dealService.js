@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Platform = require('../models/Platform');
 const MultisigWallet = require('../models/MultisigWallet');
 const AuditLog = require('../models/AuditLog');
+const ServiceStatus = require('../models/ServiceStatus');
 const blockchainService = require('./blockchain');
 const constants = require('../config/constants');
 
@@ -338,6 +339,17 @@ class DealService {
       asset,
       multisigAddress: multisigWallet.address
     });
+
+    // Track successful deal creation for health monitoring
+    try {
+      await ServiceStatus.trackSuccess('deal_created', {
+        dealId: deal.dealId,
+        amount,
+        asset
+      });
+    } catch (e) {
+      // Don't fail deal creation if tracking fails
+    }
 
     return {
       deal,

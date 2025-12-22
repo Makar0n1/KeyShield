@@ -2,6 +2,7 @@ const Deal = require('../models/Deal');
 const Transaction = require('../models/Transaction');
 const MultisigWallet = require('../models/MultisigWallet');
 const AuditLog = require('../models/AuditLog');
+const ServiceStatus = require('../models/ServiceStatus');
 const blockchainService = require('./blockchain');
 const adminAlertService = require('./adminAlertService');
 const constants = require('../config/constants');
@@ -11,6 +12,8 @@ const { depositReceivedKeyboard } = require('../bot/keyboards/main');
 // High-load optimization utilities
 const RateLimiter = require('../utils/RateLimiter');
 const BoundedSet = require('../utils/BoundedSet');
+
+const SERVICE_NAME = 'DepositMonitor';
 
 class DepositMonitor {
   constructor() {
@@ -106,7 +109,7 @@ class DepositMonitor {
   /**
    * Start monitoring for deposits
    */
-  start() {
+  async start() {
     if (this.isRunning) {
       console.log('⚠️  Deposit monitor already running');
       return;
@@ -114,6 +117,13 @@ class DepositMonitor {
 
     console.log('✅ Starting deposit monitor...');
     this.isRunning = true;
+
+    // Mark service as started in DB
+    try {
+      await ServiceStatus.markStarted(SERVICE_NAME);
+    } catch (e) {
+      console.error('Failed to update service status:', e.message);
+    }
 
     // Run immediately
     this.checkDeposits();
@@ -130,12 +140,20 @@ class DepositMonitor {
   /**
    * Stop monitoring
    */
-  stop() {
+  async stop() {
     if (this.interval) {
       clearInterval(this.interval);
       this.interval = null;
     }
     this.isRunning = false;
+
+    // Mark service as stopped in DB
+    try {
+      await ServiceStatus.markStopped(SERVICE_NAME);
+    } catch (e) {
+      console.error('Failed to update service status:', e.message);
+    }
+
     console.log('⛔ Deposit monitor stopped');
   }
 
@@ -191,8 +209,24 @@ class DepositMonitor {
       }
 
       console.log(`✅ Deposit check cycle completed for ${deals.length} deal(s)`);
+
+      // Update heartbeat in DB
+      try {
+        await ServiceStatus.heartbeat(SERVICE_NAME, {
+          lastCheckDeals: deals.length,
+          lastCheckAt: new Date()
+        });
+      } catch (e) {
+        // Ignore heartbeat errors
+      }
     } catch (error) {
       console.error('Error in deposit monitor:', error);
+      // Log error to service status
+      try {
+        await ServiceStatus.logError(SERVICE_NAME, error);
+      } catch (e) {
+        // Ignore
+      }
     } finally {
       this.isChecking = false;
     }
@@ -397,6 +431,14 @@ class DepositMonitor {
 
               // Alert admin about deposit
               await adminAlertService.alertDepositReceived(deal, deposit.amount);
+
+              // Track successful deposit for health monitoring
+              try {
+                await ServiceStatus.trackSuccess('deposit_received', {
+                  dealId: deal.dealId,
+                  amount: deposit.amount
+                });
+              } catch (e) { /* ignore */ }
 
               console.log(`📬 Notifications sent to buyer and seller for deal ${deal.dealId}`);
             } catch (error) {

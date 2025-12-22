@@ -310,8 +310,6 @@ ${newState === 'OPEN' ? '⚠️ Сервис временно недоступе
       const User = require('../models/User');
       const blockchainService = require('./blockchain');
       const feesaverService = require('./feesaver');
-      const depositMonitor = require('./depositMonitor');
-      const deadlineMonitor = require('./deadlineMonitor');
 
       // Get current stats from DB
       const [
@@ -354,14 +352,49 @@ ${newState === 'OPEN' ? '⚠️ Сервис временно недоступе
         feesaverBalance = -1; // Error indicator
       }
 
-      // Check services status
-      const depositMonitorStatus = depositMonitor.isRunning ? '🟢' : '🔴';
-      const deadlineMonitorStatus = deadlineMonitor.isRunning ? '🟢' : '🔴';
-      const feesaverStatus = feesaverService.isEnabled() ? '🟢' : '🟡';
+      // Get services status from DB (accurate across all processes)
+      const ServiceStatus = require('../models/ServiceStatus');
+      const allServices = await ServiceStatus.getAllStatus();
+
+      // Build services status map
+      const servicesMap = {};
+      allServices.forEach(s => { servicesMap[s.serviceName] = s; });
+
+      // Format service status line
+      const formatServiceStatus = (name, fallbackEnabled = null) => {
+        const service = servicesMap[name];
+        if (!service) {
+          // Service never registered - check fallback
+          if (fallbackEnabled !== null) {
+            return fallbackEnabled ? '🟡 ' + name + ' (не запущен)' : '⚪ ' + name + ' (отключён)';
+          }
+          return '⚪ ' + name + ' (нет данных)';
+        }
+
+        if (service.isHealthy) {
+          const lastCheck = service.stats?.lastCheckAt
+            ? new Date(service.stats.lastCheckAt).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow' })
+            : '';
+          return `🟢 ${name}${lastCheck ? ' (' + lastCheck + ')' : ''}`;
+        } else if (service.isStale) {
+          return `🟡 ${name} (нет heartbeat >5 мин)`;
+        } else {
+          return `🔴 ${name} (остановлен)`;
+        }
+      };
+
+      // Check blockchain service (CircuitBreaker state)
+      const circuitBreakerState = blockchainService.circuitBreaker?.getState() || 'UNKNOWN';
+      const cbEmoji = circuitBreakerState === 'CLOSED' ? '🟢' : circuitBreakerState === 'HALF_OPEN' ? '🟡' : '🔴';
 
       // Calculate estimated deals remaining
-      const totalTrx = arbiterBalance + feesaverBalance;
+      const totalTrx = (arbiterBalance >= 0 ? arbiterBalance : 0) + (feesaverBalance >= 0 ? feesaverBalance : 0);
       const estimatedDeals = Math.floor(totalTrx / 9);
+
+      // MongoDB connection status
+      const mongoose = require('mongoose');
+      const dbState = mongoose.connection.readyState;
+      const dbStatus = dbState === 1 ? '🟢 MongoDB' : dbState === 2 ? '🟡 MongoDB (connecting)' : '🔴 MongoDB';
 
       const text = `📊 *ЕЖЕДНЕВНЫЙ ОТЧЁТ*
 ━━━━━━━━━━━━━━━━━━━━
@@ -387,15 +420,20 @@ ${this.dailyStats.errors.length > 0 ? `🚨 Ошибок: ${this.dailyStats.erro
 ✅ Завершено: ${completedDeals}
 
 *💰 БАЛАНСЫ:*
-🏦 Сервисный кошелёк: ${arbiterBalance >= 0 ? arbiterBalance.toFixed(2) + ' TRX' : '❌ ошибка'}
+🏦 Сервис: ${arbiterBalance >= 0 ? arbiterBalance.toFixed(2) + ' TRX' : '❌ ошибка'}
 🔋 FeeSaver: ${feesaverBalance >= 0 ? feesaverBalance.toFixed(2) + ' TRX' : '❌ ошибка'}
-📊 Всего: ${totalTrx >= 0 ? totalTrx.toFixed(2) + ' TRX' : '—'}
+📊 Итого: ${totalTrx >= 0 ? totalTrx.toFixed(2) + ' TRX' : '—'}
 📈 Хватит на: ~${estimatedDeals} сделок
 
-*🔧 СЕРВИСЫ:*
-${depositMonitorStatus} Deposit Monitor
-${deadlineMonitorStatus} Deadline Monitor
-${feesaverStatus} FeeSaver
+*🔧 ИНФРАСТРУКТУРА:*
+${dbStatus}
+${cbEmoji} TronGrid API (${circuitBreakerState})
+${formatServiceStatus('DepositMonitor')}
+${formatServiceStatus('DeadlineMonitor')}
+${feesaverService.isEnabled() ? '🟢' : '⚪'} FeeSaver${feesaverService.isEnabled() ? '' : ' (отключён)'}
+
+*⚡ ОПЕРАЦИИ:*
+${await this.formatOperationsStatus()}
 
 ━━━━━━━━━━━━━━━━━━━━
 🛡 KeyShield Escrow Bot`;
@@ -426,6 +464,96 @@ ${feesaverStatus} FeeSaver
       console.error('Error sending daily report:', error);
       await this.alertError('Daily Report', error);
     }
+  }
+
+  /**
+   * Format operations status for daily report
+   * Shows health of key bot operations (deal creation, payouts, deposits, etc.)
+   */
+  async formatOperationsStatus() {
+    try {
+      const ServiceStatus = require('../models/ServiceStatus');
+      const operations = await ServiceStatus.getOperationsStatus();
+
+      if (!operations || operations.length === 0) {
+        return '📭 Нет данных об операциях';
+      }
+
+      const lines = [];
+      const now = new Date();
+      const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+      const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+      // Operation name translations
+      const opNames = {
+        'deal_created': 'Создание сделок',
+        'deposit_received': 'Депозиты',
+        'payout_completed': 'Выплаты',
+        'blog_notification': 'Рассылка блога'
+      };
+
+      for (const op of operations) {
+        const name = opNames[op.serviceName] || op.serviceName;
+        // lastHeartbeat stores the time of last successful operation
+        const lastSuccess = op.lastHeartbeat ? new Date(op.lastHeartbeat) : null;
+        const lastError = op.lastErrorAt ? new Date(op.lastErrorAt) : null;
+
+        let emoji = '⚪'; // No data
+        let status = 'нет данных';
+
+        if (lastSuccess) {
+          if (lastSuccess >= oneDayAgo) {
+            emoji = '🟢';
+            status = this.formatTimeAgo(lastSuccess);
+          } else if (lastSuccess >= oneWeekAgo) {
+            emoji = '🟡';
+            status = this.formatTimeAgo(lastSuccess);
+          } else {
+            emoji = '🟠';
+            status = this.formatTimeAgo(lastSuccess);
+          }
+        }
+
+        // Check for recent errors
+        if (lastError && lastError >= oneDayAgo) {
+          if (!lastSuccess || lastError > lastSuccess) {
+            emoji = '🔴';
+            status = `ошибка ${this.formatTimeAgo(lastError)}`;
+          }
+        }
+
+        // Stats
+        const successCount = op.successCount || 0;
+        const failCount = op.failCount || 0;
+        const statsText = failCount > 0
+          ? `✅${successCount} ❌${failCount}`
+          : `✅${successCount}`;
+
+        lines.push(`${emoji} ${name}: ${status} (${statsText})`);
+      }
+
+      return lines.join('\n');
+    } catch (error) {
+      console.error('Error formatting operations status:', error);
+      return '❌ Ошибка получения статуса операций';
+    }
+  }
+
+  /**
+   * Format time ago helper
+   */
+  formatTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    if (diffDays < 7) return `${diffDays} дн назад`;
+    return date.toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
   }
 
   /**

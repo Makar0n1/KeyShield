@@ -169,6 +169,18 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
       }
     );
 
+    // Track blog notification for health monitoring
+    try {
+      const ServiceStatus = require('../models/ServiceStatus');
+      await ServiceStatus.trackSuccess('blog_notification', {
+        postId,
+        postTitle: post.title,
+        sent,
+        failed,
+        skipped
+      });
+    } catch (e) { /* ignore */ }
+
     console.log(`📤 Blog notification completed: sent=${sent}, failed=${failed}, skipped=${skipped}`);
 
     return { sent, failed, skipped };

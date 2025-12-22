@@ -14,6 +14,7 @@ const User = require('../../models/User');
 const Transaction = require('../../models/Transaction');
 const MultisigWallet = require('../../models/MultisigWallet');
 const AuditLog = require('../../models/AuditLog');
+const ServiceStatus = require('../../models/ServiceStatus');
 const blockchainService = require('../../services/blockchain');
 const feesaverService = require('../../services/feesaver');
 const adminAlertService = require('../../services/adminAlertService');
@@ -393,8 +394,23 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // Alert admin about completed payout
     await adminAlertService.alertPayoutCompleted(deal, releaseAmount, commission, releaseResult.txHash, 'release');
 
+    // Track successful payout for health monitoring
+    try {
+      await ServiceStatus.trackSuccess('payout_completed', {
+        dealId: deal.dealId,
+        type: 'release',
+        amount: releaseAmount,
+        txHash: releaseResult.txHash
+      });
+    } catch (e) { /* ignore */ }
+
   } catch (error) {
     console.error(`❌ Error processing seller payout:`, error);
+
+    // Track failed payout
+    try {
+      await ServiceStatus.trackFailure('payout_completed', error);
+    } catch (e) { /* ignore */ }
 
     // Alert admin about error
     await adminAlertService.alertError(`Seller payout ${deal.dealId}`, error);
@@ -648,8 +664,23 @@ async function processBuyerRefund(ctx, deal) {
     // Alert admin about completed refund
     await adminAlertService.alertPayoutCompleted(deal, refundAmount, commission, refundResult.txHash, 'refund');
 
+    // Track successful refund for health monitoring
+    try {
+      await ServiceStatus.trackSuccess('payout_completed', {
+        dealId: deal.dealId,
+        type: 'refund',
+        amount: refundAmount,
+        txHash: refundResult.txHash
+      });
+    } catch (e) { /* ignore */ }
+
   } catch (error) {
     console.error(`❌ Error processing buyer refund:`, error);
+
+    // Track failed refund
+    try {
+      await ServiceStatus.trackFailure('payout_completed', error);
+    } catch (e) { /* ignore */ }
 
     // Alert admin about error
     await adminAlertService.alertError(`Buyer refund ${deal.dealId}`, error);
@@ -884,8 +915,23 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     // Alert admin about dispute payout
     await adminAlertService.alertPayoutCompleted(deal, payoutAmount, commission, payoutResult.txHash, 'dispute');
 
+    // Track successful dispute payout for health monitoring
+    try {
+      await ServiceStatus.trackSuccess('payout_completed', {
+        dealId: deal.dealId,
+        type: 'dispute',
+        amount: payoutAmount,
+        txHash: payoutResult.txHash
+      });
+    } catch (e) { /* ignore */ }
+
   } catch (error) {
     console.error(`❌ Error processing dispute payout:`, error);
+
+    // Track failed dispute payout
+    try {
+      await ServiceStatus.trackFailure('payout_completed', error);
+    } catch (e) { /* ignore */ }
 
     // Alert admin about error
     await adminAlertService.alertError(`Dispute payout ${deal.dealId}`, error);
