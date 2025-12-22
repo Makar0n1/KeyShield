@@ -429,6 +429,7 @@ const handleAssetSelection = async (ctx) => {
 Введите сумму сделки в ${asset}.
 
 ⚠️ Минимальная сумма: 50 ${asset}
+Просьба ввободить сумму без запятых и пробелов (например: 150, 299.99, 5000)
 
 Комиссия сервиса:
 • До 300 USDT — 15 USDT
@@ -661,9 +662,9 @@ const showDealConfirmation = async (ctx, telegramId, data) => {
 
   let commissionText;
   if (data.commissionType === 'buyer') {
-    commissionText = `Покупатель платит ${commission.toFixed(2)} ${data.asset}`;
+    commissionText = `Покупатель (заказчик) платит ${commission.toFixed(2)} ${data.asset}`;
   } else if (data.commissionType === 'seller') {
-    commissionText = `Продавец платит ${commission.toFixed(2)} ${data.asset}`;
+    commissionText = `Продавец (исполнитель) платит ${commission.toFixed(2)} ${data.asset}`;
   } else {
     commissionText = `50/50 — по ${(commission / 2).toFixed(2)} ${data.asset}`;
   }
@@ -913,7 +914,7 @@ const confirmCreateDeal = async (ctx) => {
 
 ⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
 
-• Скопируйте и сохраните в надёжном месте
+• Скопируйте и сохраните в надёжном месте (копирование по нажатию на адрес)
 • Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
 • Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
 
@@ -980,7 +981,7 @@ const confirmCreateDeal = async (ctx) => {
 
 ⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
 
-• Скопируйте и сохраните в надёжном месте
+• Скопируйте и сохраните в надёжном месте (копирование по нажатию на адрес)
 • Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
 • Без этого ключа вы НЕ сможете получить средства по сделке!
 
