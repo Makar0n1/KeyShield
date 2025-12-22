@@ -221,16 +221,16 @@ function HeroSection() {
 
             {/* Mini bullets */}
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:flex-wrap sm:gap-4 text-sm text-gray-400">
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-1">
                 <span className="text-primary">{Icons.check}</span>
                 Оплата после приемки
               </span>
               <div className="flex items-center gap-4">
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1">
                   <span className="text-primary">{Icons.clock}</span>
                   Дедлайны и возврат
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1">
                   <span className="text-primary">{Icons.scales}</span>
                   Споры и арбитраж
                 </span>
