@@ -26,6 +26,15 @@ class AdminAlertService {
   }
 
   /**
+   * Escape special Markdown characters
+   * _ * [ ] ( ) ~ ` > # + - = | { } . !
+   */
+  escapeMarkdown(text) {
+    if (!text) return '';
+    return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  }
+
+  /**
    * Set bot instance for sending messages
    */
   setBotInstance(bot) {
@@ -68,12 +77,15 @@ class AdminAlertService {
   async alertNewUser(user) {
     this.dailyStats.newUsers++;
 
+    const username = user.username ? '@' + this.escapeMarkdown(user.username) : 'не указан';
+    const platform = user.platformCode ? this.escapeMarkdown(user.platformCode) : null;
+
     const text = `👤 *Новый пользователь!*
 
 🆔 ID: \`${user.telegramId}\`
-👤 Username: ${user.username ? '@' + user.username : 'не указан'}
+👤 Username: ${username}
 📅 Дата: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}
-${user.platformCode ? `🏷 Платформа: ${user.platformCode}` : ''}`;
+${platform ? `🏷 Платформа: ${platform}` : ''}`;
 
     await this.sendAlert(text);
   }
@@ -88,16 +100,19 @@ ${user.platformCode ? `🏷 Платформа: ${user.platformCode}` : ''}`;
   async alertNewDeal(deal) {
     this.dailyStats.newDeals++;
 
+    const productName = this.escapeMarkdown(deal.productName);
+    const platform = deal.platformCode ? this.escapeMarkdown(deal.platformCode) : null;
+
     const text = `💼 *Новая сделка!*
 
 🆔 ID: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 💰 Сумма: *${deal.amount} ${deal.asset}*
 💵 Комиссия: ${deal.commission} ${deal.asset}
 
 👤 Покупатель: \`${deal.buyerId}\`
 👤 Продавец: \`${deal.sellerId}\`
-${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
+${platform ? `🏷 Платформа: ${platform}` : ''}
 
 📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
 
@@ -108,10 +123,12 @@ ${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
    * Deposit received
    */
   async alertDepositReceived(deal, depositAmount) {
+    const productName = this.escapeMarkdown(deal.productName);
+
     const text = `💰 *Депозит получен!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 💸 Депозит: *${depositAmount} ${deal.asset}*
 💰 Сумма сделки: ${deal.amount} ${deal.asset}
 
@@ -134,11 +151,12 @@ ${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
 
     const typeEmoji = type === 'release' ? '✅' : type === 'refund' ? '↩️' : '⚖️';
     const typeText = type === 'release' ? 'Выплата продавцу' : type === 'refund' ? 'Возврат покупателю' : 'Выплата по спору';
+    const productName = this.escapeMarkdown(deal.productName);
 
     const text = `${typeEmoji} *${typeText}!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 
 💸 Выплачено: *${amount.toFixed(2)} ${deal.asset}*
 💵 Комиссия: *${commission.toFixed(2)} ${deal.asset}*
@@ -159,15 +177,17 @@ ${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
     this.dailyStats.disputes++;
 
     const roleText = openedBy === deal.buyerId ? 'Покупатель' : 'Продавец';
+    const productName = this.escapeMarkdown(deal.productName);
+    const escapedReason = this.escapeMarkdown(reason.substring(0, 200));
 
     const text = `⚠️ *СПОР ОТКРЫТ!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 💰 Сумма: ${deal.amount} ${deal.asset}
 
 👤 Открыл: ${roleText} (\`${openedBy}\`)
-📝 Причина: ${reason.substring(0, 200)}${reason.length > 200 ? '...' : ''}
+📝 Причина: ${escapedReason}${reason.length > 200 ? '...' : ''}
 
 ⚡️ Требуется решение арбитра!`;
 
@@ -179,11 +199,12 @@ ${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
    */
   async alertDisputeResolved(deal, winner, loser) {
     const winnerRole = winner === deal.buyerId ? 'Покупатель' : 'Продавец';
+    const productName = this.escapeMarkdown(deal.productName);
 
     const text = `⚖️ *Спор решён!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 
 🏆 Победитель: ${winnerRole} (\`${winner}\`)
 ❌ Проигравший: \`${loser}\``;
@@ -201,10 +222,12 @@ ${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
   async alertDeadlineExpired(deal) {
     this.dailyStats.expiredDeals++;
 
+    const productName = this.escapeMarkdown(deal.productName);
+
     const text = `⏰ *Дедлайн истёк!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 💰 Сумма: ${deal.amount} ${deal.asset}
 📊 Статус: ${deal.status}
 
@@ -219,11 +242,12 @@ ${deal.platformCode ? `🏷 Платформа: ${deal.platformCode}` : ''}
    */
   async alertAutoAction(deal, action) {
     const actionText = action === 'refund' ? 'Автовозврат покупателю' : 'Авто-выплата продавцу';
+    const productName = this.escapeMarkdown(deal.productName);
 
     const text = `🔄 *${actionText}!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${productName}
 💰 Сумма: ${deal.amount} ${deal.asset}
 
 ⚡️ Запрошен ключ для выплаты`;
