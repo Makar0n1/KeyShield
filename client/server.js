@@ -14,6 +14,7 @@ import { Telegraf } from 'telegraf';
 import { createServer as createViteServer } from 'vite';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { prerenderMiddleware, isBot, getCacheStats, clearCache } from './prerender.js';
 
 // Get __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -1670,6 +1671,29 @@ app.get('/api/admin/system/ip-check', adminAuth, async (req, res) => {
   });
 });
 
+// ============ PRERENDER CACHE MANAGEMENT ============
+
+// Get prerender cache stats
+app.get('/api/admin/prerender/stats', adminAuth, (req, res) => {
+  res.json({ stats: getCacheStats() });
+});
+
+// Clear prerender cache
+app.post('/api/admin/prerender/clear', adminAuth, (req, res) => {
+  const { url } = req.body;
+  clearCache(url || null);
+  res.json({ success: true, message: url ? `Cache cleared for ${url}` : 'All cache cleared' });
+});
+
+// Test if a URL would be prerendered (for debugging)
+app.get('/api/admin/prerender/test', adminAuth, (req, res) => {
+  const { userAgent } = req.query;
+  res.json({
+    isBot: isBot(userAgent || ''),
+    userAgent: userAgent || 'not provided'
+  });
+});
+
 // ============ FINAL ERROR HANDLER ============
 
 // Catch-all error handler (must be last before static files)
@@ -1694,6 +1718,13 @@ async function startServer() {
   try {
     await connectDB();
 
+    // Determine base URL for prerendering
+    const SITE_URL = process.env.WEB_DOMAIN
+      ? (process.env.WEB_DOMAIN.includes('localhost')
+        ? `http://${process.env.WEB_DOMAIN}`
+        : `https://${process.env.WEB_DOMAIN}`)
+      : `http://localhost:${PORT}`;
+
     if (isDev) {
       const vite = await createViteServer({
         server: { middlewareMode: true },
@@ -1701,6 +1732,14 @@ async function startServer() {
       });
       app.use(vite.middlewares);
     } else {
+      // Prerender middleware for bots (must be before static files)
+      // This renders SPA pages to static HTML for search engine bots
+      const prerenderEnabled = process.env.PRERENDER_ENABLED !== 'false';
+      if (prerenderEnabled) {
+        app.use(prerenderMiddleware(SITE_URL));
+        console.log('🤖 Prerender middleware enabled for SEO');
+      }
+
       app.use(express.static(join(__dirname, 'dist')));
       // Catch-all for SPA routing (Express 5 syntax)
       app.get('/{*splat}', (req, res) => {
