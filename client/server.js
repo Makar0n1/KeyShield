@@ -100,11 +100,11 @@ app.use(helmet({
   contentSecurityPolicy: isDev ? false : {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://connect.facebook.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.trongrid.io", "https://tronscan.org"],
+      imgSrc: ["'self'", "data:", "https:", "https://www.facebook.com"],
+      connectSrc: ["'self'", "https://api.trongrid.io", "https://tronscan.org", "https://www.facebook.com"],
     }
   },
   crossOriginEmbedderPolicy: false,
