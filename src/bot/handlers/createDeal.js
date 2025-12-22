@@ -553,15 +553,31 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
 
 Введите другой адрес:`;
       } else if (verification.errorType === 'insufficient_funds' || verification.errorType === 'no_buffer') {
+        // Show warning with choice instead of blocking
         const currentBalance = verification.balance || 0;
-        errorMessage = `❌ *Недостаточно средств*
+        const warningMessage = `⚠️ *Внимание: баланс не обнаружен*
 
-Для создания сделки на вашем кошельке должно быть минимум *${requiredAmount} USDT*.
+На указанном кошельке обнаружено: *${currentBalance.toFixed(2)} USDT*
+Для сделки необходимо: *${depositAmount} USDT* (депозит) + *5 USDT* (буфер)
 
-Текущий баланс: *${currentBalance.toFixed(2)} USDT*
-Необходимо: *${depositAmount} USDT* (депозит) + *5 USDT* (буфер)
+💡 *Если ваши средства хранятся на криптобирже* (Binance, Bybit, OKX и др.) — это нормально! Баланс на бирже не виден в блокчейне.
 
-Пополните кошелёк или укажите другой:`;
+Нажмите «Продолжить», если средства у вас есть, или укажите другой адрес.`;
+
+        // Save wallet address before showing choice
+        session.data.pendingBuyerAddress = address;
+        session.step = 'wallet_balance_warning';
+        await setCreateDealSession(telegramId, session);
+
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '✅ Продолжить — средства есть', callback_data: 'wallet_continue_anyway' }],
+            [{ text: '📝 Изменить адрес кошелька', callback_data: 'wallet_change_address' }],
+            [{ text: '⬅️ Назад', callback_data: 'back' }]
+          ]
+        };
+        await messageManager.updateScreen(ctx, telegramId, 'wallet_balance_warning', warningMessage, keyboard);
+        return;
       } else {
         errorMessage = `❌ *Ошибка проверки*
 
@@ -677,6 +693,81 @@ ${escapeMarkdown(data.description.substring(0, 200))}${data.description.length >
 
   const keyboard = dealConfirmationKeyboard();
   await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_confirm', text, keyboard);
+};
+
+// ============================================
+// WALLET BALANCE WARNING HANDLERS
+// ============================================
+
+/**
+ * Handle "Continue anyway" - user confirms they have funds on exchange
+ */
+const handleWalletContinueAnyway = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+
+    const session = await getCreateDealSession(telegramId);
+    if (!session || !session.data.pendingBuyerAddress) {
+      await ctx.answerCbQuery('❌ Сессия истекла. Начните заново.', { show_alert: true });
+      return;
+    }
+
+    const address = session.data.pendingBuyerAddress;
+
+    // Set the buyer address and clear pending
+    session.data.buyerAddress = address;
+    delete session.data.pendingBuyerAddress;
+    session.step = 'confirm';
+    await setCreateDealSession(telegramId, session);
+
+    // Show success and proceed to confirmation
+    const successText = `✅ *Кошелёк принят!*
+
+Адрес: \`${address}\`
+
+Переходим к подтверждению...`;
+
+    await User.updateOne({ telegramId }, { currentScreen: 'wallet_verified' });
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, {});
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    await showDealConfirmation(ctx, telegramId, session.data);
+  } catch (error) {
+    console.error('Error in handleWalletContinueAnyway:', error);
+  }
+};
+
+/**
+ * Handle "Change address" - user wants to enter different wallet
+ */
+const handleWalletChangeAddress = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+
+    const session = await getCreateDealSession(telegramId);
+    if (!session) {
+      await ctx.answerCbQuery('❌ Сессия истекла. Начните заново.', { show_alert: true });
+      return;
+    }
+
+    // Clear pending address and go back to wallet input
+    delete session.data.pendingBuyerAddress;
+    session.step = 'creator_wallet';
+    await setCreateDealSession(telegramId, session);
+
+    const text = `💳 *Ваш кошелёк USDT (TRC-20)*
+
+Введите адрес кошелька, с которого будете отправлять средства.
+
+Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
+
+    const keyboard = backButton();
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_wallet', text, keyboard);
+  } catch (error) {
+    console.error('Error in handleWalletChangeAddress:', error);
+  }
 };
 
 // ============================================
@@ -1243,5 +1334,7 @@ module.exports = {
   cancelCreateDeal,
   handleCreateDealBack,
   hasCreateDealSession,
-  clearCreateDealSession: deleteCreateDealSession
+  clearCreateDealSession: deleteCreateDealSession,
+  handleWalletContinueAnyway,
+  handleWalletChangeAddress
 };

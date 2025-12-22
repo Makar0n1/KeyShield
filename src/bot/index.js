@@ -27,7 +27,9 @@ const {
   cancelCreateDeal,
   handleCreateDealBack,
   hasCreateDealSession,
-  clearCreateDealSession
+  clearCreateDealSession,
+  handleWalletContinueAnyway,
+  handleWalletChangeAddress
 } = require('./handlers/createDeal');
 const {
   showMyDeals,
@@ -56,7 +58,8 @@ const {
   handleDepositWarningConfirmation,
   showDepositAddress,
   declineDeal,
-  cancelDeal
+  cancelDeal,
+  handleWalletContinue
 } = require('./handlers/provideWallet');
 const {
   hasKeyValidationSession,
@@ -167,6 +170,13 @@ bot.action(/^show_deposit:/, showDepositAddress);
 bot.action(/^decline_deal:/, declineDeal);
 bot.action(/^cancel_deal:/, cancelDeal);
 bot.action('cancel_create_deal', cancelCreateDeal);
+
+// Wallet balance warning handlers (buyer has funds on exchange)
+// For creator (createDeal flow)
+bot.action('wallet_continue_anyway', handleWalletContinueAnyway);
+bot.action('wallet_change_address', handleWalletChangeAddress);
+// For counterparty (provideWallet flow)
+bot.action(/^wallet_continue:/, handleWalletContinue);
 
 // Key saved button - just delete the message
 bot.action(/^key_saved:/, async (ctx) => {

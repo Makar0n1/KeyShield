@@ -83,6 +83,15 @@ const userSchema = new mongoose.Schema({
     text: String,
     keyboard: mongoose.Schema.Types.Mixed
   },
+  // Pending wallet for balance warning flow
+  pendingWallet: {
+    type: String,
+    default: null
+  },
+  pendingDealId: {
+    type: String,
+    default: null
+  },
   // Last activity timestamp for cleanup
   lastActivity: {
     type: Date,
