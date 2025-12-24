@@ -2,9 +2,11 @@
  * Email Service for KeyShield
  *
  * Sends transaction receipts via email using self-hosted Mailcow server.
+ * Includes PDF attachment matching admin export style.
  */
 
 const nodemailer = require('nodemailer');
+const pdfReceiptService = require('./pdfReceiptService');
 
 class EmailService {
   constructor() {
@@ -46,20 +48,21 @@ class EmailService {
   }
 
   /**
-   * Send transaction receipt
+   * Send transaction receipt with PDF attachment
    * @param {string} to - Recipient email
    * @param {Object} deal - Deal object
    * @param {Object} transaction - Transaction details
+   * @param {Object} user - User object (optional, for PDF generation)
    * @returns {Promise<boolean>}
    */
-  async sendReceipt(to, deal, transaction) {
+  async sendReceipt(to, deal, transaction, user = null) {
     if (!this.isEnabled()) {
       console.log('📧 Email service not enabled, skipping receipt');
       return false;
     }
 
     try {
-      const { type, amount, txHash, toAddress } = transaction;
+      const { type } = transaction;
       const isRefund = type === 'refund';
       const isPurchase = type === 'purchase';
 
@@ -75,15 +78,30 @@ class EmailService {
       const html = this.generateReceiptHTML(deal, transaction);
       const text = this.generateReceiptText(deal, transaction);
 
+      // Generate PDF attachment
+      let attachments = [];
+      try {
+        const pdfBuffer = await pdfReceiptService.generateReceipt(deal, transaction, user);
+        const pdfFilename = pdfReceiptService.generateFilename(deal, user, transaction);
+        attachments = [{
+          filename: pdfFilename,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }];
+      } catch (pdfError) {
+        console.error('📧 Error generating PDF, sending without attachment:', pdfError.message);
+      }
+
       await this.transporter.sendMail({
         from: `"KeyShield" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
         to,
         subject,
         text,
-        html
+        html,
+        attachments
       });
 
-      console.log(`📧 Receipt sent to ${to} for deal ${deal.dealId}`);
+      console.log(`📧 Receipt sent to ${to} for deal ${deal.dealId} (with PDF: ${attachments.length > 0})`);
       return true;
     } catch (error) {
       console.error('📧 Error sending receipt:', error.message);
@@ -92,7 +110,7 @@ class EmailService {
   }
 
   /**
-   * Generate HTML receipt
+   * Generate HTML receipt (matching admin PDF style)
    */
   generateReceiptHTML(deal, transaction) {
     const { type, amount, txHash, toAddress } = transaction;
@@ -100,200 +118,135 @@ class EmailService {
     const isPurchase = type === 'purchase';
     const date = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
 
-    // Determine status text and colors
-    let statusIcon, statusText, amountLabel, statusColor;
+    // Generate statement number
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const statementNumber = `${dateStr}-${random}`;
+
+    // Determine status text and colors (matching admin PDF)
+    let typeText, statusText, amountLabel, statusColor;
     if (isRefund) {
-      statusIcon = '↩️';
+      typeText = 'ЧЕК ВОЗВРАТА';
       statusText = 'Возврат выполнен';
       amountLabel = 'Сумма возврата';
-      statusColor = '#f39c12';
+      statusColor = '#f59e0b';
     } else if (isPurchase) {
-      statusIcon = '🛒';
+      typeText = 'ЧЕК О ПОКУПКЕ';
       statusText = 'Покупка завершена';
       amountLabel = 'Сумма покупки';
-      statusColor = '#3498db';
+      statusColor = '#3b82f6';
     } else {
-      statusIcon = '✅';
-      statusText = 'Сделка завершена';
+      typeText = 'ЧЕК О ВЫПЛАТЕ';
+      statusText = 'Выплата получена';
       amountLabel = 'Сумма выплаты';
-      statusColor = '#27ae60';
+      statusColor = '#10b981';
     }
-
-    const gradientEnd = isPurchase ? '#2980b9' : (isRefund ? '#f1c40f' : '#2ecc71');
 
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-    .header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #ffffff;
-      padding: 30px;
-      text-align: center;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 600;
-    }
-    .header .subtitle {
-      color: #a0a0a0;
-      margin-top: 8px;
-      font-size: 14px;
-    }
-    .content {
-      padding: 30px;
-    }
-    .status {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .status-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-    .status-text {
-      font-size: 20px;
-      font-weight: 600;
-      color: ${statusColor};
-    }
-    .details {
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #e9ecef;
-    }
-    .detail-row:last-child {
-      border-bottom: none;
-    }
-    .detail-label {
-      color: #6c757d;
-      font-size: 14px;
-    }
-    .detail-value {
-      font-weight: 500;
-      color: #212529;
-      font-size: 14px;
-      text-align: right;
-      word-break: break-all;
-    }
-    .amount-row {
-      background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-      color: white;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .amount-label {
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    .amount-value {
-      font-size: 32px;
-      font-weight: 700;
-      margin-top: 5px;
-    }
-    .tx-link {
-      display: block;
-      text-align: center;
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 15px;
-      color: #0066cc;
-      text-decoration: none;
-      font-size: 14px;
-      margin-bottom: 20px;
-    }
-    .tx-link:hover {
-      background: #e9ecef;
-    }
-    .footer {
-      background: #f8f9fa;
-      padding: 20px 30px;
-      text-align: center;
-      color: #6c757d;
-      font-size: 12px;
-    }
-    .footer a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>KeyShield</h1>
-      <div class="subtitle">Безопасные сделки с криптовалютой</div>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+
+    <!-- Top accent bar -->
+    <div style="height: 6px; background: #6366f1;"></div>
+
+    <!-- Header -->
+    <div style="padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 32px; color: #6366f1; font-weight: 600;">KeyShield</h1>
+      <p style="margin: 8px 0 0; color: #64748b; font-size: 14px;">Безопасные сделки с криптовалютой</p>
     </div>
 
-    <div class="content">
-      <div class="status">
-        <div class="status-icon">${statusIcon}</div>
-        <div class="status-text">${statusText}</div>
-      </div>
+    <!-- Statement box -->
+    <div style="margin: 0 30px 20px; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center;">
+      <p style="margin: 0 0 5px; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">${typeText}</p>
+      <p style="margin: 0; color: #1e293b; font-size: 20px; font-weight: 600;">№${statementNumber}</p>
+    </div>
 
-      <div class="amount-row" style="background: linear-gradient(135deg, ${statusColor} 0%, ${gradientEnd} 100%);">
-        <div class="amount-label">${amountLabel}</div>
-        <div class="amount-value">${amount.toFixed(2)} ${deal.asset}</div>
-      </div>
+    <!-- Status -->
+    <div style="text-align: center; margin-bottom: 20px;">
+      <p style="margin: 0; font-size: 22px; font-weight: 600; color: ${statusColor};">${statusText}</p>
+    </div>
 
-      <div class="details">
-        <div class="detail-row">
-          <span class="detail-label">ID сделки</span>
-          <span class="detail-value">${deal.dealId}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Товар/услуга</span>
-          <span class="detail-value">${deal.productName}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Комиссия сервиса</span>
-          <span class="detail-value">${deal.commission.toFixed(2)} ${deal.asset}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Адрес получателя</span>
-          <span class="detail-value" style="font-size: 12px;">${toAddress}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Дата</span>
-          <span class="detail-value">${date}</span>
-        </div>
-      </div>
+    <!-- Amount box -->
+    <div style="margin: 0 30px 25px; padding: 20px; background: ${statusColor}; border-radius: 8px; text-align: center;">
+      <p style="margin: 0 0 5px; color: rgba(255,255,255,0.9); font-size: 13px;">${amountLabel}</p>
+      <p style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">${amount.toFixed(2)} ${deal.asset}</p>
+    </div>
 
-      <a href="https://tronscan.org/#/transaction/${txHash}" class="tx-link">
-        🔗 Посмотреть транзакцию в блокчейне
+    <!-- Deal info section -->
+    <div style="margin: 0 30px 20px;">
+      <div style="background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0;">
+        <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">ИНФОРМАЦИЯ О СДЕЛКЕ</p>
+      </div>
+      <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; padding: 15px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px;">ID сделки</td>
+            <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; font-weight: 500;">${deal.dealId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Товар/услуга</td>
+            <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${deal.productName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Сумма сделки</td>
+            <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${deal.amount.toFixed(2)} ${deal.asset}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Комиссия сервиса</td>
+            <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${deal.commission.toFixed(2)} ${deal.asset}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Transaction section -->
+    <div style="margin: 0 30px 20px;">
+      <div style="background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0;">
+        <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">ТРАНЗАКЦИЯ</p>
+      </div>
+      <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; padding: 15px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px;">Адрес получателя</td>
+            <td style="padding: 8px 0; color: #1e293b; font-size: 11px; text-align: right; word-break: break-all;">${toAddress}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Дата</td>
+            <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${date}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- TX Link -->
+    <div style="margin: 0 30px 25px; text-align: center;">
+      <a href="https://tronscan.org/#/transaction/${txHash}" style="display: inline-block; padding: 12px 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #6366f1; text-decoration: none; font-size: 13px;">
+        🔗 Проверить транзакцию на TronScan
       </a>
     </div>
 
-    <div class="footer">
-      <p>Это автоматическое уведомление от сервиса KeyShield.</p>
-      <p>Если у вас есть вопросы, свяжитесь с нами: <a href="mailto:support@keyshield.me">support@keyshield.me</a></p>
-      <p style="margin-top: 15px;">© ${new Date().getFullYear()} KeyShield. Все права защищены.</p>
+    <!-- PDF notice -->
+    <div style="margin: 0 30px 20px; padding: 15px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; text-align: center;">
+      <p style="margin: 0; color: #1e40af; font-size: 13px;">📎 PDF-выписка прикреплена к этому письму</p>
     </div>
+
+    <!-- Footer -->
+    <div style="background: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">Документ сформирован автоматически системой KeyShield</p>
+      <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">
+        Вопросы: <a href="mailto:support@keyshield.me" style="color: #6366f1; text-decoration: none;">support@keyshield.me</a>
+      </p>
+      <p style="margin: 0; color: #94a3b8; font-size: 11px;">© ${new Date().getFullYear()} KeyShield. Все права защищены.</p>
+    </div>
+
+    <!-- Bottom accent bar -->
+    <div style="height: 6px; background: #6366f1;"></div>
   </div>
 </body>
 </html>

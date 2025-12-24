@@ -47,7 +47,7 @@ async function showMyData(ctx) {
 
     if (!user) {
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'error', '❌ Пользователь не найден.', keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, '❌ Пользователь не найден.', keyboard);
       return;
     }
 
@@ -68,7 +68,7 @@ async function showMyData(ctx) {
         [Markup.button.callback('⬅️ Назад', 'main_menu')]
       ]);
 
-      await messageManager.updateScreen(ctx, telegramId, 'my_data', text, keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     } else {
       // No email saved
       const text = `👤 *Мои данные*
@@ -83,7 +83,7 @@ _Не указан_
         [Markup.button.callback('⬅️ Назад', 'main_menu')]
       ]);
 
-      await messageManager.updateScreen(ctx, telegramId, 'my_data', text, keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     }
   } catch (error) {
     console.error('Error in showMyData:', error);
@@ -112,7 +112,7 @@ async function handleAddEmail(ctx) {
       [Markup.button.callback('❌ Отмена', 'mydata_cancel')]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'mydata_email_input', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in handleAddEmail:', error);
   }
@@ -147,7 +147,7 @@ async function handleDeleteEmail(ctx) {
       ]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'mydata_delete_confirm', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in handleDeleteEmail:', error);
   }
@@ -171,7 +171,7 @@ async function handleConfirmDelete(ctx) {
 
 Сохранённый email был удалён.`;
 
-    await messageManager.updateScreen(ctx, telegramId, 'mydata_deleted', text, { inline_keyboard: [] });
+    await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
     // After 2 seconds, return to My Data
     setTimeout(async () => {
@@ -232,7 +232,7 @@ async function handleMyDataEmailInput(ctx) {
       [Markup.button.callback('❌ Отмена', 'mydata_cancel')]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'mydata_email_error', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return true;
   }
 
@@ -251,7 +251,7 @@ async function handleMyDataEmailInput(ctx) {
 
 Теперь чеки будут автоматически предлагаться на эту почту.`;
 
-  await messageManager.updateScreen(ctx, telegramId, 'mydata_email_saved', text, { inline_keyboard: [] });
+  await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
   // After 2 seconds, return to My Data
   setTimeout(async () => {

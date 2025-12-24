@@ -184,6 +184,20 @@ export const adminService = {
     return { blob: response.data, filename }
   },
 
+  // Download receipt PDF for a user in a deal (same format as email receipt)
+  downloadReceiptPdf: async (dealId: string, recipientType: 'buyer' | 'seller'): Promise<{ blob: Blob; filename: string }> => {
+    const response = await api.get(`/admin/receipt/${dealId}/${recipientType}`, {
+      responseType: 'blob',
+    })
+    const contentDisposition = response.headers['content-disposition']
+    let filename = `KeyShield_Receipt_${dealId}_${recipientType}.pdf`
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^";\n]+)"?/)
+      if (match) filename = match[1]
+    }
+    return { blob: response.data, filename }
+  },
+
   exportDealsReport: async (params: {
     startDate: string
     endDate: string

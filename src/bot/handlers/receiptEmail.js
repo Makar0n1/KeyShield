@@ -67,7 +67,7 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
   // If email service is not configured, skip to final message
   if (!emailService.isEnabled()) {
     const keyboard = mainMenuButton();
-    await messageManager.updateScreen(ctx, telegramId, 'payout_complete', finalMessage, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, finalMessage, keyboard);
     return;
   }
 
@@ -92,7 +92,7 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
       ]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'receipt_question', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } else {
     // No saved email - ask if user wants receipt
     const text = `📧 *Отправить чек на email?*
@@ -106,7 +106,7 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
       ]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'receipt_question', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   }
 }
 
@@ -121,7 +121,7 @@ async function handleReceiptSendSaved(ctx) {
     const session = await Session.getSession(telegramId, 'receipt_email');
     if (!session || !session.savedEmail) {
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'session_expired', '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
       return;
     }
 
@@ -130,19 +130,22 @@ async function handleReceiptSendSaved(ctx) {
 
 Отправляем чек на: ${session.savedEmail}`;
 
-    await messageManager.updateScreen(ctx, telegramId, 'receipt_sending', sendingText, { inline_keyboard: [] });
+    await messageManager.sendNewMessage(ctx, telegramId, sendingText, { inline_keyboard: [] });
 
     // Get deal for receipt
     const deal = await Deal.findOne({ dealId: session.dealId });
     if (!deal) {
       await clearReceiptSession(telegramId);
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, '❌ Сделка не найдена.', keyboard);
       return;
     }
 
+    // Get user for PDF generation
+    const user = await User.findOne({ telegramId }).select('username telegramId firstName');
+
     // Send receipt
-    const sent = await emailService.sendReceipt(session.savedEmail, deal, session.transactionData);
+    const sent = await emailService.sendReceipt(session.savedEmail, deal, session.transactionData, user);
 
     // Clear session
     await clearReceiptSession(telegramId);
@@ -156,7 +159,7 @@ async function handleReceiptSendSaved(ctx) {
 ${session.finalMessage}`;
 
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'payout_complete', successText, keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, successText, keyboard);
     } else {
       const failedText = `⚠️ *Не удалось отправить чек*
 
@@ -165,7 +168,7 @@ ${session.finalMessage}`;
 ${session.finalMessage}`;
 
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'payout_complete', failedText, keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, failedText, keyboard);
     }
   } catch (error) {
     console.error('Error in handleReceiptSendSaved:', error);
@@ -183,7 +186,7 @@ async function handleReceiptYes(ctx) {
     const session = await Session.getSession(telegramId, 'receipt_email');
     if (!session) {
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'session_expired', '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
       return;
     }
 
@@ -199,7 +202,7 @@ async function handleReceiptYes(ctx) {
       [Markup.button.callback('❌ Отмена', `receipt_cancel:${session.dealId}`)]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'receipt_email_input', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in handleReceiptYes:', error);
   }
@@ -216,7 +219,7 @@ async function handleReceiptNo(ctx) {
     const session = await Session.getSession(telegramId, 'receipt_email');
     if (!session) {
       const keyboard = mainMenuButton();
-      await messageManager.updateScreen(ctx, telegramId, 'session_expired', '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
       return;
     }
 
@@ -224,7 +227,7 @@ async function handleReceiptNo(ctx) {
     await clearReceiptSession(telegramId);
 
     const keyboard = mainMenuButton();
-    await messageManager.updateScreen(ctx, telegramId, 'payout_complete', session.finalMessage, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, session.finalMessage, keyboard);
   } catch (error) {
     console.error('Error in handleReceiptNo:', error);
   }
@@ -262,7 +265,7 @@ async function handleEmailInput(ctx) {
       [Markup.button.callback('❌ Отмена', `receipt_cancel:${session.dealId}`)]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'receipt_email_error', text, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return true;
   }
 
@@ -271,19 +274,22 @@ async function handleEmailInput(ctx) {
 
 Отправляем чек на: ${email}`;
 
-  await messageManager.updateScreen(ctx, telegramId, 'receipt_sending', sendingText, { inline_keyboard: [] });
+  await messageManager.sendNewMessage(ctx, telegramId, sendingText, { inline_keyboard: [] });
 
   // Get deal for receipt
   const deal = await Deal.findOne({ dealId: session.dealId });
   if (!deal) {
     await clearReceiptSession(telegramId);
     const keyboard = mainMenuButton();
-    await messageManager.updateScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, '❌ Сделка не найдена.', keyboard);
     return true;
   }
 
+  // Get user for PDF generation
+  const user = await User.findOne({ telegramId }).select('username telegramId firstName');
+
   // Send receipt
-  const sent = await emailService.sendReceipt(email, deal, session.transactionData);
+  const sent = await emailService.sendReceipt(email, deal, session.transactionData, user);
 
   // Clear session
   await clearReceiptSession(telegramId);
@@ -302,7 +308,7 @@ ${session.finalMessage}`;
       [Markup.button.callback('🏠 Главное меню', 'main_menu')]
     ]);
 
-    await messageManager.updateScreen(ctx, telegramId, 'payout_complete_save', successText, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, successText, keyboard);
   } else {
     const failedText = `⚠️ *Не удалось отправить чек*
 
@@ -311,7 +317,7 @@ ${session.finalMessage}`;
 ${session.finalMessage}`;
 
     const keyboard = mainMenuButton();
-    await messageManager.updateScreen(ctx, telegramId, 'payout_complete', failedText, keyboard);
+    await messageManager.sendNewMessage(ctx, telegramId, failedText, keyboard);
   }
 
   return true;
@@ -346,13 +352,13 @@ async function handleSaveEmail(ctx) {
 
 Теперь чеки будут автоматически предлагаться на эту почту.`;
 
-    await messageManager.updateScreen(ctx, telegramId, 'email_saved', text, { inline_keyboard: [] });
+    await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
     // After 2 seconds, return to main menu
     setTimeout(async () => {
       try {
         const keyboard = mainMenuButton();
-        await messageManager.updateScreen(ctx, telegramId, 'main_menu_return', '🏠 *Главное меню*\n\nВыберите действие:', keyboard);
+        await messageManager.sendNewMessage(ctx, telegramId, '🏠 *Главное меню*\n\nВыберите действие:', keyboard);
       } catch (e) {
         // Message might have been changed
       }

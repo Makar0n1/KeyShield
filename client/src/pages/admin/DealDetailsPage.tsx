@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Receipt,
 } from 'lucide-react'
 
 const statusLabels: Record<DealStatus, string> = {
@@ -146,6 +147,22 @@ export function AdminDealDetailsPage() {
     }
   }
 
+  const handleDownloadReceipt = async (recipientType: 'buyer' | 'seller') => {
+    if (!deal) return
+    try {
+      const { blob, filename } = await adminService.downloadReceiptPdf(deal._id, recipientType)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Receipt download error:', err)
+      alert('Ошибка скачивания чека.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -241,7 +258,7 @@ export function AdminDealDetailsPage() {
           <dl className="space-y-4">
             <div>
               <dt className="text-muted text-sm">Покупатель (ID)</dt>
-              <dd className="flex items-center gap-2">
+              <dd className="flex items-center gap-2 flex-wrap">
                 <span className="text-white font-mono">{deal.buyerId}</span>
                 <Link
                   to={`/admin/users/${deal.buyerId}`}
@@ -249,11 +266,19 @@ export function AdminDealDetailsPage() {
                 >
                   Профиль →
                 </Link>
+                <button
+                  onClick={() => handleDownloadReceipt('buyer')}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded transition-colors"
+                  title="Скачать чек покупателя"
+                >
+                  <Receipt size={12} />
+                  Чек
+                </button>
               </dd>
             </div>
             <div>
               <dt className="text-muted text-sm">Продавец (ID)</dt>
-              <dd className="flex items-center gap-2">
+              <dd className="flex items-center gap-2 flex-wrap">
                 <span className="text-white font-mono">{deal.sellerId}</span>
                 <Link
                   to={`/admin/users/${deal.sellerId}`}
@@ -261,6 +286,14 @@ export function AdminDealDetailsPage() {
                 >
                   Профиль →
                 </Link>
+                <button
+                  onClick={() => handleDownloadReceipt('seller')}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-green-600/20 text-green-400 hover:bg-green-600/30 rounded transition-colors"
+                  title="Скачать чек продавца"
+                >
+                  <Receipt size={12} />
+                  Чек
+                </button>
               </dd>
             </div>
             <div>
