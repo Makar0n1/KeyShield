@@ -92,6 +92,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Saved email for transaction receipts
+  email: {
+    type: String,
+    default: null
+  },
   // Last activity timestamp for cleanup
   lastActivity: {
     type: Date,

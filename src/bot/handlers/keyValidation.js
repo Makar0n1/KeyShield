@@ -20,6 +20,7 @@ const feesaverService = require('../../services/feesaver');
 const adminAlertService = require('../../services/adminAlertService');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton, backButton } = require('../keyboards/main');
+const { showReceiptQuestion, sendReceiptNotification } = require('./receiptEmail');
 
 /**
  * Check if user has active key validation session
@@ -348,7 +349,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // Save operational costs
     await saveOperationalCosts(deal, energyMethod, totalFeesaverCost, trxReturned, 'seller_payout');
 
-    // Notify seller (success)
+    // Notify seller (success) - with receipt option
     const sellerText = `✅ *Средства получены!*
 
 🆔 Сделка: \`${deal.dealId}\`
@@ -359,23 +360,42 @@ async function processSellerPayout(ctx, deal, buyerId) {
 
 [Транзакция](https://tronscan.org/#/transaction/${releaseResult.txHash})`;
 
-    const keyboard = mainMenuButton();
-    // Update the "Processing..." message to show success (EDIT, not new message)
-    await messageManager.updateScreen(ctx, telegramId, 'payout_complete', sellerText, keyboard);
+    // Transaction data for email receipt
+    const transactionData = {
+      type: 'release',
+      amount: releaseAmount,
+      txHash: releaseResult.txHash,
+      toAddress: deal.sellerAddress
+    };
 
-    // Notify buyer
+    // Show receipt question instead of direct final message
+    await showReceiptQuestion(ctx, telegramId, deal, transactionData, sellerText);
+
+    // Notify buyer with receipt option
     if (buyerId) {
       const buyerText = `✅ *Сделка завершена!*
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${deal.productName}
 
+💸 Сумма покупки: *${deal.amount.toFixed(2)} ${deal.asset}*
+📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
+
 Продавец подтвердил получение средств.
 Сделка успешно завершена!
 
 [Транзакция](https://tronscan.org/#/transaction/${releaseResult.txHash})`;
 
-      await messageManager.showNotification(ctx, buyerId, buyerText, keyboard);
+      // Transaction data for buyer's receipt
+      const buyerTransactionData = {
+        type: 'purchase',
+        amount: deal.amount,
+        txHash: releaseResult.txHash,
+        toAddress: deal.sellerAddress
+      };
+
+      // Send receipt notification to buyer
+      await sendReceiptNotification(ctx, buyerId, deal, buyerTransactionData, buyerText);
     }
 
     // Audit log
@@ -618,7 +638,7 @@ async function processBuyerRefund(ctx, deal) {
     // Save operational costs
     await saveOperationalCosts(deal, energyMethod, totalFeesaverCost, trxReturned, 'buyer_refund');
 
-    // Notify buyer (success)
+    // Notify buyer (success) - with receipt option
     const buyerText = `✅ *Возврат выполнен!*
 
 🆔 Сделка: \`${deal.dealId}\`
@@ -629,9 +649,16 @@ async function processBuyerRefund(ctx, deal) {
 
 [Транзакция](https://tronscan.org/#/transaction/${refundResult.txHash})`;
 
-    const keyboard = mainMenuButton();
-    // Update the "Processing..." message to show success (EDIT, not new message)
-    await messageManager.updateScreen(ctx, telegramId, 'refund_complete', buyerText, keyboard);
+    // Transaction data for email receipt
+    const transactionData = {
+      type: 'refund',
+      amount: refundAmount,
+      txHash: refundResult.txHash,
+      toAddress: deal.buyerAddress
+    };
+
+    // Show receipt question instead of direct final message
+    await showReceiptQuestion(ctx, telegramId, deal, transactionData, buyerText);
 
     // Notify seller
     const sellerText = `⚠️ *Сделка завершена возвратом*
@@ -883,7 +910,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     // Save operational costs
     await saveOperationalCosts(deal, energyMethod, totalFeesaverCost, trxReturned, 'dispute_payout');
 
-    // Notify winner
+    // Notify winner - with receipt option
     const winnerText = `✅ *Средства получены!*
 
 🆔 Сделка: \`${deal.dealId}\`
@@ -894,9 +921,16 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 
 [Транзакция](https://tronscan.org/#/transaction/${payoutResult.txHash})`;
 
-    const keyboard = mainMenuButton();
-    // Update the "Processing..." message to show success (EDIT, not new message)
-    await messageManager.updateScreen(ctx, winnerId, 'dispute_payout_complete', winnerText, keyboard);
+    // Transaction data for email receipt
+    const transactionData = {
+      type: winnerRole === 'buyer' ? 'refund' : 'release',
+      amount: payoutAmount,
+      txHash: payoutResult.txHash,
+      toAddress: winnerAddress
+    };
+
+    // Show receipt question instead of direct final message
+    await showReceiptQuestion(ctx, winnerId, deal, transactionData, winnerText);
 
     // Audit log
     await AuditLog.create({

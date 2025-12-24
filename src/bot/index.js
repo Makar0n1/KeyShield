@@ -68,6 +68,27 @@ const {
   handleKeyValidationInput,
   clearKeyValidationSession
 } = require('./handlers/keyValidation');
+const {
+  hasReceiptSession,
+  clearReceiptSession,
+  handleReceiptSendSaved,
+  handleReceiptYes,
+  handleReceiptNo,
+  handleReceiptCancel,
+  handleEmailInput,
+  handleSaveEmail
+} = require('./handlers/receiptEmail');
+const {
+  hasMyDataSession,
+  clearMyDataSession,
+  showMyData,
+  handleAddEmail,
+  handleChangeEmail,
+  handleDeleteEmail,
+  handleConfirmDelete,
+  handleCancel: handleMyDataCancel,
+  handleMyDataEmailInput
+} = require('./handlers/myData');
 
 // Initialize bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -116,6 +137,8 @@ bot.command('cancel', async (ctx) => {
   await clearCreateDealSession(telegramId);
   await clearDisputeSession(telegramId);
   await clearKeyValidationSession(telegramId);
+  await clearReceiptSession(telegramId);
+  await clearMyDataSession(telegramId);
 
   // Show main menu
   await mainMenuHandler(ctx);
@@ -226,6 +249,21 @@ bot.action('how_it_works', howItWorks);
 bot.action('rules', rulesAndFees);
 bot.action('support', support);
 
+// Email receipt handlers
+bot.action(/^receipt_send_saved:/, handleReceiptSendSaved);
+bot.action(/^receipt_yes:/, handleReceiptYes);
+bot.action(/^receipt_no:/, handleReceiptNo);
+bot.action(/^receipt_cancel:/, handleReceiptCancel);
+bot.action(/^save_email:/, handleSaveEmail);
+
+// My Data handlers
+bot.action('my_data', showMyData);
+bot.action('mydata_add_email', handleAddEmail);
+bot.action('mydata_change_email', handleChangeEmail);
+bot.action('mydata_delete_email', handleDeleteEmail);
+bot.action('mydata_confirm_delete', handleConfirmDelete);
+bot.action('mydata_cancel', handleMyDataCancel);
+
 // Blog notification back button (uses goBack - delete + send pattern)
 bot.action('blog_notification_back', async (ctx) => {
   try {
@@ -260,6 +298,18 @@ bot.on('text', async (ctx) => {
   if (await hasKeyValidationSession(telegramId)) {
     await handleKeyValidationInput(ctx);
     return;
+  }
+
+  // Handle email receipt input
+  if (await hasReceiptSession(telegramId)) {
+    const handled = await handleEmailInput(ctx);
+    if (handled) return;
+  }
+
+  // Handle my data email input
+  if (await hasMyDataSession(telegramId)) {
+    const handled = await handleMyDataEmailInput(ctx);
+    if (handled) return;
   }
 
   // Handle wallet input (both seller and buyer)
