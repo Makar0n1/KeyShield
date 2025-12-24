@@ -1645,10 +1645,10 @@ app.get('/api/admin/receipt/:dealId/:recipientType', adminAuth, async (req, res)
       toAddress
     };
 
-    // Use pdfReceiptService to generate PDF
-    const path = await import('path');
-    const pdfReceiptServicePath = path.join(__dirname, '../src/services/pdfReceiptService.js');
-    const pdfReceiptService = require(pdfReceiptServicePath);
+    // Use pdfReceiptService to generate PDF (CommonJS module)
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const pdfReceiptService = require('../src/services/pdfReceiptService.js');
 
     const pdfBuffer = await pdfReceiptService.generateReceipt(deal, transaction, user);
     const filename = pdfReceiptService.generateFilename(deal, user, transaction);
