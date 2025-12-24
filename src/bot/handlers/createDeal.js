@@ -13,7 +13,8 @@ const {
   backButton,
   mainMenuButton,
   newDealNotificationKeyboard,
-  walletVerificationErrorKeyboard
+  walletVerificationErrorKeyboard,
+  usernameRequiredKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
@@ -65,6 +66,32 @@ const startCreateDeal = async (ctx) => {
       const keyboard = mainMenuButton();
       await messageManager.navigateToScreen(ctx, telegramId, 'banned', text, keyboard);
       return;
+    }
+
+    // Check if user has username
+    const currentUsername = ctx.from.username;
+    if (!currentUsername) {
+      const text = `⚠️ *Необходим username*
+
+Для создания сделок необходимо установить публичный username (ник) в настройках Telegram.
+
+📱 *Как установить username:*
+1. Откройте настройки Telegram
+2. Нажмите на своё имя
+3. Выберите "Имя пользователя"
+4. Придумайте и сохраните username
+
+После установки нажмите кнопку "Ник установлен".`;
+
+      const keyboard = usernameRequiredKeyboard();
+      await messageManager.navigateToScreen(ctx, telegramId, 'username_required', text, keyboard);
+      return;
+    }
+
+    // Update username in DB if changed
+    if (user && user.username !== currentUsername) {
+      user.username = currentUsername;
+      await user.save();
     }
 
     // Check if user has a deal pending key validation
@@ -1324,6 +1351,65 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 };
 
+// ============================================
+// USERNAME CHECK HANDLER
+// ============================================
+
+/**
+ * Handle "Ник установлен" button press
+ * Checks if user now has username, updates DB, proceeds to deal creation
+ */
+const handleUsernameSet = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+    const currentUsername = ctx.from.username;
+
+    if (!currentUsername) {
+      // Username still not set - show error for 2 seconds
+      const errorText = `❌ *Ник не найден*
+
+Система по-прежнему не видит ваш username.
+
+Убедитесь, что вы сохранили username в настройках Telegram и попробуйте снова.`;
+
+      await messageManager.updateScreen(ctx, telegramId, 'username_error', errorText, {});
+
+      // Wait 2 seconds and show the warning again
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const warningText = `⚠️ *Необходим username*
+
+Для создания сделок необходимо установить публичный username (ник) в настройках Telegram.
+
+📱 *Как установить username:*
+1. Откройте настройки Telegram
+2. Нажмите на своё имя
+3. Выберите "Имя пользователя"
+4. Придумайте и сохраните username
+
+После установки нажмите кнопку "Ник установлен".`;
+
+      const keyboard = usernameRequiredKeyboard();
+      await messageManager.updateScreen(ctx, telegramId, 'username_required', warningText, keyboard);
+      return;
+    }
+
+    // Username exists - update in DB
+    await User.updateOne(
+      { telegramId },
+      { $set: { username: currentUsername } }
+    );
+
+    console.log(`✅ Username updated for user ${telegramId}: @${currentUsername}`);
+
+    // Proceed to deal creation (call startCreateDeal which will now pass the check)
+    await startCreateDeal(ctx);
+  } catch (error) {
+    console.error('Error in handleUsernameSet:', error);
+  }
+};
+
 module.exports = {
   startCreateDeal,
   handleCreateDealInput,
@@ -1337,5 +1423,6 @@ module.exports = {
   hasCreateDealSession,
   clearCreateDealSession: deleteCreateDealSession,
   handleWalletContinueAnyway,
-  handleWalletChangeAddress
+  handleWalletChangeAddress,
+  handleUsernameSet
 };

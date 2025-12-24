@@ -82,6 +82,16 @@ const helpSectionKeyboard = () => {
 // ============================================
 
 /**
+ * Username required keyboard (when user has no username)
+ */
+const usernameRequiredKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('✅ Ник установлен', 'username_set')],
+    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+  ]);
+};
+
+/**
  * Role selection keyboard
  */
 const roleSelectionKeyboard = () => {
@@ -461,6 +471,7 @@ module.exports = {
   backAndMainMenu,
 
   // Deal creation
+  usernameRequiredKeyboard,
   roleSelectionKeyboard,
   assetSelectionKeyboard,
   commissionTypeKeyboard,

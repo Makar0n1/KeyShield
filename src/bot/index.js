@@ -13,6 +13,7 @@ const messageManager = require('./utils/messageManager');
 // Middleware for high-load optimization
 const { deduplicationMiddleware } = require('./middleware/deduplication');
 const { loadingTimeoutMiddleware } = require('./middleware/loadingTimeout');
+const { usernameSyncMiddleware } = require('./middleware/usernameSync');
 
 // Handlers
 const { startHandler, mainMenuHandler, backHandler, MAIN_MENU_TEXT } = require('./handlers/start');
@@ -29,7 +30,8 @@ const {
   hasCreateDealSession,
   clearCreateDealSession,
   handleWalletContinueAnyway,
-  handleWalletChangeAddress
+  handleWalletChangeAddress,
+  handleUsernameSet
 } = require('./handlers/createDeal');
 const {
   showMyDeals,
@@ -79,11 +81,15 @@ bot.catch((err, ctx) => {
 // MIDDLEWARE FOR HIGH-LOAD OPTIMIZATION
 // ============================================
 
-// 1. Callback deduplication - prevents double-tap issues
+// 1. Username sync - keeps username up-to-date on every interaction
+// Critical for arbitration and finding users by @username
+bot.use(usernameSyncMiddleware);
+
+// 2. Callback deduplication - prevents double-tap issues
 // User clicks button twice quickly → only first click is processed
 bot.use(deduplicationMiddleware);
 
-// 2. Loading timeout - shows "Loading..." if response takes > 2 seconds
+// 3. Loading timeout - shows "Loading..." if response takes > 2 seconds
 // Prevents users from seeing a "hanging" state during high load
 bot.use(loadingTimeoutMiddleware);
 
@@ -137,6 +143,7 @@ bot.action('back', async (ctx) => {
 
 // Create deal flow
 bot.action('create_deal', startCreateDeal);
+bot.action('username_set', handleUsernameSet);
 bot.action(/^role:/, handleRoleSelection);
 bot.action(/^asset:/, handleAssetSelection);
 bot.action(/^deadline:/, handleDeadlineSelection);
