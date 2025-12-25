@@ -555,8 +555,10 @@ const saveWalletPromptKeyboard = () => {
  */
 const walletNameInputKeyboard = () => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('➡️ Пропустить', 'mydata_wallet_name:skip')],
-    [Markup.button.callback('⬅️ Назад', 'mydata_wallet_name:back')]
+    [
+      Markup.button.callback('⬅️ Назад', 'mydata_wallet_name:back'),
+      Markup.button.callback('➡️ Пропустить', 'mydata_wallet_name:skip')
+    ]
   ]);
 };
 
@@ -565,8 +567,10 @@ const walletNameInputKeyboard = () => {
  */
 const walletNameInputDealKeyboard = () => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('➡️ Пропустить', 'deal_wallet_name:skip')],
-    [Markup.button.callback('⬅️ Назад', 'deal_wallet_name:back')]
+    [
+      Markup.button.callback('⬅️ Назад', 'deal_wallet_name:back'),
+      Markup.button.callback('➡️ Пропустить', 'deal_wallet_name:skip')
+    ]
   ]);
 };
 
