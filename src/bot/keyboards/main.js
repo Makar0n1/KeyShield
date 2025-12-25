@@ -476,18 +476,17 @@ const myDataMenuKeyboard = (hasEmail, walletsCount) => {
 };
 
 /**
- * Wallets list keyboard with delete buttons
+ * Wallets list keyboard (delete is on wallet details screen)
  */
 const walletsListKeyboard = (wallets) => {
   const buttons = [];
 
-  // List each wallet with delete button
+  // List each wallet
   wallets.forEach((wallet, index) => {
     const displayName = wallet.name || `Кошелёк ${index + 1}`;
     const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
     buttons.push([
-      Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `wallet:view:${index}`),
-      Markup.button.callback('🗑️', `wallet:delete:${index}`)
+      Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `wallet:view:${index}`)
     ]);
   });
 
