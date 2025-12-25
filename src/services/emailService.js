@@ -24,6 +24,15 @@ class EmailService {
   init() {
     if (this.initialized) return;
 
+    // Debug: log all email env vars
+    console.log('📧 Email service init - checking env vars:');
+    console.log(`   EMAIL_HOST: ${process.env.EMAIL_HOST || 'NOT SET'}`);
+    console.log(`   EMAIL_PORT: ${process.env.EMAIL_PORT || 'NOT SET'}`);
+    console.log(`   EMAIL_SECURE: ${process.env.EMAIL_SECURE || 'NOT SET'}`);
+    console.log(`   EMAIL_USER: ${process.env.EMAIL_USER || 'NOT SET'}`);
+    console.log(`   EMAIL_PASS: ${process.env.EMAIL_PASS || 'NOT SET'}`);
+    console.log(`   EMAIL_FROM: ${process.env.EMAIL_FROM || 'NOT SET'}`);
+
     // Check if email is configured
     if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.log('📧 Email service not configured (EMAIL_HOST, EMAIL_USER, EMAIL_PASS required)');
@@ -41,7 +50,7 @@ class EmailService {
     });
 
     this.initialized = true;
-    console.log('📧 Email service initialized');
+    console.log('📧 Email service initialized successfully!');
   }
 
   /**

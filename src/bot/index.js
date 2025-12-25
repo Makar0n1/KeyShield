@@ -8,6 +8,7 @@ const disputeService = require('../services/disputeService');
 const notificationService = require('../services/notificationService');
 const blogNotificationService = require('../services/blogNotificationService');
 const adminAlertService = require('../services/adminAlertService');
+const emailService = require('../services/emailService');
 const messageManager = require('./utils/messageManager');
 
 // Middleware for high-load optimization
@@ -377,6 +378,9 @@ const startBot = async () => {
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
     adminAlertService.setBotInstance(bot);
+
+    // Initialize email service at startup
+    emailService.init();
 
     // Start bot
     await bot.launch();
