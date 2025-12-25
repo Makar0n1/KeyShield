@@ -14,7 +14,10 @@ const {
   mainMenuButton,
   newDealNotificationKeyboard,
   walletVerificationErrorKeyboard,
-  usernameRequiredKeyboard
+  usernameRequiredKeyboard,
+  walletSelectionKeyboard,
+  saveWalletPromptKeyboard,
+  walletNameInputDealKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
@@ -259,6 +262,10 @@ const handleCreateDealInput = async (ctx) => {
 
       case 'creator_wallet':
         await handleCreatorWallet(ctx, session, text);
+        break;
+
+      case 'wallet_name':
+        await handleWalletNameDeal(ctx, session, text);
         break;
 
       default:
@@ -662,19 +669,77 @@ const handleCreatorWallet = async (ctx, session, inputText) => {
       return;
     }
 
-    // Wallet valid - show success for 3 seconds
+    // Wallet valid - show success
     const successText = `✅ *Кошелёк проверен!*
 
-Адрес: \`${address}\`
-
-Переходим к подтверждению...`;
+Адрес: \`${address}\``;
 
     await User.updateOne({ telegramId }, { currentScreen: 'wallet_verified' });
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, {});
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
   }
 
-  // Proceed to confirmation (for both buyer and seller)
+  // Check if user can save wallet and if it's not already saved
+  const user = await User.findOne({ telegramId }).select('wallets');
+  const wallets = user?.wallets || [];
+  const alreadySaved = wallets.some(w => w.address.toLowerCase() === address.toLowerCase());
+
+  if (!alreadySaved && wallets.length < 5) {
+    // Offer to save the wallet
+    session.step = 'save_wallet_prompt';
+    await setCreateDealSession(telegramId, session);
+
+    const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+
+    const promptText = `✅ *Кошелёк проверен!*
+
+📍 \`${shortAddr}\`
+
+Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
+
+    const keyboard = saveWalletPromptKeyboard();
+    await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', promptText, keyboard);
+    return;
+  }
+
+  // Wallet already saved or limit reached - proceed to confirmation
+  session.step = 'confirm';
+  await setCreateDealSession(telegramId, session);
+
+  await showDealConfirmation(ctx, telegramId, session.data);
+};
+
+/**
+ * Handle wallet name input during deal creation
+ */
+const handleWalletNameDeal = async (ctx, session, walletName) => {
+  const telegramId = ctx.from.id;
+
+  // Delete user message
+  await messageManager.deleteUserMessage(ctx);
+
+  // Validate name length
+  if (walletName.length > 30) {
+    const text = `❌ *Слишком длинное название*
+
+Максимум 30 символов. Попробуйте короче:`;
+
+    const keyboard = walletNameInputDealKeyboard();
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_name_input', text, keyboard);
+    return;
+  }
+
+  // Save wallet with name
+  const address = session.data.creatorRole === 'buyer'
+    ? session.data.buyerAddress
+    : session.data.sellerAddress;
+
+  const user = await User.findOne({ telegramId });
+  if (user && user.canAddWallet()) {
+    await user.addWallet(address, walletName);
+  }
+
+  // Proceed to confirmation
   session.step = 'confirm';
   await setCreateDealSession(telegramId, session);
 
@@ -847,15 +912,40 @@ const handleDeadlineSelection = async (ctx) => {
 
     const hours = parseInt(ctx.callbackQuery.data.split(':')[1]);
     session.data.deadlineHours = hours;
-    session.step = 'creator_wallet';
-    await setCreateDealSession(telegramId, session);
 
-    const creatorRole = session.data.creatorRole;
-    const walletPurpose = creatorRole === 'buyer'
-      ? 'для возврата средств при отмене/споре'
-      : 'для получения оплаты';
+    // Check if user has saved wallets
+    const user = await User.findOne({ telegramId }).select('wallets');
+    const savedWallets = user?.wallets || [];
 
-    const text = `📝 *Создание сделки*
+    if (savedWallets.length > 0) {
+      // User has saved wallets - show selection screen
+      session.step = 'select_wallet';
+      await setCreateDealSession(telegramId, session);
+
+      const creatorRole = session.data.creatorRole;
+      const walletPurpose = creatorRole === 'buyer'
+        ? 'для возврата средств при отмене/споре'
+        : 'для получения оплаты';
+
+      const text = `📝 *Создание сделки*
+
+*Шаг 9 из 9: Ваш кошелёк*
+
+Выберите кошелёк ${walletPurpose}:`;
+
+      const keyboard = walletSelectionKeyboard(savedWallets, true);
+      await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_select_wallet', text, keyboard);
+    } else {
+      // No saved wallets - go directly to wallet input
+      session.step = 'creator_wallet';
+      await setCreateDealSession(telegramId, session);
+
+      const creatorRole = session.data.creatorRole;
+      const walletPurpose = creatorRole === 'buyer'
+        ? 'для возврата средств при отмене/споре'
+        : 'для получения оплаты';
+
+      const text = `📝 *Создание сделки*
 
 *Шаг 9 из 9: Ваш кошелёк*
 
@@ -865,8 +955,9 @@ const handleDeadlineSelection = async (ctx) => {
 
 Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
 
-    const keyboard = backButton();
-    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', text, keyboard);
+      const keyboard = backButton();
+      await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', text, keyboard);
+    }
   } catch (error) {
     console.error('Error handling deadline selection:', error);
   }
@@ -1410,6 +1501,257 @@ const handleUsernameSet = async (ctx) => {
   }
 };
 
+// ============================================
+// WALLET SELECTION HANDLERS
+// ============================================
+
+/**
+ * Handle saved wallet selection during deal creation
+ */
+const handleSelectSavedWallet = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[1]);
+
+    const session = await getCreateDealSession(telegramId);
+    if (!session || session.step !== 'select_wallet') return;
+
+    const user = await User.findOne({ telegramId }).select('wallets');
+    if (!user || !user.wallets[walletIndex]) {
+      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      return;
+    }
+
+    const wallet = user.wallets[walletIndex];
+    const address = wallet.address;
+    const creatorRole = session.data.creatorRole;
+
+    // For saved wallets - skip validation, proceed to confirmation
+    // Show loading briefly
+    const loadingText = `⏳ *Подготовка...*
+
+Выбран кошелёк: \`${address.slice(0, 6)}...${address.slice(-4)}\``;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_loading', loadingText, {});
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Save wallet to session and proceed
+    if (creatorRole === 'buyer') {
+      session.data.buyerAddress = address;
+    } else {
+      session.data.sellerAddress = address;
+    }
+    session.data.usedSavedWallet = true; // Mark that saved wallet was used (no need to offer saving)
+    session.step = 'confirm';
+    await setCreateDealSession(telegramId, session);
+
+    // Show confirmation screen
+    await showConfirmationScreen(ctx, telegramId, session);
+  } catch (error) {
+    console.error('Error in handleSelectSavedWallet:', error);
+  }
+};
+
+/**
+ * Handle "Enter new wallet" button during deal creation
+ */
+const handleEnterNewWallet = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const session = await getCreateDealSession(telegramId);
+
+    if (!session) return;
+
+    session.step = 'creator_wallet';
+    await setCreateDealSession(telegramId, session);
+
+    const creatorRole = session.data.creatorRole;
+    const walletPurpose = creatorRole === 'buyer'
+      ? 'для возврата средств при отмене/споре'
+      : 'для получения оплаты';
+
+    const text = `📝 *Создание сделки*
+
+*Шаг 9 из 9: Ваш кошелёк*
+
+Введите адрес TRON-кошелька (TRC-20) ${walletPurpose}.
+
+Формат: начинается с T, 34 символа
+
+Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
+
+    const keyboard = backButton();
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_wallet', text, keyboard);
+  } catch (error) {
+    console.error('Error in handleEnterNewWallet:', error);
+  }
+};
+
+/**
+ * Handle save wallet prompt response (yes/no) after wallet validation
+ */
+const handleSaveWalletPrompt = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const action = ctx.callbackQuery.data.split(':')[1]; // 'yes' or 'no'
+    const session = await getCreateDealSession(telegramId);
+
+    if (!session || session.step !== 'save_wallet_prompt') return;
+
+    if (action === 'no') {
+      // Skip saving, proceed to confirmation
+      session.step = 'confirm';
+      await setCreateDealSession(telegramId, session);
+      await showConfirmationScreen(ctx, telegramId, session);
+      return;
+    }
+
+    // action === 'yes' - ask for wallet name
+    session.step = 'wallet_name';
+    await setCreateDealSession(telegramId, session);
+
+    const address = session.data.creatorRole === 'buyer'
+      ? session.data.buyerAddress
+      : session.data.sellerAddress;
+    const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+
+    const text = `💳 *Сохранение кошелька*
+
+📍 \`${shortAddr}\`
+
+Введите название для кошелька (например: "Основной", "Binance")
+или нажмите «Пропустить».`;
+
+    const keyboard = walletNameInputDealKeyboard();
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_name_input', text, keyboard);
+  } catch (error) {
+    console.error('Error in handleSaveWalletPrompt:', error);
+  }
+};
+
+/**
+ * Handle wallet name skip button
+ */
+const handleWalletNameSkipDeal = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const session = await getCreateDealSession(telegramId);
+
+    if (!session || session.step !== 'wallet_name') return;
+
+    // Save wallet without name
+    const address = session.data.creatorRole === 'buyer'
+      ? session.data.buyerAddress
+      : session.data.sellerAddress;
+
+    const user = await User.findOne({ telegramId });
+    if (user && user.canAddWallet()) {
+      await user.addWallet(address, null);
+    }
+
+    // Proceed to confirmation
+    session.step = 'confirm';
+    await setCreateDealSession(telegramId, session);
+    await showConfirmationScreen(ctx, telegramId, session);
+  } catch (error) {
+    console.error('Error in handleWalletNameSkipDeal:', error);
+  }
+};
+
+/**
+ * Handle wallet name back button - return to save prompt
+ */
+const handleWalletNameBackDeal = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const session = await getCreateDealSession(telegramId);
+
+    if (!session) return;
+
+    session.step = 'save_wallet_prompt';
+    await setCreateDealSession(telegramId, session);
+
+    const address = session.data.creatorRole === 'buyer'
+      ? session.data.buyerAddress
+      : session.data.sellerAddress;
+    const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+
+    const text = `✅ *Кошелёк проверен!*
+
+📍 \`${shortAddr}\`
+
+Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
+
+    const keyboard = saveWalletPromptKeyboard();
+    await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', text, keyboard);
+  } catch (error) {
+    console.error('Error in handleWalletNameBackDeal:', error);
+  }
+};
+
+/**
+ * Show confirmation screen helper
+ */
+async function showConfirmationScreen(ctx, telegramId, session) {
+  const data = session.data;
+  const creatorRole = data.creatorRole;
+  const counterpartyUsername = data.counterpartyUsername.replace('@', '');
+
+  // Calculate commission
+  const commission = Deal.calculateCommission(data.amount);
+
+  // Commission distribution
+  let commissionNote = '';
+  if (data.commissionType === 'buyer') {
+    commissionNote = `Покупатель добавит ${commission} ${data.asset} к депозиту`;
+  } else if (data.commissionType === 'seller') {
+    commissionNote = `Продавец получит ${(data.amount - commission).toFixed(2)} ${data.asset}`;
+  } else {
+    commissionNote = `По ${(commission / 2).toFixed(2)} ${data.asset} с каждого участника`;
+  }
+
+  // Deadline text
+  const hours = data.deadlineHours;
+  const deadlineText = hours < 24 ? `${hours} часов` :
+    hours === 24 ? '24 часа' :
+    hours === 48 ? '48 часов' :
+    hours === 72 ? '3 дня' :
+    hours === 168 ? '7 дней' : '14 дней';
+
+  // Get creator wallet
+  const creatorWallet = creatorRole === 'buyer' ? data.buyerAddress : data.sellerAddress;
+  const shortWallet = creatorWallet.slice(0, 8) + '...' + creatorWallet.slice(-6);
+
+  const text = `📝 *Подтверждение сделки*
+
+*Ваша роль:* ${creatorRole === 'buyer' ? '💵 Покупатель' : '🛠 Продавец'}
+*Контрагент:* @${escapeMarkdown(counterpartyUsername)}
+
+*Товар/услуга:* ${escapeMarkdown(data.productName)}
+${data.description ? `*Описание:* ${escapeMarkdown(data.description)}\n` : ''}
+*Сумма:* ${data.amount} ${data.asset}
+*Комиссия:* ${commission} ${data.asset}
+_${commissionNote}_
+
+*Срок исполнения:* ${deadlineText}
+*Ваш кошелёк:* \`${shortWallet}\`
+
+Проверьте данные и нажмите «Создать сделку».`;
+
+  const keyboard = dealConfirmationKeyboard();
+  await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_confirm', text, keyboard);
+}
+
 module.exports = {
   startCreateDeal,
   handleCreateDealInput,
@@ -1424,5 +1766,11 @@ module.exports = {
   clearCreateDealSession: deleteCreateDealSession,
   handleWalletContinueAnyway,
   handleWalletChangeAddress,
-  handleUsernameSet
+  handleUsernameSet,
+  // Wallet selection
+  handleSelectSavedWallet,
+  handleEnterNewWallet,
+  handleSaveWalletPrompt,
+  handleWalletNameSkipDeal,
+  handleWalletNameBackDeal
 };

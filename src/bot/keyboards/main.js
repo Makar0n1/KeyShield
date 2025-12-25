@@ -10,8 +10,10 @@ const { Markup } = require('telegraf');
 const mainMenuKeyboard = () => {
   return Markup.inlineKeyboard([
     [Markup.button.callback('📝 Создать сделку', 'create_deal')],
-    [Markup.button.callback('📋 Мои сделки', 'my_deals')],
-    [Markup.button.callback('👤 Мои данные', 'my_data')],
+    [
+      Markup.button.callback('📋 Мои сделки', 'my_deals'),
+      Markup.button.callback('👤 Мои данные', 'my_data')
+    ],
     [Markup.button.callback('ℹ️ Помощь', 'help')]
   ]);
 };
@@ -448,6 +450,171 @@ function getStatusIcon(status) {
 }
 
 // ============================================
+// MY DATA (user profile section)
+// ============================================
+
+/**
+ * My Data main menu keyboard
+ */
+const myDataMenuKeyboard = (hasEmail, walletsCount) => {
+  const buttons = [];
+
+  // Email section
+  if (hasEmail) {
+    buttons.push([Markup.button.callback('📧 Изменить email', 'mydata:change_email')]);
+  } else {
+    buttons.push([Markup.button.callback('📧 Добавить email', 'mydata:add_email')]);
+  }
+
+  // Wallets section
+  buttons.push([Markup.button.callback(`💳 Мои кошельки (${walletsCount}/5)`, 'mydata:wallets')]);
+
+  // Back button
+  buttons.push([Markup.button.callback('⬅️ Назад', 'main_menu')]);
+
+  return Markup.inlineKeyboard(buttons);
+};
+
+/**
+ * Wallets list keyboard with delete buttons
+ */
+const walletsListKeyboard = (wallets) => {
+  const buttons = [];
+
+  // List each wallet with delete button
+  wallets.forEach((wallet, index) => {
+    const displayName = wallet.name || `Кошелёк ${index + 1}`;
+    const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
+    buttons.push([
+      Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `wallet:view:${index}`),
+      Markup.button.callback('🗑️', `wallet:delete:${index}`)
+    ]);
+  });
+
+  // Add wallet button (if under limit)
+  if (wallets.length < 5) {
+    buttons.push([Markup.button.callback('➕ Добавить кошелёк', 'mydata:add_wallet')]);
+  }
+
+  // Back button
+  buttons.push([Markup.button.callback('⬅️ Назад', 'my_data')]);
+
+  return Markup.inlineKeyboard(buttons);
+};
+
+/**
+ * Empty wallets keyboard
+ */
+const walletsEmptyKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('➕ Добавить кошелёк', 'mydata:add_wallet')],
+    [Markup.button.callback('⬅️ Назад', 'my_data')]
+  ]);
+};
+
+/**
+ * Wallet selection keyboard for deal creation/acceptance
+ */
+const walletSelectionKeyboard = (wallets, showNewOption = true) => {
+  const buttons = [];
+
+  // List saved wallets
+  wallets.forEach((wallet, index) => {
+    const displayName = wallet.name || `Кошелёк ${index + 1}`;
+    const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
+    buttons.push([
+      Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `select_wallet:${index}`)
+    ]);
+  });
+
+  // Option to enter new address
+  if (showNewOption) {
+    buttons.push([Markup.button.callback('✏️ Ввести другой адрес', 'enter_new_wallet')]);
+  }
+
+  // Back button
+  buttons.push([Markup.button.callback('⬅️ Назад', 'back')]);
+
+  return Markup.inlineKeyboard(buttons);
+};
+
+/**
+ * Save wallet prompt keyboard (after validation)
+ */
+const saveWalletPromptKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('✅ Да', 'save_wallet:yes'),
+      Markup.button.callback('❌ Нет', 'save_wallet:no')
+    ]
+  ]);
+};
+
+/**
+ * Wallet name input keyboard (for myData section)
+ */
+const walletNameInputKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('➡️ Пропустить', 'mydata_wallet_name:skip')],
+    [Markup.button.callback('⬅️ Назад', 'mydata_wallet_name:back')]
+  ]);
+};
+
+/**
+ * Wallet name input keyboard (for deal creation flow)
+ */
+const walletNameInputDealKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('➡️ Пропустить', 'deal_wallet_name:skip')],
+    [Markup.button.callback('⬅️ Назад', 'deal_wallet_name:back')]
+  ]);
+};
+
+/**
+ * Confirm wallet deletion keyboard
+ */
+const confirmDeleteWalletKeyboard = (walletIndex) => {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('✅ Удалить', `wallet:confirm_delete:${walletIndex}`),
+      Markup.button.callback('❌ Отмена', 'mydata:wallets')
+    ]
+  ]);
+};
+
+/**
+ * Email input keyboard (back only)
+ */
+const emailInputKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('⬅️ Назад', 'my_data')]
+  ]);
+};
+
+/**
+ * Confirm email delete keyboard
+ */
+const confirmDeleteEmailKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('✅ Удалить', 'email:confirm_delete'),
+      Markup.button.callback('❌ Отмена', 'my_data')
+    ]
+  ]);
+};
+
+/**
+ * Email actions keyboard (change/delete)
+ */
+const emailActionsKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('✏️ Изменить', 'mydata:change_email_input')],
+    [Markup.button.callback('🗑️ Удалить', 'mydata:delete_email')],
+    [Markup.button.callback('⬅️ Назад', 'my_data')]
+  ]);
+};
+
+// ============================================
 // LEGACY EXPORTS (for backwards compatibility)
 // ============================================
 
@@ -484,6 +651,19 @@ module.exports = {
   myDealsKeyboard,
   myDealsEmptyKeyboard,
   dealDetailsKeyboard,
+
+  // My data
+  myDataMenuKeyboard,
+  walletsListKeyboard,
+  walletsEmptyKeyboard,
+  walletSelectionKeyboard,
+  saveWalletPromptKeyboard,
+  walletNameInputKeyboard,
+  walletNameInputDealKeyboard,
+  confirmDeleteWalletKeyboard,
+  emailInputKeyboard,
+  confirmDeleteEmailKeyboard,
+  emailActionsKeyboard,
 
   // Notifications
   newDealNotificationKeyboard,

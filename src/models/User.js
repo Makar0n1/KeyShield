@@ -97,6 +97,30 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Saved USDT wallets (max 5)
+  wallets: {
+    type: [{
+      address: {
+        type: String,
+        required: true
+      },
+      name: {
+        type: String,
+        default: null
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    default: [],
+    validate: {
+      validator: function(wallets) {
+        return wallets.length <= 5;
+      },
+      message: 'Максимум 5 сохранённых кошельков'
+    }
+  },
   // Last activity timestamp for cleanup
   lastActivity: {
     type: Date,
@@ -120,6 +144,53 @@ userSchema.index({ username: 1 });
 // Method to check if user can create deals
 userSchema.methods.canCreateDeal = function() {
   return !this.blacklisted;
+};
+
+// Wallet management methods
+const MAX_WALLETS = 5;
+
+// Add a wallet (returns error message if failed, null if success)
+userSchema.methods.addWallet = async function(address, name = null) {
+  if (this.wallets.length >= MAX_WALLETS) {
+    return `Достигнут лимит (${MAX_WALLETS}) сохранённых кошельков. Удалите один, чтобы добавить новый.`;
+  }
+
+  // Check for duplicate address
+  const exists = this.wallets.some(w => w.address.toLowerCase() === address.toLowerCase());
+  if (exists) {
+    return 'Этот адрес уже сохранён.';
+  }
+
+  this.wallets.push({
+    address,
+    name: name && name.trim() ? name.trim() : null,
+    createdAt: new Date()
+  });
+
+  await this.save();
+  return null; // Success
+};
+
+// Remove a wallet by address
+userSchema.methods.removeWallet = async function(address) {
+  const index = this.wallets.findIndex(w => w.address.toLowerCase() === address.toLowerCase());
+  if (index === -1) {
+    return 'Кошелёк не найден.';
+  }
+
+  this.wallets.splice(index, 1);
+  await this.save();
+  return null; // Success
+};
+
+// Get wallet by address
+userSchema.methods.getWallet = function(address) {
+  return this.wallets.find(w => w.address.toLowerCase() === address.toLowerCase());
+};
+
+// Check if can add more wallets
+userSchema.methods.canAddWallet = function() {
+  return this.wallets.length < MAX_WALLETS;
 };
 
 // Method to update dispute stats after resolution

@@ -1,4 +1,5 @@
 const Deal = require('../../models/Deal');
+const Session = require('../../models/Session');
 const blockchainService = require('../../services/blockchain');
 const dealService = require('../../services/dealService');
 const { Markup } = require('telegraf');
@@ -6,10 +7,34 @@ const {
   mainMenuButton,
   depositWarningKeyboard,
   walletVerificationErrorKeyboard,
-  backButton
+  backButton,
+  walletSelectionKeyboard,
+  saveWalletPromptKeyboard,
+  walletNameInputDealKeyboard
 } = require('../keyboards/main');
 const User = require('../../models/User');
 const messageManager = require('../utils/messageManager');
+
+// ============================================
+// SESSION HELPERS for wallet saving flow
+// ============================================
+
+async function getProvideWalletSession(telegramId) {
+  return await Session.getSession(telegramId, 'provide_wallet');
+}
+
+async function setProvideWalletSession(telegramId, sessionData) {
+  await Session.setSession(telegramId, 'provide_wallet', sessionData, 1); // 1 hour TTL
+}
+
+async function deleteProvideWalletSession(telegramId) {
+  await Session.deleteSession(telegramId, 'provide_wallet');
+}
+
+async function hasProvideWalletSession(telegramId) {
+  const session = await getProvideWalletSession(telegramId);
+  return !!session;
+}
 
 // Escape special Markdown characters
 function escapeMarkdown(text) {
@@ -61,8 +86,38 @@ const enterWalletHandler = async (ctx) => {
       return;
     }
 
-    // Show wallet input prompt
-    const text = `💳 *Укажите кошелек для сделки*
+    // Check if user has saved wallets
+    const user = await User.findOne({ telegramId }).select('wallets');
+    const savedWallets = user?.wallets || [];
+
+    if (savedWallets.length > 0) {
+      // User has saved wallets - show selection screen
+      const walletPurpose = role === 'buyer'
+        ? 'для возврата средств при отмене/споре'
+        : 'для получения оплаты';
+
+      const text = `💳 *Укажите кошелек для сделки*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+💰 ${deal.amount} ${deal.asset}
+
+Выберите кошелёк ${walletPurpose}:`;
+
+      // Store deal info for wallet selection
+      await User.updateOne(
+        { telegramId },
+        {
+          pendingDealId: dealId,
+          currentScreen: 'select_wallet_deal'
+        }
+      );
+
+      const keyboard = walletSelectionKeyboard(savedWallets, true);
+      await messageManager.navigateToScreen(ctx, telegramId, `select_wallet_${dealId}`, text, keyboard);
+    } else {
+      // No saved wallets - show direct input
+      const text = `💳 *Укажите кошелек для сделки*
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${deal.productName}
@@ -73,8 +128,9 @@ const enterWalletHandler = async (ctx) => {
 _Адрес должен начинаться с T и содержать 34 символа_
 _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
 
-    const keyboard = backButton();
-    await messageManager.navigateToScreen(ctx, telegramId, `enter_wallet_${dealId}`, text, keyboard);
+      const keyboard = backButton();
+      await messageManager.navigateToScreen(ctx, telegramId, `enter_wallet_${dealId}`, text, keyboard);
+    }
   } catch (error) {
     console.error('Error in enterWalletHandler:', error);
   }
@@ -162,33 +218,62 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       return true;
     }
 
-    // ========== STEP 3: Verification passed! Show success ==========
-    const successText = `✅ *Кошелёк проверен!*
+    // ========== STEP 3: Verification passed! ==========
+    // Check if user can save this wallet
+    const user = await User.findOne({ telegramId }).select('wallets');
+    const canSaveWallet = user && user.canAddWallet() && !user.getWallet(text);
 
-Адрес: \`${text}\`
+    if (canSaveWallet) {
+      // Ask to save wallet before proceeding
+      const shortAddr = text.slice(0, 6) + '...' + text.slice(-4);
+      const savePromptText = `✅ *Кошелёк проверен!*
 
-Подготовка данных...`;
+📍 \`${shortAddr}\`
 
-    await User.findOneAndUpdate({ telegramId }, { currentScreen: 'wallet_verified' });
-    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
-    await new Promise(resolve => setTimeout(resolve, 3000));
+Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
 
+      // Save session with wallet info
+      await setProvideWalletSession(telegramId, {
+        step: 'save_wallet_prompt',
+        dealId: deal.dealId,
+        walletAddress: text,
+        role: 'seller'
+      });
+
+      const keyboard = saveWalletPromptKeyboard();
+      await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', savePromptText, keyboard);
+      return true;
+    }
+
+    // No save prompt needed - proceed directly
+    await processSellerWalletNew(ctx, telegramId, deal, text);
+    return true;
+  } catch (error) {
+    console.error('Error handling seller wallet input:', error);
+    return false;
+  }
+};
+
+/**
+ * Process seller wallet after validation (and optional save prompt)
+ */
+async function processSellerWalletNew(ctx, telegramId, deal, walletAddress) {
     // ========== STEP 4: Generate private key and save deal ==========
     const sellerKeys = await blockchainService.generateKeyPair();
     const sellerPrivateKey = sellerKeys.privateKey;
 
     // Update deal with seller address and private key
-    deal.sellerAddress = text;
+    deal.sellerAddress = walletAddress;
     deal.sellerPrivateKey = sellerPrivateKey;
     deal.status = 'waiting_for_deposit';
     await deal.save();
 
-    console.log(`✅ Seller wallet verified and set for deal ${deal.dealId}: ${text}`);
+    console.log(`✅ Seller wallet verified and set for deal ${deal.dealId}: ${walletAddress}`);
 
     // Show confirmation to seller FIRST (main message)
     const sellerText = `✅ *Кошелек сохранен!*
 
-Адрес: \`${text}\`
+Адрес: \`${walletAddress}\`
 
 🆔 Сделка: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
@@ -276,13 +361,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 
     const buyerKeyboard = depositWarningKeyboard(deal.dealId);
     await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
-
-    return true;
-  } catch (error) {
-    console.error('Error handling seller wallet input:', error);
-    return false;
-  }
-};
+}
 
 // ============================================
 // BUYER WALLET INPUT (with balance verification)
@@ -388,30 +467,65 @@ ${verification.error}
       return true;
     }
 
-    // ========== STEP 4: Verification passed! Show success message for 3 seconds ==========
-    // Don't show balance for privacy
-    const successText = `✅ *Кошелёк проверен!*
+    // ========== STEP 4: Verification passed! ==========
+    // Check if user can save this wallet
+    const user = await User.findOne({ telegramId }).select('wallets');
+    const canSaveWallet = user && user.canAddWallet() && !user.getWallet(text);
 
+    if (canSaveWallet) {
+      // Ask to save wallet before proceeding
+      const shortAddr = text.slice(0, 6) + '...' + text.slice(-4);
+      const savePromptText = `✅ *Кошелёк проверен!*
+
+📍 \`${shortAddr}\`
 ✓ Баланс достаточен для совершения сделки.
 
-Подготовка данных...`;
+Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
 
-    await User.findOneAndUpdate({ telegramId }, { currentScreen: 'wallet_verified' });
-    await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
+      // Save session with wallet info
+      await setProvideWalletSession(telegramId, {
+        step: 'save_wallet_prompt',
+        dealId: deal.dealId,
+        walletAddress: text,
+        role: 'buyer'
+      });
 
-    // Wait 3 seconds before proceeding
-    await new Promise(resolve => setTimeout(resolve, 3000));
+      const keyboard = saveWalletPromptKeyboard();
+      await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', savePromptText, keyboard);
+      return true;
+    }
 
+    // No save prompt needed - proceed directly
+    await processBuyerWalletNew(ctx, telegramId, deal, text);
+    return true;
+  } catch (error) {
+    console.error('Error handling buyer wallet input:', error);
+    return false;
+  }
+};
+
+/**
+ * Process buyer wallet after validation (and optional save prompt)
+ */
+async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress) {
     // ========== STEP 5: Generate private key and save deal ==========
     const buyerKeys = await blockchainService.generateKeyPair();
     const buyerPrivateKey = buyerKeys.privateKey;
 
-    deal.buyerAddress = text;
+    deal.buyerAddress = walletAddress;
     deal.buyerPrivateKey = buyerPrivateKey;
     deal.status = 'waiting_for_deposit';
     await deal.save();
 
-    console.log(`✅ Buyer wallet verified and set for deal ${deal.dealId}: ${text} (balance: ${verification.balance} USDT)`);
+    console.log(`✅ Buyer wallet verified and set for deal ${deal.dealId}: ${walletAddress}`);
+
+    // Calculate deposit amount
+    let depositAmount = deal.amount;
+    if (deal.commissionType === 'buyer') {
+      depositAmount = deal.amount + deal.commission;
+    } else if (deal.commissionType === 'split') {
+      depositAmount = deal.amount + deal.commission / 2;
+    }
 
     // Calculate deposit note for display
     let depositNote = '';
@@ -489,13 +603,7 @@ ${verification.error}
 
     const sellerKeyboard = mainMenuButton();
     await messageManager.showNotification(ctx, deal.sellerId, sellerNotifyText, sellerKeyboard);
-
-    return true;
-  } catch (error) {
-    console.error('Error handling buyer wallet input:', error);
-    return false;
-  }
-};
+}
 
 // ============================================
 // DEPOSIT WARNING CONFIRMATION
@@ -920,6 +1028,491 @@ const handleWalletContinue = async (ctx) => {
   }
 };
 
+// ============================================
+// SAVED WALLET SELECTION (for deal acceptance)
+// ============================================
+
+/**
+ * Handle saved wallet selection during deal acceptance
+ */
+const handleSelectSavedWalletDeal = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[1]);
+
+    // Get user's pending deal
+    const user = await User.findOne({ telegramId }).select('wallets pendingDealId');
+    if (!user || !user.wallets[walletIndex]) {
+      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      return;
+    }
+
+    const dealId = user.pendingDealId;
+    if (!dealId) {
+      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      return;
+    }
+
+    const deal = await dealService.getDealById(dealId);
+    if (!deal) {
+      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      return;
+    }
+
+    const role = deal.getUserRole(telegramId);
+    const wallet = user.wallets[walletIndex];
+    const address = wallet.address;
+
+    // Show loading
+    const loadingText = `⏳ *Подготовка...*
+
+Выбран кошелёк: \`${address.slice(0, 6)}...${address.slice(-4)}\``;
+
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_loading', loadingText, {});
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Process based on role
+    if (role === 'seller') {
+      await processSellerWalletSaved(ctx, telegramId, deal, address);
+    } else {
+      await processBuyerWalletSaved(ctx, telegramId, deal, address);
+    }
+
+    // Clear pending deal
+    await User.updateOne({ telegramId }, { $unset: { pendingDealId: 1 } });
+  } catch (error) {
+    console.error('Error in handleSelectSavedWalletDeal:', error);
+  }
+};
+
+/**
+ * Handle "Enter new wallet" button during deal acceptance
+ */
+const handleEnterNewWalletDeal = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const user = await User.findOne({ telegramId }).select('pendingDealId');
+
+    if (!user || !user.pendingDealId) {
+      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      return;
+    }
+
+    const dealId = user.pendingDealId;
+    const deal = await dealService.getDealById(dealId);
+
+    if (!deal) {
+      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      return;
+    }
+
+    const text = `💳 *Укажите кошелек для сделки*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+💰 ${deal.amount} ${deal.asset}
+
+Введите адрес вашего TRON-кошелька (TRC-20):
+
+_Адрес должен начинаться с T и содержать 34 символа_
+_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
+
+    const keyboard = backButton();
+    await messageManager.navigateToScreen(ctx, telegramId, `enter_wallet_${dealId}`, text, keyboard);
+  } catch (error) {
+    console.error('Error in handleEnterNewWalletDeal:', error);
+  }
+};
+
+/**
+ * Process seller wallet selection (saved wallet, skip validation)
+ */
+async function processSellerWalletSaved(ctx, telegramId, deal, address) {
+  // Generate private key and save deal
+  const sellerKeys = await blockchainService.generateKeyPair();
+  const sellerPrivateKey = sellerKeys.privateKey;
+
+  // Update deal with seller address and private key
+  deal.sellerAddress = address;
+  deal.sellerPrivateKey = sellerPrivateKey;
+  deal.status = 'waiting_for_deposit';
+  await deal.save();
+
+  console.log(`✅ Seller wallet (saved) set for deal ${deal.dealId}: ${address}`);
+
+  // Show confirmation to seller
+  const sellerText = `✅ *Кошелек сохранен!*
+
+Адрес: \`${address}\`
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+Ожидаем депозит от покупателя.
+Вы получите уведомление, когда средства поступят.`;
+
+  const sellerKeyboard = mainMenuButton();
+  await messageManager.showFinalScreen(ctx, telegramId, 'wallet_saved', sellerText, sellerKeyboard);
+
+  // Show private key
+  const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ продавца:
+\`${sellerPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете получить средства по сделке!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+  const keyKeyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+  ]);
+
+  const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+    parse_mode: 'Markdown',
+    reply_markup: keyKeyboard.reply_markup
+  });
+
+  // Auto-delete after 60 seconds
+  setTimeout(async () => {
+    try {
+      await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+    } catch (e) {
+      // Already deleted
+    }
+  }, 60000);
+
+  // Calculate deposit amount for buyer notification
+  let depositAmount = deal.amount;
+  let depositNote = '';
+
+  if (deal.commissionType === 'buyer') {
+    depositAmount = deal.amount + deal.commission;
+    depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+  } else if (deal.commissionType === 'split') {
+    const halfCommission = deal.commission / 2;
+    depositAmount = deal.amount + halfCommission;
+    depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+  }
+
+  // Notify buyer
+  const buyerText = `⚠️ *ВНИМАНИЕ! Прочитайте перед переводом*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${deal.productName}
+💸 К оплате: *${depositAmount} ${deal.asset}*${depositNote}
+
+❗️ *ВАЖНЫЕ УСЛОВИЯ:*
+
+1️⃣ *Депозит необратим*
+После перевода средства будут заморожены в multisig-кошельке.
+
+2️⃣ *Возврат только через арбитраж*
+Если продавец не выполнит работу - открывайте спор.
+
+3️⃣ *Комиссия не возвращается*
+Комиссия сервиса (${deal.commission} ${deal.asset}) остаётся у сервиса.
+
+4️⃣ *Точная сумма*
+Переведите ТОЧНО ${depositAmount} ${deal.asset}.
+
+5️⃣ *Срок 24 часа*
+Если не внесёте депозит в течение 24 часов, сделка будет отменена.
+
+❗️ *Просьба, прямо сейчас проверить ваш приватный ключ и убедиться, что вы его сохранили!*
+
+✅ *Если вы понимаете и согласны с условиями, нажмите кнопку ниже.*`;
+
+  const buyerKeyboard = depositWarningKeyboard(deal.dealId);
+  await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
+}
+
+/**
+ * Process buyer wallet selection (saved wallet, skip validation)
+ */
+async function processBuyerWalletSaved(ctx, telegramId, deal, address) {
+  // Generate private key and save deal
+  const buyerKeys = await blockchainService.generateKeyPair();
+  const buyerPrivateKey = buyerKeys.privateKey;
+
+  deal.buyerAddress = address;
+  deal.buyerPrivateKey = buyerPrivateKey;
+  deal.status = 'waiting_for_deposit';
+  await deal.save();
+
+  console.log(`✅ Buyer wallet (saved) set for deal ${deal.dealId}: ${address}`);
+
+  // Calculate deposit amount
+  let depositAmount = deal.amount;
+  let depositNote = '';
+  if (deal.commissionType === 'buyer') {
+    depositAmount = deal.amount + deal.commission;
+    depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+  } else if (deal.commissionType === 'split') {
+    const halfCommission = deal.commission / 2;
+    depositAmount = deal.amount + halfCommission;
+    depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+  }
+
+  // Show deposit instructions to buyer
+  const buyerDepositText = `✅ *Кошелек подтверждён! Теперь внесите депозит.*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+🔐 *Адрес для депозита (${deal.asset}):*
+\`${deal.multisigAddress}\`
+
+💸 *К оплате: ${depositAmount.toFixed(2)} ${deal.asset}*${depositNote}
+
+⚠️ *ВАЖНО:*
+• Переведите ТОЧНО ${depositAmount.toFixed(2)} ${deal.asset}
+• Срок: 24 часа
+
+⏱ Система автоматически обнаружит депозит.
+
+[🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
+
+  const buyerKeyboard = mainMenuButton();
+  await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
+
+  // Show private key
+  const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ покупателя:
+\`${buyerPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+  const keyKeyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+  ]);
+
+  const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+    parse_mode: 'Markdown',
+    reply_markup: keyKeyboard.reply_markup
+  });
+
+  // Auto-delete after 60 seconds
+  setTimeout(async () => {
+    try {
+      await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+    } catch (e) {
+      // Already deleted
+    }
+  }, 60000);
+
+  // Notify seller
+  const sellerNotifyText = `✅ *Покупатель указал кошелек!*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+Ожидаем депозит от покупателя.
+Вы получите уведомление, когда средства поступят.`;
+
+  const sellerKeyboard = mainMenuButton();
+  await messageManager.showNotification(ctx, deal.sellerId, sellerNotifyText, sellerKeyboard);
+}
+
+// ============================================
+// SAVE WALLET PROMPT HANDLERS (for provideWallet flow)
+// ============================================
+
+/**
+ * Handle save wallet prompt response (yes/no)
+ */
+const handleSaveWalletPromptDeal = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const action = ctx.callbackQuery.data.split(':')[1]; // 'yes' or 'no'
+    const session = await getProvideWalletSession(telegramId);
+
+    if (!session || session.step !== 'save_wallet_prompt') return;
+
+    const { dealId, walletAddress, role } = session;
+    const deal = await dealService.getDealById(dealId);
+
+    if (!deal) {
+      await deleteProvideWalletSession(telegramId);
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      return;
+    }
+
+    if (action === 'no') {
+      // Skip saving, proceed with deal
+      await deleteProvideWalletSession(telegramId);
+      if (role === 'seller') {
+        await processSellerWalletNew(ctx, telegramId, deal, walletAddress);
+      } else {
+        await processBuyerWalletNew(ctx, telegramId, deal, walletAddress);
+      }
+      return;
+    }
+
+    // action === 'yes' - ask for wallet name
+    session.step = 'wallet_name';
+    await setProvideWalletSession(telegramId, session);
+
+    const shortAddr = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+    const text = `💳 *Сохранение кошелька*
+
+📍 \`${shortAddr}\`
+
+Введите название для кошелька (например: "Основной", "Binance")
+или нажмите «Пропустить».`;
+
+    const keyboard = walletNameInputDealKeyboard();
+    await messageManager.updateScreen(ctx, telegramId, 'wallet_name_input', text, keyboard);
+  } catch (error) {
+    console.error('Error in handleSaveWalletPromptDeal:', error);
+  }
+};
+
+/**
+ * Handle wallet name skip button in provideWallet flow
+ */
+const handleWalletNameSkipProvide = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const session = await getProvideWalletSession(telegramId);
+
+    if (!session || session.step !== 'wallet_name') return;
+
+    const { dealId, walletAddress, role } = session;
+    const deal = await dealService.getDealById(dealId);
+
+    if (!deal) {
+      await deleteProvideWalletSession(telegramId);
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      return;
+    }
+
+    // Save wallet without name
+    const user = await User.findOne({ telegramId });
+    if (user && user.canAddWallet()) {
+      await user.addWallet(walletAddress, null);
+    }
+
+    // Proceed with deal
+    await deleteProvideWalletSession(telegramId);
+    if (role === 'seller') {
+      await processSellerWalletNew(ctx, telegramId, deal, walletAddress);
+    } else {
+      await processBuyerWalletNew(ctx, telegramId, deal, walletAddress);
+    }
+  } catch (error) {
+    console.error('Error in handleWalletNameSkipProvide:', error);
+  }
+};
+
+/**
+ * Handle wallet name back button - return to save prompt
+ */
+const handleWalletNameBackProvide = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const session = await getProvideWalletSession(telegramId);
+
+    if (!session) return;
+
+    session.step = 'save_wallet_prompt';
+    await setProvideWalletSession(telegramId, session);
+
+    const shortAddr = session.walletAddress.slice(0, 6) + '...' + session.walletAddress.slice(-4);
+    const text = `✅ *Кошелёк проверен!*
+
+📍 \`${shortAddr}\`
+
+Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
+
+    const keyboard = saveWalletPromptKeyboard();
+    await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', text, keyboard);
+  } catch (error) {
+    console.error('Error in handleWalletNameBackProvide:', error);
+  }
+};
+
+/**
+ * Handle wallet name text input in provideWallet flow
+ */
+const handleWalletNameInputProvide = async (ctx) => {
+  try {
+    const telegramId = ctx.from.id;
+    const walletName = ctx.message.text.trim();
+
+    await messageManager.deleteUserMessage(ctx);
+
+    const session = await getProvideWalletSession(telegramId);
+    if (!session || session.step !== 'wallet_name') return false;
+
+    const { dealId, walletAddress, role } = session;
+    const deal = await dealService.getDealById(dealId);
+
+    if (!deal) {
+      await deleteProvideWalletSession(telegramId);
+      const keyboard = mainMenuButton();
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      return true;
+    }
+
+    // Validate name length
+    if (walletName.length > 30) {
+      const text = `❌ Название слишком длинное (макс. 30 символов).
+
+Введите более короткое название:`;
+      const keyboard = walletNameInputDealKeyboard();
+      await messageManager.updateScreen(ctx, telegramId, 'wallet_name_error', text, keyboard);
+      return true;
+    }
+
+    // Save wallet with name
+    const user = await User.findOne({ telegramId });
+    if (user && user.canAddWallet()) {
+      await user.addWallet(walletAddress, walletName);
+    }
+
+    // Proceed with deal
+    await deleteProvideWalletSession(telegramId);
+    if (role === 'seller') {
+      await processSellerWalletNew(ctx, telegramId, deal, walletAddress);
+    } else {
+      await processBuyerWalletNew(ctx, telegramId, deal, walletAddress);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in handleWalletNameInputProvide:', error);
+    return false;
+  }
+};
+
 module.exports = {
   enterWalletHandler,
   handleSellerWalletInput,
@@ -928,5 +1521,16 @@ module.exports = {
   showDepositAddress,
   declineDeal,
   cancelDeal,
-  handleWalletContinue
+  handleWalletContinue,
+  // Saved wallet selection for deal acceptance
+  handleSelectSavedWalletDeal,
+  handleEnterNewWalletDeal,
+  // Save wallet prompt handlers
+  handleSaveWalletPromptDeal,
+  handleWalletNameSkipProvide,
+  handleWalletNameBackProvide,
+  handleWalletNameInputProvide,
+  // Session helpers
+  hasProvideWalletSession,
+  deleteProvideWalletSession
 };

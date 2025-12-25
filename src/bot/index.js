@@ -32,7 +32,13 @@ const {
   clearCreateDealSession,
   handleWalletContinueAnyway,
   handleWalletChangeAddress,
-  handleUsernameSet
+  handleUsernameSet,
+  // Wallet selection in deal creation
+  handleSelectSavedWallet,
+  handleEnterNewWallet,
+  handleSaveWalletPrompt,
+  handleWalletNameSkipDeal,
+  handleWalletNameBackDeal
 } = require('./handlers/createDeal');
 const {
   showMyDeals,
@@ -62,7 +68,17 @@ const {
   showDepositAddress,
   declineDeal,
   cancelDeal,
-  handleWalletContinue
+  handleWalletContinue,
+  // Saved wallet selection for deal acceptance
+  handleSelectSavedWalletDeal,
+  handleEnterNewWalletDeal,
+  // Save wallet prompt handlers
+  handleSaveWalletPromptDeal,
+  handleWalletNameSkipProvide,
+  handleWalletNameBackProvide,
+  handleWalletNameInputProvide,
+  hasProvideWalletSession,
+  deleteProvideWalletSession
 } = require('./handlers/provideWallet');
 const {
   hasKeyValidationSession,
@@ -88,7 +104,17 @@ const {
   handleDeleteEmail,
   handleConfirmDelete,
   handleCancel: handleMyDataCancel,
-  handleMyDataEmailInput
+  handleMyDataEmailInput,
+  // Wallets
+  showWalletsList,
+  viewWallet,
+  handleDeleteWallet,
+  confirmDeleteWallet,
+  handleAddWallet,
+  handleWalletNameSkip,
+  handleWalletNameBack,
+  // Combined text handler
+  handleMyDataTextInput
 } = require('./handlers/myData');
 
 // Initialize bot
@@ -140,6 +166,7 @@ bot.command('cancel', async (ctx) => {
   await clearKeyValidationSession(telegramId);
   await clearReceiptSession(telegramId);
   await clearMyDataSession(telegramId);
+  await deleteProvideWalletSession(telegramId);
 
   // Show main menu
   await mainMenuHandler(ctx);
@@ -173,6 +200,61 @@ bot.action(/^asset:/, handleAssetSelection);
 bot.action(/^deadline:/, handleDeadlineSelection);
 bot.action(/^commission:/, handleCommissionSelection);
 bot.action('confirm:create_deal', confirmCreateDeal);
+// Wallet selection - unified handler that routes based on context
+bot.action(/^select_wallet:/, async (ctx) => {
+  const telegramId = ctx.from.id;
+  // Check if user is in deal creation flow
+  if (await hasCreateDealSession(telegramId)) {
+    await handleSelectSavedWallet(ctx);
+  } else {
+    // Otherwise, it's deal acceptance flow
+    await handleSelectSavedWalletDeal(ctx);
+  }
+});
+bot.action('enter_new_wallet', async (ctx) => {
+  const telegramId = ctx.from.id;
+  // Check if user is in deal creation flow
+  if (await hasCreateDealSession(telegramId)) {
+    await handleEnterNewWallet(ctx);
+  } else {
+    // Otherwise, it's deal acceptance flow
+    await handleEnterNewWalletDeal(ctx);
+  }
+});
+// Save wallet prompt - unified handler for both createDeal and provideWallet flows
+bot.action(/^save_wallet:/, async (ctx) => {
+  const telegramId = ctx.from.id;
+  // Check if user is in deal creation flow
+  if (await hasCreateDealSession(telegramId)) {
+    await handleSaveWalletPrompt(ctx);
+  } else if (await hasProvideWalletSession(telegramId)) {
+    // provideWallet flow (deal acceptance)
+    await handleSaveWalletPromptDeal(ctx);
+  } else {
+    await ctx.answerCbQuery('❌ Сессия истекла', { show_alert: true });
+  }
+});
+// Wallet name buttons - unified handler for both flows
+bot.action('deal_wallet_name:skip', async (ctx) => {
+  const telegramId = ctx.from.id;
+  if (await hasCreateDealSession(telegramId)) {
+    await handleWalletNameSkipDeal(ctx);
+  } else if (await hasProvideWalletSession(telegramId)) {
+    await handleWalletNameSkipProvide(ctx);
+  } else {
+    await ctx.answerCbQuery('❌ Сессия истекла', { show_alert: true });
+  }
+});
+bot.action('deal_wallet_name:back', async (ctx) => {
+  const telegramId = ctx.from.id;
+  if (await hasCreateDealSession(telegramId)) {
+    await handleWalletNameBackDeal(ctx);
+  } else if (await hasProvideWalletSession(telegramId)) {
+    await handleWalletNameBackProvide(ctx);
+  } else {
+    await ctx.answerCbQuery('❌ Сессия истекла', { show_alert: true });
+  }
+});
 
 // My deals
 bot.action('my_deals', showMyDeals);
@@ -264,6 +346,17 @@ bot.action('mydata_change_email', handleChangeEmail);
 bot.action('mydata_delete_email', handleDeleteEmail);
 bot.action('mydata_confirm_delete', handleConfirmDelete);
 bot.action('mydata_cancel', handleMyDataCancel);
+// My Data - Wallets
+bot.action('mydata:wallets', showWalletsList);
+bot.action('mydata:add_wallet', handleAddWallet);
+bot.action(/^wallet:view:/, viewWallet);
+bot.action(/^wallet:delete:/, handleDeleteWallet);
+bot.action(/^wallet:confirm_delete:/, confirmDeleteWallet);
+bot.action('mydata_wallet_name:skip', handleWalletNameSkip);
+bot.action('mydata_wallet_name:back', handleWalletNameBack);
+// My Data - Email (new pattern)
+bot.action('mydata:add_email', handleAddEmail);
+bot.action('mydata:change_email', handleChangeEmail);
 
 // Blog notification back button (uses goBack - delete + send pattern)
 bot.action('blog_notification_back', async (ctx) => {
@@ -307,9 +400,15 @@ bot.on('text', async (ctx) => {
     if (handled) return;
   }
 
-  // Handle my data email input
+  // Handle my data input (email and wallets)
   if (await hasMyDataSession(telegramId)) {
-    const handled = await handleMyDataEmailInput(ctx);
+    const handled = await handleMyDataTextInput(ctx);
+    if (handled) return;
+  }
+
+  // Handle provideWallet wallet name input (deal acceptance flow)
+  if (await hasProvideWalletSession(telegramId)) {
+    const handled = await handleWalletNameInputProvide(ctx);
     if (handled) return;
   }
 
