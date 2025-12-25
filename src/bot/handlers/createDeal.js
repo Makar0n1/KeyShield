@@ -1705,7 +1705,9 @@ const handleWalletNameBackDeal = async (ctx) => {
 async function showConfirmationScreen(ctx, telegramId, session) {
   const data = session.data;
   const creatorRole = data.creatorRole;
-  const counterpartyUsername = data.counterpartyUsername.replace('@', '');
+  // Get counterparty username based on creator role
+  const rawUsername = creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
+  const counterpartyUsername = (rawUsername || '').replace('@', '');
 
   // Calculate commission
   const commission = Deal.calculateCommission(data.amount);
