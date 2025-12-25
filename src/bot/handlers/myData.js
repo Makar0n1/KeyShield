@@ -331,16 +331,22 @@ _Нажмите на кошелёк для просмотра или 🗑️ д�
 /**
  * View wallet details
  */
-async function viewWallet(ctx) {
+async function viewWallet(ctx, walletIndexOverride = null) {
   try {
-    await ctx.answerCbQuery();
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery();
+    }
 
     const telegramId = ctx.from.id;
-    const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[2]);
+    const walletIndex = walletIndexOverride !== null
+      ? walletIndexOverride
+      : parseInt(ctx.callbackQuery.data.split(':')[2]);
 
     const user = await User.findOne({ telegramId }).select('wallets');
     if (!user || !user.wallets[walletIndex]) {
-      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      }
       return;
     }
 
@@ -834,9 +840,7 @@ async function handleWalletNameEditInput(ctx) {
   // Return to wallet details after 1.5 seconds
   setTimeout(async () => {
     try {
-      // Simulate callback for viewWallet
-      ctx.callbackQuery = { data: `wallet:view:${walletIndex}` };
-      await viewWallet(ctx);
+      await viewWallet(ctx, walletIndex);
     } catch (e) {
       // Message might have been changed
     }
@@ -963,9 +967,7 @@ ${verification.error || 'Неизвестная ошибка'}
   // Return to wallet details after 1.5 seconds
   setTimeout(async () => {
     try {
-      // Simulate callback for viewWallet
-      ctx.callbackQuery = { data: `wallet:view:${walletIndex}` };
-      await viewWallet(ctx);
+      await viewWallet(ctx, walletIndex);
     } catch (e) {
       // Message might have been changed
     }
