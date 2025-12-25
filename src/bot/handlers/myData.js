@@ -332,16 +332,14 @@ _Нажмите на кошелёк для просмотра или 🗑️ д�
  * View wallet details
  */
 async function viewWallet(ctx, walletIndexOverride = null) {
-  console.log('[viewWallet] Called, walletIndexOverride:', walletIndexOverride);
   try {
     if (ctx.callbackQuery) {
-      console.log('[viewWallet] Callback data:', ctx.callbackQuery.data);
       await ctx.answerCbQuery();
     }
 
     const telegramId = ctx.from.id;
-    console.log('[viewWallet] telegramId:', telegramId);
-    const walletIndex = walletIndexOverride !== null
+    // Check if walletIndexOverride is actually a number (not Telegraf's 'next' function)
+    const walletIndex = typeof walletIndexOverride === 'number'
       ? walletIndexOverride
       : parseInt(ctx.callbackQuery.data.split(':')[2]);
 
