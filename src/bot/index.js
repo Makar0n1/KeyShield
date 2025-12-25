@@ -113,6 +113,9 @@ const {
   handleAddWallet,
   handleWalletNameSkip,
   handleWalletNameBack,
+  // Wallet edit
+  handleEditWalletName,
+  handleEditWalletAddress,
   // Combined text handler
   handleMyDataTextInput
 } = require('./handlers/myData');
@@ -352,6 +355,8 @@ bot.action('mydata:add_wallet', handleAddWallet);
 bot.action(/^wallet:view:/, viewWallet);
 bot.action(/^wallet:delete:/, handleDeleteWallet);
 bot.action(/^wallet:confirm_delete:/, confirmDeleteWallet);
+bot.action(/^wallet:edit_name:/, handleEditWalletName);
+bot.action(/^wallet:edit_address:/, handleEditWalletAddress);
 bot.action('mydata_wallet_name:skip', handleWalletNameSkip);
 bot.action('mydata_wallet_name:back', handleWalletNameBack);
 // My Data - Email (new pattern)

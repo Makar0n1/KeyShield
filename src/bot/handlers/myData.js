@@ -358,6 +358,10 @@ async function viewWallet(ctx) {
 [🔍 Посмотреть в TronScan](https://tronscan.org/#/address/${wallet.address})`;
 
     const keyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('✏️ Название', `wallet:edit_name:${walletIndex}`),
+        Markup.button.callback('📍 Адрес', `wallet:edit_address:${walletIndex}`)
+      ],
       [Markup.button.callback('🗑️ Удалить кошелёк', `wallet:delete:${walletIndex}`)],
       [Markup.button.callback('⬅️ Назад', 'mydata:wallets')]
     ]);
@@ -678,6 +682,298 @@ async function handleWalletNameBack(ctx) {
   }
 }
 
+// ============================================
+// WALLET EDIT FUNCTIONS
+// ============================================
+
+/**
+ * Handle edit wallet name button
+ */
+async function handleEditWalletName(ctx) {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[2]);
+
+    const user = await User.findOne({ telegramId }).select('wallets');
+    if (!user || !user.wallets[walletIndex]) {
+      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      return;
+    }
+
+    const wallet = user.wallets[walletIndex];
+    const currentName = wallet.name || `Кошелёк ${walletIndex + 1}`;
+    const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
+
+    // Create session for name edit
+    await Session.setSession(telegramId, 'my_data', {
+      action: 'edit_wallet_name',
+      walletIndex,
+      createdAt: new Date()
+    }, 1);
+
+    const text = `✏️ *Изменить название*
+
+💳 \`${shortAddr}\`
+Текущее название: *${currentName}*
+
+Введите новое название и отправьте в чат:`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+  } catch (error) {
+    console.error('Error in handleEditWalletName:', error);
+  }
+}
+
+/**
+ * Handle edit wallet address button
+ */
+async function handleEditWalletAddress(ctx) {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[2]);
+
+    const user = await User.findOne({ telegramId }).select('wallets');
+    if (!user || !user.wallets[walletIndex]) {
+      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      return;
+    }
+
+    const wallet = user.wallets[walletIndex];
+    const name = wallet.name || `Кошелёк ${walletIndex + 1}`;
+
+    // Create session for address edit
+    await Session.setSession(telegramId, 'my_data', {
+      action: 'edit_wallet_address',
+      walletIndex,
+      walletName: name,
+      createdAt: new Date()
+    }, 1);
+
+    const text = `📍 *Изменить адрес*
+
+💳 *${name}*
+Текущий адрес:
+\`${wallet.address}\`
+
+Введите новый адрес TRON-кошелька (TRC-20):`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+  } catch (error) {
+    console.error('Error in handleEditWalletAddress:', error);
+  }
+}
+
+/**
+ * Handle wallet name edit input
+ */
+async function handleWalletNameEditInput(ctx) {
+  const telegramId = ctx.from.id;
+  const newName = ctx.message.text.trim();
+
+  // Delete user message
+  await messageManager.deleteUserMessage(ctx);
+
+  const session = await Session.getSession(telegramId, 'my_data');
+  if (!session || session.action !== 'edit_wallet_name') {
+    return false;
+  }
+
+  const walletIndex = session.walletIndex;
+
+  // Validate name length
+  if (newName.length > 30) {
+    const text = `❌ *Слишком длинное название*
+
+Максимум 30 символов. Попробуйте короче:`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+    return true;
+  }
+
+  // Update wallet name
+  const user = await User.findOne({ telegramId });
+  if (!user || !user.wallets[walletIndex]) {
+    await clearMyDataSession(telegramId);
+    const text = `❌ *Кошелёк не найден*`;
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('⬅️ К кошелькам', 'mydata:wallets')]
+    ]);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+    return true;
+  }
+
+  user.wallets[walletIndex].name = newName;
+  await user.save();
+  await clearMyDataSession(telegramId);
+
+  const shortAddr = user.wallets[walletIndex].address.slice(0, 6) + '...' + user.wallets[walletIndex].address.slice(-4);
+
+  const text = `✅ *Название изменено!*
+
+💳 *${newName}*
+\`${shortAddr}\``;
+
+  await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
+
+  // Return to wallet details after 1.5 seconds
+  setTimeout(async () => {
+    try {
+      // Simulate callback for viewWallet
+      ctx.callbackQuery = { data: `wallet:view:${walletIndex}` };
+      await viewWallet(ctx);
+    } catch (e) {
+      // Message might have been changed
+    }
+  }, 1500);
+
+  return true;
+}
+
+/**
+ * Handle wallet address edit input
+ */
+async function handleWalletAddressEditInput(ctx) {
+  const telegramId = ctx.from.id;
+  const newAddress = ctx.message.text.trim();
+
+  // Delete user message
+  await messageManager.deleteUserMessage(ctx);
+
+  const session = await Session.getSession(telegramId, 'my_data');
+  if (!session || session.action !== 'edit_wallet_address') {
+    return false;
+  }
+
+  const walletIndex = session.walletIndex;
+  const walletName = session.walletName;
+
+  const user = await User.findOne({ telegramId });
+  if (!user || !user.wallets[walletIndex]) {
+    await clearMyDataSession(telegramId);
+    const text = `❌ *Кошелёк не найден*`;
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('⬅️ К кошелькам', 'mydata:wallets')]
+    ]);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+    return true;
+  }
+
+  // Check for duplicate (excluding current wallet)
+  const exists = user.wallets.some((w, i) =>
+    i !== walletIndex && w.address.toLowerCase() === newAddress.toLowerCase()
+  );
+  if (exists) {
+    const text = `❌ *Этот адрес уже сохранён*
+
+Введите другой адрес:`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+    return true;
+  }
+
+  // Show verification loading
+  const verifyingText = `⏳ *Проверяем адрес...*
+
+Проверка кошелька в сети TRON.`;
+
+  await messageManager.sendNewMessage(ctx, telegramId, verifyingText, null);
+
+  // Validate address format
+  if (!blockchainService.isValidAddress(newAddress)) {
+    const text = `❌ *Неверный формат адреса*
+
+Адрес должен начинаться с T и содержать 34 символа.
+
+Попробуйте ещё раз:`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+    return true;
+  }
+
+  // Verify wallet exists on TRON network
+  const verification = await blockchainService.verifyWalletExists(newAddress);
+
+  if (!verification.valid) {
+    let errorMessage;
+    if (verification.errorType === 'not_found') {
+      errorMessage = `❌ *Кошелёк не найден*
+
+Этот адрес не активирован в сети TRON.
+Убедитесь, что кошелёк имеет хотя бы одну транзакцию.
+
+Введите другой адрес:`;
+    } else if (verification.errorType === 'api_error') {
+      errorMessage = `❌ *Ошибка проверки*
+
+Не удалось проверить кошелёк. Попробуйте позже.`;
+    } else {
+      errorMessage = `❌ *Ошибка*
+
+${verification.error || 'Неизвестная ошибка'}
+
+Введите другой адрес:`;
+    }
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, errorMessage, keyboard);
+    return true;
+  }
+
+  // Update wallet address
+  user.wallets[walletIndex].address = newAddress;
+  await user.save();
+  await clearMyDataSession(telegramId);
+
+  const shortAddr = newAddress.slice(0, 6) + '...' + newAddress.slice(-4);
+
+  const text = `✅ *Адрес изменён!*
+
+💳 *${walletName}*
+\`${shortAddr}\``;
+
+  await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
+
+  // Return to wallet details after 1.5 seconds
+  setTimeout(async () => {
+    try {
+      // Simulate callback for viewWallet
+      ctx.callbackQuery = { data: `wallet:view:${walletIndex}` };
+      await viewWallet(ctx);
+    } catch (e) {
+      // Message might have been changed
+    }
+  }, 1500);
+
+  return true;
+}
+
 /**
  * Save wallet from session
  */
@@ -758,6 +1054,15 @@ async function handleMyDataTextInput(ctx) {
     }
   }
 
+  // Wallet edit flows
+  if (session.action === 'edit_wallet_name') {
+    return await handleWalletNameEditInput(ctx);
+  }
+
+  if (session.action === 'edit_wallet_address') {
+    return await handleWalletAddressEditInput(ctx);
+  }
+
   return false;
 }
 
@@ -781,6 +1086,9 @@ module.exports = {
   handleWalletNameInput,
   handleWalletNameSkip,
   handleWalletNameBack,
+  // Wallet edit
+  handleEditWalletName,
+  handleEditWalletAddress,
   // Combined handler
   handleMyDataTextInput
 };
