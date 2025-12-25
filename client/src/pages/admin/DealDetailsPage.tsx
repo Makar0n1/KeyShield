@@ -149,8 +149,10 @@ export function AdminDealDetailsPage() {
 
   const handleDownloadReceipt = async (recipientType: 'buyer' | 'seller') => {
     if (!deal) return
+    // Use the same exportDealPdf endpoint with user identifier
+    const userIdentifier = recipientType === 'buyer' ? String(deal.buyerId) : String(deal.sellerId)
     try {
-      const { blob, filename } = await adminService.downloadReceiptPdf(deal._id, recipientType)
+      const { blob, filename } = await adminService.exportDealPdf(deal._id, userIdentifier)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

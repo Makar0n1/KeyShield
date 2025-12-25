@@ -29,6 +29,8 @@ async function createTestDeal() {
   // Create fake deal
   const dealId = `DL-TEST-${Date.now()}`;
 
+  const fakeTxHash = 'fake_tx_hash_' + Date.now();
+
   const deal = new Deal({
     dealId,
     uniqueKey: Deal.generateUniqueKey(BUYER.telegramId, SELLER.telegramId, 'test'),
@@ -43,9 +45,12 @@ async function createTestDeal() {
     commissionType: 'buyer',
     deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     status: 'completed',
-    sellerAddress: 'TTestSellerAddress123456789',
-    buyerAddress: 'TTestBuyerAddress123456789',
-    multisigAddress: 'TTestMultisigAddress123456789',
+    sellerAddress: 'TTestSellerAddress123456789012345678901234',
+    buyerAddress: 'TTestBuyerAddress1234567890123456789012345',
+    multisigAddress: 'TTestMultisigAddress12345678901234567890',
+    depositTxHash: fakeTxHash,
+    payoutTxHash: fakeTxHash,
+    depositDetectedAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
     completedAt: new Date()
   });
 
@@ -83,9 +88,9 @@ async function testReceiptFlow() {
     // Create test deal
     const deal = await createTestDeal();
 
-    // Fake transaction data
+    // Transaction data using deal's txHash
     const releaseAmount = deal.amount - deal.commission;
-    const txHash = 'fake_tx_hash_' + Date.now();
+    const txHash = deal.payoutTxHash;
 
     // Seller's transaction data (release)
     const sellerTransactionData = {

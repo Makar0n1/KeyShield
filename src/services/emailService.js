@@ -2,16 +2,20 @@
  * Email Service for KeyShield
  *
  * Sends transaction receipts via email using self-hosted Mailcow server.
- * Includes PDF attachment matching admin export style.
+ * Includes PDF attachment matching admin export style (same format as /api/admin/export/deal/:dealId).
  */
 
 const nodemailer = require('nodemailer');
-const pdfReceiptService = require('./pdfReceiptService');
+const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 
 class EmailService {
   constructor() {
     this.transporter = null;
     this.initialized = false;
+    this.fontPath = path.join(__dirname, '../../client/public/fonts/Roboto.ttf');
   }
 
   /**
@@ -48,11 +52,216 @@ class EmailService {
   }
 
   /**
+   * Generate deterministic statement number based on deal data
+   * Same deal + same user = same statement number always
+   */
+  generateStatementNumber(deal, telegramId) {
+    // Use deal completion date for the date part
+    const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
+    const dateStr = completedAt.toISOString().slice(0, 10).replace(/-/g, '');
+
+    // Generate deterministic hash from dealId + telegramId
+    const hashInput = `${deal.dealId}-${telegramId}`;
+    const hash = crypto.createHash('md5').update(hashInput).digest('hex');
+    const shortHash = hash.substring(0, 6).toUpperCase();
+
+    return `${dateStr}-${shortHash}`;
+  }
+
+  /**
+   * Generate PDF receipt (same format as admin export)
+   * @param {Object} deal - Deal object
+   * @param {Object} user - User object with telegramId and username
+   * @returns {Promise<{buffer: Buffer, filename: string}>}
+   */
+  async generatePdfReceipt(deal, user) {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const chunks = [];
+
+        doc.on('data', chunk => chunks.push(chunk));
+        doc.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          const safeUsername = (user?.username || String(user?.telegramId)).replace(/[^a-zA-Z0-9_]/g, '');
+          const statementNumber = this.generateStatementNumber(deal, user?.telegramId);
+          const filename = `KeyShield_Receipt_${deal.dealId}_${safeUsername}_${statementNumber}.pdf`;
+          resolve({ buffer, filename, statementNumber });
+        });
+        doc.on('error', reject);
+
+        // Try to load custom font
+        try {
+          if (fs.existsSync(this.fontPath)) {
+            doc.registerFont('Roboto', this.fontPath);
+            doc.font('Roboto');
+          }
+        } catch (e) {
+          // Use default font
+        }
+
+        const telegramId = user?.telegramId;
+        const statementNumber = this.generateStatementNumber(deal, telegramId);
+        const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
+        const receiptDate = completedAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) + ' (МСК)';
+
+        const statusNames = {
+          completed: 'Успешно завершена',
+          resolved: 'Решена арбитром',
+          expired: 'Истекла (авто-возврат)',
+          cancelled: 'Отменена',
+          refunded: 'Возврат'
+        };
+        const statusColors = {
+          completed: '#10b981',
+          resolved: '#f59e0b',
+          expired: '#ef4444',
+          cancelled: '#64748b',
+          refunded: '#f59e0b'
+        };
+
+        // ===== TITLE PAGE =====
+        doc.rect(0, 0, 595, 8).fill('#6366f1');
+
+        doc.moveDown(4);
+        doc.fontSize(42).fillColor('#6366f1').text('KeyShield', { align: 'center' });
+        doc.fontSize(14).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+
+        doc.moveDown(4);
+
+        doc.rect(150, doc.y, 295, 80).fillAndStroke('#f8fafc', '#e2e8f0');
+        doc.moveDown(0.5);
+        doc.fontSize(12).fillColor('#64748b').text('ВЫПИСКА', { align: 'center' });
+        doc.fontSize(28).fillColor('#1e293b').text(`№${statementNumber}`, { align: 'center' });
+
+        doc.moveDown(4);
+
+        doc.fontSize(11).fillColor('#64748b').text('Тип документа:', { align: 'center' });
+        doc.fontSize(14).fillColor('#1e293b').text('Выписка по сделке', { align: 'center' });
+
+        doc.moveDown(1);
+        doc.fontSize(11).fillColor('#64748b').text('Сделка:', { align: 'center' });
+        doc.fontSize(14).fillColor('#6366f1').text(deal.dealId, { align: 'center' });
+
+        doc.moveDown(1);
+        doc.fontSize(11).fillColor('#64748b').text('Подготовлено для:', { align: 'center' });
+        doc.fontSize(14).fillColor('#1e293b').text(`@${user?.username || 'Неизвестно'} (ID: ${telegramId})`, { align: 'center' });
+
+        doc.moveDown(1);
+        doc.fontSize(11).fillColor('#64748b').text('Дата формирования:', { align: 'center' });
+        doc.fontSize(12).fillColor('#1e293b').text(receiptDate, { align: 'center' });
+
+        doc.fontSize(9).fillColor('#94a3b8').text('https://keyshield.me', 50, 750, { align: 'center', link: 'https://keyshield.me' });
+        doc.rect(0, 834, 595, 8).fill('#6366f1');
+
+        // ===== DEAL PAGE =====
+        doc.addPage();
+
+        doc.rect(0, 0, 595, 40).fill('#6366f1');
+        doc.fontSize(14).fillColor('#ffffff').text(`Выписка №${statementNumber}`, 50, 12);
+        doc.fontSize(10).fillColor('#c7d2fe').text(deal.dealId, 450, 14);
+
+        doc.moveDown(3);
+
+        doc.fontSize(18).fillColor('#1e293b').text(deal.productName, 50, 60);
+        doc.fontSize(10).fillColor(statusColors[deal.status] || '#64748b').text(statusNames[deal.status] || deal.status, 50, 82);
+
+        const drawSection = (title, yPos) => {
+          doc.rect(50, yPos, 495, 24).fill('#f1f5f9');
+          doc.fontSize(11).fillColor('#475569').text(title, 60, yPos + 6);
+          return yPos + 30;
+        };
+
+        const drawRow = (label, value, y) => {
+          doc.fontSize(10).fillColor('#64748b').text(label, 60, y);
+          doc.fontSize(10).fillColor('#1e293b').text(String(value || 'Н/Д'), 200, y);
+          return y + 18;
+        };
+
+        let y = 110;
+
+        // Basic Info
+        y = drawSection('Основная информация', y);
+        y = drawRow('ID сделки:', deal.dealId, y);
+        const desc = deal.description || '';
+        y = drawRow('Описание:', desc.substring(0, 60) + (desc.length > 60 ? '...' : ''), y);
+        y += 10;
+
+        // Participants
+        y = drawSection('Участники', y);
+        const userRole = deal.buyerId === telegramId ? 'Покупатель' : 'Продавец';
+        y = drawRow('Ваша роль:', userRole, y);
+        y = drawRow('Инициатор:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец', y);
+        y += 10;
+
+        // Financial
+        y = drawSection('Финансы', y);
+        y = drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`, y);
+        y = drawRow('Комиссия:', `${deal.commission} ${deal.asset}`, y);
+        const commTypes = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам 50/50' };
+        y = drawRow('Комиссию платит:', commTypes[deal.commissionType], y);
+
+        let depositAmt = deal.amount;
+        if (deal.commissionType === 'buyer') depositAmt += deal.commission;
+        else if (deal.commissionType === 'split') depositAmt += deal.commission / 2;
+        y = drawRow('Сумма депозита:', `${depositAmt.toFixed(2)} ${deal.asset}`, y);
+
+        let sellerAmt = deal.amount;
+        if (deal.commissionType === 'seller') sellerAmt -= deal.commission;
+        else if (deal.commissionType === 'split') sellerAmt -= deal.commission / 2;
+        y = drawRow('Выплата продавцу:', `${sellerAmt.toFixed(2)} ${deal.asset}`, y);
+        y += 10;
+
+        // Wallets
+        y = drawSection('Кошельки', y);
+        y = drawRow('Multisig:', deal.multisigAddress || 'Н/Д', y);
+        y = drawRow('Покупатель:', deal.buyerAddress || 'Н/Д', y);
+        y = drawRow('Продавец:', deal.sellerAddress || 'Н/Д', y);
+        y += 10;
+
+        // Blockchain
+        if (deal.depositTxHash || deal.payoutTxHash) {
+          y = drawSection('Блокчейн', y);
+          if (deal.depositTxHash) {
+            y = drawRow('TX депозита:', deal.depositTxHash.substring(0, 40) + '...', y);
+          }
+          if (deal.payoutTxHash) {
+            y = drawRow('TX выплаты:', deal.payoutTxHash.substring(0, 40) + '...', y);
+          }
+          y += 10;
+        }
+
+        // Timeline
+        y = drawSection('Хронология', y);
+        const createdDate = new Date(deal.createdAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+        y = drawRow('Создана:', createdDate + ' (МСК)', y);
+        if (deal.completedAt) {
+          const completedDate = new Date(deal.completedAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+          y = drawRow('Завершена:', completedDate + ' (МСК)', y);
+        }
+
+        // Footer
+        const footerY = 780;
+        if (y < footerY) {
+          doc.fontSize(9).fillColor('#94a3b8').text(
+            'Документ сформирован автоматически системой KeyShield.',
+            50, footerY, { align: 'center', width: 495 }
+          );
+        }
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
    * Send transaction receipt with PDF attachment
    * @param {string} to - Recipient email
    * @param {Object} deal - Deal object
-   * @param {Object} transaction - Transaction details
-   * @param {Object} user - User object (optional, for PDF generation)
+   * @param {Object} transaction - Transaction details (for HTML email, not PDF)
+   * @param {Object} user - User object (required for PDF generation)
    * @returns {Promise<boolean>}
    */
   async sendReceipt(to, deal, transaction, user = null) {
@@ -75,22 +284,25 @@ class EmailService {
         subject = `KeyShield - Чек по сделке ${deal.dealId}`;
       }
 
-      const html = this.generateReceiptHTML(deal, transaction);
-      const text = this.generateReceiptText(deal, transaction);
-
-      // Generate PDF attachment
+      // Generate PDF attachment (same format as admin export)
       let attachments = [];
-      try {
-        const pdfBuffer = await pdfReceiptService.generateReceipt(deal, transaction, user);
-        const pdfFilename = pdfReceiptService.generateFilename(deal, user, transaction);
-        attachments = [{
-          filename: pdfFilename,
-          content: pdfBuffer,
-          contentType: 'application/pdf'
-        }];
-      } catch (pdfError) {
-        console.error('📧 Error generating PDF, sending without attachment:', pdfError.message);
+      let statementNumber = null;
+      if (user) {
+        try {
+          const pdfResult = await this.generatePdfReceipt(deal, user);
+          attachments = [{
+            filename: pdfResult.filename,
+            content: pdfResult.buffer,
+            contentType: 'application/pdf'
+          }];
+          statementNumber = pdfResult.statementNumber;
+        } catch (pdfError) {
+          console.error('📧 Error generating PDF, sending without attachment:', pdfError.message);
+        }
       }
+
+      const html = this.generateReceiptHTML(deal, transaction, statementNumber);
+      const text = this.generateReceiptText(deal, transaction);
 
       await this.transporter.sendMail({
         from: `"KeyShield" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
@@ -112,16 +324,21 @@ class EmailService {
   /**
    * Generate HTML receipt (matching admin PDF style)
    */
-  generateReceiptHTML(deal, transaction) {
+  generateReceiptHTML(deal, transaction, statementNumber = null) {
     const { type, amount, txHash, toAddress } = transaction;
     const isRefund = type === 'refund';
     const isPurchase = type === 'purchase';
-    const date = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
 
-    // Generate statement number
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const statementNumber = `${dateStr}-${random}`;
+    // Use deal completion date
+    const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
+    const date = completedAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+
+    // Use provided statementNumber or generate one
+    if (!statementNumber) {
+      const dateStr = completedAt.toISOString().slice(0, 10).replace(/-/g, '');
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      statementNumber = `${dateStr}-${random}`;
+    }
 
     // Determine status text and colors (matching admin PDF)
     let typeText, statusText, amountLabel, statusColor;
@@ -227,13 +444,13 @@ class EmailService {
     <!-- TX Link -->
     <div style="margin: 0 30px 25px; text-align: center;">
       <a href="https://tronscan.org/#/transaction/${txHash}" style="display: inline-block; padding: 12px 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #6366f1; text-decoration: none; font-size: 13px;">
-        🔗 Проверить транзакцию на TronScan
+        Проверить транзакцию на TronScan
       </a>
     </div>
 
     <!-- PDF notice -->
     <div style="margin: 0 30px 20px; padding: 15px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; text-align: center;">
-      <p style="margin: 0; color: #1e40af; font-size: 13px;">📎 PDF-выписка прикреплена к этому письму</p>
+      <p style="margin: 0; color: #1e40af; font-size: 13px;">PDF-выписка прикреплена к этому письму</p>
     </div>
 
     <!-- Footer -->
@@ -242,7 +459,7 @@ class EmailService {
       <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">
         Вопросы: <a href="mailto:support@keyshield.me" style="color: #6366f1; text-decoration: none;">support@keyshield.me</a>
       </p>
-      <p style="margin: 0; color: #94a3b8; font-size: 11px;">© ${new Date().getFullYear()} KeyShield. Все права защищены.</p>
+      <p style="margin: 0; color: #94a3b8; font-size: 11px;">${new Date().getFullYear()} KeyShield. Все права защищены.</p>
     </div>
 
     <!-- Bottom accent bar -->
@@ -260,7 +477,9 @@ class EmailService {
     const { type, amount, txHash, toAddress } = transaction;
     const isRefund = type === 'refund';
     const isPurchase = type === 'purchase';
-    const date = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+
+    const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
+    const date = completedAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
 
     let title, statusText, amountLabel;
     if (isRefund) {
