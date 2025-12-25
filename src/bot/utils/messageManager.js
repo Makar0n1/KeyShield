@@ -233,7 +233,7 @@ class MessageManager {
 
   /**
    * Update current screen content WITHOUT pushing to stack
-   * Uses EDIT (silent) - no push notification.
+   * Uses DELETE + SEND for reliability.
    * Use this for: error messages, validation errors, file count updates.
    */
   async updateScreen(ctx, userId, screenName, text, keyboard) {
@@ -243,8 +243,8 @@ class MessageManager {
       currentScreenData: { text, keyboard: this.normalizeKeyboard(keyboard) }
     });
 
-    // Edit message in place (silent)
-    return await this.editMessage(ctx, userId, text, keyboard);
+    // Send new message (delete + send for reliability)
+    return await this.sendNewMessage(ctx, userId, text, keyboard);
   }
 
   /**
