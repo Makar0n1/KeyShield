@@ -6,7 +6,7 @@ import { Card, Button, Input } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
 import { formatDateShort } from '@/utils/format'
-import { Search, Eye, Ban, CheckCircle, Filter } from 'lucide-react'
+import { Search, Eye, Ban, CheckCircle, Filter, Bot } from 'lucide-react'
 
 export function AdminUsersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -18,6 +18,7 @@ export function AdminUsersPage() {
 
   const page = parseInt(searchParams.get('page') || '1')
   const blacklisted = searchParams.get('blacklisted') === 'true'
+  const botBlocked = searchParams.get('botBlocked') || ''
 
   const fetchUsers = () => {
     setLoading(true)
@@ -27,6 +28,7 @@ export function AdminUsersPage() {
         limit: 20,
         search: searchParams.get('search') || undefined,
         blacklisted: blacklisted || undefined,
+        botBlocked: botBlocked || undefined,
       })
       .then((data) => {
         setUsers(data.users)
@@ -39,7 +41,7 @@ export function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers()
-  }, [page, blacklisted, searchParams])
+  }, [page, blacklisted, botBlocked, searchParams])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,6 +61,17 @@ export function AdminUsersPage() {
       params.set('blacklisted', 'true')
     } else {
       params.delete('blacklisted')
+    }
+    params.set('page', '1')
+    setSearchParams(params)
+  }
+
+  const handleFilterBotBlocked = (value: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (value) {
+      params.set('botBlocked', value)
+    } else {
+      params.delete('botBlocked')
     }
     params.set('page', '1')
     setSearchParams(params)
@@ -119,7 +132,7 @@ export function AdminUsersPage() {
             <Button type="submit">Поиск</Button>
           </form>
 
-          {/* Filter */}
+          {/* Filter - Blacklisted */}
           <div className="flex items-center gap-2">
             <Filter size={18} className="text-muted" />
             <div className="flex gap-2">
@@ -141,7 +154,44 @@ export function AdminUsersPage() {
                     : 'bg-dark-lighter text-gray-300 hover:bg-dark-light'
                 }`}
               >
-                Заблокированные
+                Забанены
+              </button>
+            </div>
+          </div>
+
+          {/* Filter - Bot Blocked */}
+          <div className="flex items-center gap-2">
+            <Bot size={18} className="text-muted" />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleFilterBotBlocked('')}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  botBlocked === ''
+                    ? 'bg-primary text-white'
+                    : 'bg-dark-lighter text-gray-300 hover:bg-dark-light'
+                }`}
+              >
+                Все
+              </button>
+              <button
+                onClick={() => handleFilterBotBlocked('false')}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  botBlocked === 'false'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-dark-lighter text-gray-300 hover:bg-dark-light'
+                }`}
+              >
+                Бот активен
+              </button>
+              <button
+                onClick={() => handleFilterBotBlocked('true')}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  botBlocked === 'true'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-dark-lighter text-gray-300 hover:bg-dark-light'
+                }`}
+              >
+                Бот заблокирован
               </button>
             </div>
           </div>
@@ -167,6 +217,8 @@ export function AdminUsersPage() {
                   <th className="text-left p-4 text-sm font-medium text-muted">Источник</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Споры</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Статус</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted">Бот</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted">Посл. действие</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Регистрация</th>
                   <th className="text-right p-4 text-sm font-medium text-muted">Действия</th>
                 </tr>
@@ -219,9 +271,34 @@ export function AdminUsersPage() {
                     </td>
                     <td className="p-4">
                       {user.blacklisted ? (
-                        <Badge variant="destructive">Заблокирован</Badge>
+                        <Badge variant="destructive">Забанен</Badge>
                       ) : (
                         <Badge variant="success">Активен</Badge>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {user.botBlocked ? (
+                        <Badge variant="warning" className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                          Заблокирован
+                        </Badge>
+                      ) : (
+                        <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                          Активен
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-4 text-sm">
+                      {user.lastActionType ? (
+                        <div>
+                          <span className="text-gray-300 text-xs">{user.lastActionType}</span>
+                          {user.lastActionAt && (
+                            <span className="block text-muted text-xs">
+                              {formatDateShort(user.lastActionAt)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted">—</span>
                       )}
                     </td>
                     <td className="p-4 text-sm text-muted">

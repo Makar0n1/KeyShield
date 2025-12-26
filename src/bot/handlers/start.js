@@ -3,6 +3,7 @@ const Platform = require('../../models/Platform');
 const { mainMenuKeyboard } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
+const activityLogger = require('../../services/activityLogger');
 
 // Welcome text for NEW users
 const WELCOME_TEXT = `👋 *Добро пожаловать в KeyShield!*
@@ -69,6 +70,12 @@ const startHandler = async (ctx) => {
     const telegramId = ctx.from.id;
     const username = ctx.from.username;
     const firstName = ctx.from.first_name;
+
+    // Log bot unblocked if user was blocked before (they're back!)
+    await activityLogger.logBotUnblocked(telegramId);
+
+    // Log the /start action
+    await activityLogger.logAction(telegramId, 'start', { username });
 
     // Parse referral code from start parameter
     let platformId = null;

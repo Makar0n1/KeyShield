@@ -603,6 +603,24 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
     const avgTrxPerDeal = finishedDeals.length > 0 ? totalTrxSpent / finishedDeals.length : 0;
     const avgCostPerDeal = finishedDeals.length > 0 ? totalCostUsd / finishedDeals.length : 0;
 
+    // User analytics - activity tracking
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const userAnalytics = {
+      totalUsers,
+      activeToday: await User.countDocuments({ lastActivity: { $gte: todayStart } }),
+      activeWeek: await User.countDocuments({ lastActivity: { $gte: weekAgo } }),
+      activeMonth: await User.countDocuments({ lastActivity: { $gte: monthAgo } }),
+      newToday: await User.countDocuments({ createdAt: { $gte: todayStart } }),
+      newWeek: await User.countDocuments({ createdAt: { $gte: weekAgo } }),
+      newMonth: await User.countDocuments({ createdAt: { $gte: monthAgo } }),
+      blockedBot: await User.countDocuments({ botBlocked: true }),
+      banned: bannedUsers
+    };
+
     res.json({
       deals: {
         total: totalDeals,
@@ -618,6 +636,7 @@ app.get('/api/admin/stats', adminAuth, async (req, res) => {
         total: totalUsers,
         banned: bannedUsers
       },
+      userAnalytics,
       finance: {
         totalVolume: totalVolume.toFixed(2),
         totalCommission: totalCommission.toFixed(2),
@@ -751,7 +770,7 @@ app.post('/api/admin/deals/:id/toggle-hidden', adminAuth, async (req, res) => {
 // Users API (with search rate limiting)
 app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
   try {
-    const { search, blacklisted, page = 1, limit = 20 } = req.query;
+    const { search, blacklisted, botBlocked, page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     let query = {};
@@ -765,7 +784,15 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
     }
     if (blacklisted === 'true') query.blacklisted = true;
 
+    // Filter by bot blocked status
+    if (botBlocked === 'true') {
+      query.botBlocked = true;
+    } else if (botBlocked === 'false') {
+      query.botBlocked = { $ne: true };
+    }
+
     const users = await User.find(query)
+      .select('telegramId username firstName role blacklisted disputeStats platformCode source createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
@@ -781,7 +808,9 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
 
 app.get('/api/admin/users/:telegramId', adminAuth, async (req, res) => {
   try {
-    const user = await User.findOne({ telegramId: parseInt(req.params.telegramId) }).lean();
+    const user = await User.findOne({ telegramId: parseInt(req.params.telegramId) })
+      .select('telegramId username firstName role blacklisted blacklistReason disputeStats platformCode source notes createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats wallets email')
+      .lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
   } catch (error) {

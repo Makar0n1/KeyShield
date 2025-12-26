@@ -126,6 +126,53 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Bot blocked status (when user blocks the bot)
+  botBlocked: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  botBlockedAt: {
+    type: Date,
+    default: null
+  },
+  // Last action tracking
+  lastActionType: {
+    type: String,
+    default: null
+  },
+  lastActionAt: {
+    type: Date,
+    default: null
+  },
+  // Session counter (increments on each /start)
+  sessionCount: {
+    type: Number,
+    default: 0
+  },
+  // Activity statistics
+  stats: {
+    dealsCreated: {
+      type: Number,
+      default: 0
+    },
+    dealsCompleted: {
+      type: Number,
+      default: 0
+    },
+    totalVolume: {
+      type: Number,
+      default: 0
+    },
+    commandsUsed: {
+      type: Number,
+      default: 0
+    },
+    buttonsClicked: {
+      type: Number,
+      default: 0
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -18,6 +18,9 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
+  UserPlus,
+  UserX,
+  Bot,
 } from 'lucide-react'
 
 interface StatCardProps {
@@ -276,23 +279,69 @@ export function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Users */}
-      <Card className="p-6">
+      {/* User Analytics */}
+      <div>
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Users size={20} />
           Пользователи
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-          <div>
-            <p className="text-muted text-sm">Всего</p>
-            <p className="text-3xl font-bold text-white">{formatNumber(stats.users?.total || 0)}</p>
-          </div>
-          <div>
-            <p className="text-muted text-sm">Заблокировано</p>
-            <p className="text-3xl font-bold text-red-400">{formatNumber(stats.users?.banned || 0)}</p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatCard
+            title="Всего"
+            value={formatNumber(stats.userAnalytics?.totalUsers || stats.users?.total || 0)}
+            icon={<Users size={24} />}
+            link="/admin/users"
+          />
+          <StatCard
+            title="Активны сегодня"
+            value={formatNumber(stats.userAnalytics?.activeToday || 0)}
+            icon={<Activity size={24} />}
+            color="green"
+          />
+          <StatCard
+            title="Активны за неделю"
+            value={formatNumber(stats.userAnalytics?.activeWeek || 0)}
+            icon={<Activity size={24} />}
+            color="blue"
+          />
+          <StatCard
+            title="Новых сегодня"
+            value={formatNumber(stats.userAnalytics?.newToday || 0)}
+            icon={<UserPlus size={24} />}
+            color="purple"
+          />
+          <StatCard
+            title="Новых за неделю"
+            value={formatNumber(stats.userAnalytics?.newWeek || 0)}
+            icon={<UserPlus size={24} />}
+            color="blue"
+          />
         </div>
-      </Card>
+
+        {/* Second row - problem users */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+          <StatCard
+            title="Заблокировали бота"
+            value={formatNumber(stats.userAnalytics?.blockedBot || 0)}
+            icon={<Bot size={24} />}
+            color="orange"
+            link="/admin/users?botBlocked=true"
+          />
+          <StatCard
+            title="Забанены"
+            value={formatNumber(stats.userAnalytics?.banned || stats.users?.banned || 0)}
+            icon={<UserX size={24} />}
+            color="red"
+            link="/admin/users?blacklisted=true"
+          />
+          <StatCard
+            title="Активны за месяц"
+            value={formatNumber(stats.userAnalytics?.activeMonth || 0)}
+            icon={<Activity size={24} />}
+            subtitle={`${stats.userAnalytics?.totalUsers ? Math.round((stats.userAnalytics.activeMonth / stats.userAnalytics.totalUsers) * 100) : 0}% от всех`}
+          />
+        </div>
+      </div>
 
       {/* Partner Details */}
       {partners?.details && partners.details.length > 0 && (
@@ -361,7 +410,14 @@ export function AdminDashboardPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors"
           >
             <AlertTriangle size={16} />
-            Заблокированные
+            Забаненные
+          </Link>
+          <Link
+            to="/admin/users?botBlocked=true"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/20 transition-colors"
+          >
+            <Bot size={16} />
+            Заблокировали бота ({stats.userAnalytics?.blockedBot || 0})
           </Link>
           <Link
             to="/admin/exports"

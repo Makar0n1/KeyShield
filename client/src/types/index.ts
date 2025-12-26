@@ -183,6 +183,14 @@ export interface Deal {
 
 // ========== User Types ==========
 
+export interface UserStats {
+  dealsCreated: number
+  dealsCompleted: number
+  totalVolume: number
+  commandsUsed: number
+  buttonsClicked: number
+}
+
 export interface User {
   _id: string
   telegramId: number
@@ -204,6 +212,13 @@ export interface User {
   referredBy?: string
   createdAt: string
   lastActivity?: string
+  // Activity tracking fields
+  botBlocked?: boolean
+  botBlockedAt?: string
+  lastActionType?: string
+  lastActionAt?: string
+  sessionCount?: number
+  stats?: UserStats
 }
 
 // ========== Dispute Types ==========
@@ -357,6 +372,18 @@ export interface AdminPartnersStats {
   details: PartnerDetail[]
 }
 
+export interface UserAnalytics {
+  totalUsers: number
+  activeToday: number
+  activeWeek: number
+  activeMonth: number
+  newToday: number
+  newWeek: number
+  newMonth: number
+  blockedBot: number
+  banned: number
+}
+
 export interface AdminStats {
   deals: {
     total: number
@@ -372,6 +399,7 @@ export interface AdminStats {
     total: number
     banned: number
   }
+  userAnalytics?: UserAnalytics
   finance: AdminFinanceStats
   partners: AdminPartnersStats
   // Legacy fields for backward compat

@@ -14,6 +14,8 @@ import {
   FileText,
   Scale,
   ExternalLink,
+  Activity,
+  Bot,
 } from 'lucide-react'
 
 export function AdminUserDetailsPage() {
@@ -249,6 +251,68 @@ export function AdminUserDetailsPage() {
               </p>
             </div>
           )}
+        </Card>
+
+        {/* Activity Stats */}
+        <Card className="p-6 lg:col-span-2">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Activity size={20} />
+            Активность
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {/* Bot Status */}
+            <div className="p-4 bg-dark rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Bot size={16} className="text-muted" />
+                <span className="text-muted text-sm">Статус бота</span>
+              </div>
+              {user.botBlocked ? (
+                <Badge variant="warning" className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                  Заблокирован
+                </Badge>
+              ) : (
+                <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                  Активен
+                </Badge>
+              )}
+              {user.botBlockedAt && (
+                <p className="text-xs text-muted mt-1">с {formatDate(user.botBlockedAt)}</p>
+              )}
+            </div>
+
+            {/* Last Action */}
+            <div className="p-4 bg-dark rounded-lg">
+              <p className="text-muted text-sm mb-1">Последнее действие</p>
+              <p className="text-white font-medium">{user.lastActionType || '—'}</p>
+              {user.lastActionAt && (
+                <p className="text-xs text-muted mt-1">{formatDate(user.lastActionAt)}</p>
+              )}
+            </div>
+
+            {/* Sessions */}
+            <div className="p-4 bg-dark rounded-lg">
+              <p className="text-muted text-sm mb-1">Сессий (/start)</p>
+              <p className="text-2xl font-bold text-blue-400">{user.sessionCount || 0}</p>
+            </div>
+
+            {/* Deals Created */}
+            <div className="p-4 bg-dark rounded-lg">
+              <p className="text-muted text-sm mb-1">Сделок создано</p>
+              <p className="text-2xl font-bold text-purple-400">{user.stats?.dealsCreated || 0}</p>
+            </div>
+
+            {/* Deals Completed */}
+            <div className="p-4 bg-dark rounded-lg">
+              <p className="text-muted text-sm mb-1">Сделок завершено</p>
+              <p className="text-2xl font-bold text-green-400">{user.stats?.dealsCompleted || 0}</p>
+            </div>
+
+            {/* Total Volume */}
+            <div className="p-4 bg-dark rounded-lg">
+              <p className="text-muted text-sm mb-1">Общий объём</p>
+              <p className="text-2xl font-bold text-primary">{user.stats?.totalVolume?.toFixed(2) || '0'} USDT</p>
+            </div>
+          </div>
         </Card>
 
         {/* Recent Deals */}

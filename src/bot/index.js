@@ -16,6 +16,9 @@ const { deduplicationMiddleware } = require('./middleware/deduplication');
 const { loadingTimeoutMiddleware } = require('./middleware/loadingTimeout');
 const { usernameSyncMiddleware } = require('./middleware/usernameSync');
 
+// Activity logging
+const activityLogger = require('../services/activityLogger');
+
 // Handlers
 const { startHandler, mainMenuHandler, backHandler, MAIN_MENU_TEXT } = require('./handlers/start');
 const {
@@ -131,6 +134,36 @@ bot.catch((err, ctx) => {
 // ============================================
 // MIDDLEWARE FOR HIGH-LOAD OPTIMIZATION
 // ============================================
+
+// 0. Activity logging - logs ALL user actions to console
+bot.use(async (ctx, next) => {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return next();
+
+  const username = ctx.from?.username || 'no_username';
+  let actionType = 'unknown';
+
+  if (ctx.callbackQuery?.data) {
+    actionType = `button_${ctx.callbackQuery.data}`;
+  } else if (ctx.message?.text) {
+    if (ctx.message.text.startsWith('/')) {
+      actionType = `command_${ctx.message.text.split(' ')[0].slice(1)}`;
+    } else {
+      actionType = 'text_input';
+    }
+  } else if (ctx.message?.photo) {
+    actionType = 'media_photo';
+  } else if (ctx.message?.document) {
+    actionType = 'media_document';
+  } else if (ctx.message?.video) {
+    actionType = 'media_video';
+  }
+
+  // Console log (all actions)
+  console.log(`👤 [${new Date().toISOString()}] @${username} (${telegramId}): ${actionType}`);
+
+  await next();
+});
 
 // 1. Username sync - keeps username up-to-date on every interaction
 // Critical for arbitration and finding users by @username

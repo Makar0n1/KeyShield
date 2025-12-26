@@ -13,6 +13,7 @@
 
 const User = require('../../models/User');
 const telegramQueue = require('../../utils/TelegramQueue');
+const activityLogger = require('../../services/activityLogger');
 
 class MessageManager {
   constructor() {
@@ -113,13 +114,13 @@ class MessageManager {
     } catch (error) {
       console.error(`[sendNewMessage] Error for user ${userId}:`, error.message);
 
-      // If bot blocked or chat not found, clear mainMessageId
+      // If bot blocked or chat not found, mark user as blocked and clear mainMessageId
       if (
         error.description?.includes('bot was blocked') ||
         error.description?.includes('chat not found') ||
         error.description?.includes('user is deactivated')
       ) {
-        await this.saveUserState(userId, { mainMessageId: null });
+        await activityLogger.logBotBlocked(userId);
       }
 
       return null;
