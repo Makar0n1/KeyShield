@@ -37,8 +37,9 @@ class BotStatusChecker {
   }
 
   /**
-   * Check a single user's bot status using getChat
-   * This is silent - user doesn't see anything
+   * Check a single user's bot status using sendChatAction
+   * sendChatAction("typing") is the most reliable way to check if bot is blocked
+   * User sees nothing (typing indicator disappears instantly)
    *
    * @param {object} bot - Telegraf bot instance
    * @param {number} telegramId - User's Telegram ID
@@ -46,24 +47,30 @@ class BotStatusChecker {
    */
   async checkUserStatus(bot, telegramId) {
     try {
-      // getChat is a silent API call - user doesn't see anything
-      await bot.telegram.getChat(telegramId);
+      // sendChatAction is the ONLY reliable way to check if bot is blocked
+      // getChat works even when blocked!
+      // User sees brief "typing..." that disappears instantly
+      await bot.telegram.sendChatAction(telegramId, 'typing');
       return 'active';
     } catch (error) {
       const desc = error.description || '';
+      const code = error.code;
 
       // User blocked the bot or deleted account
+      // Error 403: Forbidden - bot was blocked by the user
       if (
+        code === 403 ||
         desc.includes('bot was blocked') ||
         desc.includes('user is deactivated') ||
         desc.includes('chat not found') ||
-        desc.includes('PEER_ID_INVALID')
+        desc.includes('PEER_ID_INVALID') ||
+        desc.includes('Forbidden')
       ) {
         return 'blocked';
       }
 
       // Other errors (rate limit, network, etc.)
-      console.error(`[BotStatusChecker] Error checking user ${telegramId}:`, desc);
+      console.error(`[BotStatusChecker] Error checking user ${telegramId}:`, error.code, desc);
       return 'error';
     }
   }
