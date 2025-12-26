@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { adminService } from '@/services/admin'
-import type { AdminStats } from '@/types'
-import { Card } from '@/components/ui'
+import type { AdminStats, BotStatusProgress } from '@/types'
+import { Card, Button } from '@/components/ui'
 import { formatNumber, formatCurrency } from '@/utils/format'
 import {
   FileText,
@@ -21,6 +21,8 @@ import {
   UserPlus,
   UserX,
   Bot,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react'
 
 interface StatCardProps {
@@ -72,6 +74,60 @@ export function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Bot status check state
+  const [botCheckProgress, setBotCheckProgress] = useState<BotStatusProgress | null>(null)
+  const [botCheckStarting, setBotCheckStarting] = useState(false)
+
+  // Poll for progress when check is running
+  const pollProgress = useCallback(async () => {
+    try {
+      const progress = await adminService.getBotStatusProgress()
+      setBotCheckProgress(progress)
+
+      // If still running, poll again
+      if (progress.isRunning) {
+        setTimeout(pollProgress, 2000)
+      } else if (progress.completedAt) {
+        // Refresh stats when complete
+        adminService.getStats().then(setStats)
+      }
+    } catch (err) {
+      console.error('Failed to get progress:', err)
+    }
+  }, [])
+
+  // Start bot status check
+  const handleStartBotCheck = async () => {
+    try {
+      setBotCheckStarting(true)
+      const result = await adminService.startBotStatusCheck()
+      setBotCheckProgress(result.progress)
+      // Start polling
+      setTimeout(pollProgress, 2000)
+    } catch (err: unknown) {
+      const error = err as { response?: { status?: number; data?: { progress?: BotStatusProgress } } }
+      if (error.response?.status === 409) {
+        // Already running, start polling
+        setBotCheckProgress(error.response.data?.progress || null)
+        pollProgress()
+      } else {
+        console.error('Failed to start check:', err)
+      }
+    } finally {
+      setBotCheckStarting(false)
+    }
+  }
+
+  // Check if there's an ongoing check on mount
+  useEffect(() => {
+    adminService.getBotStatusProgress().then((progress) => {
+      setBotCheckProgress(progress)
+      if (progress.isRunning) {
+        pollProgress()
+      }
+    }).catch(() => {})
+  }, [pollProgress])
 
   useEffect(() => {
     adminService
@@ -341,6 +397,56 @@ export function AdminDashboardPage() {
             subtitle={`${stats.userAnalytics?.totalUsers ? Math.round((stats.userAnalytics.activeMonth / stats.userAnalytics.totalUsers) * 100) : 0}% от всех`}
           />
         </div>
+
+        {/* Bot Status Check */}
+        <Card className="p-4 mt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <RefreshCw size={20} className="text-muted" />
+              <div>
+                <p className="text-white font-medium">Проверка статусов бота</p>
+                <p className="text-muted text-sm">
+                  Проверяет, кто заблокировал бота (безопасно, без отправки сообщений)
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {botCheckProgress?.isRunning ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin text-primary" />
+                    <span className="text-sm text-muted">
+                      {botCheckProgress.checked}/{botCheckProgress.total} ({botCheckProgress.percent}%)
+                    </span>
+                  </div>
+                  <div className="w-32 h-2 bg-dark-lighter rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${botCheckProgress.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ) : botCheckProgress?.completedAt ? (
+                <div className="text-sm text-muted">
+                  Найдено заблокировавших: <span className="text-orange-400 font-medium">{botCheckProgress.blocked}</span>
+                </div>
+              ) : null}
+              <Button
+                onClick={handleStartBotCheck}
+                disabled={botCheckStarting || botCheckProgress?.isRunning}
+                variant="secondary"
+                className="whitespace-nowrap"
+              >
+                {botCheckStarting ? (
+                  <Loader2 size={16} className="animate-spin mr-2" />
+                ) : (
+                  <RefreshCw size={16} className="mr-2" />
+                )}
+                {botCheckProgress?.isRunning ? 'Проверка...' : 'Обновить статусы'}
+              </Button>
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Partner Details */}

@@ -39,6 +39,9 @@ const partnerRoutes = (await import('../src/web/routes/partner.js')).default;
 const blogAdminRoutes = (await import('../src/web/routes/blog.js')).default;
 const blogPublicRoutes = (await import('../src/web/routes/blogPublic.js')).default;
 
+// Services
+const botStatusChecker = (await import('../src/services/botStatusChecker.js')).default;
+
 const app = express();
 const PORT = process.env.WEB_PORT || 3001;
 const isDev = process.env.NODE_ENV !== 'production';
@@ -1698,6 +1701,45 @@ app.get('/api/admin/system/ip-check', adminAuth, async (req, res) => {
       hosting: false
     }
   });
+});
+
+// ============ BOT STATUS CHECKER ============
+
+// Start bot status check (async background task)
+app.post('/api/admin/bot-status/check', adminAuth, async (req, res) => {
+  try {
+    // Check if already running
+    const progress = botStatusChecker.getProgress();
+    if (progress.isRunning) {
+      return res.status(409).json({
+        error: 'Check is already running',
+        progress
+      });
+    }
+
+    // Start check in background (don't await)
+    botStatusChecker.runFullCheck(webBot, {
+      batchSize: 25,
+      delayBetweenBatches: 1000,
+      onlyActive: true
+    }).catch(err => {
+      console.error('[BotStatusChecker] Error:', err);
+    });
+
+    res.json({
+      success: true,
+      message: 'Bot status check started',
+      progress: botStatusChecker.getProgress()
+    });
+  } catch (error) {
+    console.error('Bot status check error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get current progress of bot status check
+app.get('/api/admin/bot-status/progress', adminAuth, (req, res) => {
+  res.json(botStatusChecker.getProgress());
 });
 
 // ============ PRERENDER CACHE MANAGEMENT ============

@@ -384,6 +384,18 @@ export interface UserAnalytics {
   banned: number
 }
 
+export interface BotStatusProgress {
+  total: number
+  checked: number
+  blocked: number
+  active: number
+  errors: number
+  startedAt: string | null
+  completedAt: string | null
+  isRunning: boolean
+  percent: number
+}
+
 export interface AdminStats {
   deals: {
     total: number

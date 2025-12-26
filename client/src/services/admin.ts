@@ -6,6 +6,7 @@ import type {
   Platform,
   AdminStats,
   ApiResponse,
+  BotStatusProgress,
 } from '@/types'
 
 export const adminService = {
@@ -242,6 +243,22 @@ export const adminService = {
 
   checkIp: async (ip: string): Promise<{ result: object }> => {
     const { data } = await api.get('/admin/system/ip-check', { params: { ip } })
+    return data
+  },
+
+  // ========== Bot Status Checker ==========
+
+  startBotStatusCheck: async (): Promise<{
+    success: boolean
+    message: string
+    progress: BotStatusProgress
+  }> => {
+    const { data } = await api.post('/admin/bot-status/check')
+    return data
+  },
+
+  getBotStatusProgress: async (): Promise<BotStatusProgress> => {
+    const { data } = await api.get('/admin/bot-status/progress')
     return data
   },
 }
