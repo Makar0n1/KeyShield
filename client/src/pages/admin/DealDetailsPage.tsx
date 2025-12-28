@@ -462,12 +462,12 @@ export function AdminDealDetailsPage() {
                 </div>
               </div>
 
-              {/* Energy Costs */}
+              {/* Energy & Bandwidth Costs */}
               <div className="bg-dark rounded-lg p-4">
                 <h3 className="text-sm font-medium text-muted uppercase mb-3">
-                  Энергия: {' '}
+                  Ресурсы: {' '}
                   {deal.operationalCosts.energyMethod === 'feesaver' ? (
-                    <span className="text-green-400">FeeSaver (2×65k)</span>
+                    <span className="text-green-400">FeeSaver (динамическая аренда)</span>
                   ) : deal.operationalCosts.energyMethod === 'trx' ? (
                     <span className="text-orange-400">TRX Fallback</span>
                   ) : (
@@ -478,11 +478,16 @@ export function AdminDealDetailsPage() {
                   {deal.operationalCosts.energyMethod === 'feesaver' ? (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-muted">Аренда энергии (2×65k):</span>
-                        <span className="text-green-400">{(deal.operationalCosts.feesaverCostTrx || 0).toFixed(2)} TRX</span>
+                        <span className="text-muted">📶 Bandwidth (1000 bw):</span>
+                        <span className="text-blue-400">{(deal.operationalCosts.feesaverBandwidthCostTrx || 0).toFixed(2)} TRX</span>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        1 TRX остаётся для bandwidth
+                      <div className="flex justify-between">
+                        <span className="text-muted">⚡ Энергия (динамически):</span>
+                        <span className="text-green-400">{(deal.operationalCosts.feesaverEnergyCostTrx || 0).toFixed(2)} TRX</span>
+                      </div>
+                      <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
+                        <span className="text-white font-medium">Итого FeeSaver:</span>
+                        <span className="text-green-400 font-medium">{(deal.operationalCosts.feesaverCostTrx || 0).toFixed(2)} TRX</span>
                       </div>
                     </>
                   ) : deal.operationalCosts.energyMethod === 'trx' ? (
@@ -526,10 +531,16 @@ export function AdminDealDetailsPage() {
                   </span>
                 </div>
                 {deal.operationalCosts.energyMethod === 'feesaver' && (
-                  <div className="flex justify-between">
-                    <span className="text-muted">FeeSaver энергия:</span>
-                    <span className="text-green-400">+{(deal.operationalCosts.feesaverCostTrx || 0).toFixed(2)} TRX</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted">📶 Bandwidth:</span>
+                      <span className="text-blue-400">+{(deal.operationalCosts.feesaverBandwidthCostTrx || 0).toFixed(2)} TRX</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted">⚡ Энергия:</span>
+                      <span className="text-green-400">+{(deal.operationalCosts.feesaverEnergyCostTrx || 0).toFixed(2)} TRX</span>
+                    </div>
+                  </>
                 )}
                 {deal.operationalCosts.energyMethod === 'trx' && (
                   <>

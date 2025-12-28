@@ -155,8 +155,10 @@ export interface Deal {
     activationTxFee?: number
     activationTrxReturned?: number
     activationTrxNet?: number
-    // Energy costs
+    // Energy & bandwidth costs (dynamic)
     energyMethod?: 'feesaver' | 'trx' | 'none'
+    feesaverEnergyCostTrx?: number
+    feesaverBandwidthCostTrx?: number
     feesaverCostTrx?: number
     fallbackTrxSent?: number
     fallbackTxFee?: number

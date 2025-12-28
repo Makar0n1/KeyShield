@@ -12,8 +12,6 @@ class FeeSaverService {
     this.apiKey = process.env.FEESAVER_API_KEY;
     this.baseUrl = 'https://api.feesaver.com';
     this.enabled = process.env.FEESAVER_ENABLED === 'true';
-    this.energyAmount = parseInt(process.env.FEESAVER_ENERGY_AMOUNT) || 130000;
-    this.rentalDuration = process.env.FEESAVER_RENTAL_DURATION || '1h';
     this.minBalance = parseInt(process.env.FEESAVER_MIN_BALANCE) || 50;
 
     if (!this.apiKey && this.enabled) {
@@ -57,17 +55,21 @@ class FeeSaverService {
   /**
    * Rent energy for a TRON address
    * @param {string} targetAddress - TRON address to receive energy
-   * @param {number} energyAmount - Amount of energy to rent (default: 130000)
+   * @param {number} energyAmount - Amount of energy to rent (required, from dynamic estimation)
    * @param {string} duration - Rental duration (default: '1h')
    * @returns {Promise<Object>} Rental response with order details
    */
-  async rentEnergy(targetAddress, energyAmount = null, duration = null) {
+  async rentEnergy(targetAddress, energyAmount, duration = '1h') {
     if (!this.isEnabled()) {
       throw new Error('FeeSaver service is not enabled or not configured');
     }
 
-    const amount = energyAmount || this.energyAmount;
-    const rentalDuration = duration || this.rentalDuration;
+    if (!energyAmount || energyAmount <= 0) {
+      throw new Error('Energy amount is required and must be positive');
+    }
+
+    const amount = energyAmount;
+    const rentalDuration = duration;
 
     try {
       console.log(`🔋 Renting ${amount} Energy for ${targetAddress} (duration: ${rentalDuration})`);
@@ -215,6 +217,145 @@ class FeeSaverService {
       };
     } catch (error) {
       console.error('❌ Failed to rent energy for deal:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Rent bandwidth for a TRON address
+   * Prices: 15m/1000bw = 0.5 TRX, 1h/1000bw = 0.6 TRX, 1d/1000bw = 0.7 TRX
+   *
+   * @param {string} targetAddress - TRON address to receive bandwidth
+   * @param {number} bandwidthAmount - Amount of bandwidth to rent (1000 - 100000)
+   * @param {string} duration - Rental duration ('15m', '1h', '1d')
+   * @returns {Promise<Object>} Rental response with order details
+   */
+  async rentBandwidth(targetAddress, bandwidthAmount = 1000, duration = '1h') {
+    if (!this.isEnabled()) {
+      throw new Error('FeeSaver service is not enabled or not configured');
+    }
+
+    try {
+      console.log(`📶 Renting ${bandwidthAmount} Bandwidth for ${targetAddress} (duration: ${duration})`);
+
+      const response = await axios.get(`${this.baseUrl}/buyBw`, {
+        params: {
+          token: this.apiKey,
+          days: duration,
+          volume: bandwidthAmount,
+          target: targetAddress
+        }
+      });
+
+      const data = response.data;
+
+      if (data.status === 'Filled') {
+        console.log(`✅ Bandwidth rental successful!`);
+        console.log(`   Order ID: ${data.order_id}`);
+        console.log(`   Bandwidth: ${data.volume}`);
+        console.log(`   Cost: ${data.summa} TRX`);
+        console.log(`   Balance remaining: ${data.balance} TRX`);
+        console.log(`   TxID: ${data.txid || 'pending'}`);
+
+        if (data.activationPrice > 0) {
+          console.log(`   ℹ️ Wallet activated: ${data.activationPrice} TRX`);
+        }
+      } else if (data.status === 'Created') {
+        console.log(`⏳ Bandwidth rental order created, waiting for delegation...`);
+        console.log(`   Order ID: ${data.order_id}`);
+      }
+
+      return data;
+    } catch (error) {
+      const errorMsg = error.response?.data?.err || error.message;
+      console.error(`❌ Error renting bandwidth:`, errorMsg);
+
+      if (error.response?.data) {
+        console.error('Error details:', error.response.data);
+      }
+
+      throw new Error(`FeeSaver bandwidth rental failed: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Rent bandwidth for deal transactions (2 transfers need ~800 bandwidth)
+   * Rents 1000 bandwidth (minimum) which covers both transfers
+   *
+   * @param {string} targetAddress - Multisig wallet address
+   * @returns {Promise<{success: boolean, cost: number, data: Object}>}
+   */
+  async rentBandwidthForDeal(targetAddress) {
+    if (!this.isEnabled()) {
+      console.warn('⚠️ FeeSaver is disabled, skipping bandwidth rental');
+      return { success: false, cost: 0, data: null };
+    }
+
+    try {
+      console.log(`📶 Renting bandwidth for deal transactions...`);
+
+      // Rent 1000 bandwidth (minimum, covers ~2-3 TRC20 transfers at ~350 each)
+      const rentalResult = await this.rentBandwidth(targetAddress, 1000, '1h');
+
+      if (rentalResult.status !== 'Filled') {
+        throw new Error(`Bandwidth rental not filled: ${rentalResult.status}`);
+      }
+
+      // Wait for delegation
+      await this.waitForDelegation(5);
+
+      const cost = parseFloat(rentalResult.summa) || 0;
+
+      return {
+        success: true,
+        cost: cost,
+        bandwidthRented: 1000,
+        data: rentalResult
+      };
+    } catch (error) {
+      console.error('❌ Failed to rent bandwidth for deal:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Rent exact amount of energy for a specific transfer
+   * Uses dynamic estimation instead of fixed amount
+   *
+   * @param {string} targetAddress - Multisig wallet address
+   * @param {number} energyNeeded - Exact energy amount needed (from estimation)
+   * @returns {Promise<{success: boolean, cost: number, data: Object}>} Rental response with cost
+   */
+  async rentExactEnergy(targetAddress, energyNeeded) {
+    if (!this.isEnabled()) {
+      console.warn('⚠️ FeeSaver is disabled, skipping energy rental');
+      return { success: false, cost: 0, data: null };
+    }
+
+    try {
+      console.log(`🔋 Renting exact energy: ${energyNeeded} for ${targetAddress}`);
+
+      // Rent specific amount of energy
+      const rentalResult = await this.rentEnergy(targetAddress, energyNeeded);
+
+      if (rentalResult.status !== 'Filled') {
+        throw new Error(`Energy rental not filled: ${rentalResult.status}`);
+      }
+
+      // Wait for delegation
+      await this.waitForDelegation(10);
+
+      // Extract real cost from rental result
+      const cost = parseFloat(rentalResult.summa) || 0;
+
+      return {
+        success: true,
+        cost: cost,
+        energyRented: energyNeeded,
+        data: rentalResult
+      };
+    } catch (error) {
+      console.error('❌ Failed to rent exact energy:', error.message);
       throw error;
     }
   }

@@ -318,7 +318,7 @@ export function AdminDashboardPage() {
               <span className="text-white font-medium">{formatCurrency(avgCostPerDeal)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-muted">Сделок с FeeSaver</span>
+              <span className="text-muted">Сделок с FeeSaver (динамическая аренда)</span>
               <span className="text-green-400 font-medium">{finance?.feesaverDeals || 0}</span>
             </div>
             <div className="flex justify-between items-center">

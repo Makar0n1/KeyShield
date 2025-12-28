@@ -656,6 +656,55 @@ class BlockchainService {
   }
 
   /**
+   * Estimate energy required for USDT transfer
+   * @param {string} fromAddress - Sender address
+   * @param {string} toAddress - Recipient address
+   * @param {number} amount - USDT amount to transfer
+   * @returns {Promise<{energyNeeded: number, baseCost: number, penalty: number}>}
+   */
+  async estimateTransferEnergy(fromAddress, toAddress, amount = 1) {
+    try {
+      const functionSelector = 'transfer(address,uint256)';
+      const parameter = [
+        { type: 'address', value: toAddress },
+        { type: 'uint256', value: Math.floor(amount * 1e6) }
+      ];
+
+      const result = await this.tronWeb.transactionBuilder.triggerConstantContract(
+        USDT_CONTRACT_ADDRESS,
+        functionSelector,
+        {},
+        parameter,
+        fromAddress
+      );
+
+      const energyUsed = result.energy_used || 65000;
+      const energyPenalty = result.energy_penalty || 0;
+      const totalEnergy = energyUsed + energyPenalty;
+
+      // Add 10% buffer for safety
+      const energyWithBuffer = Math.ceil(totalEnergy * 1.1);
+
+      console.log(`⚡ Energy estimate for ${fromAddress} → ${toAddress}:`);
+      console.log(`   Base: ${energyUsed}, Penalty: ${energyPenalty}, Total: ${totalEnergy}, With buffer: ${energyWithBuffer}`);
+
+      return {
+        energyNeeded: energyWithBuffer,
+        baseCost: energyUsed,
+        penalty: energyPenalty
+      };
+    } catch (error) {
+      console.error('Error estimating energy:', error.message);
+      // Return safe default if estimation fails
+      return {
+        energyNeeded: 140000, // Safe default with penalty
+        baseCost: 65000,
+        penalty: 70000
+      };
+    }
+  }
+
+  /**
    * Send TRX from one address to another
    * @param {string} fromPrivateKey - Sender's private key
    * @param {string} toAddress - Recipient address
