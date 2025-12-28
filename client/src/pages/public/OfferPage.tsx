@@ -1,5 +1,16 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
+import {
+  COMMISSION_TIER_1_MAX,
+  COMMISSION_TIER_1_FIXED,
+  COMMISSION_TIER_2_MAX,
+  COMMISSION_TIER_2_RATE,
+  COMMISSION_TIER_3_MAX,
+  COMMISSION_TIER_3_RATE,
+  COMMISSION_TIER_4_RATE,
+  AUTO_BAN_LOSS_STREAK,
+  MIN_DEAL_AMOUNT
+} from '@/config/constants'
 
 export function OfferPage() {
   const schema = {
@@ -80,8 +91,10 @@ export function OfferPage() {
         <Paragraph>3.1. <strong>Комиссия Сервиса:</strong></Paragraph>
         <List
           items={[
-            'Для сделок до 300 USDT: фиксированная комиссия 15 USDT',
-            'Для сделок от 300 USDT и выше: 5% от суммы сделки',
+            `Для сделок до ${COMMISSION_TIER_1_MAX} USDT: фиксированная комиссия ${COMMISSION_TIER_1_FIXED} USDT`,
+            `Для сделок от ${COMMISSION_TIER_1_MAX} USDT: ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}% от суммы сделки`,
+            `Для сделок от ${COMMISSION_TIER_2_MAX} USDT: ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от суммы сделки`,
+            `Для сделок от ${COMMISSION_TIER_3_MAX} USDT: ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от суммы сделки`
           ]}
         />
         <Paragraph>3.2. <strong>Комиссия включает:</strong></Paragraph>
@@ -157,7 +170,7 @@ export function OfferPage() {
         <Paragraph>4.4. <strong>Минимальные требования:</strong></Paragraph>
         <List
           items={[
-            'Минимальная сумма сделки: 50 USDT',
+            `Минимальная сумма сделки: ${MIN_DEAL_AMOUNT} USDT`,
             'Обе стороны должны быть зарегистрированы в боте',
             'Одна активная сделка на пользователя одновременно',
           ]}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { SEO } from '@/components/SEO'
 import { trackLead, trackViewContent } from '@/hooks/useMetaPixel'
+import { COMMISSION_TIER_1_MAX, COMMISSION_TIER_1_FIXED, COMMISSION_TIER_2_RATE, MIN_DEAL_AMOUNT } from '@/config/constants'
 
 // ========== Constants ==========
 const BOT_URL = 'https://t.me/keyshield_bot'
@@ -568,16 +569,16 @@ function PricingSection() {
           {/* Fixed */}
           <div className="bg-dark-light rounded-xl p-8 border border-border">
             <h3 className="text-lg font-semibold text-white mb-4">Фиксированная комиссия</h3>
-            <div className="text-4xl font-bold text-primary mb-2">15</div>
-            <p className="text-muted mb-4">для сделок от 50 до 299</p>
+            <div className="text-4xl font-bold text-primary mb-2">{COMMISSION_TIER_1_FIXED}</div>
+            <p className="text-muted mb-4">для сделок от {MIN_DEAL_AMOUNT} до {COMMISSION_TIER_1_MAX - 1}</p>
             <p className="text-xs text-gray-500">В валюте сделки</p>
           </div>
 
           {/* Percent */}
           <div className="bg-dark-light rounded-xl p-8 border-2 border-primary relative">
             <h3 className="text-lg font-semibold text-white mb-4">Процентная комиссия</h3>
-            <div className="text-4xl font-bold text-primary mb-2">5%</div>
-            <p className="text-muted mb-4">для сделок от 300</p>
+            <div className="text-4xl font-bold text-primary mb-2">{(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%</div>
+            <p className="text-muted mb-4">для сделок от {COMMISSION_TIER_1_MAX}</p>
             <p className="text-xs text-gray-500">В валюте сделки</p>
           </div>
         </div>
@@ -588,7 +589,7 @@ function PricingSection() {
             <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-400">
               <div className="flex items-center gap-2">
                 <span className="text-primary">{Icons.check}</span>
-                Минимальная сумма сделки: 50
+                Минимальная сумма сделки: {MIN_DEAL_AMOUNT}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-primary">{Icons.check}</span>

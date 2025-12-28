@@ -123,8 +123,16 @@ const {
   handleMyDataTextInput
 } = require('./handlers/myData');
 
-// Initialize bot
-const bot = new Telegraf(process.env.BOT_TOKEN);
+// Initialize bot with increased timeout for slow connections
+const bot = new Telegraf(process.env.BOT_TOKEN, {
+  telegram: {
+    apiRoot: 'https://api.telegram.org',
+    webhookReply: false,
+    agent: null,
+    // Increase timeout to 60 seconds (default is 30s)
+    timeout: 60000
+  }
+});
 
 // Error handling
 bot.catch((err, ctx) => {

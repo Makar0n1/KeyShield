@@ -247,18 +247,31 @@ dealSchema.statics.generateUniqueKey = function(buyerId, sellerId, description) 
 };
 
 // Static method to calculate commission
-// Below 300 USDT: flat 15 USDT
-// 300 USDT and above: 5% of amount
+// NEW PRICING MODEL (effective 27.12.2025)
+// Tier 1: 0-150 USDT = 6 USDT fixed
+// Tier 2: 150-500 USDT = 3.5%
+// Tier 3: 500-1500 USDT = 3%
+// Tier 4: 1500+ USDT = 2.5%
 dealSchema.statics.calculateCommission = function(amount) {
-  const THRESHOLD = 300; // USDT
-  const MIN_COMMISSION = 15; // USDT
-  const RATE = 0.05; // 5%
+  const constants = require('../config/constants');
 
-  if (amount < THRESHOLD) {
-    return MIN_COMMISSION;
+  // Tier 1: Up to 150 USDT = 6 USDT fixed
+  if (amount <= constants.COMMISSION_TIER_1_MAX) {
+    return constants.COMMISSION_TIER_1_FIXED;
   }
 
-  return amount * RATE;
+  // Tier 2: 150-500 USDT = 3.5%
+  if (amount <= constants.COMMISSION_TIER_2_MAX) {
+    return amount * constants.COMMISSION_TIER_2_RATE;
+  }
+
+  // Tier 3: 500-1500 USDT = 3%
+  if (amount <= constants.COMMISSION_TIER_3_MAX) {
+    return amount * constants.COMMISSION_TIER_3_RATE;
+  }
+
+  // Tier 4: 1500+ USDT = 2.5%
+  return amount * constants.COMMISSION_TIER_4_RATE;
 };
 
 // Method to check if deal is in active state

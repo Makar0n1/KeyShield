@@ -1,5 +1,16 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
+import {
+  COMMISSION_TIER_1_MAX,
+  COMMISSION_TIER_1_FIXED,
+  COMMISSION_TIER_2_MAX,
+  COMMISSION_TIER_2_RATE,
+  COMMISSION_TIER_3_MAX,
+  COMMISSION_TIER_3_RATE,
+  COMMISSION_TIER_4_RATE,
+  AUTO_BAN_LOSS_STREAK,
+  MIN_DEAL_AMOUNT
+} from '@/config/constants'
 
 export function TermsPage() {
   const schema = {
@@ -103,7 +114,7 @@ export function TermsPage() {
             'При споре требуется участие арбитра',
           ]}
         />
-        <Paragraph>4.5. Минимальная сумма сделки: 50 USDT.</Paragraph>
+        <Paragraph>4.5. Минимальная сумма сделки: {MIN_DEAL_AMOUNT} USDT.</Paragraph>
         <Paragraph>4.6. У каждого пользователя может быть только одна активная сделка одновременно.</Paragraph>
         <Paragraph>4.7. Обе стороны должны быть зарегистрированы в боте (отправили /start).</Paragraph>
       </Section>
@@ -138,8 +149,10 @@ export function TermsPage() {
         </Paragraph>
         <List
           items={[
-            'Для сделок до 300 USDT: фиксированная комиссия 15 USDT',
-            'Для сделок от 300 USDT: 5% от суммы сделки',
+            `Для сделок до ${COMMISSION_TIER_1_MAX} USDT: фиксированная комиссия ${COMMISSION_TIER_1_FIXED} USDT`,
+            `Для сделок от ${COMMISSION_TIER_1_MAX} USDT: ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}% от суммы сделки`,
+            `Для сделок от ${COMMISSION_TIER_2_MAX} USDT: ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от суммы сделки`,
+            `Для сделок от ${COMMISSION_TIER_3_MAX} USDT: ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от суммы сделки`
           ]}
         />
         <Paragraph>6.2. Комиссия включает:</Paragraph>
@@ -208,7 +221,7 @@ export function TermsPage() {
         </Paragraph>
         <List
           items={[
-            '3 проигрыша в спорах подряд = автоматический бан',
+            `${AUTO_BAN_LOSS_STREAK} проигрыша в спорах подряд = автоматический бан`,
             'Выигрыш 1 спора сбрасывает счетчик',
             'Администратор может забанить вручную за нарушения',
           ]}

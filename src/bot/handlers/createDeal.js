@@ -23,6 +23,17 @@ const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
 const blockchainService = require('../../services/blockchain');
 const adminAlertService = require('../../services/adminAlertService');
+const {
+  COMMISSION_TIER_1_MAX,
+  COMMISSION_TIER_1_FIXED,
+  COMMISSION_TIER_2_MAX,
+  COMMISSION_TIER_2_RATE,
+  COMMISSION_TIER_3_MAX,
+  COMMISSION_TIER_3_RATE,
+  COMMISSION_TIER_4_RATE,
+  AUTO_BAN_LOSS_STREAK,
+  MIN_DEAL_AMOUNT
+} = require('../../config/constants');
 
 // Escape special Markdown characters
 function escapeMarkdown(text) {
@@ -466,8 +477,10 @@ const handleAssetSelection = async (ctx) => {
 Просьба ввободить сумму без запятых и пробелов (например: 150, 299.99, 5000)
 
 Комиссия сервиса:
-• До 300 USDT — 15 USDT
-• От 300 USDT — 5%`;
+• До 150 USDT — 6 USDT
+• 150-500 USDT — 3.5%
+• 500-1500 USDT — 3%
+• Свыше 1500 USDT — 2.5%`;
 
     const keyboard = backButton();
     await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_amount', text, keyboard);
@@ -1350,8 +1363,10 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 ⚠️ Минимальная сумма: 50 ${data.asset || 'USDT'}
 
 Комиссия сервиса:
-• До 300 USDT — 15 USDT
-• От 300 USDT — 5%`;
+• До ${COMMISSION_TIER_1_MAX} USDT — ${COMMISSION_TIER_1_FIXED} USDT
+• От ${COMMISSION_TIER_1_MAX} USDT — ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%
+• От ${COMMISSION_TIER_2_MAX} USDT — ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}%
+• От ${COMMISSION_TIER_3_MAX} USDT — ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}%`;
       if (data.amount) {
         text += `\n\n✏️ _Ранее указано: ${data.amount} ${data.asset || 'USDT'}_`;
       }

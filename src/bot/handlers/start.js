@@ -4,6 +4,11 @@ const { mainMenuKeyboard } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
 const activityLogger = require('../../services/activityLogger');
+const {
+  COMMISSION_TIER_1_FIXED,
+  COMMISSION_TIER_2_RATE,
+  MIN_DEAL_AMOUNT
+} = require('../../config/constants'); 
 
 // Welcome text for NEW users
 const WELCOME_TEXT = `👋 *Добро пожаловать в KeyShield!*
@@ -24,8 +29,8 @@ KeyShield — это escrow-сервис для безопасных сдело�
 ✅ *Анонимность*
 Никакой верификации. Только ваш Telegram и TRON-кошелёк.
 
-💰 *Комиссия:* от 15 USDT или 5%
-📊 *Минимум:* 50 USDT
+💰 *Комиссия:* от ${COMMISSION_TIER_1_FIXED} USDT
+📊 *Минимум:* ${MIN_DEAL_AMOUNT} USDT
 💵 *Актив:* USDT (TRC-20)
 
 Нажмите кнопку ниже, чтобы начать!`;
@@ -44,8 +49,8 @@ const MAIN_MENU_TEXT = `🛡 *KeyShield — Безопасные сделки*
 ⚖️ *Арбитраж споров*
 При конфликте — нейтральный арбитр рассмотрит доказательства.
 
-💰 *Комиссия:* от 15 USDT или 5%
-📊 *Минимум:* 50 USDT
+💰 *Комиссия:* от ${COMMISSION_TIER_1_FIXED} USDT
+📊 *Минимум:* ${MIN_DEAL_AMOUNT} USDT
 💵 *Актив:* USDT (TRC-20)
 
 Выберите действие:`;

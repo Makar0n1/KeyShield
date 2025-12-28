@@ -4,10 +4,21 @@ module.exports = {
   // Deal constraints
   MIN_DEAL_AMOUNT: 50, // Minimum deal amount is 50 USDT
 
-  // Commission settings
-  COMMISSION_RATE: 0.05, // 5% commission rate
-  MIN_COMMISSION_USDT: 15, // Minimum commission is 15 USDT
-  COMMISSION_THRESHOLD: 300, // Below 300 USDT = flat 15 USDT, above = 5%
+  // Commission settings - NEW PRICING MODEL (effective 27.12.2025)
+  // Tier 1: 0-150 USDT = 6 USDT fixed
+  COMMISSION_TIER_1_MAX: parseInt(process.env.COMMISSION_TIER_1_MAX) || 150,
+  COMMISSION_TIER_1_FIXED: parseFloat(process.env.COMMISSION_TIER_1_FIXED) || 6,
+
+  // Tier 2: 150-500 USDT = 3.5%
+  COMMISSION_TIER_2_MAX: parseInt(process.env.COMMISSION_TIER_2_MAX) || 500,
+  COMMISSION_TIER_2_RATE: parseFloat(process.env.COMMISSION_TIER_2_RATE) || 0.035,
+
+  // Tier 3: 500-1500 USDT = 3%
+  COMMISSION_TIER_3_MAX: parseInt(process.env.COMMISSION_TIER_3_MAX) || 1500,
+  COMMISSION_TIER_3_RATE: parseFloat(process.env.COMMISSION_TIER_3_RATE) || 0.03,
+
+  // Tier 4: 1500+ USDT = 2.5%
+  COMMISSION_TIER_4_RATE: parseFloat(process.env.COMMISSION_TIER_4_RATE) || 0.025,
 
   // Deposit tolerance
   DEPOSIT_TOLERANCE_MINUS: 2, // Allow up to -2 USDT difference

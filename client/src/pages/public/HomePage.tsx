@@ -6,6 +6,16 @@ import { blogService } from '@/services/blog'
 import { trackLead, trackViewContent } from '@/hooks/useMetaPixel'
 import type { BlogPost } from '@/types'
 import { formatDateShort } from '@/utils/format'
+import {
+  COMMISSION_TIER_1_MAX,
+  COMMISSION_TIER_1_FIXED,
+  COMMISSION_TIER_2_MAX,
+  COMMISSION_TIER_2_RATE,
+  COMMISSION_TIER_3_MAX,
+  COMMISSION_TIER_3_RATE,
+  COMMISSION_TIER_4_RATE,
+  MIN_DEAL_AMOUNT
+} from '@/config/constants'
 
 // ========== Hero Section ==========
 function HeroSection() {
@@ -51,7 +61,7 @@ function HeroSection() {
           <div className="grid grid-cols-3 gap-8 mt-16">
             {[
               { value: '2/3', label: 'Подписей для транзакции' },
-              { value: '5%', label: 'Минимальная комиссия' },
+              { value: `${COMMISSION_TIER_1_FIXED} USDT`, label: 'Минимальная комиссия' },
               { value: '24/7', label: 'Автоматическая работа' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
@@ -93,7 +103,7 @@ const features = [
   {
     icon: '&#x1F4B8;',
     title: 'Низкие комиссии',
-    description: 'Всего 5% от суммы сделки (минимум 15 USDT). Без скрытых платежей.',
+    description: `От ${COMMISSION_TIER_1_FIXED} USDT. Без скрытых платежей.`,
   },
   {
     icon: '&#x1F680;',
@@ -214,10 +224,12 @@ function PricingSection() {
           {/* Standard */}
           <div className="bg-dark rounded-xl p-8 border border-border">
             <h3 className="text-xl font-semibold text-white mb-4">Стандартная комиссия</h3>
-            <div className="text-5xl font-bold text-primary mb-2">5%</div>
-            <p className="text-muted mb-6">от суммы сделки</p>
+            <div className="text-5xl font-bold text-primary mb-2">{(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%</div>
+            <p className="text-muted">от суммы сделки в 150USDT</p>
+            <p className="text-muted">{(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от 500USDT</p>
+             <p className="text-muted mb-2">{(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от 1500USDT</p>
             <ul className="space-y-3">
-              {['Для сделок от 300 USDT', 'Автоматические выплаты', 'Арбитраж при спорах', 'Техподдержка 24/7'].map((item) => (
+              {['Автоматические выплаты', 'Арбитраж при спорах', 'Техподдержка 24/7'].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-gray-300">
                   <span className="text-secondary">&#x2713;</span> {item}
                 </li>
@@ -231,10 +243,10 @@ function PricingSection() {
               Минимум
             </div>
             <h3 className="text-xl font-semibold text-white mb-4">Фиксированная комиссия</h3>
-            <div className="text-5xl font-bold text-primary mb-2">15 USDT</div>
-            <p className="text-muted mb-6">для сделок до 300 USDT</p>
+            <div className="text-5xl font-bold text-primary mb-2">{COMMISSION_TIER_1_FIXED} USDT</div>
+            <p className="text-muted mb-6">для сделок до {COMMISSION_TIER_1_MAX} USDT</p>
             <ul className="space-y-3">
-              {['Минимальная сумма: 50 USDT', 'Все функции включены', 'Операционные расходы ~8 USDT', 'Чистая прибыль сервиса ~7 USDT'].map((item) => (
+              {[`Минимальная сумма: ${MIN_DEAL_AMOUNT} USDT`, 'Все функции включены', 'Операционные расходы ~8 USDT', 'Чистая прибыль сервиса ~7 USDT'].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-gray-300">
                   <span className="text-secondary">&#x2713;</span> {item}
                 </li>
@@ -427,11 +439,11 @@ export function HomePage() {
       offers: {
         '@type': 'Offer',
         description: 'Escrow услуги для криптовалютных сделок',
-        price: '15',
+        price: COMMISSION_TIER_1_FIXED.toString(),
         priceCurrency: 'USD',
         priceSpecification: {
           '@type': 'PriceSpecification',
-          price: '5',
+          price: (COMMISSION_TIER_2_RATE * 100).toFixed(1),
           priceCurrency: 'USD',
           unitText: 'процент от суммы сделки',
         },
