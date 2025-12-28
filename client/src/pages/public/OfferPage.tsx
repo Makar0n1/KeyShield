@@ -8,7 +8,6 @@ import {
   COMMISSION_TIER_3_MAX,
   COMMISSION_TIER_3_RATE,
   COMMISSION_TIER_4_RATE,
-  AUTO_BAN_LOSS_STREAK,
   MIN_DEAL_AMOUNT
 } from '@/config/constants'
 
