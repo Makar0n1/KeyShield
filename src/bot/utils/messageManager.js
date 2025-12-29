@@ -267,6 +267,10 @@ class MessageManager {
   /**
    * Show notification to user (push current screen to stack, show notification)
    * Uses DELETE + SEND for push notification effect.
+   *
+   * IMPORTANT: If user is on a blog_notification screen, we DON'T push it to stack.
+   * Blog notifications are "overlay" notifications that should be replaced by
+   * more important deal/deposit notifications without cluttering the nav stack.
    */
   async showNotification(ctx, userId, text, keyboard) {
     const user = await this.loadUserState(userId);
@@ -277,7 +281,11 @@ class MessageManager {
     const currentScreenData = user?.currentScreenData;
 
     // If we have current screen data, push it to stack
-    if (currentScreen && currentScreenData?.text) {
+    // BUT: Don't push blog_notification screens - they are low-priority overlays
+    // that should be replaced by deal notifications without polluting the stack
+    const isBlogNotification = currentScreen?.startsWith('blog_notification');
+
+    if (currentScreen && currentScreenData?.text && !isBlogNotification) {
       currentStack.push({
         screen: currentScreen,
         text: currentScreenData.text,

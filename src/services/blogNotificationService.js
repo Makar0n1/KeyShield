@@ -80,7 +80,7 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
     }
 
     keyboard.push([{
-      text: '↩️ Назад',
+      text: '✖️ Закрыть',
       callback_data: 'blog_notification_back'
     }]);
 
