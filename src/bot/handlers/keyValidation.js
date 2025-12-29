@@ -314,31 +314,8 @@ async function processSellerPayout(ctx, deal, buyerId) {
       // Wait a bit before second transfer
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Check remaining energy before renting more
-      if (useFeeSaver && energyMethod === 'feesaver') {
-        try {
-          const MIN_ENERGY_FOR_TRANSFER = 65000;
-          const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
-
-          if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
-            console.log(`✅ Sufficient energy remaining (${availableEnergy}), skipping rental for commission transfer`);
-          } else {
-            // Need to rent more energy
-            const energyNeeded = Math.ceil((MIN_ENERGY_FOR_TRANSFER - availableEnergy) * 1.1);
-            console.log(`🔋 Need ${energyNeeded} more energy for commission (have ${availableEnergy})...`);
-
-            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
-            if (rental2.success) {
-              feesaverEnergyCost += rental2.cost;
-              console.log(`✅ Energy rental #2 successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
-            } else {
-              console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
-            }
-          }
-        } catch (error) {
-          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying anyway...`);
-        }
-      }
+      // Energy already rented upfront with +5k reserve - no additional rental needed
+      // TRON requires seeing all energy at once for multiple transfers
 
       const commissionTx = await blockchainService.createReleaseTransaction(
         deal.multisigAddress,
@@ -1149,9 +1126,9 @@ async function returnLeftoverTRX(deal, walletPrivateKey) {
  *
  * 2a. FeeSaver scenario (dynamic):
  *    - feesaverBandwidthCostTrx: ~0.4 TRX (1000 bw minimum for 1h)
- *    - feesaverEnergyCostTrx: ~6-7 TRX for transfers
- *      - 1st transfer: ~125k energy (65k base + 50k penalty + 10% buffer)
- *      - 2nd transfer: checks remaining energy, only rents if < 65k needed
+ *    - feesaverEnergyCostTrx: ~6.5 TRX for both transfers
+ *      - Single upfront rental: ~130k energy (65k base + 50k penalty) * 1.1 + 5k reserve
+ *      - TRON requires seeing all energy at once for multiple transfers
  *    - feesaverCostTrx: total of bandwidth + energy
  *    - Total: 2.1 + feesaverCost
  *

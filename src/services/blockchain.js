@@ -686,11 +686,13 @@ class BlockchainService {
       const effectivePenalty = skipPenalty ? 0 : energyPenalty;
       const totalEnergy = energyUsed + effectivePenalty;
 
-      // Add 10% buffer for safety
-      const energyWithBuffer = Math.ceil(totalEnergy * 1.1);
+      // Add 10% buffer + 5000 extra for second transfer reserve
+      // This ensures enough energy remains after first transfer for commission
+      const EXTRA_RESERVE = skipPenalty ? 0 : 5000; // Only add reserve for first transfer
+      const energyWithBuffer = Math.ceil(totalEnergy * 1.1) + EXTRA_RESERVE;
 
       console.log(`⚡ Energy estimate for ${fromAddress} → ${toAddress}:`);
-      console.log(`   Base: ${energyUsed}, Penalty: ${energyPenalty}${skipPenalty ? ' (skipped)' : ''}, Total: ${totalEnergy}, With buffer: ${energyWithBuffer}`);
+      console.log(`   Base: ${energyUsed}, Penalty: ${energyPenalty}${skipPenalty ? ' (skipped)' : ''}, Total: ${totalEnergy}, With buffer: ${energyWithBuffer}${EXTRA_RESERVE ? ' (+5k reserve)' : ''}`);
 
       return {
         energyNeeded: energyWithBuffer,
@@ -700,7 +702,9 @@ class BlockchainService {
     } catch (error) {
       console.error('Error estimating energy:', error.message);
       // Return safe default if estimation fails
-      const defaultEnergy = skipPenalty ? 72000 : 140000; // ~65k * 1.1 or ~127k * 1.1
+      // First transfer: ~127k * 1.1 + 5k reserve = 145k
+      // Second transfer: ~65k * 1.1 = 72k
+      const defaultEnergy = skipPenalty ? 72000 : 145000;
       return {
         energyNeeded: defaultEnergy,
         baseCost: 65000,
