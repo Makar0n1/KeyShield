@@ -710,6 +710,27 @@ class BlockchainService {
   }
 
   /**
+   * Get available energy for an address (delegated + own)
+   * @param {string} address - TRON address
+   * @returns {Promise<number>} Available energy
+   */
+  async getAvailableEnergy(address) {
+    try {
+      const resources = await this.tronWeb.trx.getAccountResources(address);
+      // EnergyLimit is total available, EnergyUsed is consumed
+      const energyLimit = resources.EnergyLimit || 0;
+      const energyUsed = resources.EnergyUsed || 0;
+      const availableEnergy = energyLimit - energyUsed;
+
+      console.log(`⚡ Energy for ${address}: ${availableEnergy} available (${energyLimit} limit - ${energyUsed} used)`);
+      return availableEnergy;
+    } catch (error) {
+      console.error('Error getting energy balance:', error.message);
+      return 0;
+    }
+  }
+
+  /**
    * Send TRX from one address to another
    * @param {string} fromPrivateKey - Sender's private key
    * @param {string} toAddress - Recipient address

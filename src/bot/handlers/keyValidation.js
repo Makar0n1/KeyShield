@@ -314,28 +314,29 @@ async function processSellerPayout(ctx, deal, buyerId) {
       // Wait a bit before second transfer
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Estimate and rent exact energy for commission transfer (if using FeeSaver)
-      // Note: skipPenalty=true because penalty was already paid in first transfer
+      // 🔋 Check remaining energy before renting more
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          // Estimate energy needed for commission transfer (no penalty - already paid)
-          const estimate2 = await blockchainService.estimateTransferEnergy(
-            deal.multisigAddress,
-            process.env.SERVICE_WALLET_ADDRESS,
-            commission,
-            true // skipPenalty - penalty already paid in first transfer
-          );
-          console.log(`🔋 Renting ${estimate2.energyNeeded} energy for commission transfer...`);
+          const MIN_ENERGY_FOR_TRANSFER = 65000;
+          const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
 
-          const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, estimate2.energyNeeded);
-          if (rental2.success) {
-            feesaverEnergyCost += rental2.cost;
-            console.log(`✅ Energy rental #2 successful (${estimate2.energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+          if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
+            console.log(`✅ Sufficient energy remaining (${availableEnergy}), skipping rental for commission transfer`);
           } else {
-            console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+            // Need to rent more energy
+            const energyNeeded = Math.ceil((MIN_ENERGY_FOR_TRANSFER - availableEnergy) * 1.1);
+            console.log(`🔋 Need ${energyNeeded} more energy for commission (have ${availableEnergy})...`);
+
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental #2 successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+            } else {
+              console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+            }
           }
         } catch (error) {
-          console.error(`⚠️ Energy rental #2 failed: ${error.message}, trying anyway...`);
+          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying anyway...`);
         }
       }
 
@@ -640,28 +641,29 @@ async function processBuyerRefund(ctx, deal) {
     if (commission > 0) {
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Estimate and rent exact energy for commission transfer (if using FeeSaver)
-      // Note: skipPenalty=true because penalty was already paid in first transfer
+      // 🔋 Check remaining energy before renting more
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          // Estimate energy needed for commission transfer (no penalty - already paid)
-          const estimate2 = await blockchainService.estimateTransferEnergy(
-            deal.multisigAddress,
-            process.env.SERVICE_WALLET_ADDRESS,
-            commission,
-            true // skipPenalty - penalty already paid in first transfer
-          );
-          console.log(`🔋 Renting ${estimate2.energyNeeded} energy for commission transfer...`);
+          const MIN_ENERGY_FOR_TRANSFER = 65000;
+          const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
 
-          const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, estimate2.energyNeeded);
-          if (rental2.success) {
-            feesaverEnergyCost += rental2.cost;
-            console.log(`✅ Energy rental #2 successful (${estimate2.energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+          if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
+            console.log(`✅ Sufficient energy remaining (${availableEnergy}), skipping rental for commission transfer`);
           } else {
-            console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+            // Need to rent more energy
+            const energyNeeded = Math.ceil((MIN_ENERGY_FOR_TRANSFER - availableEnergy) * 1.1);
+            console.log(`🔋 Need ${energyNeeded} more energy for commission (have ${availableEnergy})...`);
+
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental #2 successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+            } else {
+              console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+            }
           }
         } catch (error) {
-          console.error(`⚠️ Energy rental #2 failed: ${error.message}, trying anyway...`);
+          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying anyway...`);
         }
       }
 
@@ -948,28 +950,29 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     if (commission > 0) {
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Estimate and rent exact energy for commission transfer (if using FeeSaver)
-      // Note: skipPenalty=true because penalty was already paid in first transfer
+      // 🔋 Check remaining energy before renting more
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          // Estimate energy needed for commission transfer (no penalty - already paid)
-          const estimate2 = await blockchainService.estimateTransferEnergy(
-            deal.multisigAddress,
-            process.env.SERVICE_WALLET_ADDRESS,
-            commission,
-            true // skipPenalty - penalty already paid in first transfer
-          );
-          console.log(`🔋 Renting ${estimate2.energyNeeded} energy for commission transfer...`);
+          const MIN_ENERGY_FOR_TRANSFER = 65000;
+          const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
 
-          const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, estimate2.energyNeeded);
-          if (rental2.success) {
-            feesaverEnergyCost += rental2.cost;
-            console.log(`✅ Energy rental #2 successful (${estimate2.energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+          if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
+            console.log(`✅ Sufficient energy remaining (${availableEnergy}), skipping rental for commission transfer`);
           } else {
-            console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+            // Need to rent more energy
+            const energyNeeded = Math.ceil((MIN_ENERGY_FOR_TRANSFER - availableEnergy) * 1.1);
+            console.log(`🔋 Need ${energyNeeded} more energy for commission (have ${availableEnergy})...`);
+
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental #2 successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+            } else {
+              console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+            }
           }
         } catch (error) {
-          console.error(`⚠️ Energy rental #2 failed: ${error.message}, trying anyway...`);
+          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying anyway...`);
         }
       }
 
@@ -1145,10 +1148,10 @@ async function returnLeftoverTRX(deal, walletPrivateKey) {
  *    - Total activation: 2.1 TRX
  *
  * 2a. FeeSaver scenario (dynamic):
- *    - feesaverBandwidthCostTrx: ~0.25 TRX (400 bw for 1h, 600 free)
- *    - feesaverEnergyCostTrx: ~10 TRX total for 2 transfers
+ *    - feesaverBandwidthCostTrx: ~0.4 TRX (1000 bw minimum for 1h)
+ *    - feesaverEnergyCostTrx: ~6-7 TRX for transfers
  *      - 1st transfer: ~125k energy (65k base + 50k penalty + 10% buffer)
- *      - 2nd transfer: ~72k energy (65k base only, no penalty + 10% buffer)
+ *      - 2nd transfer: checks remaining energy, only rents if < 65k needed
  *    - feesaverCostTrx: total of bandwidth + energy
  *    - Total: 2.1 + feesaverCost
  *

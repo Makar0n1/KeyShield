@@ -280,8 +280,7 @@ class FeeSaverService {
 
   /**
    * Rent bandwidth for deal transactions
-   * Free bandwidth: 600, need ~700 for 2 TRC20 transfers (~350 each)
-   * Rent 400 to cover the gap (600 free + 400 rented = 1000)
+   * Minimum rental is 1000 bandwidth
    *
    * @param {string} targetAddress - Multisig wallet address
    * @returns {Promise<{success: boolean, cost: number, data: Object}>}
@@ -295,8 +294,8 @@ class FeeSaverService {
     try {
       console.log(`📶 Renting bandwidth for deal transactions...`);
 
-      // Rent 400 bandwidth (600 free + 400 rented = 1000, covers 2 TRC20 transfers)
-      const rentalResult = await this.rentBandwidth(targetAddress, 400, '1h');
+      // Rent 1000 bandwidth (minimum)
+      const rentalResult = await this.rentBandwidth(targetAddress, 1000, '1h');
 
       if (rentalResult.status !== 'Filled') {
         throw new Error(`Bandwidth rental not filled: ${rentalResult.status}`);
@@ -310,7 +309,7 @@ class FeeSaverService {
       return {
         success: true,
         cost: cost,
-        bandwidthRented: 400,
+        bandwidthRented: 1000,
         data: rentalResult
       };
     } catch (error) {
