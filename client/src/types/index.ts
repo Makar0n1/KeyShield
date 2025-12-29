@@ -211,7 +211,16 @@ export interface User {
   platformCode?: string
   source?: string
   referralCode?: string
-  referredBy?: string
+  referredBy?: number
+  referrer?: {
+    telegramId: number
+    username?: string
+    firstName?: string
+    referralCode?: string
+  }
+  referralBalance?: number
+  referralTotalEarned?: number
+  referralsCount?: number
   createdAt: string
   lastActivity?: string
   // Activity tracking fields
@@ -431,4 +440,35 @@ export interface AdminStats {
 export interface AdminUser {
   username: string
   role: 'admin' | 'superadmin'
+}
+
+// ========== Referral Types ==========
+
+export type ReferralWithdrawalStatus = 'pending' | 'processing' | 'completed' | 'rejected'
+
+export interface ReferralWithdrawal {
+  _id: string
+  withdrawalId: string
+  userId: number
+  username?: string
+  amount: number
+  walletAddress: string
+  status: ReferralWithdrawalStatus
+  adminNotes?: string
+  txHash?: string
+  createdAt: string
+  processingStartedAt?: string
+  completedAt?: string
+}
+
+export interface ReferralStats {
+  totalWithdrawals: number
+  pendingCount: number
+  processingCount: number
+  completedCount: number
+  rejectedCount: number
+  totalPaidOut: number
+  totalRejected: number
+  totalReferrers: number
+  totalEarned: number
 }

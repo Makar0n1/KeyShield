@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Activity,
   Bot,
+  Gift,
 } from 'lucide-react'
 
 export function AdminUserDetailsPage() {
@@ -200,7 +201,7 @@ export function AdminUserDetailsPage() {
                 <dd className="text-white">{user.platformCode}</dd>
               </div>
             )}
-            {user.source && user.source !== 'direct' && (
+            {user.source && user.source !== 'direct' && !user.referrer && (
               <div>
                 <dt className="text-muted text-sm">Источник</dt>
                 <dd>
@@ -211,6 +212,23 @@ export function AdminUserDetailsPage() {
                   ) : (
                     <span className="text-white">{user.source}</span>
                   )}
+                </dd>
+              </div>
+            )}
+            {user.referrer && (
+              <div>
+                <dt className="text-muted text-sm">Приглашён по реферальной ссылке</dt>
+                <dd>
+                  <Link
+                    to={`/admin/users/${user.referrer.telegramId}`}
+                    className="flex items-center gap-2 text-purple-400 hover:text-purple-300"
+                  >
+                    <Gift size={16} />
+                    <span>
+                      {user.referrer.username ? `@${user.referrer.username}` : user.referrer.firstName || 'Пользователь'}
+                    </span>
+                    <span className="text-muted text-xs">({user.referrer.referralCode})</span>
+                  </Link>
                 </dd>
               </div>
             )}
@@ -252,6 +270,34 @@ export function AdminUserDetailsPage() {
             </div>
           )}
         </Card>
+
+        {/* Referral Stats */}
+        {(user.referralCode || user.referralsCount !== undefined && user.referralsCount > 0) && (
+          <Card className="p-6 lg:col-span-2">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Gift size={20} />
+              Реферальная программа
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-dark rounded-lg">
+                <p className="text-muted text-sm mb-1">Реферальный код</p>
+                <p className="text-white font-mono">{user.referralCode || '—'}</p>
+              </div>
+              <div className="p-4 bg-dark rounded-lg">
+                <p className="text-muted text-sm mb-1">Приглашено</p>
+                <p className="text-2xl font-bold text-purple-400">{user.referralsCount || 0}</p>
+              </div>
+              <div className="p-4 bg-dark rounded-lg">
+                <p className="text-muted text-sm mb-1">Всего заработано</p>
+                <p className="text-2xl font-bold text-green-400">{(user.referralTotalEarned || 0).toFixed(2)} USDT</p>
+              </div>
+              <div className="p-4 bg-dark rounded-lg">
+                <p className="text-muted text-sm mb-1">Текущий баланс</p>
+                <p className="text-2xl font-bold text-primary">{(user.referralBalance || 0).toFixed(2)} USDT</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Activity Stats */}
         <Card className="p-6 lg:col-span-2">

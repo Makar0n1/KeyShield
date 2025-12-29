@@ -37,6 +37,53 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'direct' // 'direct' или код платформы
   },
+  // ============================================
+  // REFERRAL SYSTEM
+  // ============================================
+  // Unique referral code for this user (e.g., KS-A1B2C3)
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true, // Allow null values
+    index: true
+  },
+  // Who referred this user (telegramId)
+  referredBy: {
+    type: Number,
+    default: null,
+    index: true
+  },
+  // Referral balance (accumulated, not yet withdrawn)
+  referralBalance: {
+    type: Number,
+    default: 0
+  },
+  // Total earned from referrals (lifetime)
+  referralTotalEarned: {
+    type: Number,
+    default: 0
+  },
+  // Total withdrawn
+  referralWithdrawnTotal: {
+    type: Number,
+    default: 0
+  },
+  // Wallet for referral payouts (can be different from deal wallets)
+  referralWallet: {
+    type: String,
+    default: null
+  },
+  // Referral statistics
+  referralStats: {
+    totalInvited: {
+      type: Number,
+      default: 0
+    },
+    activeReferrals: {
+      type: Number,
+      default: 0 // Referrals who completed at least one deal
+    }
+  },
   blacklisted: {
     type: Boolean,
     default: false,
@@ -256,6 +303,65 @@ userSchema.methods.updateDisputeStats = async function(won) {
   }
 
   await this.save();
+};
+
+// ============================================
+// REFERRAL METHODS
+// ============================================
+
+// Generate unique referral code
+userSchema.methods.generateReferralCode = async function() {
+  if (this.referralCode) {
+    return this.referralCode; // Already has one
+  }
+
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0, O, I, 1)
+  let code;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (attempts < maxAttempts) {
+    // Generate random 6-char code
+    let randomPart = '';
+    for (let i = 0; i < 6; i++) {
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    code = `KS-${randomPart}`;
+
+    // Check if unique
+    const existing = await mongoose.model('User').findOne({ referralCode: code });
+    if (!existing) {
+      this.referralCode = code;
+      await this.save();
+      return code;
+    }
+    attempts++;
+  }
+
+  // Fallback: use telegramId-based code
+  code = `KS-${this.telegramId.toString(36).toUpperCase().slice(-6).padStart(6, 'X')}`;
+  this.referralCode = code;
+  await this.save();
+  return code;
+};
+
+// Get referral link
+userSchema.methods.getReferralLink = async function() {
+  const code = await this.generateReferralCode();
+  const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
+  return `https://t.me/${botUsername}?start=ref_${code}`;
+};
+
+// Credit referral bonus
+userSchema.methods.creditReferralBonus = async function(amount) {
+  this.referralBalance += amount;
+  this.referralTotalEarned += amount;
+  await this.save();
+};
+
+// Check if can withdraw (min 10 USDT, no pending withdrawal)
+userSchema.methods.canWithdrawReferral = function() {
+  return this.referralBalance >= 10;
 };
 
 module.exports = mongoose.model('User', userSchema);

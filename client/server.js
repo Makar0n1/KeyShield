@@ -38,6 +38,7 @@ const ExportLog = (await import('../src/models/ExportLog.js')).default;
 const partnerRoutes = (await import('../src/web/routes/partner.js')).default;
 const blogAdminRoutes = (await import('../src/web/routes/blog.js')).default;
 const blogPublicRoutes = (await import('../src/web/routes/blogPublic.js')).default;
+const referralsRoutes = (await import('../src/api/routes/referrals.js')).default;
 
 // Services
 const botStatusChecker = (await import('../src/services/botStatusChecker.js')).default;
@@ -500,6 +501,9 @@ Sitemap: ${SITE_URL}/sitemap.xml
 // Blog admin routes
 app.use('/api/admin/blog', adminAuth, blogAdminRoutes);
 
+// Referrals admin routes
+app.use('/api/referrals', adminAuth, referralsRoutes);
+
 // Partner routes
 app.use('/partner', partnerRoutes);
 
@@ -795,11 +799,34 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
     }
 
     const users = await User.find(query)
-      .select('telegramId username firstName role blacklisted disputeStats platformCode source createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats')
+      .select('telegramId username firstName role blacklisted disputeStats platformCode source referredBy createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
+
+    // Enrich with referrer data
+    const referrerIds = users.filter(u => u.referredBy).map(u => u.referredBy);
+    if (referrerIds.length > 0) {
+      const referrers = await User.find({ telegramId: { $in: referrerIds } })
+        .select('telegramId username firstName referralCode')
+        .lean();
+      const referrerMap = new Map(referrers.map(r => [r.telegramId, r]));
+
+      for (const user of users) {
+        if (user.referredBy) {
+          const referrer = referrerMap.get(user.referredBy);
+          if (referrer) {
+            user.referrer = {
+              telegramId: referrer.telegramId,
+              username: referrer.username,
+              firstName: referrer.firstName,
+              referralCode: referrer.referralCode
+            };
+          }
+        }
+      }
+    }
 
     const total = await User.countDocuments(query);
 
@@ -812,9 +839,28 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
 app.get('/api/admin/users/:telegramId', adminAuth, async (req, res) => {
   try {
     const user = await User.findOne({ telegramId: parseInt(req.params.telegramId) })
-      .select('telegramId username firstName role blacklisted blacklistReason disputeStats platformCode source notes createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats wallets email')
+      .select('telegramId username firstName role blacklisted blacklistReason disputeStats platformCode source referredBy referralCode referralBalance referralTotalEarned notes createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats wallets email')
       .lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Get referrer info if exists
+    if (user.referredBy) {
+      const referrer = await User.findOne({ telegramId: user.referredBy })
+        .select('telegramId username firstName referralCode')
+        .lean();
+      if (referrer) {
+        user.referrer = {
+          telegramId: referrer.telegramId,
+          username: referrer.username,
+          firstName: referrer.firstName,
+          referralCode: referrer.referralCode
+        };
+      }
+    }
+
+    // Get referrals count (users this user invited)
+    user.referralsCount = await User.countDocuments({ referredBy: user.telegramId });
+
     res.json({ user });
   } catch (error) {
     res.status(500).json({ error: error.message });

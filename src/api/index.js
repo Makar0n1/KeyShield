@@ -17,6 +17,7 @@ const dealsRouter = require('./routes/deals');
 const multisigRouter = require('./routes/multisig');
 const transactionsRouter = require('./routes/transactions');
 const disputesRouter = require('./routes/disputes');
+const referralsRouter = require('./routes/referrals');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -174,6 +175,7 @@ app.use('/api/deals', dealsRouter);
 app.use('/api/multisig', multisigRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/disputes', disputesRouter);
+app.use('/api/referrals', referralsRouter);
 
 // Note: Admin and Blog APIs are served by client/server.js (port 3001)
 

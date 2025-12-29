@@ -7,6 +7,8 @@ import type {
   AdminStats,
   ApiResponse,
   BotStatusProgress,
+  ReferralWithdrawal,
+  ReferralStats,
 } from '@/types'
 
 export const adminService = {
@@ -260,5 +262,47 @@ export const adminService = {
   getBotStatusProgress: async (): Promise<BotStatusProgress> => {
     const { data } = await api.get('/admin/bot-status/progress')
     return data
+  },
+
+  // ========== Referral Withdrawals ==========
+
+  getReferralWithdrawals: async (params?: {
+    status?: string
+    page?: number
+    limit?: number
+  }): Promise<{ withdrawals: ReferralWithdrawal[]; total: number; totalPages: number }> => {
+    const { data } = await api.get('/referrals/withdrawals', { params })
+    return data
+  },
+
+  getReferralWithdrawal: async (id: string): Promise<ReferralWithdrawal> => {
+    const { data } = await api.get(`/referrals/withdrawals/${id}`)
+    return data.withdrawal
+  },
+
+  startReferralWithdrawal: async (id: string): Promise<ApiResponse> => {
+    const { data } = await api.post(`/referrals/withdrawals/${id}/start`)
+    return data
+  },
+
+  completeReferralWithdrawal: async (
+    id: string,
+    txHash: string
+  ): Promise<ApiResponse> => {
+    const { data } = await api.post(`/referrals/withdrawals/${id}/complete`, { txHash })
+    return data
+  },
+
+  rejectReferralWithdrawal: async (
+    id: string,
+    reason: string
+  ): Promise<ApiResponse> => {
+    const { data } = await api.post(`/referrals/withdrawals/${id}/reject`, { reason })
+    return data
+  },
+
+  getReferralStats: async (): Promise<ReferralStats> => {
+    const { data } = await api.get('/referrals/stats')
+    return data.stats
   },
 }

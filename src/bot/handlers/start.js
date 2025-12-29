@@ -68,7 +68,9 @@ const BAN_SCREEN_TEXT = `🚫 *Аккаунт заблокирован*
 /**
  * /start command handler
  * Registers or updates user and shows main menu
- * Handles referral links: /start ref_PLATFORMCODE
+ * Handles referral links:
+ * - /start ref_PLATFORMCODE - Partner platform referral
+ * - /start ref_KS-XXXXXX - User referral (referral program)
  */
 const startHandler = async (ctx) => {
   try {
@@ -86,26 +88,40 @@ const startHandler = async (ctx) => {
     let platformId = null;
     let platformCode = null;
     let source = 'direct';
+    let referredByTelegramId = null; // User referral
 
     const startPayload = ctx.message?.text?.split(' ')[1];
     if (startPayload && startPayload.startsWith('ref_')) {
       const refCode = startPayload.replace('ref_', '').toUpperCase();
-      const platform = await Platform.findOne({ code: refCode, isActive: true });
 
-      if (platform) {
-        platformId = platform._id;
-        platformCode = platform.code;
-        source = platform.code;
+      // Check if it's a user referral code (KS-XXXXXX format)
+      if (refCode.startsWith('KS-')) {
+        // User referral - find referrer by their code
+        const referrer = await User.findOne({ referralCode: refCode });
+        if (referrer && referrer.telegramId !== telegramId) { // Can't refer yourself
+          referredByTelegramId = referrer.telegramId;
+          source = `referral_${refCode}`;
+          console.log(`📎 User referral: ${refCode} (user ${referrer.telegramId})`);
+        }
+      } else {
+        // Platform referral
+        const platform = await Platform.findOne({ code: refCode, isActive: true });
 
-        // Log referral visit
-        platform.addLog('referral_visit', {
-          telegramId,
-          username,
-          timestamp: new Date()
-        });
-        await platform.save();
+        if (platform) {
+          platformId = platform._id;
+          platformCode = platform.code;
+          source = platform.code;
 
-        console.log(`📎 Referral from platform: ${platform.name} (${platform.code})`);
+          // Log referral visit
+          platform.addLog('referral_visit', {
+            telegramId,
+            username,
+            timestamp: new Date()
+          });
+          await platform.save();
+
+          console.log(`📎 Referral from platform: ${platform.name} (${platform.code})`);
+        }
       }
     }
 
@@ -121,7 +137,8 @@ const startHandler = async (ctx) => {
         firstName,
         platformId,
         platformCode,
-        source
+        source,
+        referredBy: referredByTelegramId // Set referrer if this is a new user
       });
       await user.save();
       console.log(`✅ New user registered: ${telegramId} (@${username}) from: ${source}`);
@@ -134,6 +151,15 @@ const startHandler = async (ctx) => {
         await Platform.findByIdAndUpdate(platformId, {
           $inc: { 'stats.totalUsers': 1 }
         });
+      }
+
+      // Update referrer stats (increment totalInvited)
+      if (referredByTelegramId) {
+        await User.updateOne(
+          { telegramId: referredByTelegramId },
+          { $inc: { 'referralStats.totalInvited': 1 } }
+        );
+        console.log(`📊 Referrer ${referredByTelegramId} stats updated: +1 invited`);
       }
     } else {
       // Update user info if changed

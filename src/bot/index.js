@@ -123,6 +123,22 @@ const {
   handleMyDataTextInput
 } = require('./handlers/myData');
 
+// Referral program handlers
+const {
+  hasReferralSession,
+  clearReferralSession,
+  showReferrals,
+  showReferralLink,
+  showReferralsList,
+  showReferralHistory,
+  showWithdrawalInfo,
+  startWithdrawal,
+  useSavedWallet,
+  confirmWithdrawal,
+  handleReferralTextInput,
+  handleReferralBack
+} = require('./handlers/referral');
+
 // Initialize bot with increased timeout for slow connections
 const bot = new Telegraf(process.env.BOT_TOKEN, {
   telegram: {
@@ -210,6 +226,7 @@ bot.command('cancel', async (ctx) => {
   await clearKeyValidationSession(telegramId);
   await clearReceiptSession(telegramId);
   await clearMyDataSession(telegramId);
+  await clearReferralSession(telegramId);
   await deleteProvideWalletSession(telegramId);
 
   // Show main menu
@@ -404,6 +421,30 @@ bot.action('mydata_wallet_name:back', handleWalletNameBack);
 bot.action('mydata:add_email', handleAddEmail);
 bot.action('mydata:change_email', handleChangeEmail);
 
+// Referral program handlers
+bot.action('referrals', showReferrals);
+bot.action('referral:main', showReferrals);
+bot.action('referral:link', showReferralLink);
+bot.action('referral:list', showReferralsList);
+bot.action(/^referral:list:/, async (ctx) => {
+  const page = parseInt(ctx.callbackQuery.data.replace('referral:list:', '')) || 0;
+  await showReferralsList(ctx, page);
+});
+bot.action('referral:history', showReferralHistory);
+bot.action(/^referral:history:/, async (ctx) => {
+  const page = parseInt(ctx.callbackQuery.data.replace('referral:history:', '')) || 0;
+  await showReferralHistory(ctx, page);
+});
+bot.action('referral:withdraw', startWithdrawal);
+bot.action('referral:withdraw_info', showWithdrawalInfo);
+bot.action(/^referral:use_wallet:/, async (ctx) => {
+  const index = parseInt(ctx.callbackQuery.data.replace('referral:use_wallet:', ''));
+  await useSavedWallet(ctx, index);
+});
+bot.action('referral:confirm_withdraw', confirmWithdrawal);
+bot.action('referral:back', handleReferralBack);
+bot.action('noop', (ctx) => ctx.answerCbQuery()); // For pagination display
+
 // Blog notification back button (uses goBack - delete + send pattern)
 bot.action('blog_notification_back', async (ctx) => {
   try {
@@ -449,6 +490,12 @@ bot.on('text', async (ctx) => {
   // Handle my data input (email and wallets)
   if (await hasMyDataSession(telegramId)) {
     const handled = await handleMyDataTextInput(ctx);
+    if (handled) return;
+  }
+
+  // Handle referral input (withdrawal wallet address)
+  if (await hasReferralSession(telegramId)) {
+    const handled = await handleReferralTextInput(ctx);
     if (handled) return;
   }
 

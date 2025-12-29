@@ -14,6 +14,7 @@ const mainMenuKeyboard = () => {
       Markup.button.callback('📋 Мои сделки', 'my_deals'),
       Markup.button.callback('👤 Мои данные', 'my_data')
     ],
+    [Markup.button.callback('🎁 Рефералы', 'referrals')],
     [Markup.button.callback('ℹ️ Помощь', 'help')]
   ]);
 };

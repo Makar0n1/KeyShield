@@ -6,7 +6,7 @@ import { Card, Button, Input } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
 import { formatDateShort } from '@/utils/format'
-import { Search, Eye, Ban, CheckCircle, Filter, Bot } from 'lucide-react'
+import { Search, Eye, Ban, CheckCircle, Filter, Bot, Gift } from 'lucide-react'
 
 export function AdminUsersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -247,7 +247,16 @@ export function AdminUsersPage() {
                       {user.firstName || '—'} {user.lastName || ''}
                     </td>
                     <td className="p-4">
-                      {user.source?.startsWith('fb:') ? (
+                      {user.referrer ? (
+                        <Link
+                          to={`/admin/users/${user.referrer.telegramId}`}
+                          className="flex items-center gap-1 text-purple-400 hover:text-purple-300 text-sm"
+                          title={`Реферер: ${user.referrer.referralCode}`}
+                        >
+                          <Gift size={14} />
+                          <span>{user.referrer.username ? `@${user.referrer.username}` : user.referrer.firstName || user.referrer.referralCode}</span>
+                        </Link>
+                      ) : user.source?.startsWith('fb:') ? (
                         <Badge variant="default" className="bg-blue-600 text-xs">
                           FB
                         </Badge>

@@ -15,12 +15,137 @@ const Transaction = require('../../models/Transaction');
 const MultisigWallet = require('../../models/MultisigWallet');
 const AuditLog = require('../../models/AuditLog');
 const ServiceStatus = require('../../models/ServiceStatus');
+const ReferralTransaction = require('../../models/ReferralTransaction');
 const blockchainService = require('../../services/blockchain');
 const feesaverService = require('../../services/feesaver');
 const adminAlertService = require('../../services/adminAlertService');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton, backButton } = require('../keyboards/main');
 const { showReceiptQuestion, sendReceiptNotification } = require('./receiptEmail');
+
+// ============================================
+// REFERRAL BONUS SYSTEM
+// ============================================
+
+const REFERRAL_PERCENT = 0.10; // 10% of service commission
+
+/**
+ * Credit referral bonuses after successful deal completion
+ * Each participant's referrer gets 10% of service commission
+ * @param {Object} deal - Completed deal
+ * @param {number} serviceCommission - Commission taken by service
+ */
+async function creditReferralBonuses(deal, serviceCommission) {
+  try {
+    const bonusAmount = serviceCommission * REFERRAL_PERCENT;
+
+    // Get both participants
+    const [buyer, seller] = await Promise.all([
+      User.findOne({ telegramId: deal.buyerId }),
+      User.findOne({ telegramId: deal.sellerId })
+    ]);
+
+    // Track which referrers already got bonus for this deal (to avoid double bonus if same referrer)
+    const processedReferrers = new Set();
+
+    // Process buyer's referrer
+    if (buyer?.referredBy) {
+      await creditSingleReferralBonus(
+        buyer.referredBy,
+        deal.buyerId,
+        deal,
+        serviceCommission,
+        bonusAmount,
+        processedReferrers
+      );
+    }
+
+    // Process seller's referrer
+    if (seller?.referredBy) {
+      await creditSingleReferralBonus(
+        seller.referredBy,
+        deal.sellerId,
+        deal,
+        serviceCommission,
+        bonusAmount,
+        processedReferrers
+      );
+    }
+  } catch (error) {
+    console.error(`❌ Error crediting referral bonuses for deal ${deal.dealId}:`, error);
+    // Don't throw - referral bonus failure shouldn't affect deal completion
+  }
+}
+
+/**
+ * Credit bonus to a single referrer
+ */
+async function creditSingleReferralBonus(referrerId, refereeId, deal, serviceCommission, bonusAmount, processedReferrers) {
+  try {
+    // Skip if this referrer already got bonus for this deal
+    if (processedReferrers.has(referrerId)) {
+      console.log(`ℹ️ Referrer ${referrerId} already got bonus for deal ${deal.dealId} (same referrer for both parties)`);
+      return;
+    }
+
+    // Find referrer
+    const referrer = await User.findOne({ telegramId: referrerId });
+    if (!referrer) {
+      console.log(`⚠️ Referrer ${referrerId} not found`);
+      return;
+    }
+
+    // Check if bonus already credited (prevent duplicates)
+    const existingBonus = await ReferralTransaction.findOne({
+      dealId: deal.dealId,
+      referrerId: referrerId
+    });
+
+    if (existingBonus) {
+      console.log(`ℹ️ Referral bonus already credited for deal ${deal.dealId} to referrer ${referrerId}`);
+      return;
+    }
+
+    // Credit bonus
+    await referrer.creditReferralBonus(bonusAmount);
+
+    // Create transaction record
+    await ReferralTransaction.create({
+      referrerId: referrerId,
+      refereeId: refereeId,
+      dealId: deal.dealId,
+      dealAmount: deal.amount,
+      serviceCommission: serviceCommission,
+      referralPercent: REFERRAL_PERCENT,
+      bonusAmount: bonusAmount,
+      status: 'credited'
+    });
+
+    // Update referrer stats (mark referee as active if first deal)
+    const referee = await User.findOne({ telegramId: refereeId });
+    if (referee) {
+      const previousDeals = await ReferralTransaction.countDocuments({
+        referrerId: referrerId,
+        refereeId: refereeId
+      });
+
+      // If this is first deal from this referee, increment activeReferrals
+      if (previousDeals === 1) { // Just created one above
+        await User.updateOne(
+          { telegramId: referrerId },
+          { $inc: { 'referralStats.activeReferrals': 1 } }
+        );
+      }
+    }
+
+    // Mark as processed
+    processedReferrers.add(referrerId);
+
+    console.log(`✅ Referral bonus credited: ${bonusAmount.toFixed(2)} USDT to user ${referrerId} for deal ${deal.dealId}`);
+  } catch (error) {
+    console.error(`❌ Error crediting single referral bonus:`, error);
+  }
+}
 
 /**
  * Check if user has active key validation session
@@ -464,6 +589,9 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // Alert admin about completed payout
     await adminAlertService.alertPayoutCompleted(deal, releaseAmount, commission, releaseResult.txHash, 'release');
 
+    // Credit referral bonuses (10% of commission to each participant's referrer)
+    await creditReferralBonuses(deal, commission);
+
     // Track successful payout for health monitoring
     try {
       await ServiceStatus.trackSuccess('payout_completed', {
@@ -799,6 +927,9 @@ async function processBuyerRefund(ctx, deal) {
     // Alert admin about completed refund
     await adminAlertService.alertPayoutCompleted(deal, refundAmount, commission, refundResult.txHash, 'refund');
 
+    // Credit referral bonuses (10% of commission to each participant's referrer)
+    await creditReferralBonuses(deal, commission);
+
     // Track successful refund for health monitoring
     try {
       await ServiceStatus.trackSuccess('payout_completed', {
@@ -1113,6 +1244,9 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 
     // Alert admin about dispute payout
     await adminAlertService.alertPayoutCompleted(deal, payoutAmount, commission, payoutResult.txHash, 'dispute');
+
+    // Credit referral bonuses (10% of commission to each participant's referrer)
+    await creditReferralBonuses(deal, commission);
 
     // Track successful dispute payout for health monitoring
     try {

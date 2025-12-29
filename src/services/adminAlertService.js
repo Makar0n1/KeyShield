@@ -586,6 +586,33 @@ ${await this.formatOperationsStatus()}
   async sendSystemStatus() {
     await this.sendDailyReport();
   }
+
+  // ============================================
+  // REFERRAL PROGRAM
+  // ============================================
+
+  /**
+   * Alert about new referral withdrawal request
+   */
+  async alertReferralWithdrawal(withdrawal, user) {
+    const username = user?.username ? '@' + this.escapeMarkdown(user.username) : `ID: ${withdrawal.userId}`;
+    const shortAddr = withdrawal.walletAddress.slice(0, 8) + '...' + withdrawal.walletAddress.slice(-6);
+
+    const text = `💸 *Заявка на вывод рефералки*
+
+📋 Номер: \`${withdrawal.withdrawalId}\`
+👤 Пользователь: ${username}
+💰 Сумма: *${withdrawal.amount.toFixed(2)} USDT*
+📍 Кошелёк: \`${shortAddr}\`
+
+👥 Приглашено: ${user?.referralStats?.totalInvited || 0}
+✅ Активных: ${user?.referralStats?.activeReferrals || 0}
+📊 Всего заработал: ${(user?.referralTotalEarned || 0).toFixed(2)} USDT
+
+⏰ ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+
+    await this.sendAlert(text);
+  }
 }
 
 // Export singleton instance
