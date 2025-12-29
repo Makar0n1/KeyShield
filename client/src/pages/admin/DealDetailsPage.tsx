@@ -478,7 +478,7 @@ export function AdminDealDetailsPage() {
                   {deal.operationalCosts.energyMethod === 'feesaver' ? (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-muted">📶 Bandwidth (1000 bw):</span>
+                        <span className="text-muted">📶 Bandwidth (400 bw):</span>
                         <span className="text-blue-400">{(deal.operationalCosts.feesaverBandwidthCostTrx || 0).toFixed(2)} TRX</span>
                       </div>
                       <div className="flex justify-between">

@@ -222,13 +222,13 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // 0. RENT BANDWIDTH FOR BOTH TRANSFERS
     // ============================================
 
-    // 📶 Rent bandwidth once for both transfers (1000 bw covers ~2-3 TRC20 transfers)
+    // 📶 Rent bandwidth once for both transfers (400 rented + 600 free = 1000)
     if (useFeeSaver) {
       try {
         const bwRental = await feesaverService.rentBandwidthForDeal(deal.multisigAddress);
         if (bwRental.success) {
           feesaverBandwidthCost += bwRental.cost;
-          console.log(`✅ Bandwidth rental successful (1000 bw, cost: ${bwRental.cost} TRX)`);
+          console.log(`✅ Bandwidth rental successful (${bwRental.bandwidthRented} bw, cost: ${bwRental.cost} TRX)`);
         }
       } catch (error) {
         console.error(`⚠️ Bandwidth rental failed: ${error.message}, will use TRX for bandwidth`);
@@ -315,13 +315,15 @@ async function processSellerPayout(ctx, deal, buyerId) {
       await new Promise(r => setTimeout(r, 3000));
 
       // 🔋 Estimate and rent exact energy for commission transfer (if using FeeSaver)
+      // Note: skipPenalty=true because penalty was already paid in first transfer
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          // Estimate energy needed for commission transfer
+          // Estimate energy needed for commission transfer (no penalty - already paid)
           const estimate2 = await blockchainService.estimateTransferEnergy(
             deal.multisigAddress,
             process.env.SERVICE_WALLET_ADDRESS,
-            commission
+            commission,
+            true // skipPenalty - penalty already paid in first transfer
           );
           console.log(`🔋 Renting ${estimate2.energyNeeded} energy for commission transfer...`);
 
@@ -548,13 +550,13 @@ async function processBuyerRefund(ctx, deal) {
     // 0. RENT BANDWIDTH FOR BOTH TRANSFERS
     // ============================================
 
-    // 📶 Rent bandwidth once for both transfers (1000 bw covers ~2-3 TRC20 transfers)
+    // 📶 Rent bandwidth once for both transfers (400 rented + 600 free = 1000)
     if (useFeeSaver) {
       try {
         const bwRental = await feesaverService.rentBandwidthForDeal(deal.multisigAddress);
         if (bwRental.success) {
           feesaverBandwidthCost += bwRental.cost;
-          console.log(`✅ Bandwidth rental successful (1000 bw, cost: ${bwRental.cost} TRX)`);
+          console.log(`✅ Bandwidth rental successful (${bwRental.bandwidthRented} bw, cost: ${bwRental.cost} TRX)`);
         }
       } catch (error) {
         console.error(`⚠️ Bandwidth rental failed: ${error.message}, will use TRX for bandwidth`);
@@ -639,13 +641,15 @@ async function processBuyerRefund(ctx, deal) {
       await new Promise(r => setTimeout(r, 3000));
 
       // 🔋 Estimate and rent exact energy for commission transfer (if using FeeSaver)
+      // Note: skipPenalty=true because penalty was already paid in first transfer
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          // Estimate energy needed for commission transfer
+          // Estimate energy needed for commission transfer (no penalty - already paid)
           const estimate2 = await blockchainService.estimateTransferEnergy(
             deal.multisigAddress,
             process.env.SERVICE_WALLET_ADDRESS,
-            commission
+            commission,
+            true // skipPenalty - penalty already paid in first transfer
           );
           console.log(`🔋 Renting ${estimate2.energyNeeded} energy for commission transfer...`);
 
@@ -854,12 +858,13 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     // ============================================
     // 0. RENT BANDWIDTH FOR BOTH TRANSFERS
     // ============================================
+    // 📶 Rent bandwidth once for both transfers (400 rented + 600 free = 1000)
     if (useFeeSaver) {
       try {
         const bwRental = await feesaverService.rentBandwidthForDeal(deal.multisigAddress);
         if (bwRental.success) {
           feesaverBandwidthCost += bwRental.cost;
-          console.log(`✅ Bandwidth rental successful (1000 bw, cost: ${bwRental.cost} TRX)`);
+          console.log(`✅ Bandwidth rental successful (${bwRental.bandwidthRented} bw, cost: ${bwRental.cost} TRX)`);
         }
       } catch (error) {
         console.error(`⚠️ Bandwidth rental failed: ${error.message}, will use TRX for bandwidth`);
@@ -944,13 +949,15 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       await new Promise(r => setTimeout(r, 3000));
 
       // 🔋 Estimate and rent exact energy for commission transfer (if using FeeSaver)
+      // Note: skipPenalty=true because penalty was already paid in first transfer
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          // Estimate energy needed for commission transfer
+          // Estimate energy needed for commission transfer (no penalty - already paid)
           const estimate2 = await blockchainService.estimateTransferEnergy(
             deal.multisigAddress,
             process.env.SERVICE_WALLET_ADDRESS,
-            commission
+            commission,
+            true // skipPenalty - penalty already paid in first transfer
           );
           console.log(`🔋 Renting ${estimate2.energyNeeded} energy for commission transfer...`);
 
@@ -1138,8 +1145,10 @@ async function returnLeftoverTRX(deal, walletPrivateKey) {
  *    - Total activation: 2.1 TRX
  *
  * 2a. FeeSaver scenario (dynamic):
- *    - feesaverBandwidthCostTrx: ~0.6 TRX (1000 bw for 1h)
- *    - feesaverEnergyCostTrx: varies (depends on transfer addresses and penalty)
+ *    - feesaverBandwidthCostTrx: ~0.25 TRX (400 bw for 1h, 600 free)
+ *    - feesaverEnergyCostTrx: ~10 TRX total for 2 transfers
+ *      - 1st transfer: ~125k energy (65k base + 50k penalty + 10% buffer)
+ *      - 2nd transfer: ~72k energy (65k base only, no penalty + 10% buffer)
  *    - feesaverCostTrx: total of bandwidth + energy
  *    - Total: 2.1 + feesaverCost
  *

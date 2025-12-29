@@ -660,9 +660,10 @@ class BlockchainService {
    * @param {string} fromAddress - Sender address
    * @param {string} toAddress - Recipient address
    * @param {number} amount - USDT amount to transfer
+   * @param {boolean} skipPenalty - If true, only return base energy (for subsequent transfers from same address)
    * @returns {Promise<{energyNeeded: number, baseCost: number, penalty: number}>}
    */
-  async estimateTransferEnergy(fromAddress, toAddress, amount = 1) {
+  async estimateTransferEnergy(fromAddress, toAddress, amount = 1, skipPenalty = false) {
     try {
       const functionSelector = 'transfer(address,uint256)';
       const parameter = [
@@ -680,26 +681,30 @@ class BlockchainService {
 
       const energyUsed = result.energy_used || 65000;
       const energyPenalty = result.energy_penalty || 0;
-      const totalEnergy = energyUsed + energyPenalty;
+
+      // For subsequent transfers from same address, penalty is already paid
+      const effectivePenalty = skipPenalty ? 0 : energyPenalty;
+      const totalEnergy = energyUsed + effectivePenalty;
 
       // Add 10% buffer for safety
       const energyWithBuffer = Math.ceil(totalEnergy * 1.1);
 
       console.log(`⚡ Energy estimate for ${fromAddress} → ${toAddress}:`);
-      console.log(`   Base: ${energyUsed}, Penalty: ${energyPenalty}, Total: ${totalEnergy}, With buffer: ${energyWithBuffer}`);
+      console.log(`   Base: ${energyUsed}, Penalty: ${energyPenalty}${skipPenalty ? ' (skipped)' : ''}, Total: ${totalEnergy}, With buffer: ${energyWithBuffer}`);
 
       return {
         energyNeeded: energyWithBuffer,
         baseCost: energyUsed,
-        penalty: energyPenalty
+        penalty: effectivePenalty
       };
     } catch (error) {
       console.error('Error estimating energy:', error.message);
       // Return safe default if estimation fails
+      const defaultEnergy = skipPenalty ? 72000 : 140000; // ~65k * 1.1 or ~127k * 1.1
       return {
-        energyNeeded: 140000, // Safe default with penalty
+        energyNeeded: defaultEnergy,
         baseCost: 65000,
-        penalty: 70000
+        penalty: skipPenalty ? 0 : 70000
       };
     }
   }
