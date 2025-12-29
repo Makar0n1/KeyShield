@@ -361,27 +361,19 @@ async function processSellerPayout(ctx, deal, buyerId) {
       const commissionResult = await blockchainService.broadcastTransaction(signedCommissionTx);
 
       if (commissionResult.success) {
-        // Wait and verify transaction on blockchain
-        await new Promise(r => setTimeout(r, 5000));
-        const txInfo = await blockchainService.getTransactionInfo(commissionResult.txHash);
-        const txConfirmed = txInfo && txInfo.receipt?.result === 'SUCCESS';
-
-        if (txConfirmed) {
-          const commissionTransaction = new Transaction({
-            dealId: deal._id,
-            type: 'fee',
-            asset: deal.asset,
-            amount: commission,
-            txHash: commissionResult.txHash,
-            status: 'confirmed',
-            toAddress: process.env.SERVICE_WALLET_ADDRESS
-          });
-          commissionTransaction.generateExplorerLink();
-          await commissionTransaction.save();
-          console.log(`✅ Commission transferred and verified: ${commissionResult.txHash}`);
-        } else {
-          console.error(`❌ Commission tx FAILED on-chain: ${txInfo?.receipt?.result || 'unknown'} - txHash: ${commissionResult.txHash}`);
-        }
+        // Record transaction immediately (broadcast success = transaction submitted)
+        const commissionTransaction = new Transaction({
+          dealId: deal._id,
+          type: 'fee',
+          asset: deal.asset,
+          amount: commission,
+          txHash: commissionResult.txHash,
+          status: 'confirmed',
+          toAddress: process.env.SERVICE_WALLET_ADDRESS
+        });
+        commissionTransaction.generateExplorerLink();
+        await commissionTransaction.save();
+        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
       } else {
         console.error(`❌ Commission transfer broadcast failed: ${commissionResult.error}`);
       }
@@ -716,27 +708,19 @@ async function processBuyerRefund(ctx, deal) {
       const commissionResult = await blockchainService.broadcastTransaction(signedCommissionTx);
 
       if (commissionResult.success) {
-        // Wait and verify transaction on blockchain
-        await new Promise(r => setTimeout(r, 5000));
-        const txInfo = await blockchainService.getTransactionInfo(commissionResult.txHash);
-        const txConfirmed = txInfo && txInfo.receipt?.result === 'SUCCESS';
-
-        if (txConfirmed) {
-          const commissionTransaction = new Transaction({
-            dealId: deal._id,
-            type: 'fee',
-            asset: deal.asset,
-            amount: commission,
-            txHash: commissionResult.txHash,
-            status: 'confirmed',
-            toAddress: process.env.SERVICE_WALLET_ADDRESS
-          });
-          commissionTransaction.generateExplorerLink();
-          await commissionTransaction.save();
-          console.log(`✅ Commission transferred and verified: ${commissionResult.txHash}`);
-        } else {
-          console.error(`❌ Commission tx FAILED on-chain: ${txInfo?.receipt?.result || 'unknown'} - txHash: ${commissionResult.txHash}`);
-        }
+        // Record transaction immediately (broadcast success = transaction submitted)
+        const commissionTransaction = new Transaction({
+          dealId: deal._id,
+          type: 'fee',
+          asset: deal.asset,
+          amount: commission,
+          txHash: commissionResult.txHash,
+          status: 'confirmed',
+          toAddress: process.env.SERVICE_WALLET_ADDRESS
+        });
+        commissionTransaction.generateExplorerLink();
+        await commissionTransaction.save();
+        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
       } else {
         console.error(`❌ Commission transfer broadcast failed: ${commissionResult.error}`);
       }
@@ -1053,27 +1037,19 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       const commissionResult = await blockchainService.broadcastTransaction(signedCommissionTx);
 
       if (commissionResult.success) {
-        // Wait and verify transaction on blockchain
-        await new Promise(r => setTimeout(r, 5000));
-        const txInfo = await blockchainService.getTransactionInfo(commissionResult.txHash);
-        const txConfirmed = txInfo && txInfo.receipt?.result === 'SUCCESS';
-
-        if (txConfirmed) {
-          const commissionTransaction = new Transaction({
-            dealId: deal._id,
-            type: 'fee',
-            asset: deal.asset,
-            amount: commission,
-            txHash: commissionResult.txHash,
-            status: 'confirmed',
-            toAddress: process.env.SERVICE_WALLET_ADDRESS
-          });
-          commissionTransaction.generateExplorerLink();
-          await commissionTransaction.save();
-          console.log(`✅ Commission transferred and verified: ${commissionResult.txHash}`);
-        } else {
-          console.error(`❌ Commission tx FAILED on-chain: ${txInfo?.receipt?.result || 'unknown'} - txHash: ${commissionResult.txHash}`);
-        }
+        // Record transaction immediately (broadcast success = transaction submitted)
+        const commissionTransaction = new Transaction({
+          dealId: deal._id,
+          type: 'fee',
+          asset: deal.asset,
+          amount: commission,
+          txHash: commissionResult.txHash,
+          status: 'confirmed',
+          toAddress: process.env.SERVICE_WALLET_ADDRESS
+        });
+        commissionTransaction.generateExplorerLink();
+        await commissionTransaction.save();
+        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
       } else {
         console.error(`❌ Commission transfer broadcast failed: ${commissionResult.error}`);
       }
