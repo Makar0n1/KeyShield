@@ -314,8 +314,39 @@ async function processSellerPayout(ctx, deal, buyerId) {
       // Wait a bit before second transfer
       await new Promise(r => setTimeout(r, 3000));
 
-      // Energy already rented upfront with +5k reserve - no additional rental needed
-      // TRON requires seeing all energy at once for multiple transfers
+      // 🔋 Smart energy check for commission transfer
+      const MIN_ENERGY_FOR_TRANSFER = 65000;
+      const MIN_RENTAL = 32000;
+
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        try {
+          const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
+
+          if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
+            // Enough energy - no rental needed
+            console.log(`✅ Sufficient energy remaining (${availableEnergy}), no rental needed for commission`);
+          } else if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER - MIN_RENTAL) {
+            // Between 33000-64999: rent minimum 32000
+            console.log(`🔋 Have ${availableEnergy} energy, renting minimum ${MIN_RENTAL}...`);
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, MIN_RENTAL);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental successful (${MIN_RENTAL} energy, cost: ${rental2.cost} TRX)`);
+            }
+          } else {
+            // Less than 33000: rent exact difference to reach 65000
+            const energyNeeded = MIN_ENERGY_FOR_TRANSFER - availableEnergy;
+            console.log(`🔋 Have ${availableEnergy} energy, renting ${energyNeeded} to reach ${MIN_ENERGY_FOR_TRANSFER}...`);
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
+            }
+          }
+        } catch (error) {
+          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying transfer anyway...`);
+        }
+      }
 
       const commissionTx = await blockchainService.createReleaseTransaction(
         deal.multisigAddress,
@@ -618,29 +649,37 @@ async function processBuyerRefund(ctx, deal) {
     if (commission > 0) {
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Check remaining energy before renting more
+      // 🔋 Smart energy check for commission transfer
+      const MIN_ENERGY_FOR_TRANSFER = 65000;
+      const MIN_RENTAL = 32000;
+
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          const MIN_ENERGY_FOR_TRANSFER = 65000;
           const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
 
           if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
-            console.log(`✅ Sufficient energy remaining (${availableEnergy}), skipping rental for commission transfer`);
+            // Enough energy - no rental needed
+            console.log(`✅ Sufficient energy remaining (${availableEnergy}), no rental needed for commission`);
+          } else if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER - MIN_RENTAL) {
+            // Between 33000-64999: rent minimum 32000
+            console.log(`🔋 Have ${availableEnergy} energy, renting minimum ${MIN_RENTAL}...`);
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, MIN_RENTAL);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental successful (${MIN_RENTAL} energy, cost: ${rental2.cost} TRX)`);
+            }
           } else {
-            // Need to rent more energy
-            const energyNeeded = Math.ceil((MIN_ENERGY_FOR_TRANSFER - availableEnergy) * 1.1);
-            console.log(`🔋 Need ${energyNeeded} more energy for commission (have ${availableEnergy})...`);
-
+            // Less than 33000: rent exact difference to reach 65000
+            const energyNeeded = MIN_ENERGY_FOR_TRANSFER - availableEnergy;
+            console.log(`🔋 Have ${availableEnergy} energy, renting ${energyNeeded} to reach ${MIN_ENERGY_FOR_TRANSFER}...`);
             const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
             if (rental2.success) {
               feesaverEnergyCost += rental2.cost;
-              console.log(`✅ Energy rental #2 successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
-            } else {
-              console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+              console.log(`✅ Energy rental successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
             }
           }
         } catch (error) {
-          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying anyway...`);
+          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying transfer anyway...`);
         }
       }
 
@@ -927,29 +966,37 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     if (commission > 0) {
       await new Promise(r => setTimeout(r, 3000));
 
-      // 🔋 Check remaining energy before renting more
+      // 🔋 Smart energy check for commission transfer
+      const MIN_ENERGY_FOR_TRANSFER = 65000;
+      const MIN_RENTAL = 32000;
+
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
-          const MIN_ENERGY_FOR_TRANSFER = 65000;
           const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
 
           if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
-            console.log(`✅ Sufficient energy remaining (${availableEnergy}), skipping rental for commission transfer`);
+            // Enough energy - no rental needed
+            console.log(`✅ Sufficient energy remaining (${availableEnergy}), no rental needed for commission`);
+          } else if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER - MIN_RENTAL) {
+            // Between 33000-64999: rent minimum 32000
+            console.log(`🔋 Have ${availableEnergy} energy, renting minimum ${MIN_RENTAL}...`);
+            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, MIN_RENTAL);
+            if (rental2.success) {
+              feesaverEnergyCost += rental2.cost;
+              console.log(`✅ Energy rental successful (${MIN_RENTAL} energy, cost: ${rental2.cost} TRX)`);
+            }
           } else {
-            // Need to rent more energy
-            const energyNeeded = Math.ceil((MIN_ENERGY_FOR_TRANSFER - availableEnergy) * 1.1);
-            console.log(`🔋 Need ${energyNeeded} more energy for commission (have ${availableEnergy})...`);
-
+            // Less than 33000: rent exact difference to reach 65000
+            const energyNeeded = MIN_ENERGY_FOR_TRANSFER - availableEnergy;
+            console.log(`🔋 Have ${availableEnergy} energy, renting ${energyNeeded} to reach ${MIN_ENERGY_FOR_TRANSFER}...`);
             const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
             if (rental2.success) {
               feesaverEnergyCost += rental2.cost;
-              console.log(`✅ Energy rental #2 successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
-            } else {
-              console.warn(`⚠️ Energy rental #2 failed, trying anyway...`);
+              console.log(`✅ Energy rental successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
             }
           }
         } catch (error) {
-          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying anyway...`);
+          console.error(`⚠️ Energy check/rental failed: ${error.message}, trying transfer anyway...`);
         }
       }
 
