@@ -27,11 +27,11 @@ const statusFilters = [
   { value: 'rejected', label: 'Отклонены' },
 ]
 
-const statusLabels: Record<string, { label: string; variant: 'default' | 'warning' | 'success' | 'error' }> = {
+const statusLabels: Record<string, { label: string; variant: 'default' | 'warning' | 'success' | 'destructive' }> = {
   pending: { label: 'Ожидает', variant: 'warning' },
   processing: { label: 'В обработке', variant: 'default' },
   completed: { label: 'Выполнена', variant: 'success' },
-  rejected: { label: 'Отклонена', variant: 'error' },
+  rejected: { label: 'Отклонена', variant: 'destructive' },
 }
 
 export function AdminReferralsPage() {
