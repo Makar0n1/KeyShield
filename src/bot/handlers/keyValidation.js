@@ -310,6 +310,8 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // 2. SECOND TRANSFER: Commission to service
     // ============================================
 
+    console.log(`💰 Commission block: commission=${commission}, useFeeSaver=${useFeeSaver}, energyMethod=${energyMethod}`);
+
     if (commission > 0) {
       // Wait a bit before second transfer
       await new Promise(r => setTimeout(r, 3000));
@@ -318,34 +320,35 @@ async function processSellerPayout(ctx, deal, buyerId) {
       const MIN_ENERGY_FOR_TRANSFER = 65000;
       const MIN_RENTAL = 32000;
 
+      console.log(`🔋 Checking energy before commission transfer...`);
+
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
           const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
+          console.log(`🔋 Available energy for commission: ${availableEnergy}`);
 
           if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
             // Enough energy - no rental needed
             console.log(`✅ Sufficient energy remaining (${availableEnergy}), no rental needed for commission`);
-          } else if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER - MIN_RENTAL) {
-            // Between 33000-64999: rent minimum 32000
-            console.log(`🔋 Have ${availableEnergy} energy, renting minimum ${MIN_RENTAL}...`);
+          } else {
+            // Not enough energy - rent minimum 32000 (FeeSaver minimum)
+            console.log(`🔋 Have ${availableEnergy} energy, need ${MIN_ENERGY_FOR_TRANSFER}, renting ${MIN_RENTAL}...`);
             const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, MIN_RENTAL);
             if (rental2.success) {
               feesaverEnergyCost += rental2.cost;
               console.log(`✅ Energy rental successful (${MIN_RENTAL} energy, cost: ${rental2.cost} TRX)`);
             }
-          } else {
-            // Less than 33000: rent exact difference to reach 65000
-            const energyNeeded = MIN_ENERGY_FOR_TRANSFER - availableEnergy;
-            console.log(`🔋 Have ${availableEnergy} energy, renting ${energyNeeded} to reach ${MIN_ENERGY_FOR_TRANSFER}...`);
-            const rental2 = await feesaverService.rentExactEnergy(deal.multisigAddress, energyNeeded);
-            if (rental2.success) {
-              feesaverEnergyCost += rental2.cost;
-              console.log(`✅ Energy rental successful (${energyNeeded} energy, cost: ${rental2.cost} TRX)`);
-            }
           }
         } catch (error) {
           console.error(`⚠️ Energy check/rental failed: ${error.message}, trying transfer anyway...`);
         }
+      } else {
+        console.log(`⚠️ Skipping energy check: useFeeSaver=${useFeeSaver}, energyMethod=${energyMethod}`);
+      }
+
+      // Wait for energy delegation if we just rented
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        await new Promise(r => setTimeout(r, 5000));
       }
 
       const commissionTx = await blockchainService.createReleaseTransaction(
@@ -358,20 +361,29 @@ async function processSellerPayout(ctx, deal, buyerId) {
       const commissionResult = await blockchainService.broadcastTransaction(signedCommissionTx);
 
       if (commissionResult.success) {
-        const commissionTransaction = new Transaction({
-          dealId: deal._id,
-          type: 'fee',
-          asset: deal.asset,
-          amount: commission,
-          txHash: commissionResult.txHash,
-          status: 'confirmed',
-          toAddress: process.env.SERVICE_WALLET_ADDRESS
-        });
-        commissionTransaction.generateExplorerLink();
-        await commissionTransaction.save();
-        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
+        // Wait and verify transaction on blockchain
+        await new Promise(r => setTimeout(r, 5000));
+        const txInfo = await blockchainService.getTransactionInfo(commissionResult.txHash);
+        const txConfirmed = txInfo && txInfo.receipt?.result === 'SUCCESS';
+
+        if (txConfirmed) {
+          const commissionTransaction = new Transaction({
+            dealId: deal._id,
+            type: 'fee',
+            asset: deal.asset,
+            amount: commission,
+            txHash: commissionResult.txHash,
+            status: 'confirmed',
+            toAddress: process.env.SERVICE_WALLET_ADDRESS
+          });
+          commissionTransaction.generateExplorerLink();
+          await commissionTransaction.save();
+          console.log(`✅ Commission transferred and verified: ${commissionResult.txHash}`);
+        } else {
+          console.error(`❌ Commission tx FAILED on-chain: ${txInfo?.receipt?.result || 'unknown'} - txHash: ${commissionResult.txHash}`);
+        }
       } else {
-        console.error(`❌ Commission transfer failed: ${commissionResult.error}`);
+        console.error(`❌ Commission transfer broadcast failed: ${commissionResult.error}`);
       }
     }
 
@@ -653,9 +665,13 @@ async function processBuyerRefund(ctx, deal) {
       const MIN_ENERGY_FOR_TRANSFER = 65000;
       const MIN_RENTAL = 32000;
 
+      console.log(`🔋 Commission transfer: checking energy (useFeeSaver=${useFeeSaver}, energyMethod=${energyMethod})`);
+
+      // Always check and rent energy for commission if using FeeSaver
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
           const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
+          console.log(`🔋 Available energy for commission: ${availableEnergy}`);
 
           if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
             // Enough energy - no rental needed
@@ -681,6 +697,13 @@ async function processBuyerRefund(ctx, deal) {
         } catch (error) {
           console.error(`⚠️ Energy check/rental failed: ${error.message}, trying transfer anyway...`);
         }
+      } else {
+        console.log(`⚠️ Skipping energy check: useFeeSaver=${useFeeSaver}, energyMethod=${energyMethod}`);
+      }
+
+      // Wait for energy delegation if we just rented
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        await new Promise(r => setTimeout(r, 5000));
       }
 
       const commissionTx = await blockchainService.createReleaseTransaction(
@@ -693,20 +716,29 @@ async function processBuyerRefund(ctx, deal) {
       const commissionResult = await blockchainService.broadcastTransaction(signedCommissionTx);
 
       if (commissionResult.success) {
-        const commissionTransaction = new Transaction({
-          dealId: deal._id,
-          type: 'fee',
-          asset: deal.asset,
-          amount: commission,
-          txHash: commissionResult.txHash,
-          status: 'confirmed',
-          toAddress: process.env.SERVICE_WALLET_ADDRESS
-        });
-        commissionTransaction.generateExplorerLink();
-        await commissionTransaction.save();
-        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
+        // Wait and verify transaction on blockchain
+        await new Promise(r => setTimeout(r, 5000));
+        const txInfo = await blockchainService.getTransactionInfo(commissionResult.txHash);
+        const txConfirmed = txInfo && txInfo.receipt?.result === 'SUCCESS';
+
+        if (txConfirmed) {
+          const commissionTransaction = new Transaction({
+            dealId: deal._id,
+            type: 'fee',
+            asset: deal.asset,
+            amount: commission,
+            txHash: commissionResult.txHash,
+            status: 'confirmed',
+            toAddress: process.env.SERVICE_WALLET_ADDRESS
+          });
+          commissionTransaction.generateExplorerLink();
+          await commissionTransaction.save();
+          console.log(`✅ Commission transferred and verified: ${commissionResult.txHash}`);
+        } else {
+          console.error(`❌ Commission tx FAILED on-chain: ${txInfo?.receipt?.result || 'unknown'} - txHash: ${commissionResult.txHash}`);
+        }
       } else {
-        console.error(`❌ Commission transfer failed: ${commissionResult.error}`);
+        console.error(`❌ Commission transfer broadcast failed: ${commissionResult.error}`);
       }
     }
 
@@ -970,9 +1002,13 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       const MIN_ENERGY_FOR_TRANSFER = 65000;
       const MIN_RENTAL = 32000;
 
+      console.log(`🔋 Commission transfer: checking energy (useFeeSaver=${useFeeSaver}, energyMethod=${energyMethod})`);
+
+      // Always check and rent energy for commission if using FeeSaver
       if (useFeeSaver && energyMethod === 'feesaver') {
         try {
           const availableEnergy = await blockchainService.getAvailableEnergy(deal.multisigAddress);
+          console.log(`🔋 Available energy for commission: ${availableEnergy}`);
 
           if (availableEnergy >= MIN_ENERGY_FOR_TRANSFER) {
             // Enough energy - no rental needed
@@ -998,6 +1034,13 @@ async function processDisputePayout(ctx, deal, winnerRole) {
         } catch (error) {
           console.error(`⚠️ Energy check/rental failed: ${error.message}, trying transfer anyway...`);
         }
+      } else {
+        console.log(`⚠️ Skipping energy check: useFeeSaver=${useFeeSaver}, energyMethod=${energyMethod}`);
+      }
+
+      // Wait for energy delegation if we just rented
+      if (useFeeSaver && energyMethod === 'feesaver') {
+        await new Promise(r => setTimeout(r, 5000));
       }
 
       const commissionTx = await blockchainService.createReleaseTransaction(
@@ -1010,20 +1053,29 @@ async function processDisputePayout(ctx, deal, winnerRole) {
       const commissionResult = await blockchainService.broadcastTransaction(signedCommissionTx);
 
       if (commissionResult.success) {
-        const commissionTransaction = new Transaction({
-          dealId: deal._id,
-          type: 'fee',
-          asset: deal.asset,
-          amount: commission,
-          txHash: commissionResult.txHash,
-          status: 'confirmed',
-          toAddress: process.env.SERVICE_WALLET_ADDRESS
-        });
-        commissionTransaction.generateExplorerLink();
-        await commissionTransaction.save();
-        console.log(`✅ Commission transferred: ${commissionResult.txHash}`);
+        // Wait and verify transaction on blockchain
+        await new Promise(r => setTimeout(r, 5000));
+        const txInfo = await blockchainService.getTransactionInfo(commissionResult.txHash);
+        const txConfirmed = txInfo && txInfo.receipt?.result === 'SUCCESS';
+
+        if (txConfirmed) {
+          const commissionTransaction = new Transaction({
+            dealId: deal._id,
+            type: 'fee',
+            asset: deal.asset,
+            amount: commission,
+            txHash: commissionResult.txHash,
+            status: 'confirmed',
+            toAddress: process.env.SERVICE_WALLET_ADDRESS
+          });
+          commissionTransaction.generateExplorerLink();
+          await commissionTransaction.save();
+          console.log(`✅ Commission transferred and verified: ${commissionResult.txHash}`);
+        } else {
+          console.error(`❌ Commission tx FAILED on-chain: ${txInfo?.receipt?.result || 'unknown'} - txHash: ${commissionResult.txHash}`);
+        }
       } else {
-        console.error(`❌ Commission transfer failed: ${commissionResult.error}`);
+        console.error(`❌ Commission transfer broadcast failed: ${commissionResult.error}`);
       }
     }
 
