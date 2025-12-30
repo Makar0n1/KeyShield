@@ -26,11 +26,12 @@ function HeroSection() {
       <div className="container mx-auto px-4 relative">
         <div className="max-w-3xl mx-auto text-center animate-fade-in">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Безопасный криптовалютный эскроу на TRON
+            Безопасная сделка в Telegram с USDT
           </h1>
           <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
-            Ваши средства под защитой технологии Multisig. Операции подтверждаются
-            только участниками сделки — без стороннего доступа.
+            Гарант-сервис на блокчейне TRON. Деньги хранятся на мультисиг-кошельке 2-из-3:
+            для вывода нужны подписи двух сторон, приватные ключи есть только у участников сделки.
+            Ни один админ не может забрать средства в одиночку.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
@@ -58,9 +59,9 @@ function HeroSection() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 mt-16">
             {[
-              { value: '2/3', label: 'Подписей для транзакции' },
-              { value: `${COMMISSION_TIER_1_FIXED} USDT`, label: 'Минимальная комиссия' },
-              { value: '24/7', label: 'Автоматическая работа' },
+              { value: '2/3', label: 'Подписей для перевода средств' },
+              { value: `${COMMISSION_TIER_1_FIXED} USDT`, label: 'Минимальная комиссия за сделку' },
+              { value: '24/7', label: 'Работа через Telegram-бота' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
@@ -76,37 +77,66 @@ function HeroSection() {
   )
 }
 
+// ========== What Is Safe Deal Section ==========
+function WhatIsSafeDealSection() {
+  return (
+    <section className="py-16 bg-dark-light/30">
+      <div className="container mx-auto px-4">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8">
+            Что такое безопасная сделка
+          </h2>
+          <div className="space-y-4 text-gray-300 text-lg leading-relaxed">
+            <p>
+              <strong className="text-white">Безопасная сделка</strong> — это схема, при которой деньги не идут сразу
+              от покупателя к исполнителю. Средства временно блокируются у независимого гаранта и переводятся
+              только после выполнения оговорённых условий. В онлайне это важно для фриланса, рекламы в Telegram,
+              продажи цифровых товаров и любых сделок между незнакомыми людьми.
+            </p>
+            <p>
+              В KeyShield роль гаранта выполняет <strong className="text-white">мультисиг-кошелёк на блокчейне TRON</strong>.
+              Деньги лежат не у человека-посредника, а на адресе, где для любого перевода нужны две подписи —
+              покупателя и исполнителя. Так безопасная сделка становится прозрачной и защищённой технически,
+              а не только «на доверии».
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ========== Features Section ==========
 const features = [
   {
     icon: '&#x1F512;',
     title: 'Multisig защита',
-    description: 'Для каждой сделки создается уникальный кошелек. Каждый участник получает свой приватный ключ для подписи транзакций.',
+    description: 'Для каждой сделки создаётся мультисиг-кошелёк 2-из-3. Заказчик и исполнитель получают свои приватные ключи, сервис — третий. Без двух подписей деньги не двигаются: ни одна сторона и ни админ не могут украсть депозит.',
   },
   {
     icon: '&#x26A1;',
     title: 'Автоматизация',
-    description: 'Автоматическое обнаружение депозитов и выплат. Никаких ручных операций.',
+    description: 'Все шаги безопасной сделки проходят через Telegram-бота: создание условий, депонирование USDT, подтверждение работы и вывод средств. Никаких ручных переводов и поиска реквизитов.',
   },
   {
     icon: '&#x1F3AF;',
     title: 'Прозрачность',
-    description: 'Все транзакции видны в блокчейне TRON. Полная прозрачность операций.',
+    description: 'Все операции по сделке записаны в блокчейне TRON. Вы видите адрес кошелька, сумму депозита и переводы, а не просто доверяете гаранту на слово.',
   },
   {
     icon: '&#x1F6E1;',
     title: 'Арбитраж',
-    description: 'В случае спора независимый арбитр принимает решение на основе предоставленных доказательств.',
+    description: 'Если возникает спор, к сделке подключается независимый арбитр KeyShield как третья подпись. Решение принимается по переписке и доказательствам в чате.',
   },
   {
     icon: '&#x1F4B8;',
-    title: 'Низкие комиссии',
-    description: `От ${COMMISSION_TIER_1_FIXED} USDT. Без скрытых платежей.`,
+    title: 'Низкая комиссия',
+    description: `Комиссия от ${COMMISSION_TIER_1_FIXED} USDT за безопасную сделку. Для небольших сумм — фиксированный тариф, для крупных — процент от депозита. Без скрытых платежей.`,
   },
   {
     icon: '&#x1F680;',
     title: 'Быстрый запуск',
-    description: 'Создайте сделку за 2 минуты через Telegram бота. Без регистрации и KYC.',
+    description: 'Без регистрации и KYC. Чтобы провести безопасную сделку, достаточно открыть бота, описать условия и отправить USDT на мультисиг-адрес.',
   },
 ]
 
@@ -115,7 +145,7 @@ function FeaturesSection() {
     <section id="features" className="py-20 bg-dark-light/50">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
-          Почему KeyShield?
+          Почему KeyShield — безопасный гарант в Telegram
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature) => (
@@ -142,27 +172,27 @@ const steps = [
   {
     number: 1,
     title: 'Создание сделки',
-    description: 'Покупатель или продавец создает сделку через Telegram бота, указывая условия, сумму и срок.',
+    description: 'Покупатель или продавец запускает Telegram-бота и создаёт безопасную сделку: описывает услугу или товар, сумму в USDT и сроки.',
   },
   {
     number: 2,
     title: 'Получение ключа',
-    description: 'Каждый участник получает свой приватный ключ для подписи. Сохраните его — он понадобится для подтверждения выплаты.',
+    description: 'Каждый участник получает свой приватный ключ для подписи транзакций. Ключ хранится только у вас; сервис его не видит и не может восстановить. Без приватных ключей деньги не сдвинутся с места.',
   },
   {
     number: 3,
     title: 'Депозит',
-    description: 'Покупатель переводит USDT на multisig-адрес. Средства замораживаются в блокчейне.',
+    description: 'Покупатель переводит USDT на мультисиг-адрес. Средства блокируются в блокчейне TRON и ждут подписей участников.',
   },
   {
     number: 4,
     title: 'Выполнение работы',
-    description: 'Продавец выполняет работу в согласованный срок.',
+    description: 'Исполнитель выполняет работу или передаёт товар в согласованный срок. Все договорённости фиксируются в чате Telegram.',
   },
   {
     number: 5,
     title: 'Завершение',
-    description: 'Покупатель принимает работу — автоматическая выплата продавцу. При споре — решение арбитра.',
+    description: 'Если заказчик доволен, стороны подписывают перевод в пользу исполнителя — и USDT уходят на его кошелёк. Если работа сорвана, заказчик подписывает возврат, и депозит возвращается ему.',
   },
 ]
 
@@ -223,9 +253,9 @@ function PricingSection() {
           <div className="bg-dark rounded-xl p-8 border border-border">
             <h3 className="text-xl font-semibold text-white mb-4">Стандартная комиссия</h3>
             <div className="text-5xl font-bold text-primary mb-2">{(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%</div>
-            <p className="text-muted">от суммы сделки в 150USDT</p>
-            <p className="text-muted">{(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от 500USDT</p>
-             <p className="text-muted mb-2">{(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от 1500USDT</p>
+            <p className="text-muted">от суммы безопасной сделки от 150 USDT</p>
+            <p className="text-muted">{(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от 500 USDT</p>
+            <p className="text-muted mb-2">{(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от 1500 USDT</p>
             <ul className="space-y-3">
               {['Автоматические выплаты', 'Арбитраж при спорах', 'Техподдержка 24/7'].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-gray-300">
@@ -242,9 +272,9 @@ function PricingSection() {
             </div>
             <h3 className="text-xl font-semibold text-white mb-4">Фиксированная комиссия</h3>
             <div className="text-5xl font-bold text-primary mb-2">{COMMISSION_TIER_1_FIXED} USDT</div>
-            <p className="text-muted mb-6">для сделок до {COMMISSION_TIER_1_MAX} USDT</p>
+            <p className="text-muted mb-6">комиссия за безопасную сделку до {COMMISSION_TIER_1_MAX} USDT</p>
             <ul className="space-y-3">
-              {[`Минимальная сумма: ${MIN_DEAL_AMOUNT} USDT`, 'Все функции включены', 'Операционные расходы ~8 USDT', 'Чистая прибыль сервиса ~7 USDT'].map((item) => (
+              {[`Минимальная сумма: ${MIN_DEAL_AMOUNT} USDT`, 'Все функции включены', 'Идеально для небольших сделок'].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-gray-300">
                   <span className="text-secondary">&#x2713;</span> {item}
                 </li>
@@ -277,6 +307,63 @@ function PricingSection() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ========== FAQ Section ==========
+const faqItems = [
+  {
+    question: 'Что такое безопасная сделка?',
+    answer: 'Безопасная сделка — это схема, при которой деньги временно блокируются у независимого посредника и переводятся исполнителю только после выполнения условий. В KeyShield средства хранятся на мультисиг-кошельке в блокчейне TRON, а не на личном кошельке гаранта.',
+  },
+  {
+    question: 'Как работает гарант в Telegram через KeyShield?',
+    answer: 'Заказчик и исполнитель создают сделку через Telegram-бота KeyShield, вносят депозит в USDT и получают свои приватные ключи. Деньги блокируются на мультисиг-кошельке. Для перевода средств исполнителю или возврата заказчику нужны подписи двух сторон, поэтому никто не может забрать депозит в одиночку.',
+  },
+  {
+    question: 'Кто имеет доступ к деньгам на сделке?',
+    answer: 'Приватные ключи есть только у участников сделки. Сервис KeyShield не хранит приватные ключи и не может вывести средства самостоятельно. Любое движение средств возможно только при наличии двух подписей из трех — заказчика, исполнителя и, при споре, арбитра.',
+  },
+  {
+    question: 'Подходит ли KeyShield для фриланса и цифровых услуг?',
+    answer: 'Да, сервис особенно удобен для сделок в Telegram: заказов у фрилансеров, покупки цифровых товаров, рекламы в каналах и любых онлайн-услуг с оплатой в USDT. Условия фиксируются в боте, деньги блокируются на мультисиг-кошельке и переводятся только после выполнения обязательств.',
+  },
+]
+
+function FAQSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+
+  return (
+    <section id="faq" className="py-20">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
+          Частые вопросы о безопасных сделках
+        </h2>
+        <div className="max-w-3xl mx-auto space-y-4">
+          {faqItems.map((item, index) => (
+            <div
+              key={index}
+              className="bg-dark-light rounded-xl border border-border overflow-hidden"
+            >
+              <button
+                onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                className="w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-dark-lighter transition-colors"
+              >
+                <span className="text-lg font-medium text-white">{item.question}</span>
+                <span className={`text-primary text-2xl transition-transform ${openIndex === index ? 'rotate-45' : ''}`}>
+                  +
+                </span>
+              </button>
+              {openIndex === index && (
+                <div className="px-6 pb-4">
+                  <p className="text-gray-300 leading-relaxed">{item.answer}</p>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -345,7 +432,7 @@ function BlogSection() {
   if (!loading && posts.length === 0) return null
 
   return (
-    <section className="py-20">
+    <section className="py-20 bg-dark-light/50">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
           Полезные статьи
@@ -408,27 +495,43 @@ function BlogSection() {
 
 // ========== Main Page Component ==========
 export function HomePage() {
-  // Schema for home page - Organization + WebSite + Service
+  const webDomain = import.meta.env.VITE_WEB_DOMAIN || 'https://keyshield.me'
+
+  // FAQ Schema
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  }
+
+  // Schema for home page - Organization + WebSite + Service + FAQ
   const schemas = [
     generateOrganizationSchema(),
     {
       '@context': 'https://schema.org',
       '@type': 'WebSite',
       name: 'KeyShield',
-      url: import.meta.env.VITE_WEB_DOMAIN || 'https://keyshield.io',
-      description: 'Безопасный escrow-сервис для криптовалютных сделок на блокчейне TRON',
+      url: webDomain,
+      description: 'Безопасная сделка в Telegram с USDT. Гарант-сервис на блокчейне TRON с мультисиг-кошельками.',
       potentialAction: {
         '@type': 'SearchAction',
-        target: `${import.meta.env.VITE_WEB_DOMAIN || 'https://keyshield.io'}/blog?search={search_term_string}`,
+        target: `${webDomain}/blog?search={search_term_string}`,
         'query-input': 'required name=search_term_string',
       },
     },
     {
       '@context': 'https://schema.org',
       '@type': 'Service',
-      name: 'KeyShield Escrow',
-      serviceType: 'Cryptocurrency Escrow Service',
-      description: 'Безопасный escrow-сервис для криптовалютных сделок с использованием технологии multisig на блокчейне TRON.',
+      name: 'KeyShield — безопасная сделка',
+      serviceType: 'Гарант-сервис для криптовалютных сделок',
+      description: 'Безопасная сделка в Telegram с USDT. Мультисиг-кошелёк 2-из-3 на TRON: приватные ключи только у участников сделки, сервис не может вывести деньги.',
       provider: {
         '@type': 'Organization',
         name: 'KeyShield',
@@ -436,7 +539,7 @@ export function HomePage() {
       areaServed: 'Worldwide',
       offers: {
         '@type': 'Offer',
-        description: 'Escrow услуги для криптовалютных сделок',
+        description: 'Комиссия за безопасную сделку',
         price: COMMISSION_TIER_1_FIXED.toString(),
         priceCurrency: 'USD',
         priceSpecification: {
@@ -447,20 +550,23 @@ export function HomePage() {
         },
       },
     },
+    faqSchema,
   ]
 
   return (
     <>
       <SEO
-        title="Безопасный Escrow для криптосделок"
-        description="KeyShield — надёжный escrow-сервис для безопасных сделок с криптовалютой. Мультисиг-кошельки на TRON, автоматический контроль депозитов, справедливый арбитраж."
+        title="Безопасная сделка в Telegram с USDT | Гарант-сервис на TRON"
+        description="KeyShield — безопасная сделка в Telegram с USDT. Мультисиг-кошелёк 2-из-3 на TRON: приватные ключи только у участников сделки, сервис не может вывести деньги."
         url="/"
         schema={schemas}
       />
       <HeroSection />
+      <WhatIsSafeDealSection />
       <FeaturesSection />
       <HowItWorksSection />
       <PricingSection />
+      <FAQSection />
       <CTASection />
       <BlogSection />
     </>
