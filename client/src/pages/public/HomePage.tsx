@@ -15,6 +15,50 @@ import {
   MIN_DEAL_AMOUNT
 } from '@/config/constants'
 
+// ========== Sticky Mobile CTA ==========
+function StickyCTA() {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show after scrolling 300px
+      setIsVisible(window.scrollY > 300)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  return (
+    <div
+      className={`fixed bottom-0 left-0 right-0 z-50 md:hidden bg-dark/95 backdrop-blur-md border-t border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] transition-all duration-300 ${
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
+      }`}
+    >
+      <div className="flex flex-col gap-2">
+        <Button size="lg" className="w-full" asChild>
+          <a
+            href="https://t.me/keyshield_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackLead({ content_name: 'sticky_mobile_cta', content_category: 'telegram_bot' })}
+          >
+            Открыть Telegram бота
+          </a>
+        </Button>
+        <button
+          className="text-xs text-muted text-center"
+          onClick={() => {
+            trackViewContent({ content_name: 'section_scroll', content_category: 'how-it-works' })
+            document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
+          }}
+        >
+          Как это работает
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ========== Hero Section ==========
 function HeroSection() {
   return (
@@ -569,6 +613,7 @@ export function HomePage() {
       <FAQSection />
       <CTASection />
       <BlogSection />
+      <StickyCTA />
     </>
   )
 }
