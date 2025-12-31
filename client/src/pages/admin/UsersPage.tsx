@@ -30,7 +30,7 @@ export function AdminUsersPage() {
         search: searchParams.get('search') || undefined,
         blacklisted: blacklisted || undefined,
         botBlocked: botBlocked || undefined,
-        stuckInFlow: stuckInFlow || undefined,
+        stuckInFlow: stuckInFlow ? 'true' : undefined,
       })
       .then((data) => {
         setUsers(data.users)
