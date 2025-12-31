@@ -9,6 +9,7 @@ const navLinks = [
   { href: '/#features', label: 'Возможности' },
   { href: '/#how-it-works', label: 'Как работает' },
   { href: '/#pricing', label: 'Цены' },
+  { href: '/#testimonials', label: 'Отзывы' },
   { href: '/blog', label: 'Блог' },
   { href: '/terms', label: 'Документы' },
 ]

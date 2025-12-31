@@ -48,11 +48,11 @@ function StickyCTA() {
         <button
           className="text-xs text-muted text-center"
           onClick={() => {
-            trackViewContent({ content_name: 'section_scroll', content_category: 'how-it-works' })
-            document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
+            trackViewContent({ content_name: 'section_scroll', content_category: 'testimonials' })
+            document.getElementById('testimonials')?.scrollIntoView({ behavior: 'smooth' })
           }}
         >
-          Как это работает
+          Читать отзывы
         </button>
       </div>
     </div>
@@ -420,7 +420,7 @@ const testimonials = [
     name: 'Андрей К.',
     role: 'SMM-специалист',
     avatar: '👨‍💻',
-    text: 'Работаю с заказчиками из разных стран. Раньше постоянно кидали — то работу не оплатят, то деньги заберут и пропадут. С KeyShield за 4 месяца ни одной проблемы. Клиенты тоже спокойны.',
+    text: 'Работаю с заказчиками из разных стран. Раньше постоянно кидали — то работу не оплатят, то деньги заберут и пропадут. С KeyShield ни одной проблемы. Клиенты тоже спокойны.',
     rating: 5,
   },
   {
@@ -461,8 +461,13 @@ const testimonials = [
 ]
 
 function TestimonialsSection() {
+  const [isPaused, setIsPaused] = useState(false)
+
+  // Duplicate testimonials for seamless infinite scroll
+  const duplicatedTestimonials = [...testimonials, ...testimonials]
+
   return (
-    <section className="py-20 bg-dark-light/30">
+    <section id="testimonials" className="py-20 bg-dark-light/30 overflow-hidden">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -473,49 +478,67 @@ function TestimonialsSection() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <div
-              key={index}
-              className="bg-dark rounded-xl p-6 border border-border hover:border-primary/30 transition-all duration-300"
-            >
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-dark-light flex items-center justify-center text-2xl">
-                  {testimonial.avatar}
-                </div>
-                <div>
-                  <div className="font-semibold text-white">{testimonial.name}</div>
-                  <div className="text-sm text-muted">{testimonial.role}</div>
-                </div>
-              </div>
+        {/* Carousel container */}
+        <div
+          className="relative"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          {/* Gradient overlays for smooth edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-dark-light/30 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-dark-light/30 to-transparent z-10 pointer-events-none" />
 
-              {/* Stars */}
-              <div className="flex gap-1 mb-3">
-                {[...Array(5)].map((_, i) => (
-                  <span
-                    key={i}
-                    className={i < testimonial.rating ? 'text-yellow-400' : 'text-gray-600'}
-                  >
-                    ★
-                  </span>
-                ))}
-              </div>
+          {/* Scrolling track */}
+          <div
+            className={`flex gap-6 ${isPaused ? 'animation-paused' : ''}`}
+            style={{
+              animation: 'scroll-testimonials 40s linear infinite',
+              width: 'fit-content',
+            }}
+          >
+            {duplicatedTestimonials.map((testimonial, index) => (
+              <div
+                key={index}
+                className="bg-dark rounded-xl p-6 border border-border hover:border-primary/30 transition-all duration-300 flex-shrink-0 w-[340px]"
+              >
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-dark-light flex items-center justify-center text-2xl">
+                    {testimonial.avatar}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-white">{testimonial.name}</div>
+                    <div className="text-sm text-muted">{testimonial.role}</div>
+                  </div>
+                </div>
 
-              {/* Text */}
-              <p className="text-gray-300 leading-relaxed">"{testimonial.text}"</p>
-            </div>
-          ))}
+                {/* Stars */}
+                <div className="flex gap-1 mb-3">
+                  {[...Array(5)].map((_, i) => (
+                    <span
+                      key={i}
+                      className={i < testimonial.rating ? 'text-yellow-400' : 'text-gray-600'}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+
+                {/* Text */}
+                <p className="text-gray-300 leading-relaxed">"{testimonial.text}"</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Trust indicators */}
         <div className="flex flex-wrap justify-center gap-8 mt-12 pt-8 border-t border-border">
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary">500+</div>
+            <div className="text-3xl font-bold text-primary">150+</div>
             <div className="text-sm text-muted">успешных сделок</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary">200+</div>
+            <div className="text-3xl font-bold text-primary">70+</div>
             <div className="text-sm text-muted">активных пользователей</div>
           </div>
           <div className="text-center">
@@ -528,6 +551,21 @@ function TestimonialsSection() {
           </div>
         </div>
       </div>
+
+      {/* CSS for carousel animation */}
+      <style>{`
+        @keyframes scroll-testimonials {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+        .animation-paused {
+          animation-play-state: paused !important;
+        }
+      `}</style>
     </section>
   )
 }
