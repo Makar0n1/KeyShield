@@ -80,6 +80,7 @@ export const adminService = {
     search?: string
     blacklisted?: boolean
     botBlocked?: string // 'true' | 'false' | undefined
+    stuckInFlow?: string // 'true' | 'false' | undefined
   }): Promise<{ users: User[]; total: number; totalPages: number }> => {
     const { data } = await api.get('/admin/users', { params })
     return data

@@ -815,7 +815,7 @@ app.post('/api/admin/deals/:id/toggle-hidden', adminAuth, async (req, res) => {
 // Users API (with search rate limiting)
 app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
   try {
-    const { search, blacklisted, botBlocked, page = 1, limit = 20 } = req.query;
+    const { search, blacklisted, botBlocked, stuckInFlow, page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     let query = {};
@@ -836,8 +836,15 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
       query.botBlocked = { $ne: true };
     }
 
+    // Filter users stuck in critical flows (skipped from broadcasts)
+    if (stuckInFlow === 'true') {
+      query.currentScreen = {
+        $regex: /^(create_deal|dispute)|wallet|payout|submit_work|accept_work|confirm/
+      };
+    }
+
     const users = await User.find(query)
-      .select('telegramId username firstName role blacklisted disputeStats platformCode source referredBy createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats')
+      .select('telegramId username firstName role blacklisted disputeStats platformCode source referredBy createdAt lastActivity currentScreen botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)

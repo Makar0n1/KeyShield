@@ -6,7 +6,7 @@ import { Card, Button, Input } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
 import { formatDateShort } from '@/utils/format'
-import { Search, Eye, Ban, CheckCircle, Filter, Bot, Gift } from 'lucide-react'
+import { Search, Eye, Ban, CheckCircle, Filter, Bot, Gift, AlertTriangle } from 'lucide-react'
 
 export function AdminUsersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -19,6 +19,7 @@ export function AdminUsersPage() {
   const page = parseInt(searchParams.get('page') || '1')
   const blacklisted = searchParams.get('blacklisted') === 'true'
   const botBlocked = searchParams.get('botBlocked') || ''
+  const stuckInFlow = searchParams.get('stuckInFlow') === 'true'
 
   const fetchUsers = () => {
     setLoading(true)
@@ -29,6 +30,7 @@ export function AdminUsersPage() {
         search: searchParams.get('search') || undefined,
         blacklisted: blacklisted || undefined,
         botBlocked: botBlocked || undefined,
+        stuckInFlow: stuckInFlow || undefined,
       })
       .then((data) => {
         setUsers(data.users)
@@ -41,7 +43,7 @@ export function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers()
-  }, [page, blacklisted, botBlocked, searchParams])
+  }, [page, blacklisted, botBlocked, stuckInFlow, searchParams])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,6 +74,17 @@ export function AdminUsersPage() {
       params.set('botBlocked', value)
     } else {
       params.delete('botBlocked')
+    }
+    params.set('page', '1')
+    setSearchParams(params)
+  }
+
+  const handleFilterStuckInFlow = (show: boolean) => {
+    const params = new URLSearchParams(searchParams)
+    if (show) {
+      params.set('stuckInFlow', 'true')
+    } else {
+      params.delete('stuckInFlow')
     }
     params.set('page', '1')
     setSearchParams(params)
@@ -195,6 +208,21 @@ export function AdminUsersPage() {
               </button>
             </div>
           </div>
+
+          {/* Filter - Stuck in Flow */}
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="text-muted" />
+            <button
+              onClick={() => handleFilterStuckInFlow(!stuckInFlow)}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                stuckInFlow
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-dark-lighter text-gray-300 hover:bg-dark-light'
+              }`}
+            >
+              Зависшие
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -214,11 +242,11 @@ export function AdminUsersPage() {
                   <th className="text-left p-4 text-sm font-medium text-muted">ID</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Username</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Имя</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted">Экран</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Источник</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Споры</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Статус</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Бот</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted">Посл. действие</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Регистрация</th>
                   <th className="text-right p-4 text-sm font-medium text-muted">Действия</th>
                 </tr>
@@ -245,6 +273,28 @@ export function AdminUsersPage() {
                     </td>
                     <td className="p-4 text-white">
                       {user.firstName || '—'} {user.lastName || ''}
+                    </td>
+                    <td className="p-4">
+                      {user.currentScreen ? (
+                        <span
+                          className={`text-xs font-mono px-2 py-1 rounded ${
+                            user.currentScreen.startsWith('create_deal') ||
+                            user.currentScreen.startsWith('dispute') ||
+                            user.currentScreen.includes('wallet') ||
+                            user.currentScreen.includes('payout') ||
+                            user.currentScreen.includes('confirm')
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-dark-lighter text-gray-400'
+                          }`}
+                          title={user.currentScreen}
+                        >
+                          {user.currentScreen.length > 20
+                            ? user.currentScreen.substring(0, 20) + '...'
+                            : user.currentScreen}
+                        </span>
+                      ) : (
+                        <span className="text-muted text-sm">—</span>
+                      )}
                     </td>
                     <td className="p-4">
                       {user.referrer ? (
@@ -294,20 +344,6 @@ export function AdminUsersPage() {
                         <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
                           Активен
                         </Badge>
-                      )}
-                    </td>
-                    <td className="p-4 text-sm">
-                      {user.lastActionType ? (
-                        <div>
-                          <span className="text-gray-300 text-xs">{user.lastActionType}</span>
-                          {user.lastActionAt && (
-                            <span className="block text-muted text-xs">
-                              {formatDateShort(user.lastActionAt)}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted">—</span>
                       )}
                     </td>
                     <td className="p-4 text-sm text-muted">

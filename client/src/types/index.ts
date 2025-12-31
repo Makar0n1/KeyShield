@@ -224,6 +224,7 @@ export interface User {
   createdAt: string
   lastActivity?: string
   // Activity tracking fields
+  currentScreen?: string
   botBlocked?: boolean
   botBlockedAt?: string
   lastActionType?: string
