@@ -246,8 +246,6 @@ export function BlogPostPage() {
       url: `/blog/${post.slug}`,
       publishedTime: post.publishedAt || post.createdAt,
       modifiedTime: post.updatedAt,
-      likes: post.likes,
-      dislikes: post.dislikes,
       commentCount: comments.length,
     }),
     generateBreadcrumbSchema([

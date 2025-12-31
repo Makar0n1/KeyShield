@@ -140,7 +140,9 @@ export function SEO({
   return null
 }
 
-// Helper to generate Article schema with rating and comments
+// Helper to generate Article schema
+// Note: AggregateRating is NOT supported for Article type in Google Rich Results
+// Only interactionStatistic is allowed for engagement metrics
 export function generateArticleSchema(article: {
   title: string
   description: string
@@ -149,15 +151,8 @@ export function generateArticleSchema(article: {
   publishedTime: string
   modifiedTime?: string
   author?: string
-  likes?: number
-  dislikes?: number
   commentCount?: number
 }) {
-  const totalVotes = (article.likes || 0) + (article.dislikes || 0)
-  const ratingValue = totalVotes > 0
-    ? ((article.likes || 0) / totalVotes * 5).toFixed(1)
-    : null
-
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -179,17 +174,7 @@ export function generateArticleSchema(article: {
         url: `${SITE_URL}/logo.png`,
       },
     },
-    // Rating based on likes/dislikes (converted to 5-star scale)
-    ...(totalVotes > 0 && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: ratingValue,
-        bestRating: '5',
-        worstRating: '1',
-        ratingCount: totalVotes,
-      },
-    }),
-    // Comment count
+    // Comment count via interactionStatistic (valid for Article)
     ...(article.commentCount !== undefined && article.commentCount > 0 && {
       commentCount: article.commentCount,
       interactionStatistic: {
