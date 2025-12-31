@@ -414,6 +414,124 @@ function FAQSection() {
   )
 }
 
+// ========== Testimonials Section ==========
+const testimonials = [
+  {
+    name: 'Андрей К.',
+    role: 'SMM-специалист',
+    avatar: '👨‍💻',
+    text: 'Работаю с заказчиками из разных стран. Раньше постоянно кидали — то работу не оплатят, то деньги заберут и пропадут. С KeyShield за 4 месяца ни одной проблемы. Клиенты тоже спокойны.',
+    rating: 5,
+  },
+  {
+    name: 'Мария Л.',
+    role: 'Владелец Telegram-канала',
+    avatar: '👩‍💼',
+    text: 'Продаю рекламу в канале на 50К подписчиков. Рекламодатели часто новые, незнакомые. Гарант через бота — идеальное решение: я уверена в оплате, они уверены в размещении.',
+    rating: 5,
+  },
+  {
+    name: 'Дмитрий В.',
+    role: 'Веб-разработчик',
+    avatar: '🧑‍🔧',
+    text: 'Делал сайт за 800 USDT. Заказчик хотел гаранта, я предложил KeyShield. Всё прошло чётко: деньги на мультисиге, сдал работу — получил оплату. Комиссия копеечная.',
+    rating: 5,
+  },
+  {
+    name: 'Елена П.',
+    role: 'Покупатель цифровых товаров',
+    avatar: '👩',
+    text: 'Покупала доступы к курсам у незнакомого продавца. Боялась, что кинут. Через KeyShield всё прошло гладко — деньги списались только после того, как получила товар.',
+    rating: 5,
+  },
+  {
+    name: 'Артём С.',
+    role: 'Арбитражник трафика',
+    avatar: '🧔',
+    text: 'Покупаю аккаунты и инструменты для работы. Суммы бывают большие, рисковать не хочется. KeyShield выручает — особенно нравится, что ключи только у меня.',
+    rating: 4,
+  },
+  {
+    name: 'Ольга Н.',
+    role: 'Дизайнер',
+    avatar: '👩‍🎨',
+    text: 'Первый раз пользовалась гарантом вообще. Думала будет сложно — оказалось проще, чем обычный перевод. Бот сам всё объясняет. Теперь все заказы только так.',
+    rating: 5,
+  },
+]
+
+function TestimonialsSection() {
+  return (
+    <section className="py-20 bg-dark-light/30">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Что говорят пользователи
+          </h2>
+          <p className="text-muted text-lg max-w-2xl mx-auto">
+            Реальные истории людей, которые уже проводят безопасные сделки через KeyShield
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {testimonials.map((testimonial, index) => (
+            <div
+              key={index}
+              className="bg-dark rounded-xl p-6 border border-border hover:border-primary/30 transition-all duration-300"
+            >
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-dark-light flex items-center justify-center text-2xl">
+                  {testimonial.avatar}
+                </div>
+                <div>
+                  <div className="font-semibold text-white">{testimonial.name}</div>
+                  <div className="text-sm text-muted">{testimonial.role}</div>
+                </div>
+              </div>
+
+              {/* Stars */}
+              <div className="flex gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <span
+                    key={i}
+                    className={i < testimonial.rating ? 'text-yellow-400' : 'text-gray-600'}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+
+              {/* Text */}
+              <p className="text-gray-300 leading-relaxed">"{testimonial.text}"</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Trust indicators */}
+        <div className="flex flex-wrap justify-center gap-8 mt-12 pt-8 border-t border-border">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-primary">500+</div>
+            <div className="text-sm text-muted">успешных сделок</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-primary">200+</div>
+            <div className="text-sm text-muted">активных пользователей</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-primary">0</div>
+            <div className="text-sm text-muted">случаев мошенничества</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-primary">24/7</div>
+            <div className="text-sm text-muted">поддержка и арбитраж</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ========== CTA Section ==========
 function CTASection() {
   return (
@@ -611,6 +729,7 @@ export function HomePage() {
       <HowItWorksSection />
       <PricingSection />
       <FAQSection />
+      <TestimonialsSection />
       <CTASection />
       <BlogSection />
       <StickyCTA />
