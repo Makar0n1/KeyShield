@@ -324,11 +324,21 @@ export function BroadcastsPage() {
       {previewBroadcast && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md p-0 overflow-hidden">
-            <img
-              src={previewBroadcast.imageUrl}
-              alt={previewBroadcast.title}
-              className="w-full aspect-video object-cover"
-            />
+            {/* Image with blur background */}
+            <div className="relative w-full aspect-video overflow-hidden">
+              {/* Blurred background */}
+              <img
+                src={previewBroadcast.imageUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-xl scale-110"
+              />
+              {/* Foreground image */}
+              <img
+                src={previewBroadcast.imageUrl}
+                alt={previewBroadcast.title}
+                className="relative w-full h-full object-contain"
+              />
+            </div>
             <div className="p-4">
               <h3 className="text-lg font-bold text-white mb-2">
                 {previewBroadcast.title}
@@ -373,11 +383,19 @@ export function BroadcastsPage() {
                     <tr key={broadcast._id} className="border-b border-border hover:bg-dark-lighter/50">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={broadcast.imageUrl}
-                            alt={broadcast.title}
-                            className="w-16 h-10 object-cover rounded"
-                          />
+                          {/* Thumbnail with blur background */}
+                          <div className="relative w-16 h-10 rounded overflow-hidden flex-shrink-0">
+                            <img
+                              src={broadcast.imageUrl}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover blur-md scale-110"
+                            />
+                            <img
+                              src={broadcast.imageUrl}
+                              alt={broadcast.title}
+                              className="relative w-full h-full object-contain"
+                            />
+                          </div>
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="text-white font-medium">{broadcast.title}</p>
