@@ -466,6 +466,27 @@ bot.action('blog_notification_back', async (ctx) => {
   }
 });
 
+// Marketing broadcast close button (uses goBack - delete + send pattern)
+bot.action(/^broadcast_close_/, async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+
+    // Use goBack - pops from stack and shows previous screen
+    const previousScreen = await messageManager.goBack(ctx, telegramId);
+
+    if (!previousScreen) {
+      // No previous screen - show main menu
+      const { mainMenuKeyboard } = require('./keyboards/main');
+      const keyboard = mainMenuKeyboard();
+
+      await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+    }
+  } catch (error) {
+    console.error('Error handling broadcast close:', error);
+  }
+});
+
 // ============================================
 // TEXT MESSAGES
 // ============================================

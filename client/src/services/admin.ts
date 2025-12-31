@@ -9,6 +9,7 @@ import type {
   BotStatusProgress,
   ReferralWithdrawal,
   ReferralStats,
+  Broadcast,
 } from '@/types'
 
 export const adminService = {
@@ -304,5 +305,49 @@ export const adminService = {
   getReferralStats: async (): Promise<ReferralStats> => {
     const { data } = await api.get('/referrals/stats')
     return data.stats
+  },
+
+  // ========== Broadcasts ==========
+
+  getBroadcasts: async (params?: {
+    status?: string
+    page?: number
+    limit?: number
+  }): Promise<{ broadcasts: Broadcast[]; total: number; totalPages: number }> => {
+    const { data } = await api.get('/admin/broadcasts', { params })
+    return data
+  },
+
+  getBroadcast: async (id: string): Promise<Broadcast> => {
+    const { data } = await api.get(`/admin/broadcasts/${id}`)
+    return data.broadcast
+  },
+
+  createBroadcast: async (formData: FormData): Promise<Broadcast> => {
+    const { data } = await api.post('/admin/broadcasts', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data.broadcast
+  },
+
+  updateBroadcast: async (id: string, formData: FormData): Promise<Broadcast> => {
+    const { data } = await api.put(`/admin/broadcasts/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data.broadcast
+  },
+
+  deleteBroadcast: async (id: string): Promise<void> => {
+    await api.delete(`/admin/broadcasts/${id}`)
+  },
+
+  sendBroadcast: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await api.post(`/admin/broadcasts/${id}/send`)
+    return data
+  },
+
+  getBroadcastProgress: async (id: string): Promise<{ broadcast: Broadcast }> => {
+    const { data } = await api.get(`/admin/broadcasts/${id}/progress`)
+    return data
   },
 }

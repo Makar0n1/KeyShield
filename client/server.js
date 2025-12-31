@@ -15,6 +15,7 @@ import { createServer as createViteServer } from 'vite';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { prerenderMiddleware, isBot, getCacheStats, clearCache } from './prerender.js';
+import multer from 'multer';
 
 // Get __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,7 @@ const __dirname = dirname(__filename);
 const connectDB = (await import('../src/config/database.js')).default;
 const notificationService = (await import('../src/services/notificationService.js')).default;
 const blogNotificationService = (await import('../src/services/blogNotificationService.js')).default;
+const broadcastService = (await import('../src/services/broadcastService.js')).default;
 const priceService = (await import('../src/services/priceService.js')).default;
 
 // Models
@@ -33,6 +35,7 @@ const Transaction = (await import('../src/models/Transaction.js')).default;
 const Dispute = (await import('../src/models/Dispute.js')).default;
 const Platform = (await import('../src/models/Platform.js')).default;
 const ExportLog = (await import('../src/models/ExportLog.js')).default;
+const Broadcast = (await import('../src/models/Broadcast.js')).default;
 
 // Routes
 const partnerRoutes = (await import('../src/web/routes/partner.js')).default;
@@ -57,6 +60,41 @@ app.set('trust proxy', 1);
 const webBot = new Telegraf(process.env.BOT_TOKEN);
 notificationService.setBotInstance(webBot);
 blogNotificationService.setBotInstance(webBot);
+broadcastService.setBotInstance(webBot);
+
+// ============ MULTER CONFIG FOR UPLOADS ============
+
+// Ensure uploads directory exists
+import { existsSync, mkdirSync } from 'fs';
+const uploadsDir = join(__dirname, 'public/uploads/broadcasts');
+if (!existsSync(uploadsDir)) {
+  mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for broadcast images
+const broadcastStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = file.originalname.split('.').pop();
+    cb(null, `broadcast-${uniqueSuffix}.${ext}`);
+  }
+});
+
+const uploadBroadcast = multer({
+  storage: broadcastStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, WebP and GIF images are allowed'));
+    }
+  }
+});
 
 // ============ SECURITY CONFIGURATION ============
 
@@ -1786,6 +1824,193 @@ app.post('/api/admin/bot-status/check', adminAuth, async (req, res) => {
 // Get current progress of bot status check
 app.get('/api/admin/bot-status/progress', adminAuth, (req, res) => {
   res.json(botStatusChecker.getProgress());
+});
+
+// ============ BROADCASTS API ============
+
+// Get all broadcasts with pagination
+app.get('/api/admin/broadcasts', adminAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = {};
+    if (status) query.status = status;
+
+    const broadcasts = await Broadcast.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean();
+
+    const total = await Broadcast.countDocuments(query);
+
+    res.json({
+      broadcasts,
+      total,
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single broadcast
+app.get('/api/admin/broadcasts/:id', adminAuth, async (req, res) => {
+  try {
+    const broadcast = await Broadcast.findById(req.params.id).lean();
+    if (!broadcast) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+    res.json({ broadcast });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new broadcast (with image upload)
+app.post('/api/admin/broadcasts', adminAuth, uploadBroadcast.single('image'), async (req, res) => {
+  try {
+    const { title, text, isTest, testUserId } = req.body;
+
+    if (!title || !text) {
+      return res.status(400).json({ error: 'Title and text are required' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image is required' });
+    }
+
+    // Validate test mode
+    if (isTest === 'true' && !testUserId) {
+      return res.status(400).json({ error: 'Test user ID is required for test mode' });
+    }
+
+    // Build image URL
+    const imageUrl = `/uploads/broadcasts/${req.file.filename}`;
+
+    const broadcast = new Broadcast({
+      title,
+      text,
+      imageUrl,
+      isTest: isTest === 'true',
+      testUserId: isTest === 'true' ? testUserId : null,
+      status: 'draft',
+      createdBy: req.admin.username
+    });
+
+    await broadcast.save();
+
+    res.json({ broadcast });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update broadcast (only draft)
+app.put('/api/admin/broadcasts/:id', adminAuth, uploadBroadcast.single('image'), async (req, res) => {
+  try {
+    const broadcast = await Broadcast.findById(req.params.id);
+    if (!broadcast) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    if (broadcast.status !== 'draft') {
+      return res.status(400).json({ error: 'Can only edit draft broadcasts' });
+    }
+
+    const { title, text } = req.body;
+    if (title) broadcast.title = title;
+    if (text) broadcast.text = text;
+
+    // Update image if new one uploaded
+    if (req.file) {
+      broadcast.imageUrl = `/uploads/broadcasts/${req.file.filename}`;
+    }
+
+    await broadcast.save();
+
+    res.json({ broadcast });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete broadcast (only draft or completed)
+app.delete('/api/admin/broadcasts/:id', adminAuth, async (req, res) => {
+  try {
+    const broadcast = await Broadcast.findById(req.params.id);
+    if (!broadcast) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    if (broadcast.status === 'sending') {
+      return res.status(400).json({ error: 'Cannot delete broadcast that is currently sending' });
+    }
+
+    await Broadcast.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send broadcast (start sending)
+app.post('/api/admin/broadcasts/:id/send', adminAuth, async (req, res) => {
+  try {
+    const broadcast = await Broadcast.findById(req.params.id);
+    if (!broadcast) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    if (broadcast.status !== 'draft') {
+      return res.status(400).json({ error: 'Can only send draft broadcasts' });
+    }
+
+    // Build full image URL for Telegram
+    const WEB_DOMAIN = process.env.WEB_DOMAIN || 'keyshield.me';
+    const SITE_URL = WEB_DOMAIN.includes('localhost')
+      ? `http://${WEB_DOMAIN}`
+      : `https://${WEB_DOMAIN}`;
+
+    // Update imageUrl to full URL for Telegram
+    broadcast.imageUrl = `${SITE_URL}${broadcast.imageUrl}`;
+    await broadcast.save();
+
+    // Start sending in background (don't await)
+    broadcastService.sendBroadcast(broadcast._id.toString()).catch(err => {
+      console.error('[BroadcastService] Error:', err);
+      Broadcast.updateOne(
+        { _id: broadcast._id },
+        { $set: { status: 'failed' } }
+      ).catch(console.error);
+    });
+
+    res.json({
+      success: true,
+      message: 'Broadcast sending started',
+      broadcast
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get broadcast stats/progress
+app.get('/api/admin/broadcasts/:id/progress', adminAuth, async (req, res) => {
+  try {
+    const broadcast = await Broadcast.findById(req.params.id)
+      .select('status stats sentAt completedAt')
+      .lean();
+
+    if (!broadcast) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    res.json({ broadcast });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ============ PRERENDER CACHE MANAGEMENT ============

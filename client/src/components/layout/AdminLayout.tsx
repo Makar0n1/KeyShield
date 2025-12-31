@@ -18,6 +18,7 @@ import {
   X,
   ChevronDown,
   Gift,
+  Megaphone,
 } from 'lucide-react'
 
 const mainNavItems = [
@@ -26,6 +27,7 @@ const mainNavItems = [
   { path: '/admin/users', icon: Users, label: 'Пользователи' },
   { path: '/admin/disputes', icon: Scale, label: 'Споры' },
   { path: '/admin/referrals', icon: Gift, label: 'Рефералы' },
+  { path: '/admin/broadcasts', icon: Megaphone, label: 'Рассылки' },
   { path: '/admin/exports', icon: Download, label: 'Экспорт' },
   { path: '/admin/transactions', icon: Activity, label: 'Транзакции' },
   { path: '/admin/platforms', icon: Building2, label: 'Платформы' },

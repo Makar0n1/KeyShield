@@ -472,3 +472,30 @@ export interface ReferralStats {
   totalReferrers: number
   totalEarned: number
 }
+
+// ========== Broadcast Types ==========
+
+export type BroadcastStatus = 'draft' | 'sending' | 'completed' | 'failed'
+
+export interface BroadcastStats {
+  totalUsers: number
+  sent: number
+  failed: number
+  skipped: number
+}
+
+export interface Broadcast {
+  _id: string
+  title: string
+  text: string
+  imageUrl: string
+  isTest: boolean
+  testUserId?: string
+  status: BroadcastStatus
+  stats: BroadcastStats
+  sentAt?: string
+  completedAt?: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}

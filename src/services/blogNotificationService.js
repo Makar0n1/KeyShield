@@ -37,7 +37,7 @@ class BlogNotificationService {
   }
 
   /**
-   * Format notification text for a blog post
+   * Format notification caption for a blog post (used with photo)
    */
   formatNotificationText(post) {
     const summary = post.summary || post.seoDescription || '';
@@ -50,6 +50,21 @@ class BlogNotificationService {
 *${this.escapeMarkdown(post.title)}*
 
 ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Читайте на нашем сайте!`;
+  }
+
+  /**
+   * Get cover image URL for the post
+   */
+  getCoverImageUrl(post) {
+    if (!post.coverImage) return null;
+
+    // If already a full URL, return as is
+    if (post.coverImage.startsWith('http://') || post.coverImage.startsWith('https://')) {
+      return post.coverImage;
+    }
+
+    // Build full URL
+    return `${this.getSiteUrl()}${post.coverImage}`;
   }
 
   /**
@@ -116,6 +131,7 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
 
     const notificationText = this.formatNotificationText(post);
     const keyboard = this.getNotificationKeyboard(post);
+    const coverImageUrl = this.getCoverImageUrl(post);
 
     // Get all active users with mainMessageId
     // Filter: not blacklisted, has mainMessageId, active in last 30 days
@@ -128,7 +144,7 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
       lastActivity: { $gte: thirtyDaysAgo }
     }).lean();
 
-    console.log(`📤 Sending blog notification to ${users.length} users for post "${post.title}"`);
+    console.log(`📤 Sending blog notification to ${users.length} users for post "${post.title}"${coverImageUrl ? ' (with image)' : ''}`);
 
     let sent = 0;
     let failed = 0;
@@ -140,7 +156,7 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
 
       // Process batch in parallel
       const results = await Promise.allSettled(
-        batch.map(user => this.sendNotificationToUser(user, postId, notificationText, keyboard))
+        batch.map(user => this.sendNotificationToUser(user, postId, notificationText, keyboard, coverImageUrl))
       );
 
       // Count results
@@ -207,8 +223,9 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
   /**
    * Send notification to a single user
    * Uses delete + send for push notifications (loud)
+   * Now supports sending photo with caption if coverImageUrl is provided
    */
-  async sendNotificationToUser(user, postId, notificationText, keyboard) {
+  async sendNotificationToUser(user, postId, notificationText, keyboard, coverImageUrl = null) {
     try {
       const userId = user.telegramId;
 
@@ -244,15 +261,31 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
         // Message already deleted - not critical
       }
 
-      // 2. SEND new message (this triggers PUSH notification!)
-      const newMsg = await this.bot.telegram.sendMessage(
-        userId,
-        notificationText,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        }
-      );
+      // 2. SEND new message (photo or text) - this triggers PUSH notification!
+      let newMsg;
+
+      if (coverImageUrl) {
+        // Send photo with caption
+        newMsg = await this.bot.telegram.sendPhoto(
+          userId,
+          coverImageUrl,
+          {
+            caption: notificationText,
+            parse_mode: 'Markdown',
+            reply_markup: keyboard
+          }
+        );
+      } else {
+        // Fallback to text message if no cover image
+        newMsg = await this.bot.telegram.sendMessage(
+          userId,
+          notificationText,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard
+          }
+        );
+      }
 
       // 3. Update mainMessageId and state in DB
       await User.updateOne(
@@ -261,7 +294,12 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
           $set: {
             mainMessageId: newMsg.message_id,
             currentScreen: `blog_notification_${postId}`,
-            currentScreenData: { text: notificationText, keyboard },
+            currentScreenData: {
+              text: notificationText,
+              keyboard,
+              isPhoto: !!coverImageUrl,
+              photoUrl: coverImageUrl
+            },
             lastActivity: new Date()
           }
         }
@@ -274,7 +312,7 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
     } catch (error) {
       console.error(`Failed to notify user ${user.telegramId}:`, error.message);
 
-      // If bot is blocked or chat not found, clear mainMessageId
+      // If bot is blocked or chat not found, mark user
       if (
         error.description?.includes('bot was blocked') ||
         error.description?.includes('chat not found') ||
@@ -282,7 +320,13 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
       ) {
         await User.updateOne(
           { telegramId: user.telegramId },
-          { $set: { mainMessageId: null } }
+          {
+            $set: {
+              mainMessageId: null,
+              botBlocked: true,
+              botBlockedAt: new Date()
+            }
+          }
         );
       }
 

@@ -58,6 +58,7 @@ import {
   AdminTransactionsPage,
   AdminIpCheckPage,
   AdminReferralsPage,
+  AdminBroadcastsPage,
 } from '@/pages/admin'
 import {
   BlogPostsPage,
@@ -128,6 +129,7 @@ function App() {
             <Route path="disputes/:id" element={<AdminDisputeDetailsPage />} />
             <Route path="platforms" element={<AdminPlatformsPage />} />
             <Route path="referrals" element={<AdminReferralsPage />} />
+            <Route path="broadcasts" element={<AdminBroadcastsPage />} />
             <Route path="exports" element={<AdminExportsPage />} />
             <Route path="transactions" element={<AdminTransactionsPage />} />
             <Route path="ip-check" element={<AdminIpCheckPage />} />
