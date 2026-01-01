@@ -3,7 +3,7 @@ import { useRef, useMemo, useLayoutEffect } from 'react'
 interface BlogContentProps {
   content: string
   postId: string
-  recentPosts: Array<{ _id: string; slug: string; title: string }>
+  interlinkPosts: Array<{ _id: string; slug: string; title: string }>
   enableInterlinking?: boolean
 }
 
@@ -61,7 +61,7 @@ function convertGalleryTags(content: string): string {
 
 // This component processes content ONCE and never re-renders
 // All interactivity is handled via vanilla JS to prevent React re-renders
-export function BlogContent({ content, postId, recentPosts, enableInterlinking = true }: BlogContentProps) {
+export function BlogContent({ content, postId, interlinkPosts, enableInterlinking = true }: BlogContentProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const processedPostId = useRef<string | null>(null)
 
@@ -455,17 +455,13 @@ export function BlogContent({ content, postId, recentPosts, enableInterlinking =
     node.querySelectorAll('h2, h3').forEach((h, i) => { if (!h.id) h.id = `heading-${i}` })
 
     // STEP 3: Interlinks - place BEFORE H2-H6 headers only
+    // Posts are pre-selected by backend with smart algorithm (popular/new mix)
     // First block in first half, second block near end
-    if (enableInterlinking) {
+    if (enableInterlinking && interlinkPosts.length > 0) {
       const headers = Array.from(node.querySelectorAll('h2, h3, h4, h5, h6'))
-      const otherPosts = recentPosts.filter(p => p._id !== postId)
 
-      if (headers.length >= 2 && otherPosts.length > 0) {
-        const count = otherPosts.length === 1 ? 1 : 2
-        // Deterministic shuffle based on postId
-        const hash = postId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-        const sorted = [...otherPosts].sort((a, b) => (a._id.charCodeAt(0) + hash) - (b._id.charCodeAt(0) + hash))
-        const selected = sorted.slice(0, count)
+      if (headers.length >= 2) {
+        const count = Math.min(interlinkPosts.length, 2)
 
         // Calculate positions: first in first half, second near end
         const midPoint = Math.floor(headers.length / 2)
@@ -476,7 +472,7 @@ export function BlogContent({ content, postId, recentPosts, enableInterlinking =
 
         const positions = count === 1 ? [firstPos] : [firstPos, secondPos]
 
-        const createInterlinkBlock = (post: typeof otherPosts[0]) => {
+        const createInterlinkBlock = (post: typeof interlinkPosts[0]) => {
           const link = document.createElement('div')
           link.className = 'inline-interlink not-prose my-6 p-4 bg-dark-light/50 border-l-4 border-primary rounded-r-lg'
           link.innerHTML = `<p class="text-sm text-muted mb-1">Читайте также:</p><a href="/blog/${post.slug}" class="text-primary hover:text-primary/80 font-medium hover:underline">→ ${post.title}</a>`
@@ -484,7 +480,7 @@ export function BlogContent({ content, postId, recentPosts, enableInterlinking =
         }
 
         positions.forEach((pos, idx) => {
-          const post = selected[idx]
+          const post = interlinkPosts[idx]
           if (!post || pos >= headers.length) return
           const targetHeader = headers[pos]
           // Check if interlink already exists before this header
@@ -544,7 +540,7 @@ export function BlogContent({ content, postId, recentPosts, enableInterlinking =
     }, 50) // End setTimeout
 
     return () => clearTimeout(timer)
-  }, [postId, processedContent, enableInterlinking]) // Re-run when post changes
+  }, [postId, processedContent, enableInterlinking, interlinkPosts]) // Re-run when post changes
 
   return (
     <div

@@ -472,6 +472,143 @@ router.get('/sidebar', async (req, res) => {
   }
 });
 
+// --- Interlinking data ---
+
+// GET /api/blog/interlinking/:postId - get smart interlinking suggestions
+// Returns 2 posts optimized for SEO: mix of popular + new/unpopular
+router.get('/interlinking/:postId', async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    // Get current post to understand its stats
+    const currentPost = await BlogPost.findById(postId)
+      .select('views likes publishedAt')
+      .lean();
+
+    if (!currentPost) {
+      return res.json({ success: true, posts: [] });
+    }
+
+    // Get all other published posts with stats
+    const allPosts = await BlogPost.getForInterlinking(postId);
+
+    if (allPosts.length === 0) {
+      return res.json({ success: true, posts: [] });
+    }
+
+    if (allPosts.length === 1) {
+      return res.json({ success: true, posts: allPosts });
+    }
+
+    // Calculate engagement score for each post
+    const postsWithScore = allPosts.map(post => {
+      const views = post.views || 0;
+      const likes = post.likes || 0;
+      // Score = views + likes*10 (likes are more valuable)
+      const engagementScore = views + (likes * 10);
+      const publishedAt = new Date(post.publishedAt);
+      const ageInDays = (Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24);
+
+      return {
+        ...post,
+        engagementScore,
+        ageInDays,
+        isNew: ageInDays <= 14, // Published in last 2 weeks
+        isOld: ageInDays > 30,  // Older than 1 month
+      };
+    });
+
+    // Sort by engagement score
+    const sortedByEngagement = [...postsWithScore].sort((a, b) => b.engagementScore - a.engagementScore);
+
+    // Determine current post type
+    const currentViews = currentPost.views || 0;
+    const currentLikes = currentPost.likes || 0;
+    const currentScore = currentViews + (currentLikes * 10);
+    const currentAge = (Date.now() - new Date(currentPost.publishedAt).getTime()) / (1000 * 60 * 60 * 24);
+
+    // Calculate median score for comparison
+    const scores = postsWithScore.map(p => p.engagementScore);
+    const medianScore = scores.sort((a, b) => a - b)[Math.floor(scores.length / 2)];
+
+    const isPopularPost = currentScore > medianScore;
+    const isNewPost = currentAge <= 14;
+    const isNewestPost = currentAge <= 7 || postsWithScore.every(p => p.ageInDays >= currentAge);
+
+    let selectedPosts = [];
+
+    if (isNewestPost || isNewPost) {
+      // NEW POST STRATEGY: Link to popular old posts to gain authority
+      // Pick 1 most popular + 1 moderately popular (for diversity)
+      const popularPosts = sortedByEngagement.filter(p => p.isOld || p.engagementScore > medianScore);
+      if (popularPosts.length >= 2) {
+        selectedPosts = [popularPosts[0], popularPosts[Math.floor(popularPosts.length / 2)]];
+      } else if (popularPosts.length === 1) {
+        selectedPosts = [popularPosts[0]];
+        // Add any other post
+        const other = sortedByEngagement.find(p => p._id.toString() !== popularPosts[0]._id.toString());
+        if (other) selectedPosts.push(other);
+      } else {
+        selectedPosts = sortedByEngagement.slice(0, 2);
+      }
+    } else if (isPopularPost) {
+      // POPULAR POST STRATEGY: Link to new posts + unpopular to boost them
+      const newPosts = postsWithScore.filter(p => p.isNew);
+      const unpopularPosts = sortedByEngagement.slice(-Math.ceil(sortedByEngagement.length / 3)); // Bottom third
+
+      // Prefer newest post first
+      if (newPosts.length > 0) {
+        selectedPosts.push(newPosts[0]); // Most recent new post
+      }
+
+      // Add unpopular post (but not too unpopular - pick middle of bottom third)
+      const unpopularNotNew = unpopularPosts.filter(p => !p.isNew);
+      if (unpopularNotNew.length > 0 && selectedPosts.length < 2) {
+        selectedPosts.push(unpopularNotNew[Math.floor(unpopularNotNew.length / 2)]);
+      }
+
+      // Fill remaining slots
+      if (selectedPosts.length < 2) {
+        const remaining = sortedByEngagement.filter(
+          p => !selectedPosts.some(s => s._id.toString() === p._id.toString())
+        );
+        selectedPosts.push(...remaining.slice(0, 2 - selectedPosts.length));
+      }
+    } else {
+      // AVERAGE POST STRATEGY: Mix of popular + new
+      // 1 popular post for authority
+      selectedPosts.push(sortedByEngagement[0]);
+
+      // 1 new or random different post
+      const newPosts = postsWithScore.filter(p => p.isNew && p._id.toString() !== sortedByEngagement[0]._id.toString());
+      if (newPosts.length > 0) {
+        selectedPosts.push(newPosts[0]);
+      } else {
+        // Pick a random post from middle of the pack
+        const middleIdx = Math.floor(sortedByEngagement.length / 2);
+        const middlePost = sortedByEngagement[middleIdx];
+        if (middlePost._id.toString() !== selectedPosts[0]._id.toString()) {
+          selectedPosts.push(middlePost);
+        } else if (sortedByEngagement[middleIdx + 1]) {
+          selectedPosts.push(sortedByEngagement[middleIdx + 1]);
+        }
+      }
+    }
+
+    // Clean up response - only return needed fields
+    const result = selectedPosts.slice(0, 2).map(p => ({
+      _id: p._id,
+      title: p.title,
+      slug: p.slug,
+    }));
+
+    res.json({ success: true, posts: result });
+  } catch (error) {
+    console.error('Error fetching interlinking data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // --- Settings (for SSR pages) ---
 
 // GET /api/blog/settings - get blog settings (public)

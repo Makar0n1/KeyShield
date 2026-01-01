@@ -62,6 +62,12 @@ export const blogService = {
     return data
   },
 
+  // Get smart interlinking suggestions for a post
+  getInterlinking: async (postId: string): Promise<Array<{ _id: string; title: string; slug: string }>> => {
+    const { data } = await api.get(`/blog/interlinking/${postId}`)
+    return data.posts || []
+  },
+
   getCategory: async (slug: string): Promise<BlogCategory> => {
     const { data } = await api.get(`/blog/categories/${slug}`)
     return data.category

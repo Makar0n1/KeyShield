@@ -125,6 +125,7 @@ export function BlogPostPage() {
     tags: [],
     recentPosts: [],
   })
+  const [interlinkPosts, setInterlinkPosts] = useState<Array<{ _id: string; title: string; slug: string }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -155,6 +156,13 @@ export function BlogPostPage() {
         ])
         setPost(postData)
         setSidebar(sidebarData)
+
+        // Fetch smart interlinking posts after we have the post ID
+        if (postData._id) {
+          const interlinks = await blogService.getInterlinking(postData._id)
+          setInterlinkPosts(interlinks)
+        }
+
         await fetchComments()
       } catch {
         setError('Статья не найдена')
@@ -353,7 +361,7 @@ export function BlogPostPage() {
             <BlogContent
               content={post.content}
               postId={post._id}
-              recentPosts={sidebar.recentPosts}
+              interlinkPosts={interlinkPosts}
               enableInterlinking={post.enableInterlinking !== false}
             />
 

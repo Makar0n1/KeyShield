@@ -368,6 +368,20 @@ blogPostSchema.statics.getRecent = async function(limit = 5) {
     .lean();
 };
 
+// Статический метод: получить посты для умной перелинковки
+// Возвращает все опубликованные посты с данными для ранжирования
+blogPostSchema.statics.getForInterlinking = async function(excludePostId = null) {
+  const query = { status: 'published' };
+  if (excludePostId) {
+    query._id = { $ne: excludePostId };
+  }
+
+  return this.find(query)
+    .select('_id title slug publishedAt views likes dislikes')
+    .sort({ publishedAt: -1 })
+    .lean();
+};
+
 // Статический метод: получить пост по slug
 blogPostSchema.statics.getBySlug = async function(slug) {
   return this.findOne({ slug, status: 'published' })
