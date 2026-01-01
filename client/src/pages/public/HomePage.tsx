@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SEO, generateOrganizationSchema } from '@/components/SEO'
 import { blogService } from '@/services/blog'
@@ -460,14 +461,285 @@ const testimonials = [
   },
 ]
 
-function TestimonialsSection() {
-  const [isPaused, setIsPaused] = useState(false)
+// Skeleton card for loading state
+function TestimonialCardSkeleton({ isCenter }: { isCenter: boolean }) {
+  return (
+    <div
+      className={`bg-dark rounded-xl p-6 border border-border flex-shrink-0 w-[340px] mx-2 flex flex-col h-[280px] ${
+        isCenter ? 'scale-100 opacity-100' : 'scale-95 opacity-40'
+      }`}
+    >
+      {/* Header skeleton */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-12 h-12 rounded-full bg-dark-light animate-pulse flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="h-4 w-24 bg-dark-light rounded animate-pulse mb-2" />
+          <div className="h-3 w-16 bg-dark-light rounded animate-pulse" />
+        </div>
+      </div>
 
-  // Duplicate testimonials for seamless infinite scroll
-  const duplicatedTestimonials = [...testimonials, ...testimonials]
+      {/* Stars skeleton */}
+      <div className="flex gap-1 mb-3">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="w-4 h-4 bg-dark-light rounded animate-pulse" />
+        ))}
+      </div>
+
+      {/* Text skeleton */}
+      <div className="space-y-2 flex-1">
+        <div className="h-3 w-full bg-dark-light rounded animate-pulse" />
+        <div className="h-3 w-full bg-dark-light rounded animate-pulse" />
+        <div className="h-3 w-full bg-dark-light rounded animate-pulse" />
+        <div className="h-3 w-3/4 bg-dark-light rounded animate-pulse" />
+      </div>
+    </div>
+  )
+}
+
+// Testimonial card component
+function TestimonialCard({
+  testimonial,
+  isActive,
+  isJumping,
+}: {
+  testimonial: typeof testimonials[0]
+  isActive: boolean
+  isJumping: boolean
+}) {
+  return (
+    <div
+      className={`bg-dark rounded-xl p-6 border flex-shrink-0 w-[340px] mx-2 flex flex-col h-[280px] ${
+        isJumping ? '' : 'transition-all duration-500'
+      } ${
+        isActive
+          ? 'border-primary/50 scale-100 opacity-100'
+          : 'border-border scale-95 opacity-40'
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-12 h-12 rounded-full bg-dark-light flex items-center justify-center text-2xl flex-shrink-0">
+          {testimonial.avatar}
+        </div>
+        <div className="min-w-0">
+          <div className="font-semibold text-white truncate">{testimonial.name}</div>
+          <div className="text-sm text-muted truncate">{testimonial.role}</div>
+        </div>
+      </div>
+
+      {/* Stars */}
+      <div className="flex gap-1 mb-3">
+        {[...Array(5)].map((_, i) => (
+          <span
+            key={i}
+            className={i < testimonial.rating ? 'text-yellow-400' : 'text-gray-600'}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+
+      {/* Text - no truncation, full height */}
+      <p className="text-gray-300 leading-relaxed text-sm flex-1">
+        "{testimonial.text}"
+      </p>
+    </div>
+  )
+}
+
+function TestimonialsSection() {
+  const totalSlides = testimonials.length
+  const [activeIndex, setActiveIndex] = useState(0) // For dots UI only
+  const [visualPosition, setVisualPosition] = useState(3) // Which card is visually active
+  const [isJumping, setIsJumping] = useState(false) // Disable card transitions during reset
+  const [isLoading, setIsLoading] = useState(true) // Show skeleton until visible
+  const [hasBeenVisible, setHasBeenVisible] = useState(false) // Track if section was ever visible
+
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
+  const positionRef = useRef(3) // Actual position in extended array
+  const isAnimatingRef = useRef(false)
+  const autoplayIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const cardWidth = 356 // 340px card + 16px margin
+  const cloneCount = 3 // More clones to prevent edge visibility issues
+
+  // Create extended array: [last3, last2, last1, ...originals, first1, first2, first3]
+  const extendedTestimonials = [
+    ...testimonials.slice(-cloneCount),
+    ...testimonials,
+    ...testimonials.slice(0, cloneCount),
+  ]
+
+  // Intersection Observer to detect when section is visible
+  useEffect(() => {
+    if (hasBeenVisible) return // Only trigger once
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setHasBeenVisible(true)
+          // Show skeleton for 1.5 seconds then reveal content
+          setTimeout(() => {
+            setIsLoading(false)
+          }, 1500)
+        }
+      },
+      { threshold: 0.2 }
+    )
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasBeenVisible])
+
+  // Update track transform - defined before useEffect that uses it
+  const updateTrackPosition = useCallback((animate: boolean) => {
+    const track = trackRef.current
+    if (!track) return
+    const offset = positionRef.current * cardWidth
+
+    if (animate) {
+      track.style.transition = 'transform 700ms ease-in-out'
+    } else {
+      track.style.transition = 'none'
+    }
+    track.style.transform = `translateX(calc(50% - 178px - ${offset}px))`
+  }, [cardWidth])
+
+  // Initialize position on mount
+  useEffect(() => {
+    updateTrackPosition(false)
+  }, [updateTrackPosition])
+
+  // Reset autoplay timer
+  const resetAutoplay = useCallback(() => {
+    if (autoplayIntervalRef.current) {
+      clearInterval(autoplayIntervalRef.current)
+    }
+    autoplayIntervalRef.current = setInterval(() => {
+      if (isAnimatingRef.current) return
+      isAnimatingRef.current = true
+      positionRef.current += 1
+      setVisualPosition(positionRef.current)
+      setActiveIndex((prev) => (prev + 1) % totalSlides)
+      updateTrackPosition(true)
+    }, 3000)
+  }, [totalSlides, updateTrackPosition])
+
+  // Go to next slide (manual)
+  const nextSlide = useCallback(() => {
+    if (isAnimatingRef.current) return
+    isAnimatingRef.current = true
+    positionRef.current += 1
+    setVisualPosition(positionRef.current)
+    setActiveIndex((prev) => (prev + 1) % totalSlides)
+    updateTrackPosition(true)
+    resetAutoplay() // Reset timer on manual interaction
+  }, [totalSlides, updateTrackPosition, resetAutoplay])
+
+  // Go to previous slide (manual)
+  const prevSlide = useCallback(() => {
+    if (isAnimatingRef.current) return
+    isAnimatingRef.current = true
+    positionRef.current -= 1
+    setVisualPosition(positionRef.current)
+    setActiveIndex((prev) => (prev - 1 + totalSlides) % totalSlides)
+    updateTrackPosition(true)
+    resetAutoplay() // Reset timer on manual interaction
+  }, [totalSlides, updateTrackPosition, resetAutoplay])
+
+  // Jump to specific slide (from dots)
+  const goToSlide = useCallback((idx: number) => {
+    if (isAnimatingRef.current) return
+    isAnimatingRef.current = true
+    const currentReal = positionRef.current - cloneCount
+    const diff = idx - currentReal
+    positionRef.current += diff
+    setVisualPosition(positionRef.current)
+    setActiveIndex(idx)
+    updateTrackPosition(true)
+    resetAutoplay() // Reset timer on manual interaction
+  }, [updateTrackPosition, resetAutoplay])
+
+  // Handle transition end - check if we need to reset position
+  const handleTransitionEnd = useCallback((e: React.TransitionEvent) => {
+    // Ignore events from child elements
+    if (e.target !== trackRef.current) return
+    // Ignore non-transform transitions
+    if (e.propertyName !== 'transform') return
+
+    const realPosition = positionRef.current - cloneCount
+
+    if (realPosition >= totalSlides) {
+      // We're on a clone after the last real slide - jump to real first
+      setIsJumping(true) // Disable card transitions first
+
+      // Use setTimeout to ensure React has time to apply isJumping before DOM changes
+      setTimeout(() => {
+        positionRef.current = cloneCount
+        setVisualPosition(cloneCount) // Switch active to real slide
+        updateTrackPosition(false) // Instant jump
+
+        // Small delay before re-enabling transitions
+        setTimeout(() => {
+          setIsJumping(false) // Re-enable card transitions
+          isAnimatingRef.current = false
+        }, 20)
+      }, 10)
+    } else if (realPosition < 0) {
+      // We're on a clone before the first real slide - jump to real last
+      setIsJumping(true)
+
+      setTimeout(() => {
+        positionRef.current = cloneCount + totalSlides - 1
+        setVisualPosition(cloneCount + totalSlides - 1)
+        updateTrackPosition(false)
+
+        setTimeout(() => {
+          setIsJumping(false)
+          isAnimatingRef.current = false
+        }, 20)
+      }, 10)
+    } else {
+      isAnimatingRef.current = false
+    }
+  }, [totalSlides, updateTrackPosition])
+
+  // Auto-play - only start after loading complete
+  useEffect(() => {
+    if (isLoading) return
+
+    resetAutoplay()
+    return () => {
+      if (autoplayIntervalRef.current) {
+        clearInterval(autoplayIntervalRef.current)
+      }
+    }
+  }, [isLoading, resetAutoplay])
+
+  // Touch handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current
+    if (Math.abs(diff) > 50) {
+      diff > 0 ? nextSlide() : prevSlide()
+    }
+  }
 
   return (
-    <section id="testimonials" className="py-20 bg-dark-light/30 overflow-hidden">
+    <section ref={sectionRef} id="testimonials" className="py-20 bg-dark-light/30">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -478,56 +750,99 @@ function TestimonialsSection() {
           </p>
         </div>
 
-        {/* Carousel container */}
-        <div
-          className="relative"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-        >
-          {/* Gradient overlays for smooth edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-dark-light/30 to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-dark-light/30 to-transparent z-10 pointer-events-none" />
-
-          {/* Scrolling track */}
+        {/* Carousel container with fixed height */}
+        <div className="relative h-[340px]">
+          {/* Skeleton loading state */}
           <div
-            className={`flex gap-6 ${isPaused ? 'animation-paused' : ''}`}
-            style={{
-              animation: 'scroll-testimonials 40s linear infinite',
-              width: 'fit-content',
-            }}
+            className={`absolute inset-0 transition-opacity duration-500 ${
+              isLoading ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
           >
-            {duplicatedTestimonials.map((testimonial, index) => (
-              <div
-                key={index}
-                className="bg-dark rounded-xl p-6 border border-border hover:border-primary/30 transition-all duration-300 flex-shrink-0 w-[340px]"
-              >
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-dark-light flex items-center justify-center text-2xl">
-                    {testimonial.avatar}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white">{testimonial.name}</div>
-                    <div className="text-sm text-muted">{testimonial.role}</div>
-                  </div>
-                </div>
-
-                {/* Stars */}
-                <div className="flex gap-1 mb-3">
-                  {[...Array(5)].map((_, i) => (
-                    <span
-                      key={i}
-                      className={i < testimonial.rating ? 'text-yellow-400' : 'text-gray-600'}
-                    >
-                      ★
-                    </span>
-                  ))}
-                </div>
-
-                {/* Text */}
-                <p className="text-gray-300 leading-relaxed">"{testimonial.text}"</p>
+            <div className="flex items-center justify-center h-[280px]">
+              {/* Show 3 skeleton cards centered */}
+              <div className="flex items-stretch">
+                <TestimonialCardSkeleton isCenter={false} />
+                <TestimonialCardSkeleton isCenter={true} />
+                <TestimonialCardSkeleton isCenter={false} />
               </div>
-            ))}
+            </div>
+            {/* Skeleton dots */}
+            <div className="flex justify-center gap-2 mt-6">
+              {testimonials.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-2 rounded-full bg-border ${idx === 0 ? 'w-6' : 'w-2'}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Actual carousel */}
+          <div
+            className={`absolute inset-0 transition-opacity duration-500 ${
+              isLoading ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {/* Navigation arrows */}
+            <button
+              onClick={prevSlide}
+              className="hidden md:flex absolute left-0 top-[140px] -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 items-center justify-center rounded-full bg-dark border border-border hover:border-primary/50 text-muted hover:text-white transition-all"
+              aria-label="Previous testimonial"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="hidden md:flex absolute right-0 top-[140px] -translate-y-1/2 translate-x-4 z-20 w-10 h-10 items-center justify-center rounded-full bg-dark border border-border hover:border-primary/50 text-muted hover:text-white transition-all"
+              aria-label="Next testimonial"
+            >
+              <ChevronRight size={20} />
+            </button>
+
+            {/* Slider track */}
+            <div className="overflow-hidden h-[280px]">
+              <div
+                ref={trackRef}
+                className="flex items-stretch"
+                onTransitionEnd={handleTransitionEnd}
+              >
+                {extendedTestimonials.map((testimonial, idx) => {
+                  // isActive based on visualPosition (includes clones)
+                  const isActive = idx === visualPosition
+
+                  return (
+                    <TestimonialCard
+                      key={`testimonial-${idx}`}
+                      testimonial={testimonial}
+                      isActive={isActive}
+                      isJumping={isJumping}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Dots */}
+            <div className="flex justify-center gap-2 mt-6">
+              {testimonials.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => goToSlide(idx)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    idx === activeIndex ? 'bg-primary w-6' : 'bg-border hover:bg-muted'
+                  }`}
+                  aria-label={`Go to testimonial ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Mobile hint */}
+            <p className="text-center text-xs text-muted mt-3 md:hidden">
+              ← Листайте пальцем →
+            </p>
           </div>
         </div>
 
@@ -551,21 +866,6 @@ function TestimonialsSection() {
           </div>
         </div>
       </div>
-
-      {/* CSS for carousel animation */}
-      <style>{`
-        @keyframes scroll-testimonials {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .animation-paused {
-          animation-play-state: paused !important;
-        }
-      `}</style>
     </section>
   )
 }
