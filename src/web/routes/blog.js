@@ -334,8 +334,9 @@ router.get('/posts/:id', async (req, res) => {
 router.post('/posts', async (req, res) => {
   try {
     const {
-      title, summary, content, coverImage, coverImageAlt,
-      category, tags, seoTitle, seoDescription, status, publishedAt, faq
+      title, slug: providedSlug, summary, content, coverImage, coverImageAlt,
+      category, tags, seoTitle, seoDescription, seoKeywords, status, publishedAt, faq,
+      enableInterlinking
     } = req.body;
 
     if (!title) {
@@ -351,11 +352,22 @@ router.post('/posts', async (req, res) => {
       return res.status(400).json({ error: 'Category not found' });
     }
 
-    // Generate unique slug
-    const baseSlug = slugify(title);
-    const slug = await generateUniqueSlug(baseSlug, async (s) => {
-      return await BlogPost.exists({ slug: s });
-    });
+    // Use provided slug if available, otherwise generate from title
+    let slug;
+    if (providedSlug && providedSlug.trim()) {
+      // Check if provided slug is unique
+      const existingWithSlug = await BlogPost.exists({ slug: providedSlug.trim() });
+      if (existingWithSlug) {
+        return res.status(400).json({ error: 'Slug already exists. Please choose a different URL.' });
+      }
+      slug = providedSlug.trim();
+    } else {
+      // Generate unique slug from title
+      const baseSlug = slugify(title);
+      slug = await generateUniqueSlug(baseSlug, async (s) => {
+        return await BlogPost.exists({ slug: s });
+      });
+    }
 
     const post = new BlogPost({
       title,
@@ -368,9 +380,11 @@ router.post('/posts', async (req, res) => {
       tags: tags || [],
       seoTitle: seoTitle || '',
       seoDescription: seoDescription || '',
+      seoKeywords: seoKeywords || '',
       status: status || 'draft',
       publishedAt: publishedAt ? new Date(publishedAt) : null,
-      faq: faq || []
+      faq: faq || [],
+      enableInterlinking: enableInterlinking !== false // default true
     });
 
     await post.save();
@@ -396,7 +410,8 @@ router.put('/posts/:id', async (req, res) => {
 
     const {
       title, slug, summary, content, coverImage, coverImageAlt,
-      category, tags, seoTitle, seoDescription, status, publishedAt, faq
+      category, tags, seoTitle, seoDescription, seoKeywords, status, publishedAt, faq,
+      enableInterlinking
     } = req.body;
 
     if (title) post.title = title;
@@ -421,9 +436,11 @@ router.put('/posts/:id', async (req, res) => {
     if (tags !== undefined) post.tags = tags;
     if (seoTitle !== undefined) post.seoTitle = seoTitle;
     if (seoDescription !== undefined) post.seoDescription = seoDescription;
+    if (seoKeywords !== undefined) post.seoKeywords = seoKeywords;
     if (status !== undefined) post.status = status;
     if (publishedAt !== undefined) post.publishedAt = publishedAt ? new Date(publishedAt) : null;
     if (faq !== undefined) post.faq = faq;
+    if (enableInterlinking !== undefined) post.enableInterlinking = enableInterlinking;
 
     await post.save();
 

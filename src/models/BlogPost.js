@@ -65,9 +65,20 @@ const blogPostSchema = new mongoose.Schema({
     default: '',
     maxlength: 160
   },
+  seoKeywords: {
+    type: String,
+    default: '',
+    maxlength: 500
+  },
   canonical: {
     type: String,
     default: ''
+  },
+
+  // Interlinking toggle
+  enableInterlinking: {
+    type: Boolean,
+    default: true
   },
 
   // Статус публикации
@@ -351,7 +362,7 @@ blogPostSchema.statics.search = async function(query, limit = 10) {
 // Статический метод: получить последние посты
 blogPostSchema.statics.getRecent = async function(limit = 5) {
   return this.find({ status: 'published' })
-    .select('title slug publishedAt coverImage')
+    .select('_id title slug publishedAt coverImage')
     .sort({ publishedAt: -1 })
     .limit(limit)
     .lean();

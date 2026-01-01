@@ -354,6 +354,7 @@ export function BlogPostPage() {
               content={post.content}
               postId={post._id}
               recentPosts={sidebar.recentPosts}
+              enableInterlinking={post.enableInterlinking !== false}
             />
 
             {/* CTA Block - Call to action */}

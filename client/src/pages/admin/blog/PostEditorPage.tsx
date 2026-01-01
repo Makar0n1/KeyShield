@@ -17,6 +17,7 @@ import {
 interface PostFormData {
   title: string
   slug: string
+  slugManuallyEdited: boolean // Track if user manually edited slug
   summary: string
   content: string
   coverImage: string
@@ -29,11 +30,13 @@ interface PostFormData {
   seoKeywords: string
   faq: Array<{ question: string; answer: string }>
   notifySubscribers: boolean
+  enableInterlinking: boolean
 }
 
 const initialFormData: PostFormData = {
   title: '',
   slug: '',
+  slugManuallyEdited: false,
   summary: '',
   content: '',
   coverImage: '',
@@ -46,6 +49,7 @@ const initialFormData: PostFormData = {
   seoKeywords: '',
   faq: [],
   notifySubscribers: false,
+  enableInterlinking: true,
 }
 
 export function BlogPostEditorPage() {
@@ -78,6 +82,7 @@ export function BlogPostEditorPage() {
           setFormData({
             title: post.title,
             slug: post.slug,
+            slugManuallyEdited: true, // Existing post - don't auto-generate slug
             summary: post.summary || '',
             content: post.content,
             coverImage: post.coverImage || '',
@@ -90,6 +95,7 @@ export function BlogPostEditorPage() {
             seoKeywords: post.seoKeywords || '',
             faq: post.faq || [],
             notifySubscribers: false,
+            enableInterlinking: post.enableInterlinking !== false, // default true
           })
         }
       } catch (err) {
@@ -109,7 +115,16 @@ export function BlogPostEditorPage() {
     setFormData({
       ...formData,
       title,
-      slug: isNew ? slugify(title) : formData.slug,
+      // Only auto-generate slug if: new post AND user hasn't manually edited slug
+      slug: isNew && !formData.slugManuallyEdited ? slugify(title) : formData.slug,
+    })
+  }
+
+  const handleSlugChange = (slug: string) => {
+    setFormData({
+      ...formData,
+      slug,
+      slugManuallyEdited: true, // User manually edited, stop auto-generation
     })
   }
 
@@ -177,6 +192,7 @@ export function BlogPostEditorPage() {
         seoKeywords: formData.seoKeywords,
         faq: formData.faq.filter((f) => f.question && f.answer),
         notifySubscribers: publish && formData.notifySubscribers,
+        enableInterlinking: formData.enableInterlinking,
       }
 
       if (isNew) {
@@ -273,9 +289,12 @@ export function BlogPostEditorPage() {
                 <Input
                   type="text"
                   value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  placeholder="url-slug"
+                  onChange={(e) => handleSlugChange(e.target.value)}
+                  placeholder="url-slug (оставьте пустым для автогенерации)"
                 />
+                <p className="text-xs text-muted mt-1">
+                  {formData.slugManuallyEdited ? 'Ручной ввод' : 'Автогенерация из заголовка'}
+                </p>
               </div>
 
               <div>
@@ -515,6 +534,27 @@ export function BlogPostEditorPage() {
                   <option value="published">Опубликована</option>
                 </select>
               </div>
+
+              {/* Interlinking toggle */}
+              <div className="pt-2 border-t border-border">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.enableInterlinking}
+                    onChange={(e) => setFormData({ ...formData, enableInterlinking: e.target.checked })}
+                    className="w-5 h-5 mt-0.5 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <span className="text-sm text-white font-medium">
+                      Автоматическая перелинковка
+                    </span>
+                    <p className="text-xs text-muted mt-1">
+                      Показывать блоки "Читайте также" с ссылками на другие статьи
+                    </p>
+                  </div>
+                </label>
+              </div>
+
               {/* Показываем чекбокс уведомлений только для новых статей при публикации */}
               {isNew && formData.status === 'published' && (
                 <div className="pt-2 border-t border-border">

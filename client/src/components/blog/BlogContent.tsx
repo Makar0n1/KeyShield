@@ -4,6 +4,7 @@ interface BlogContentProps {
   content: string
   postId: string
   recentPosts: Array<{ _id: string; slug: string; title: string }>
+  enableInterlinking?: boolean
 }
 
 interface GalleryConfig {
@@ -60,7 +61,7 @@ function convertGalleryTags(content: string): string {
 
 // This component processes content ONCE and never re-renders
 // All interactivity is handled via vanilla JS to prevent React re-renders
-export function BlogContent({ content, postId, recentPosts }: BlogContentProps) {
+export function BlogContent({ content, postId, recentPosts, enableInterlinking = true }: BlogContentProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const processedPostId = useRef<string | null>(null)
 
@@ -453,25 +454,45 @@ export function BlogContent({ content, postId, recentPosts }: BlogContentProps) 
     // STEP 2: Headings
     node.querySelectorAll('h2, h3').forEach((h, i) => { if (!h.id) h.id = `heading-${i}` })
 
-    // STEP 3: Interlinks
-    const paragraphs = node.querySelectorAll('p')
-    const otherPosts = recentPosts.filter(p => p._id !== postId)
-    if (paragraphs.length >= 4 && otherPosts.length > 0) {
-      const count = otherPosts.length === 1 ? 1 : 2
-      const hash = postId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-      const sorted = [...otherPosts].sort((a, b) => (a._id.charCodeAt(0) + hash) - (b._id.charCodeAt(0) + hash))
-      const selected = sorted.slice(0, count)
-      const positions = count === 1 ? [Math.min(4, paragraphs.length - 1)] : [3, Math.min(8, paragraphs.length - 1)]
-      positions.forEach((pos, idx) => {
-        const p = selected[idx]
-        if (!p || pos >= paragraphs.length) return
-        const target = paragraphs[pos]
-        if (target.nextElementSibling?.classList.contains('inline-interlink')) return
-        const link = document.createElement('div')
-        link.className = 'inline-interlink not-prose my-6 p-4 bg-dark-light/50 border-l-4 border-primary rounded-r-lg'
-        link.innerHTML = `<p class="text-sm text-muted mb-1">Читайте также:</p><a href="/blog/${p.slug}" class="text-primary hover:text-primary/80 font-medium hover:underline">→ ${p.title}</a>`
-        target.parentNode?.insertBefore(link, target.nextSibling)
-      })
+    // STEP 3: Interlinks - place BEFORE H2-H6 headers only
+    // First block in first half, second block near end
+    if (enableInterlinking) {
+      const headers = Array.from(node.querySelectorAll('h2, h3, h4, h5, h6'))
+      const otherPosts = recentPosts.filter(p => p._id !== postId)
+
+      if (headers.length >= 2 && otherPosts.length > 0) {
+        const count = otherPosts.length === 1 ? 1 : 2
+        // Deterministic shuffle based on postId
+        const hash = postId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+        const sorted = [...otherPosts].sort((a, b) => (a._id.charCodeAt(0) + hash) - (b._id.charCodeAt(0) + hash))
+        const selected = sorted.slice(0, count)
+
+        // Calculate positions: first in first half, second near end
+        const midPoint = Math.floor(headers.length / 2)
+        // First block: between 1st and middle header (prefer around 25-40% of headers)
+        const firstPos = Math.max(1, Math.min(Math.floor(headers.length * 0.3), midPoint - 1))
+        // Second block: in last third (prefer around 70-85% of headers)
+        const secondPos = Math.max(midPoint + 1, Math.floor(headers.length * 0.75))
+
+        const positions = count === 1 ? [firstPos] : [firstPos, secondPos]
+
+        const createInterlinkBlock = (post: typeof otherPosts[0]) => {
+          const link = document.createElement('div')
+          link.className = 'inline-interlink not-prose my-6 p-4 bg-dark-light/50 border-l-4 border-primary rounded-r-lg'
+          link.innerHTML = `<p class="text-sm text-muted mb-1">Читайте также:</p><a href="/blog/${post.slug}" class="text-primary hover:text-primary/80 font-medium hover:underline">→ ${post.title}</a>`
+          return link
+        }
+
+        positions.forEach((pos, idx) => {
+          const post = selected[idx]
+          if (!post || pos >= headers.length) return
+          const targetHeader = headers[pos]
+          // Check if interlink already exists before this header
+          if (targetHeader.previousElementSibling?.classList.contains('inline-interlink')) return
+          const link = createInterlinkBlock(post)
+          targetHeader.parentNode?.insertBefore(link, targetHeader)
+        })
+      }
     }
 
     // STEP 4: Process all standalone images (both vertical and horizontal)
@@ -523,7 +544,7 @@ export function BlogContent({ content, postId, recentPosts }: BlogContentProps) 
     }, 50) // End setTimeout
 
     return () => clearTimeout(timer)
-  }, [postId, processedContent]) // Re-run when post changes
+  }, [postId, processedContent, enableInterlinking]) // Re-run when post changes
 
   return (
     <div
