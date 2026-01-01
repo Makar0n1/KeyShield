@@ -27,6 +27,7 @@ export interface BlogPost {
   featured?: boolean
   allowComments?: boolean
   notifySubscribers?: boolean
+  enableInterlinking?: boolean
   createdAt: string
   updatedAt: string
 }
