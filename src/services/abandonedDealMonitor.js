@@ -311,17 +311,12 @@ class AbandonedDealMonitor {
       const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
       if (!user || !user.mainMessageId) return;
 
-      const text = `🏠 *Главное меню*
+      // Use the same main menu as startHandler
+      const { MAIN_MENU_TEXT } = require('../bot/handlers/start');
+      const { mainMenuKeyboard } = require('../bot/keyboards/main');
 
-Сессия создания сделки истекла.
-Выберите действие:`;
-
-      const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('➕ Создать сделку', 'create_deal')],
-        [Markup.button.callback('📋 Мои сделки', 'my_deals')],
-        [Markup.button.callback('👥 Рефералы', 'referrals')],
-        [Markup.button.callback('❓ Помощь', 'help')]
-      ]);
+      const text = MAIN_MENU_TEXT;
+      const keyboard = mainMenuKeyboard();
 
       // Delete old message and send new one
       try {
