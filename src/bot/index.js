@@ -5,6 +5,7 @@ const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
 const deadlineMonitor = require('../services/deadlineMonitor');
 const abandonedDealMonitor = require('../services/abandonedDealMonitor');
+const sessionTimeoutMonitor = require('../services/sessionTimeoutMonitor');
 const disputeService = require('../services/disputeService');
 const notificationService = require('../services/notificationService');
 const blogNotificationService = require('../services/blogNotificationService');
@@ -656,6 +657,9 @@ const startBot = async () => {
     abandonedDealMonitor.setBotInstance(bot);
     abandonedDealMonitor.start();
 
+    sessionTimeoutMonitor.setBotInstance(bot);
+    sessionTimeoutMonitor.start();
+
     disputeService.setBotInstance(bot);
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
@@ -678,6 +682,7 @@ const startBot = async () => {
       depositMonitor.stop();
       deadlineMonitor.stop();
       abandonedDealMonitor.stop();
+      sessionTimeoutMonitor.stop();
       bot.stop('SIGINT');
       process.exit(0);
     });
@@ -687,6 +692,7 @@ const startBot = async () => {
       depositMonitor.stop();
       deadlineMonitor.stop();
       abandonedDealMonitor.stop();
+      sessionTimeoutMonitor.stop();
       bot.stop('SIGTERM');
       process.exit(0);
     });
