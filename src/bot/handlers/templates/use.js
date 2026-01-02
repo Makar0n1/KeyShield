@@ -12,8 +12,24 @@ const messageManager = require('../../utils/messageManager');
 const { templateUseKeyboard } = require('../../keyboards/templates');
 const { walletSelectionKeyboard, mainMenuButton } = require('../../keyboards/main');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
-const { showTemplatesList } = require('./list');
-const { finalizeDealCreation } = require('../createDeal');
+
+// Lazy require to avoid circular dependency
+let _showTemplatesList = null;
+let _finalizeDealCreation = null;
+
+function getShowTemplatesList() {
+  if (!_showTemplatesList) {
+    _showTemplatesList = require('./list').showTemplatesList;
+  }
+  return _showTemplatesList;
+}
+
+function getFinalizeDealCreation() {
+  if (!_finalizeDealCreation) {
+    _finalizeDealCreation = require('../createDeal').finalizeDealCreation;
+  }
+  return _finalizeDealCreation;
+}
 
 /**
  * Start using template
@@ -27,7 +43,7 @@ async function startUseTemplate(ctx) {
   const template = await DealTemplate.findOne({ _id: templateId, telegramId });
   if (!template) {
     await ctx.answerCbQuery('❌ Шаблон не найден', { show_alert: true });
-    return showTemplatesList(ctx);
+    return getShowTemplatesList()(ctx);
   }
 
   // Check if user has active deal
@@ -311,7 +327,7 @@ async function createDealFromTemplate(ctx, session) {
     }
 
     // Use shared finalization logic from createDeal.js
-    await finalizeDealCreation(ctx, dealData, ctx.from.username);
+    await getFinalizeDealCreation()(ctx, dealData, ctx.from.username);
 
     // Update template usage stats
     await DealTemplate.incrementUsage(session.templateId);
