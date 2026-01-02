@@ -4,6 +4,7 @@ require('dotenv').config();
 const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
 const deadlineMonitor = require('../services/deadlineMonitor');
+const abandonedDealMonitor = require('../services/abandonedDealMonitor');
 const disputeService = require('../services/disputeService');
 const notificationService = require('../services/notificationService');
 const blogNotificationService = require('../services/blogNotificationService');
@@ -502,6 +503,56 @@ bot.action(/^broadcast_close_/, async (ctx) => {
   }
 });
 
+// Abandoned deal reminder - continue creating deal
+bot.action('abandoned_continue', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+
+    // Clear reminderSentAt from session so it doesn't trigger again immediately
+    const Session = require('../models/Session');
+    const session = await Session.getSession(telegramId, 'create_deal');
+
+    if (session) {
+      // Remove reminderSentAt flag
+      delete session.reminderSentAt;
+      await Session.setSession(telegramId, 'create_deal', session, 2);
+
+      // Go back to the deal creation screen (pop from stack)
+      const previousScreen = await messageManager.goBack(ctx, telegramId);
+
+      if (!previousScreen) {
+        // No previous screen in stack - restart deal creation
+        await startCreateDeal(ctx);
+      }
+    } else {
+      // Session expired - show main menu
+      await mainMenuHandler(ctx);
+    }
+  } catch (error) {
+    console.error('Error handling abandoned_continue:', error);
+  }
+});
+
+// Abandoned deal reminder - go to main menu
+bot.action('abandoned_main_menu', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+
+    // Clear the create_deal session
+    await clearCreateDealSession(telegramId);
+
+    // Clear navigation stack and show main menu
+    const User = require('../models/User');
+    await User.updateOne({ telegramId }, { $set: { navigationStack: [] } });
+
+    await mainMenuHandler(ctx);
+  } catch (error) {
+    console.error('Error handling abandoned_main_menu:', error);
+  }
+});
+
 // ============================================
 // TEXT MESSAGES
 // ============================================
@@ -602,6 +653,9 @@ const startBot = async () => {
     deadlineMonitor.setBotInstance(bot);
     deadlineMonitor.start();
 
+    abandonedDealMonitor.setBotInstance(bot);
+    abandonedDealMonitor.start();
+
     disputeService.setBotInstance(bot);
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
@@ -623,6 +677,7 @@ const startBot = async () => {
       console.log('\n⛔ SIGINT received, shutting down gracefully...');
       depositMonitor.stop();
       deadlineMonitor.stop();
+      abandonedDealMonitor.stop();
       bot.stop('SIGINT');
       process.exit(0);
     });
@@ -631,6 +686,7 @@ const startBot = async () => {
       console.log('\n⛔ SIGTERM received, shutting down gracefully...');
       depositMonitor.stop();
       deadlineMonitor.stop();
+      abandonedDealMonitor.stop();
       bot.stop('SIGTERM');
       process.exit(0);
     });

@@ -57,7 +57,7 @@ sessionSchema.statics.setSession = async function(telegramId, type, data, ttlHou
 
   await this.findOneAndUpdate(
     { telegramId, type },
-    { data, expiresAt },
+    { $set: { data, expiresAt, updatedAt: new Date() } },
     { upsert: true, new: true }
   );
 };
