@@ -734,7 +734,11 @@ function TestimonialsSection() {
   const handleTouchEnd = () => {
     const diff = touchStartX.current - touchEndX.current
     if (Math.abs(diff) > 50) {
-      diff > 0 ? nextSlide() : prevSlide()
+      if (diff > 0) {
+        nextSlide()
+      } else {
+        prevSlide()
+      }
     }
   }
 
@@ -847,7 +851,7 @@ function TestimonialsSection() {
         </div>
 
         {/* Trust indicators */}
-        <div className="flex flex-wrap justify-center gap-8 mt-12 pt-8 border-t border-border">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mt-12 pt-8 border-t border-border max-w-3xl mx-auto">
           <div className="text-center">
             <div className="text-3xl font-bold text-primary">150+</div>
             <div className="text-sm text-muted">успешных сделок</div>
