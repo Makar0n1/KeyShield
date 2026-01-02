@@ -360,7 +360,12 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
   session.step = 'product_name';
   await setCreateDealSession(telegramId, session);
 
+  // Get rating display for counterparty
+  const ratingDisplay = counterparty.getRatingDisplay ? counterparty.getRatingDisplay() :
+    (counterparty.ratingsCount > 0 ? `⭐ ${counterparty.averageRating} (${counterparty.ratingsCount})` : 'Нет отзывов');
+
   const successText = `✅ ${counterpartyLabel} найден: @${counterparty.username}
+📊 Рейтинг: ${ratingDisplay}
 
 📝 *Создание сделки*
 
@@ -998,6 +1003,9 @@ const confirmCreateDeal = async (ctx) => {
     // Clean up session
     await deleteCreateDealSession(telegramId);
 
+    // Get creator's rating for notification to counterparty
+    const creatorRatingDisplay = await User.getRatingDisplayById(telegramId);
+
     // Calculate amounts
     const commission = deal.commission;
     let depositAmount = deal.amount;
@@ -1080,6 +1088,7 @@ const confirmCreateDeal = async (ctx) => {
 💰 Сумма: ${deal.amount} ${deal.asset}
 💸 Вы получите: ${sellerPayout} ${deal.asset}
 👤 Покупатель: @${ctx.from.username}
+📊 Рейтинг: ${creatorRatingDisplay}
 
 Для участия укажите ваш TRON-кошелёк.`;
 
@@ -1147,6 +1156,7 @@ const confirmCreateDeal = async (ctx) => {
 💰 Сумма: ${deal.amount} ${deal.asset}
 💸 К оплате: ${depositAmount} ${deal.asset}
 👤 Продавец: @${ctx.from.username}
+📊 Рейтинг: ${creatorRatingDisplay}
 
 Для участия укажите ваш TRON-кошелёк.`;
 

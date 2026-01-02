@@ -103,6 +103,48 @@ const userSchema = new mongoose.Schema({
       default: 0
     }
   },
+  // ============================================
+  // RATING SYSTEM
+  // ============================================
+  // Array of ratings received from other users
+  ratings: {
+    type: [{
+      fromUserId: {
+        type: Number,
+        required: true
+      },
+      dealId: {
+        type: String,
+        required: true
+      },
+      rating: {
+        type: Number,
+        required: true,
+        min: 1,
+        max: 5
+      },
+      role: {
+        type: String,
+        enum: ['buyer', 'seller'], // Role of the user being rated in this deal
+        required: true
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    default: []
+  },
+  // Cached average rating (updated on each new rating)
+  averageRating: {
+    type: Number,
+    default: 0
+  },
+  // Total number of ratings received
+  ratingsCount: {
+    type: Number,
+    default: 0
+  },
   notes: {
     type: String,
     default: ''
@@ -362,6 +404,89 @@ userSchema.methods.creditReferralBonus = async function(amount) {
 // Check if can withdraw (min 10 USDT, no pending withdrawal)
 userSchema.methods.canWithdrawReferral = function() {
   return this.referralBalance >= 10;
+};
+
+// ============================================
+// RATING METHODS
+// ============================================
+
+/**
+ * Add a rating from another user
+ * @param {number} fromUserId - Telegram ID of user giving the rating
+ * @param {string} dealId - Deal ID
+ * @param {number} rating - Rating 1-5
+ * @param {string} role - Role of the user being rated ('buyer' or 'seller')
+ */
+userSchema.methods.addRating = async function(fromUserId, dealId, rating, role) {
+  // Check if this user already rated for this deal
+  const existingRating = this.ratings.find(r => r.dealId === dealId && r.fromUserId === fromUserId);
+  if (existingRating) {
+    return false; // Already rated
+  }
+
+  // Add new rating
+  this.ratings.push({
+    fromUserId,
+    dealId,
+    rating,
+    role,
+    createdAt: new Date()
+  });
+
+  // Recalculate average
+  const total = this.ratings.reduce((sum, r) => sum + r.rating, 0);
+  this.ratingsCount = this.ratings.length;
+  this.averageRating = Math.round((total / this.ratingsCount) * 10) / 10; // Round to 1 decimal
+
+  await this.save();
+  return true;
+};
+
+/**
+ * Get rating display string
+ * @returns {string} - e.g., "⭐ 4.5 (12 отзывов)" or "Нет отзывов"
+ */
+userSchema.methods.getRatingDisplay = function() {
+  if (this.ratingsCount === 0) {
+    return 'Нет отзывов';
+  }
+
+  // Pluralize Russian word for reviews
+  const count = this.ratingsCount;
+  let word;
+  if (count % 10 === 1 && count % 100 !== 11) {
+    word = 'отзыв';
+  } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    word = 'отзыва';
+  } else {
+    word = 'отзывов';
+  }
+
+  return `⭐ ${this.averageRating} (${count} ${word})`;
+};
+
+/**
+ * Static method to get rating display for a user by telegramId
+ * @param {number} telegramId
+ * @returns {string}
+ */
+userSchema.statics.getRatingDisplayById = async function(telegramId) {
+  const user = await this.findOne({ telegramId }).select('averageRating ratingsCount').lean();
+  if (!user || user.ratingsCount === 0) {
+    return 'Нет отзывов';
+  }
+
+  const count = user.ratingsCount;
+  let word;
+  if (count % 10 === 1 && count % 100 !== 11) {
+    word = 'отзыв';
+  } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    word = 'отзыва';
+  } else {
+    word = 'отзывов';
+  }
+
+  return `⭐ ${user.averageRating} (${count} ${word})`;
 };
 
 module.exports = mongoose.model('User', userSchema);

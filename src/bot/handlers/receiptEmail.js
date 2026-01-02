@@ -15,6 +15,7 @@ const emailService = require('../../services/emailService');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton } = require('../keyboards/main');
 const { Markup } = require('telegraf');
+const { showRatingScreen } = require('./ratingHandler');
 
 /**
  * Check if user has active receipt session
@@ -38,13 +39,15 @@ async function clearReceiptSession(telegramId) {
  * @param {Object} transactionData - Transaction details for receipt
  * @param {string} finalMessage - The final success message to show after
  * @param {string|null} savedEmail - User's saved email (if any)
+ * @param {Object|null} ratingData - Data for rating step (if applicable)
  */
-async function createReceiptSession(telegramId, dealId, transactionData, finalMessage, savedEmail = null) {
+async function createReceiptSession(telegramId, dealId, transactionData, finalMessage, savedEmail = null, ratingData = null) {
   await Session.setSession(telegramId, 'receipt_email', {
     dealId,
     transactionData,
     finalMessage,
     savedEmail,
+    ratingData, // { counterpartyId, counterpartyRole, counterpartyUsername }
     step: savedEmail ? 'ask_saved' : 'ask', // 'ask_saved' | 'ask' | 'waiting_email'
     emailUsed: null, // Email that was used to send receipt
     createdAt: new Date()
@@ -59,15 +62,20 @@ async function createReceiptSession(telegramId, dealId, transactionData, finalMe
  * @param {Object} deal - Deal object
  * @param {Object} transactionData - Transaction details
  * @param {string} finalMessage - Message to show at the end
+ * @param {Object|null} ratingData - Data for rating step { counterpartyId, counterpartyRole, counterpartyUsername }
  */
-async function showReceiptQuestion(ctx, telegramId, deal, transactionData, finalMessage) {
+async function showReceiptQuestion(ctx, telegramId, deal, transactionData, finalMessage, ratingData = null) {
   // Initialize email service if not already
   emailService.init();
 
-  // If email service is not configured, skip to final message
+  // If email service is not configured, go to rating or final message
   if (!emailService.isEnabled()) {
-    const keyboard = mainMenuButton();
-    await messageManager.sendNewMessage(ctx, telegramId, finalMessage, keyboard);
+    if (ratingData) {
+      await showRatingScreen(ctx, telegramId, deal, ratingData.counterpartyId, ratingData.counterpartyRole, ratingData.counterpartyUsername, finalMessage);
+    } else {
+      const keyboard = mainMenuButton();
+      await messageManager.sendNewMessage(ctx, telegramId, finalMessage, keyboard);
+    }
     return;
   }
 
@@ -76,7 +84,7 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
   const savedEmail = user?.email || null;
 
   // Create session for this flow
-  await createReceiptSession(telegramId, deal.dealId, transactionData, finalMessage, savedEmail);
+  await createReceiptSession(telegramId, deal.dealId, transactionData, finalMessage, savedEmail, ratingData);
 
   if (savedEmail) {
     // User has saved email - ask if they want to send to it
@@ -107,6 +115,30 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+  }
+}
+
+/**
+ * Helper: Proceed to rating or show final message
+ */
+async function proceedAfterReceipt(ctx, telegramId, session, deal, messagePrefix = '') {
+  const fullMessage = messagePrefix ? `${messagePrefix}\n\n${session.finalMessage}` : session.finalMessage;
+
+  if (session.ratingData) {
+    // Show rating screen before final message
+    await showRatingScreen(
+      ctx,
+      telegramId,
+      deal,
+      session.ratingData.counterpartyId,
+      session.ratingData.counterpartyRole,
+      session.ratingData.counterpartyUsername,
+      fullMessage
+    );
+  } else {
+    // No rating needed - show final message directly
+    const keyboard = mainMenuButton();
+    await messageManager.sendNewMessage(ctx, telegramId, fullMessage, keyboard);
   }
 }
 
@@ -147,28 +179,18 @@ async function handleReceiptSendSaved(ctx) {
     // Send receipt
     const sent = await emailService.sendReceipt(session.savedEmail, deal, session.transactionData, user);
 
-    // Clear session
+    // Clear session before proceeding
+    const ratingData = session.ratingData;
+    const finalMessage = session.finalMessage;
     await clearReceiptSession(telegramId);
 
-    // Show result - no "save email" button since it's already saved
+    // Proceed to rating or final message
     if (sent) {
-      const successText = `✅ *Чек отправлен!*
-
-📧 Email: ${session.savedEmail}
-
-${session.finalMessage}`;
-
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, successText, keyboard);
+      const prefix = `✅ *Чек отправлен!*\n\n📧 Email: ${session.savedEmail}`;
+      await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
     } else {
-      const failedText = `⚠️ *Не удалось отправить чек*
-
-Возникла ошибка при отправке. Вы можете посмотреть транзакцию по ссылке ниже.
-
-${session.finalMessage}`;
-
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, failedText, keyboard);
+      const prefix = `⚠️ *Не удалось отправить чек*\n\nВозникла ошибка при отправке.`;
+      await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
     }
   } catch (error) {
     console.error('Error in handleReceiptSendSaved:', error);
@@ -209,7 +231,7 @@ async function handleReceiptYes(ctx) {
 }
 
 /**
- * Handle "No" button - show final message
+ * Handle "No" button - proceed to rating or show final message
  */
 async function handleReceiptNo(ctx) {
   try {
@@ -223,11 +245,18 @@ async function handleReceiptNo(ctx) {
       return;
     }
 
-    // Clear session and show final message
+    // Get deal for rating
+    const deal = await Deal.findOne({ dealId: session.dealId });
+
+    // Save rating data before clearing session
+    const ratingData = session.ratingData;
+    const finalMessage = session.finalMessage;
+
+    // Clear session
     await clearReceiptSession(telegramId);
 
-    const keyboard = mainMenuButton();
-    await messageManager.sendNewMessage(ctx, telegramId, session.finalMessage, keyboard);
+    // Proceed to rating or final message
+    await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal);
   } catch (error) {
     console.error('Error in handleReceiptNo:', error);
   }
@@ -291,33 +320,37 @@ async function handleEmailInput(ctx) {
   // Send receipt
   const sent = await emailService.sendReceipt(email, deal, session.transactionData, user);
 
+  // Save data before clearing session
+  const ratingData = session.ratingData;
+  const finalMessage = session.finalMessage;
+
   // Clear session
   await clearReceiptSession(telegramId);
 
-  // Show result with "Save email" button (since this is a new email)
+  // Show result
   if (sent) {
-    const successText = `✅ *Чек отправлен!*
+    // If there's rating to show, proceed to rating with success prefix
+    if (ratingData) {
+      const prefix = `✅ *Чек отправлен!*\n\n📧 Email: ${email}`;
+      await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
+    } else {
+      // No rating - show save email option
+      const successText = `✅ *Чек отправлен!*
 
 📧 Email: ${email}
 
-${session.finalMessage}`;
+${finalMessage}`;
 
-    // Offer to save email - store email in callback data
-    const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('💾 Сохранить почту', `save_email:${encodeURIComponent(email)}`)],
-      [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-    ]);
+      const keyboard = Markup.inlineKeyboard([
+        [Markup.button.callback('💾 Сохранить почту', `save_email:${encodeURIComponent(email)}`)],
+        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+      ]);
 
-    await messageManager.sendNewMessage(ctx, telegramId, successText, keyboard);
+      await messageManager.sendNewMessage(ctx, telegramId, successText, keyboard);
+    }
   } else {
-    const failedText = `⚠️ *Не удалось отправить чек*
-
-Возникла ошибка при отправке. Вы можете посмотреть транзакцию по ссылке ниже.
-
-${session.finalMessage}`;
-
-    const keyboard = mainMenuButton();
-    await messageManager.sendNewMessage(ctx, telegramId, failedText, keyboard);
+    const prefix = `⚠️ *Не удалось отправить чек*\n\nВозникла ошибка при отправке.`;
+    await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
   }
 
   return true;
@@ -376,15 +409,20 @@ async function handleSaveEmail(ctx) {
  * @param {Object} deal - Deal object
  * @param {Object} transactionData - Transaction details
  * @param {string} notificationText - Notification text to show
+ * @param {Object|null} ratingData - Data for rating step { counterpartyId, counterpartyRole, counterpartyUsername }
  */
-async function sendReceiptNotification(ctx, telegramId, deal, transactionData, notificationText) {
+async function sendReceiptNotification(ctx, telegramId, deal, transactionData, notificationText, ratingData = null) {
   // Initialize email service
   emailService.init();
 
-  // If email service is not configured, just show notification
+  // If email service is not configured, go to rating or show notification
   if (!emailService.isEnabled()) {
-    const keyboard = mainMenuButton();
-    await messageManager.showNotification(ctx, telegramId, notificationText, keyboard);
+    if (ratingData) {
+      await showRatingScreen(ctx, telegramId, deal, ratingData.counterpartyId, ratingData.counterpartyRole, ratingData.counterpartyUsername, notificationText);
+    } else {
+      const keyboard = mainMenuButton();
+      await messageManager.showNotification(ctx, telegramId, notificationText, keyboard);
+    }
     return;
   }
 
@@ -394,7 +432,7 @@ async function sendReceiptNotification(ctx, telegramId, deal, transactionData, n
 
   if (savedEmail) {
     // User has saved email - create session for receipt flow
-    await createReceiptSession(telegramId, deal.dealId, transactionData, notificationText, savedEmail);
+    await createReceiptSession(telegramId, deal.dealId, transactionData, notificationText, savedEmail, ratingData);
 
     const text = `📧 *Отправить чек на email?*
 
@@ -411,7 +449,7 @@ async function sendReceiptNotification(ctx, telegramId, deal, transactionData, n
     await messageManager.showNotification(ctx, telegramId, text, keyboard);
   } else {
     // No saved email - ask if user wants receipt
-    await createReceiptSession(telegramId, deal.dealId, transactionData, notificationText, null);
+    await createReceiptSession(telegramId, deal.dealId, transactionData, notificationText, null, ratingData);
 
     const text = `📧 *Отправить чек на email?*
 

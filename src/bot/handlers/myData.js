@@ -54,7 +54,7 @@ async function showMyData(ctx) {
     await clearMyDataSession(telegramId);
 
     // Get user data
-    const user = await User.findOne({ telegramId }).select('email username firstName wallets');
+    const user = await User.findOne({ telegramId }).select('email username firstName wallets averageRating ratingsCount');
 
     if (!user) {
       const keyboard = mainMenuButton();
@@ -65,6 +65,10 @@ async function showMyData(ctx) {
     const email = user.email;
     const wallets = user.wallets || [];
     const walletsCount = wallets.length;
+
+    // Get rating display
+    const ratingDisplay = user.getRatingDisplay ? user.getRatingDisplay() :
+      (user.ratingsCount > 0 ? `⭐ ${user.averageRating} (${user.ratingsCount})` : 'Нет отзывов');
 
     // Build display text
     let emailDisplay = '_Не указан_';
@@ -82,6 +86,9 @@ async function showMyData(ctx) {
     }
 
     const text = `👤 *Мои данные*
+
+⭐ *Ваш рейтинг:*
+${ratingDisplay}
 
 📧 *Email для чеков:*
 ${emailDisplay}

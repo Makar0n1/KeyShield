@@ -98,6 +98,15 @@ const {
   handleEmailInput,
   handleSaveEmail
 } = require('./handlers/receiptEmail');
+
+// Rating handlers
+const {
+  hasRatingSession,
+  clearRatingSession,
+  handleRatingSelect,
+  handleRatingConfirm,
+  handleRatingSkip
+} = require('./handlers/ratingHandler');
 const {
   hasMyDataSession,
   clearMyDataSession,
@@ -225,6 +234,7 @@ bot.command('cancel', async (ctx) => {
   await clearDisputeSession(telegramId);
   await clearKeyValidationSession(telegramId);
   await clearReceiptSession(telegramId);
+  await clearRatingSession(telegramId);
   await clearMyDataSession(telegramId);
   await clearReferralSession(telegramId);
   await deleteProvideWalletSession(telegramId);
@@ -399,6 +409,11 @@ bot.action(/^receipt_yes:/, handleReceiptYes);
 bot.action(/^receipt_no:/, handleReceiptNo);
 bot.action(/^receipt_cancel:/, handleReceiptCancel);
 bot.action(/^save_email:/, handleSaveEmail);
+
+// Rating handlers
+bot.action(/^rating_select:/, handleRatingSelect);
+bot.action(/^rating_confirm:/, handleRatingConfirm);
+bot.action(/^rating_skip:/, handleRatingSkip);
 
 // My Data handlers
 bot.action('my_data', showMyData);

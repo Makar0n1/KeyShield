@@ -299,6 +299,22 @@ async function processSellerPayout(ctx, deal, buyerId) {
   let feesaverBandwidthCost = 0;
   let trxReturned = 0;
 
+  // Fetch usernames for rating system
+  let sellerUsername = null;
+  let buyerUsername = null;
+  try {
+    const [seller, buyer] = await Promise.all([
+      User.findOne({ telegramId: deal.sellerId }).select('username').lean(),
+      User.findOne({ telegramId: buyerId }).select('username').lean()
+    ]);
+    sellerUsername = seller?.username || 'Unknown';
+    buyerUsername = buyer?.username || 'Unknown';
+  } catch (e) {
+    console.error('Error fetching usernames for rating:', e);
+    sellerUsername = 'Unknown';
+    buyerUsername = 'Unknown';
+  }
+
   try {
     // Get multisig wallet
     const wallet = await MultisigWallet.findOne({ dealId: deal._id }).select('+privateKey');
@@ -543,8 +559,15 @@ async function processSellerPayout(ctx, deal, buyerId) {
       toAddress: deal.sellerAddress
     };
 
+    // Rating data for seller to rate buyer
+    const sellerRatingData = {
+      counterpartyId: buyerId,
+      counterpartyRole: 'buyer',
+      counterpartyUsername: buyerUsername
+    };
+
     // Show receipt question instead of direct final message
-    await showReceiptQuestion(ctx, telegramId, deal, transactionData, sellerText);
+    await showReceiptQuestion(ctx, telegramId, deal, transactionData, sellerText, sellerRatingData);
 
     // Notify buyer with receipt option
     if (buyerId) {
@@ -569,8 +592,15 @@ async function processSellerPayout(ctx, deal, buyerId) {
         toAddress: deal.sellerAddress
       };
 
+      // Rating data for buyer to rate seller
+      const buyerRatingData = {
+        counterpartyId: deal.sellerId,
+        counterpartyRole: 'seller',
+        counterpartyUsername: sellerUsername
+      };
+
       // Send receipt notification to buyer
-      await sendReceiptNotification(ctx, buyerId, deal, buyerTransactionData, buyerText);
+      await sendReceiptNotification(ctx, buyerId, deal, buyerTransactionData, buyerText, buyerRatingData);
     }
 
     // Audit log
