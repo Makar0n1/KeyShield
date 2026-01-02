@@ -53,6 +53,8 @@ const MAIN_MENU_TEXT = `🛡 *KeyShield — Безопасные сделки*
 📊 *Минимум:* ${MIN_DEAL_AMOUNT} USDT
 💵 *Актив:* USDT (TRC-20)
 
+🌐 [keyshield.me](https://keyshield.me/)
+
 Выберите действие:`;
 
 // Ban screen text
