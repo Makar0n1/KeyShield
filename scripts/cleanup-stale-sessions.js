@@ -71,7 +71,7 @@ async function cleanupStaleSessions() {
       const lastUpdate = new Date(session.updatedAt).toLocaleString('ru-RU');
 
       // Get user info
-      const user = await User.findOne({ telegramId }).select('username firstName mainMessageId currentScreen').lean();
+      const user = await User.findOne({ telegramId }).select('username firstName mainMessageId currentScreen botBlocked').lean();
 
       const displayName = user?.username ? `@${user.username}` : (user?.firstName || telegramId);
 
@@ -79,6 +79,37 @@ async function cleanupStaleSessions() {
       console.log(`   Session: ${sessionType}`);
       console.log(`   Current screen: ${user?.currentScreen || 'unknown'}`);
       console.log(`   Last update: ${lastUpdate}`);
+
+      // Skip if user is already on main_menu - just delete orphan session silently
+      if (user?.currentScreen === 'main_menu') {
+        if (!isDryRun) {
+          await Session.deleteSession(telegramId, sessionType);
+        }
+        console.log(`   ⏭️ SKIP: already on main_menu (deleted orphan session)\n`);
+        skipped++;
+        continue;
+      }
+
+      // Skip if user blocked bot - just clean session
+      if (user?.botBlocked) {
+        if (!isDryRun) {
+          await Session.deleteSession(telegramId, sessionType);
+        }
+        console.log(`   ⏭️ SKIP: bot blocked (deleted orphan session)\n`);
+        skipped++;
+        continue;
+      }
+
+      // Skip screens that don't need intervention (help, rules, etc.)
+      const safeScreens = ['rules', 'help', 'how_it_works', 'rules_and_fees', 'support'];
+      if (safeScreens.includes(user?.currentScreen)) {
+        if (!isDryRun) {
+          await Session.deleteSession(telegramId, sessionType);
+        }
+        console.log(`   ⏭️ SKIP: on safe screen "${user.currentScreen}" (deleted orphan session)\n`);
+        skipped++;
+        continue;
+      }
 
       if (isDryRun) {
         console.log(`   ➡️ Would: delete session, send main menu\n`);
