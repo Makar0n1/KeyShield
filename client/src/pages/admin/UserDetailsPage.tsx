@@ -271,6 +271,43 @@ export function AdminUserDetailsPage() {
           )}
         </Card>
 
+        {/* Rating Stats */}
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            ⭐ Рейтинг
+          </h2>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="text-center p-4 bg-dark rounded-lg">
+              <p className="text-3xl font-bold text-yellow-400">
+                {user.ratingsCount && user.ratingsCount > 0 ? user.averageRating : '—'}
+              </p>
+              <p className="text-muted text-sm">Средний балл</p>
+            </div>
+            <div className="text-center p-4 bg-dark rounded-lg">
+              <p className="text-3xl font-bold text-blue-400">{user.ratingsCount || 0}</p>
+              <p className="text-muted text-sm">Отзывов</p>
+            </div>
+          </div>
+          {user.ratings && user.ratings.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted mb-2">Последние отзывы:</p>
+              {user.ratings.slice(-5).reverse().map((r, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 bg-dark rounded text-sm">
+                  <div>
+                    <span className="text-yellow-400">{'⭐'.repeat(r.rating)}</span>
+                    <span className="text-muted ml-2">
+                      от {r.role === 'buyer' ? 'покупателя' : 'продавца'}
+                    </span>
+                  </div>
+                  <Link to={`/admin/deals?search=${r.dealId}`} className="text-primary hover:underline text-xs">
+                    {r.dealId}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         {/* Referral Stats */}
         {(user.referralCode || user.referralsCount !== undefined && user.referralsCount > 0) && (
           <Card className="p-6 lg:col-span-2">

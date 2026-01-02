@@ -245,6 +245,7 @@ export function AdminUsersPage() {
                   <th className="text-left p-4 text-sm font-medium text-muted">Экран</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Источник</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Споры</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted">Рейтинг</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Статус</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Бот</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Регистрация</th>
@@ -326,6 +327,15 @@ export function AdminUsersPage() {
                         <span className="text-yellow-400 ml-1">
                           (серия: {user.disputeStats.lossStreak})
                         </span>
+                      )}
+                    </td>
+                    <td className="p-4 text-sm">
+                      {user.ratingsCount && user.ratingsCount > 0 ? (
+                        <span className="text-yellow-400">
+                          ⭐ {user.averageRating} ({user.ratingsCount})
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
                       )}
                     </td>
                     <td className="p-4">

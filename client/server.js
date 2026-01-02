@@ -844,7 +844,7 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
     }
 
     const users = await User.find(query)
-      .select('telegramId username firstName role blacklisted disputeStats platformCode source referredBy createdAt lastActivity currentScreen botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats')
+      .select('telegramId username firstName role blacklisted disputeStats platformCode source referredBy createdAt lastActivity currentScreen botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats averageRating ratingsCount')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
@@ -884,7 +884,7 @@ app.get('/api/admin/users', adminAuth, searchLimiter, async (req, res) => {
 app.get('/api/admin/users/:telegramId', adminAuth, async (req, res) => {
   try {
     const user = await User.findOne({ telegramId: parseInt(req.params.telegramId) })
-      .select('telegramId username firstName role blacklisted blacklistReason disputeStats platformCode source referredBy referralCode referralBalance referralTotalEarned notes createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats wallets email')
+      .select('telegramId username firstName role blacklisted blacklistReason disputeStats platformCode source referredBy referralCode referralBalance referralTotalEarned notes createdAt lastActivity botBlocked botBlockedAt lastActionType lastActionAt sessionCount stats wallets email averageRating ratingsCount ratings')
       .lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
 

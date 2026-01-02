@@ -222,6 +222,16 @@ export interface User {
   referralBalance?: number
   referralTotalEarned?: number
   referralsCount?: number
+  // Rating system
+  averageRating?: number
+  ratingsCount?: number
+  ratings?: Array<{
+    fromUserId: number
+    dealId: string
+    rating: number
+    role: 'buyer' | 'seller'
+    createdAt: string
+  }>
   createdAt: string
   lastActivity?: string
   // Activity tracking fields
