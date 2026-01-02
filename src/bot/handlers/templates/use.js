@@ -12,6 +12,7 @@ const messageManager = require('../../utils/messageManager');
 const { templateUseKeyboard } = require('../../keyboards/templates');
 const { walletSelectionKeyboard, mainMenuButton } = require('../../keyboards/main');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
+const { showTemplatesList } = require('./list');
 const { finalizeDealCreation } = require('../createDeal');
 
 /**
