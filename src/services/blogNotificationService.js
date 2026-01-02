@@ -234,11 +234,15 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
         return 'skipped';
       }
 
-      // Check if user is already on a blog notification screen
-      const isAlreadyNotification = user.currentScreen?.startsWith('blog_notification');
+      // Check if user is already on ANY broadcast/notification screen
+      // Both broadcast_ and blog_notification_ are "overlay" notifications
+      // that should replace each other without accumulating in the stack
+      const isAlreadyBlogNotification = user.currentScreen?.startsWith('blog_notification');
+      const isAlreadyBroadcast = user.currentScreen?.startsWith('broadcast_');
+      const isOverlayScreen = isAlreadyBlogNotification || isAlreadyBroadcast;
 
-      // If NOT already on notification, save current screen to stack
-      if (!isAlreadyNotification && user.currentScreenData?.text) {
+      // If NOT already on overlay screen, save current screen to stack
+      if (!isOverlayScreen && user.currentScreenData?.text) {
         const newStack = [...(user.navigationStack || [])];
         newStack.push({
           screen: user.currentScreen || 'main_menu',

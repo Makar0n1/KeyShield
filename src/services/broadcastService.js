@@ -217,11 +217,15 @@ class BroadcastService {
         return 'skipped';
       }
 
-      // Check if user is already on a broadcast notification screen
+      // Check if user is already on ANY broadcast/notification screen
+      // Both broadcast_ and blog_notification_ are "overlay" notifications
+      // that should replace each other without accumulating in the stack
       const isAlreadyBroadcast = user.currentScreen?.startsWith('broadcast_');
+      const isAlreadyBlogNotification = user.currentScreen?.startsWith('blog_notification');
+      const isOverlayScreen = isAlreadyBroadcast || isAlreadyBlogNotification;
 
-      // If NOT already on broadcast, save current screen to stack
-      if (!isAlreadyBroadcast && user.currentScreenData?.text) {
+      // If NOT already on overlay screen, save current screen to stack
+      if (!isOverlayScreen && user.currentScreenData?.text) {
         const newStack = [...(user.navigationStack || [])];
         newStack.push({
           screen: user.currentScreen || 'main_menu',
