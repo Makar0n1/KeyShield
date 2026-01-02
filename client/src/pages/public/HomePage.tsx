@@ -739,8 +739,8 @@ function TestimonialsSection() {
   }
 
   return (
-    <section ref={sectionRef} id="testimonials" className="py-20 bg-dark-light/30">
-      <div className="container mx-auto px-4">
+    <section ref={sectionRef} id="testimonials" className="py-20 bg-dark-light/30 overflow-hidden">
+      <div className="container mx-auto px-4 overflow-hidden">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Что говорят пользователи
@@ -751,7 +751,7 @@ function TestimonialsSection() {
         </div>
 
         {/* Carousel container with fixed height */}
-        <div className="relative h-[340px]">
+        <div className="relative h-[340px] overflow-hidden">
           {/* Skeleton loading state */}
           <div
             className={`absolute inset-0 transition-opacity duration-500 ${
