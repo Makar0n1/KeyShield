@@ -12,7 +12,7 @@ const mainMenuKeyboard = () => {
     [Markup.button.callback('📝 Создать сделку', 'create_deal')],
     [
       Markup.button.callback('📋 Мои сделки', 'my_deals'),
-      Markup.button.callback('📑 Шаблоны', 'templates')
+      Markup.button.callback('📑 Шаблоны сделок', 'templates')
     ],
     [
       Markup.button.callback('👤 Мои данные', 'my_data'),
