@@ -72,6 +72,9 @@ async function showTemplateDetails(ctx, templateIdOverride = null) {
     templateId = ctx.callbackQuery.data.split(':')[2];
   }
 
+  // Debug: check what templateId is
+  console.log('showTemplateDetails called with:', { templateIdOverride, templateId, callbackData: ctx.callbackQuery?.data });
+
   const template = await DealTemplate.findOne({ _id: templateId, telegramId });
 
   if (!template) {
