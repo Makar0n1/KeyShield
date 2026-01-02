@@ -170,6 +170,11 @@ const dealSchema = new mongoose.Schema({
     default: false,
     index: true
   },
+  // Flag to track if deal was created from template (hide "Save as template" button)
+  fromTemplate: {
+    type: Boolean,
+    default: false
+  },
   // Operational costs tracking
   operationalCosts: {
     // Activation costs (5 TRX sent, minus what was returned)

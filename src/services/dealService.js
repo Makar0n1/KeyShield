@@ -161,7 +161,8 @@ class DealService {
       commissionType,
       deadlineHours,
       buyerAddress,
-      sellerAddress
+      sellerAddress,
+      fromTemplate = false
     } = dealData;
 
     // Validate
@@ -309,7 +310,8 @@ class DealService {
       sellerAddress: sellerAddress || null,  // Will be set when seller provides it
       // Private keys for pseudo-multisig (set for creator, other set when they provide wallet)
       buyerPrivateKey: creatorRole === 'buyer' ? creatorPrivateKey : null,
-      sellerPrivateKey: creatorRole === 'seller' ? creatorPrivateKey : null
+      sellerPrivateKey: creatorRole === 'seller' ? creatorPrivateKey : null,
+      fromTemplate
     });
 
     await deal.save();

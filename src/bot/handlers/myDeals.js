@@ -311,7 +311,13 @@ const showDealDetails = async (ctx, dealId) => {
       text += `\n\n✅ *Депозит:* [Транзакция](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
     }
 
-    const keyboard = dealDetailsKeyboard(deal.dealId, role, deal.status);
+    // Determine if user is the deal creator
+    const isCreator = role === deal.creatorRole;
+
+    const keyboard = dealDetailsKeyboard(deal.dealId, role, deal.status, {
+      isCreator,
+      fromTemplate: deal.fromTemplate || false
+    });
     await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}`, text, keyboard);
   } catch (error) {
     console.error('Error showing deal details:', error);

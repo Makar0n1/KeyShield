@@ -168,6 +168,9 @@ async function handleCounterpartyInput(ctx) {
   session.data.counterpartyUsername = counterparty.username;
   await setTemplateSession(telegramId, session);
 
+  // Get counterparty rating
+  const counterpartyRating = await User.getRatingDisplayById(counterparty.telegramId);
+
   // Check if user has saved wallets
   const creator = await User.findOne({ telegramId }).select('wallets');
   const savedWallets = creator?.wallets || [];
@@ -178,6 +181,7 @@ async function handleCounterpartyInput(ctx) {
 
   if (savedWallets.length > 0) {
     const walletText = `✅ *Контрагент:* @${counterparty.username}
+📊 *Рейтинг:* ${counterpartyRating}
 
 💳 *Выберите кошелёк ${walletPurpose}:*
 
@@ -186,6 +190,7 @@ async function handleCounterpartyInput(ctx) {
     await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true));
   } else {
     const walletText = `✅ *Контрагент:* @${counterparty.username}
+📊 *Рейтинг:* ${counterpartyRating}
 
 💳 *Введите адрес TRON-кошелька ${walletPurpose}:*
 
@@ -316,7 +321,8 @@ async function createDealFromTemplate(ctx, session) {
       asset: session.data.asset,
       amount: session.data.amount,
       commissionType: session.data.commissionType,
-      deadlineHours: session.data.deadlineHours
+      deadlineHours: session.data.deadlineHours,
+      fromTemplate: true
     };
 
     // Set wallet based on role

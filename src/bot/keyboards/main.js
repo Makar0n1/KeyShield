@@ -247,8 +247,15 @@ const myDealsEmptyKeyboard = () => {
 
 /**
  * Deal details keyboard (dynamic based on role and status)
+ * @param {string} dealId - Deal ID
+ * @param {string} userRole - 'buyer' or 'seller'
+ * @param {string} dealStatus - Deal status
+ * @param {Object} options - Additional options
+ * @param {boolean} options.isCreator - Whether user is deal creator
+ * @param {boolean} options.fromTemplate - Whether deal was created from template
  */
-const dealDetailsKeyboard = (dealId, userRole, dealStatus) => {
+const dealDetailsKeyboard = (dealId, userRole, dealStatus, options = {}) => {
+  const { isCreator = false, fromTemplate = false } = options;
   const buttons = [];
 
   // Waiting for wallet - show "Enter Wallet" button
@@ -307,7 +314,8 @@ const dealDetailsKeyboard = (dealId, userRole, dealStatus) => {
   }
 
   // Save as template button for completed deals
-  if (dealStatus === 'completed') {
+  // Only show for: creator + not from template
+  if (dealStatus === 'completed' && isCreator && !fromTemplate) {
     buttons.push([
       Markup.button.callback('💾 Сохранить как шаблон', `template:save_from_deal:${dealId}`)
     ]);
