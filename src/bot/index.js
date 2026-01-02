@@ -495,7 +495,7 @@ bot.action('noop', (ctx) => ctx.answerCbQuery()); // For pagination display
 // Template handlers
 bot.action('templates', showTemplatesList);
 bot.action('template:create', startCreateTemplate);
-bot.action(/^template:view:/, showTemplateDetails);
+bot.action(/^template:view:/, (ctx) => showTemplateDetails(ctx));
 bot.action(/^template:use:/, startUseTemplate);
 bot.action(/^template:edit:/, startTemplateEditField);
 bot.action(/^template:delete:/, showTemplateDeleteConfirmation);
