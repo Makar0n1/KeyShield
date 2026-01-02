@@ -150,6 +150,31 @@ const {
   handleReferralBack
 } = require('./handlers/referral');
 
+// Template handlers
+const {
+  hasTemplateSession,
+  getTemplateSession,
+  clearTemplateSession,
+  showTemplatesList,
+  showTemplateDetails,
+  startCreateTemplate,
+  saveFromDeal,
+  handleCreateInput: handleTemplateCreateInput,
+  handleRoleSelection: handleTemplateRoleSelection,
+  handleCommissionSelection: handleTemplateCommissionSelection,
+  handleDeadlineSelection: handleTemplateDeadlineSelection,
+  handleCreateBack: handleTemplateCreateBack,
+  startUseTemplate,
+  handleCounterpartyInput: handleTemplateCounterpartyInput,
+  handleWalletSelection: handleTemplateWalletSelection,
+  handleWalletInput: handleTemplateWalletInput,
+  startEditField: startTemplateEditField,
+  handleEditInput: handleTemplateEditInput,
+  handleEditDeadline: handleTemplateEditDeadline,
+  showDeleteConfirmation: showTemplateDeleteConfirmation,
+  confirmDelete: confirmTemplateDelete
+} = require('./handlers/templates');
+
 // Initialize bot with increased timeout for slow connections
 const bot = new Telegraf(process.env.BOT_TOKEN, {
   telegram: {
@@ -239,6 +264,7 @@ bot.command('cancel', async (ctx) => {
   await clearRatingSession(telegramId);
   await clearMyDataSession(telegramId);
   await clearReferralSession(telegramId);
+  await clearTemplateSession(telegramId);
   await deleteProvideWalletSession(telegramId);
 
   // Show main menu
@@ -279,6 +305,10 @@ bot.action(/^select_wallet:/, async (ctx) => {
   // Check if user is in deal creation flow
   if (await hasCreateDealSession(telegramId)) {
     await handleSelectSavedWallet(ctx);
+  } else if (await hasTemplateSession(telegramId)) {
+    // Template use flow
+    const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[1]);
+    await handleTemplateWalletSelection(ctx, walletIndex);
   } else {
     // Otherwise, it's deal acceptance flow
     await handleSelectSavedWalletDeal(ctx);
@@ -462,6 +492,29 @@ bot.action('referral:confirm_withdraw', confirmWithdrawal);
 bot.action('referral:back', handleReferralBack);
 bot.action('noop', (ctx) => ctx.answerCbQuery()); // For pagination display
 
+// Template handlers
+bot.action('templates', showTemplatesList);
+bot.action('template:create', startCreateTemplate);
+bot.action(/^template:view:/, showTemplateDetails);
+bot.action(/^template:use:/, startUseTemplate);
+bot.action(/^template:edit:/, startTemplateEditField);
+bot.action(/^template:delete:/, showTemplateDeleteConfirmation);
+bot.action(/^template:confirm_delete:/, confirmTemplateDelete);
+bot.action(/^template:save_from_deal:/, saveFromDeal);
+// Template creation flow
+bot.action(/^template_role:/, handleTemplateRoleSelection);
+bot.action(/^template_commission:/, handleTemplateCommissionSelection);
+bot.action(/^template_deadline:/, async (ctx) => {
+  const telegramId = ctx.from.id;
+  const session = await getTemplateSession(telegramId);
+  if (session?.action === 'edit_deadline') {
+    await handleTemplateEditDeadline(ctx);
+  } else {
+    await handleTemplateDeadlineSelection(ctx);
+  }
+});
+bot.action('template_back', handleTemplateCreateBack);
+
 // Blog notification back button (uses goBack - delete + send pattern)
 bot.action('blog_notification_back', async (ctx) => {
   try {
@@ -585,6 +638,31 @@ bot.on('text', async (ctx) => {
   if (await hasReferralSession(telegramId)) {
     const handled = await handleReferralTextInput(ctx);
     if (handled) return;
+  }
+
+  // Handle template input (create, edit, use)
+  if (await hasTemplateSession(telegramId)) {
+    const session = await getTemplateSession(telegramId);
+
+    // Create or edit text input
+    if (session?.action?.startsWith('create') || session?.action?.startsWith('edit_')) {
+      const handled = await handleTemplateCreateInput(ctx);
+      if (handled) return;
+      const editHandled = await handleTemplateEditInput(ctx);
+      if (editHandled) return;
+    }
+
+    // Use template - counterparty username
+    if (session?.action === 'use_template' && session?.step === 'counterparty') {
+      const handled = await handleTemplateCounterpartyInput(ctx);
+      if (handled) return;
+    }
+
+    // Use template - wallet input
+    if (session?.action === 'use_template' && session?.step === 'wallet') {
+      const handled = await handleTemplateWalletInput(ctx);
+      if (handled) return;
+    }
   }
 
   // Handle provideWallet wallet name input (deal acceptance flow)

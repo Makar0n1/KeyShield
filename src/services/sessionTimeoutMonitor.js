@@ -28,7 +28,8 @@ const TIMEOUTS = {
   'my_data': 5 * 60 * 1000,         // 5 minutes
   'provide_wallet': 5 * 60 * 1000,  // 5 minutes
   'dispute': 10 * 60 * 1000,        // 10 minutes
-  'referral': 5 * 60 * 1000         // 5 minutes
+  'referral': 5 * 60 * 1000,        // 5 minutes
+  'deal_template': 5 * 60 * 1000    // 5 minutes
 };
 
 // Session types to monitor (excluding create_deal - handled by abandonedDealMonitor)
@@ -180,6 +181,8 @@ class SessionTimeoutMonitor {
           return await this.handleDisputeTimeout(telegramId, session);
         case 'referral':
           return await this.handleReferralTimeout(telegramId, session);
+        case 'deal_template':
+          return await this.handleDealTemplateTimeout(telegramId, session);
         default:
           return false;
       }
@@ -571,6 +574,76 @@ _Минимальная сумма для вывода: 10 USDT_`;
     });
 
     console.log(`⏰ Referral timeout for ${telegramId} - returned to referrals`);
+    return true;
+  }
+
+  /**
+   * Handle deal_template timeout - return to templates list
+   */
+  async handleDealTemplateTimeout(telegramId, session) {
+    const data = session.data || {};
+
+    // Delete session
+    await Session.deleteSession(telegramId, 'deal_template');
+
+    const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+    if (!user || !user.mainMessageId) return false;
+
+    const DealTemplate = require('../models/DealTemplate');
+    const { templatesListKeyboard, templatesEmptyKeyboard } = require('../bot/keyboards/templates');
+
+    // Get user's templates
+    const templates = await DealTemplate.getUserTemplates(telegramId);
+    const canCreate = await DealTemplate.canCreateTemplate(telegramId);
+
+    let text;
+    let keyboard;
+
+    if (templates.length === 0) {
+      text = `⏰ _Время ожидания ввода истекло._
+
+📑 *Мои шаблоны*
+
+_У вас пока нет сохранённых шаблонов._
+
+Шаблоны позволяют создавать сделки в 2 клика!`;
+
+      keyboard = templatesEmptyKeyboard();
+    } else {
+      text = `⏰ _Время ожидания ввода истекло._
+
+📑 *Мои шаблоны* (${templates.length}/5)\n\n`;
+
+      templates.forEach((tpl, i) => {
+        const roleIcon = tpl.creatorRole === 'buyer' ? '💵' : '🛠';
+        text += `${i + 1}. ${roleIcon} *${tpl.name}*\n`;
+        text += `   ${tpl.productName} • ${tpl.amount} ${tpl.asset}\n\n`;
+      });
+
+      text += `_Выберите шаблон для использования:_`;
+
+      keyboard = templatesListKeyboard(templates, canCreate);
+    }
+
+    try {
+      await this.botInstance.telegram.deleteMessage(telegramId, user.mainMessageId);
+    } catch (e) { /* message already deleted */ }
+
+    const newMsg = await this.botInstance.telegram.sendMessage(telegramId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard.reply_markup
+    });
+
+    await User.updateOne({ telegramId }, {
+      $set: {
+        mainMessageId: newMsg.message_id,
+        currentScreen: 'templates',
+        currentScreenData: { text, keyboard: keyboard.reply_markup },
+        lastActivity: new Date()
+      }
+    });
+
+    console.log(`⏰ Deal template timeout for ${telegramId} - returned to templates`);
     return true;
   }
 

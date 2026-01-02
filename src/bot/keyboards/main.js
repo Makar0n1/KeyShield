@@ -12,9 +12,12 @@ const mainMenuKeyboard = () => {
     [Markup.button.callback('📝 Создать сделку', 'create_deal')],
     [
       Markup.button.callback('📋 Мои сделки', 'my_deals'),
-      Markup.button.callback('👤 Мои данные', 'my_data')
+      Markup.button.callback('📑 Шаблоны', 'templates')
     ],
-    [Markup.button.callback('🎁 Рефералы', 'referrals')],
+    [
+      Markup.button.callback('👤 Мои данные', 'my_data'),
+      Markup.button.callback('🎁 Рефералы', 'referrals')
+    ],
     [Markup.button.callback('ℹ️ Помощь', 'help')]
   ]);
 };
@@ -300,6 +303,13 @@ const dealDetailsKeyboard = (dealId, userRole, dealStatus) => {
     ]);
     buttons.push([
       Markup.button.callback('❌ Отменить сделку', `cancel_deal:${dealId}`)
+    ]);
+  }
+
+  // Save as template button for completed deals
+  if (dealStatus === 'completed') {
+    buttons.push([
+      Markup.button.callback('💾 Сохранить как шаблон', `template:save_from_deal:${dealId}`)
     ]);
   }
 
