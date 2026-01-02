@@ -6,15 +6,13 @@
 
 const DealTemplate = require('../../../models/DealTemplate');
 const User = require('../../../models/User');
-const Deal = require('../../../models/Deal');
-const Session = require('../../../models/Session');
 const dealService = require('../../../services/dealService');
 const blockchainService = require('../../../services/blockchain');
 const messageManager = require('../../utils/messageManager');
 const { templateUseKeyboard } = require('../../keyboards/templates');
-const { walletSelectionKeyboard } = require('../../keyboards/main');
+const { walletSelectionKeyboard, mainMenuButton } = require('../../keyboards/main');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
-const { showTemplatesList, showTemplateDetails } = require('./list');
+const { finalizeDealCreation } = require('../createDeal');
 
 /**
  * Start using template
@@ -281,16 +279,16 @@ async function handleWalletInput(ctx) {
 }
 
 /**
- * Create deal from template
+ * Create deal from template - uses shared finalizeDealCreation from createDeal.js
  */
 async function createDealFromTemplate(ctx, session) {
   const telegramId = ctx.from.id;
 
   try {
     // Show loading
-    await messageManager.sendNewMessage(ctx, telegramId, '⏳ *Создаём сделку...*', { inline_keyboard: [] });
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ *Создаём сделку и multisig-кошелёк...*', {});
 
-    // Prepare deal data
+    // Prepare deal data (same format as createDeal.js session.data)
     const dealData = {
       creatorId: telegramId,
       creatorRole: session.data.creatorRole,
@@ -304,105 +302,32 @@ async function createDealFromTemplate(ctx, session) {
       deadlineHours: session.data.deadlineHours
     };
 
-    // Set wallet
+    // Set wallet based on role
     if (session.data.creatorRole === 'buyer') {
       dealData.buyerAddress = session.data.buyerAddress;
     } else {
       dealData.sellerAddress = session.data.sellerAddress;
     }
 
-    // Create deal
-    const result = await dealService.createDeal(dealData);
-    const { deal, wallet, creatorPrivateKey } = result;
+    // Use shared finalization logic from createDeal.js
+    await finalizeDealCreation(ctx, dealData, ctx.from.username);
 
     // Update template usage stats
     await DealTemplate.incrementUsage(session.templateId);
 
-    // Clear session
+    // Clear template session
     await clearTemplateSession(telegramId);
-
-    // Get counterparty info
-    const counterpartyUsername = session.data.counterpartyUsername;
-    const counterpartyId = session.data.creatorRole === 'buyer'
-      ? session.data.sellerId
-      : session.data.buyerId;
-
-    // Send success to creator with private key
-    const commission = Deal.calculateCommission(deal.amount);
-    const roleText = session.data.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец';
-
-    const creatorText = `✅ *Сделка создана!*
-
-📋 *ID:* \`${deal.dealId}\`
-👤 *Ваша роль:* ${roleText}
-👥 *Контрагент:* @${counterpartyUsername}
-
-📦 *${deal.productName}*
-💰 *Сумма:* ${deal.amount} ${deal.asset}
-💸 *Комиссия:* ${commission} ${deal.asset}
-
-🔐 *Escrow-кошелёк:*
-\`${wallet}\`
-
-⚠️ *Ваш приватный ключ (сохраните!):*
-\`${creatorPrivateKey}\`
-
-_Ключ нужен для вывода средств. Храните его в надёжном месте!_`;
-
-    const { Markup } = require('telegraf');
-    const creatorKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('📋 Детали сделки', `view_deal:${deal.dealId}`)],
-      [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-    ]);
-
-    await messageManager.sendNewMessage(ctx, telegramId, creatorText, creatorKeyboard);
-
-    // Notify counterparty
-    try {
-      const counterpartyRoleText = session.data.creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
-      const creatorUsername = ctx.from.username;
-
-      const counterpartyText = `🔔 *Новая сделка!*
-
-Пользователь @${creatorUsername} создал сделку с вами.
-
-📋 *ID:* \`${deal.dealId}\`
-👤 *Ваша роль:* ${counterpartyRoleText}
-
-📦 *${deal.productName}*
-💰 *Сумма:* ${deal.amount} ${deal.asset}
-
-Нажмите «Детали», чтобы узнать подробности и продолжить.`;
-
-      const counterpartyKeyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('📋 Детали сделки', `view_deal:${deal.dealId}`)],
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-      ]);
-
-      await ctx.telegram.sendMessage(counterpartyId, counterpartyText, {
-        parse_mode: 'Markdown',
-        reply_markup: counterpartyKeyboard.reply_markup
-      });
-    } catch (notifyError) {
-      console.error('Error notifying counterparty:', notifyError);
-    }
 
     return true;
   } catch (error) {
     console.error('Error creating deal from template:', error);
     await clearTemplateSession(telegramId);
 
-    const errorText = `❌ *Ошибка создания сделки*
+    const errorText = `❌ *Ошибка при создании сделки*
 
 ${error.message || 'Попробуйте позже.'}`;
 
-    const { Markup } = require('telegraf');
-    const errorKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('📑 К шаблонам', 'templates')],
-      [Markup.button.callback('🏠 Главное меню', 'main_menu')]
-    ]);
-
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, errorKeyboard);
+    await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, mainMenuButton());
     return false;
   }
 }

@@ -985,6 +985,186 @@ const handleDeadlineSelection = async (ctx) => {
 // CONFIRM AND CREATE DEAL
 // ============================================
 
+/**
+ * Finalize deal creation - shared logic for both regular and template flows
+ * @param {Object} ctx - Telegraf context
+ * @param {Object} sessionData - Deal data from session
+ * @param {string} creatorUsername - Creator's username
+ * @returns {Object} - Created deal
+ */
+const finalizeDealCreation = async (ctx, sessionData, creatorUsername) => {
+  const result = await dealService.createDeal(sessionData);
+  const { deal, wallet, creatorPrivateKey } = result;
+
+  // Get creator's rating for notification to counterparty
+  const creatorRatingDisplay = await User.getRatingDisplayById(deal.creatorId);
+
+  // Calculate amounts
+  const commission = deal.commission;
+  let depositAmount = deal.amount;
+
+  if (deal.commissionType === 'buyer') {
+    depositAmount = deal.amount + commission;
+  } else if (deal.commissionType === 'split') {
+    depositAmount = deal.amount + (commission / 2);
+  }
+
+  let sellerPayout = deal.amount;
+  if (deal.commissionType === 'seller') {
+    sellerPayout = deal.amount - commission;
+  } else if (deal.commissionType === 'split') {
+    sellerPayout = deal.amount - (commission / 2);
+  }
+
+  // ========== NOTIFY CREATOR (first - main message) ==========
+  if (deal.creatorRole === 'buyer') {
+    // Buyer created - waiting for seller wallet
+    const creatorText = `✅ *Сделка создана!*
+
+🆔 ID: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+📊 Комиссия: ${commission} ${deal.asset}
+💸 К оплате: ${depositAmount} ${deal.asset}
+
+⏳ *Статус:* Ожидание кошелька продавца
+
+Продавец получил уведомление и должен указать свой кошелёк.
+После этого вы получите адрес для депозита.`;
+
+    const creatorKeyboard = dealCreatedKeyboard(deal.dealId);
+    await messageManager.showFinalScreen(ctx, deal.buyerId, 'deal_created', creatorText, creatorKeyboard);
+
+    // ========== SHOW PRIVATE KEY (separate message below with button) ==========
+    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ покупателя:
+\`${creatorPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте (копирование по нажатию на адрес)
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+    const keyKeyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    ]);
+
+    const keyMsg = await ctx.telegram.sendMessage(deal.buyerId, keyText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyKeyboard.reply_markup
+    });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(deal.buyerId, keyMsg.message_id);
+      } catch (e) {
+        // Already deleted by button
+      }
+    }, 60000);
+
+    // Notify seller
+    const sellerText = `📬 *Новая сделка!*
+
+🆔 ID: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+📝 ${deal.description.substring(0, 200)}${deal.description.length > 200 ? '...' : ''}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+💸 Вы получите: ${sellerPayout} ${deal.asset}
+👤 Покупатель: @${creatorUsername}
+📊 Рейтинг: ${creatorRatingDisplay}
+
+Для участия укажите ваш TRON-кошелёк.`;
+
+    const sellerKeyboard = newDealNotificationKeyboard(deal.dealId);
+    await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
+  } else {
+    // Seller created - waiting for buyer wallet
+    const creatorText = `✅ *Сделка создана!*
+
+🆔 ID: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+💸 Вы получите: ${sellerPayout} ${deal.asset}
+
+⏳ *Статус:* Ожидание кошелька покупателя
+
+Покупатель получил уведомление и должен указать кошелёк и внести депозит.`;
+
+    const creatorKeyboard = dealCreatedKeyboard(deal.dealId);
+    await messageManager.showFinalScreen(ctx, deal.sellerId, 'deal_created', creatorText, creatorKeyboard);
+
+    // ========== SHOW PRIVATE KEY (separate message below with button) ==========
+    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ продавца:
+\`${creatorPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте (копирование по нажатию на адрес)
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете получить средства по сделке!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+    const keyKeyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    ]);
+
+    const keyMsg = await ctx.telegram.sendMessage(deal.sellerId, keyText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyKeyboard.reply_markup
+    });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(deal.sellerId, keyMsg.message_id);
+      } catch (e) {
+        // Already deleted by button
+      }
+    }, 60000);
+
+    // Notify buyer
+    const buyerText = `📬 *Новая сделка!*
+
+🆔 ID: \`${deal.dealId}\`
+📦 ${deal.productName}
+
+📝 ${deal.description.substring(0, 200)}${deal.description.length > 200 ? '...' : ''}
+
+💰 Сумма: ${deal.amount} ${deal.asset}
+💸 К оплате: ${depositAmount} ${deal.asset}
+👤 Продавец: @${creatorUsername}
+📊 Рейтинг: ${creatorRatingDisplay}
+
+Для участия укажите ваш TRON-кошелёк.`;
+
+    const buyerKeyboard = newDealNotificationKeyboard(deal.dealId);
+    await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
+  }
+
+  // Alert admin about new deal
+  await adminAlertService.alertNewDeal(deal);
+
+  console.log(`✅ Deal ${deal.dealId} created by ${deal.creatorId}`);
+
+  return deal;
+};
+
 const confirmCreateDeal = async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -997,14 +1177,11 @@ const confirmCreateDeal = async (ctx) => {
     // Show loading (use updateScreen for silent edit)
     await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ Создаём сделку и multisig-кошелёк...', {});
 
-    const result = await dealService.createDeal(session.data);
-    const { deal, wallet, creatorPrivateKey } = result;
+    // Use shared finalization logic
+    await finalizeDealCreation(ctx, session.data, ctx.from.username);
 
     // Clean up session
     await deleteCreateDealSession(telegramId);
-
-    // Get creator's rating for notification to counterparty
-    const creatorRatingDisplay = await User.getRatingDisplayById(telegramId);
 
     // Calculate amounts
     const commission = deal.commission;
@@ -1801,5 +1978,7 @@ module.exports = {
   handleEnterNewWallet,
   handleSaveWalletPrompt,
   handleWalletNameSkipDeal,
-  handleWalletNameBackDeal
+  handleWalletNameBackDeal,
+  // Shared for templates
+  finalizeDealCreation
 };
