@@ -322,7 +322,8 @@ const logsDir = join(__dirname, '../logs');
 if (!existsSync(logsDir)) {
   mkdirSync(logsDir, { recursive: true });
 }
-
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 // Webhook listener - logs all incoming requests
 app.all('/hear', async (req, res) => {
   try {
