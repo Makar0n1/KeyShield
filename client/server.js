@@ -315,6 +315,46 @@ app.get('/health', async (req, res) => {
   res.status(isHealthy ? 200 : 503).json(response);
 });
 
+// ============ WEBHOOK LISTENER (/hear) ============
+
+// Create logs directory if not exists
+const logsDir = join(__dirname, '../logs');
+if (!existsSync(logsDir)) {
+  mkdirSync(logsDir, { recursive: true });
+}
+
+// Webhook listener - logs all incoming requests
+app.all('/hear', async (req, res) => {
+  try {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      method: req.method,
+      headers: req.headers,
+      query: req.query,
+      body: req.body,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    };
+
+    // Log to console
+    console.log(`\n📥 [HEAR] ${timestamp}`);
+    console.log(`   Method: ${req.method}`);
+    console.log(`   IP: ${req.ip}`);
+    console.log(`   Body:`, JSON.stringify(req.body, null, 2));
+
+    // Append to log file
+    const { appendFile } = await import('fs/promises');
+    const logLine = JSON.stringify(logEntry) + '\n';
+    await appendFile(join(logsDir, 'hear.log'), logLine);
+
+    res.json({ success: true, received: timestamp });
+  } catch (error) {
+    console.error('[HEAR] Error:', error);
+    res.status(500).json({ error: 'Failed to log request' });
+  }
+});
+
 // ============ API ROUTES ============
 
 // Admin login (with rate limiting)
