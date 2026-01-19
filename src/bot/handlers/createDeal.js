@@ -208,7 +208,10 @@ const handleRoleSelection = async (ctx) => {
     const session = await getCreateDealSession(telegramId);
 
     // Allow re-selection for back navigation (don't check step strictly)
-    if (!session) return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
 
     const role = ctx.callbackQuery.data.split(':')[1];
     session.data.creatorRole = role;
@@ -247,7 +250,8 @@ const handleCounterpartyMethod = async (ctx) => {
 
     if (!session) {
       console.log(`⚠️ No create_deal session for user ${telegramId}`);
-      return;
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
     }
 
     const method = ctx.callbackQuery.data.split(':')[1];
@@ -534,7 +538,10 @@ const handleAssetSelection = async (ctx) => {
     const session = await getCreateDealSession(telegramId);
 
     // Allow re-selection for back navigation (don't check step strictly)
-    if (!session) return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
 
     const asset = ctx.callbackQuery.data.split(':')[1];
     session.data.asset = asset;
@@ -962,7 +969,10 @@ const handleCommissionSelection = async (ctx) => {
     const session = await getCreateDealSession(telegramId);
 
     // Allow re-selection for back navigation (don't check step strictly)
-    if (!session) return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
 
     const commissionType = ctx.callbackQuery.data.split(':')[1];
     session.data.commissionType = commissionType;
@@ -995,7 +1005,10 @@ const handleDeadlineSelection = async (ctx) => {
     const session = await getCreateDealSession(telegramId);
 
     // Allow re-selection for back navigation (don't check step strictly)
-    if (!session) return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
 
     const hours = parseInt(ctx.callbackQuery.data.split(':')[1]);
     session.data.deadlineHours = hours;
@@ -1299,6 +1312,7 @@ const cancelCreateDeal = async (ctx) => {
  */
 const SCREEN_TO_STEP = {
   'create_deal_role': 'role_selection',
+  'create_deal_method': 'counterparty_method',
   'create_deal_username': 'counterparty_username',
   'create_deal_name': 'product_name',
   'create_deal_description': 'description',
@@ -1307,6 +1321,7 @@ const SCREEN_TO_STEP = {
   'create_deal_commission': 'commission',
   'create_deal_deadline': 'deadline',
   'create_deal_wallet': 'creator_wallet',
+  'create_deal_select_wallet': 'select_wallet',
   'create_deal_confirm': 'confirm'
 };
 
@@ -1382,6 +1397,18 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
         text += `\n\n✏️ _Ранее выбрано: ${data.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец'}_`;
       }
       keyboard = roleSelectionKeyboard();
+      break;
+
+    case 'counterparty_method':
+      const counterpartyLabelMethod = data.creatorRole === 'buyer' ? 'продавца' : 'покупателя';
+      text = `📝 *Создание сделки*
+
+*Шаг 2 из 10: Как найти ${counterpartyLabelMethod}?*
+
+👤 *Ввести @username* — если контрагент уже зарегистрирован в боте
+
+🔗 *Создать ссылку* — получите ссылку-приглашение, которую можно отправить любому человеку. Он перейдёт и сразу увидит детали сделки.`;
+      keyboard = counterpartyMethodKeyboard();
       break;
 
     case 'counterparty_username':
@@ -1529,6 +1556,24 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
       keyboard = backButton();
       break;
 
+    case 'select_wallet':
+      // Show wallet selection screen
+      const selectWalletPurpose = data.creatorRole === 'buyer'
+        ? 'для возврата средств при отмене/споре'
+        : 'для получения оплаты';
+      text = `📝 *Создание сделки*
+
+*Шаг 9 из 10: Ваш кошелёк*
+
+💳 *Выберите кошелёк ${selectWalletPurpose}:*
+
+Или введите новый адрес TRON-кошелька.`;
+      // Get user's saved wallets
+      const userForWallets = await User.findOne({ telegramId }).select('wallets').lean();
+      const { walletSelectionKeyboard } = require('../keyboards/main');
+      keyboard = walletSelectionKeyboard(userForWallets?.wallets || [], true);
+      break;
+
     default:
       // Unknown step - go to main menu
       await deleteCreateDealSession(telegramId);
@@ -1631,7 +1676,11 @@ const handleSelectSavedWallet = async (ctx) => {
     const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[1]);
 
     const session = await getCreateDealSession(telegramId);
-    if (!session || session.step !== 'select_wallet') return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
+    if (session.step !== 'select_wallet') return;
 
     const user = await User.findOne({ telegramId }).select('wallets');
     if (!user || !user.wallets[walletIndex]) {
@@ -1679,7 +1728,10 @@ const handleEnterNewWallet = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session) return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
 
     session.step = 'creator_wallet';
     await setCreateDealSession(telegramId, session);
@@ -1717,7 +1769,11 @@ const handleSaveWalletPrompt = async (ctx) => {
     const action = ctx.callbackQuery.data.split(':')[1]; // 'yes' or 'no'
     const session = await getCreateDealSession(telegramId);
 
-    if (!session || session.step !== 'save_wallet_prompt') return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
+    if (session.step !== 'save_wallet_prompt') return;
 
     if (action === 'no') {
       // Skip saving, proceed to confirmation
@@ -1762,7 +1818,11 @@ const handleWalletNameSkipDeal = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session || session.step !== 'wallet_name') return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
+    if (session.step !== 'wallet_name') return;
 
     // Save wallet without name
     const address = session.data.creatorRole === 'buyer'
@@ -1793,7 +1853,10 @@ const handleWalletNameBackDeal = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session) return;
+    if (!session) {
+      // Session expired - restart deal creation
+      return await startCreateDeal(ctx);
+    }
 
     session.step = 'save_wallet_prompt';
     await setCreateDealSession(telegramId, session);
