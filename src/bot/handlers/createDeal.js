@@ -1981,13 +1981,11 @@ const handleInviteKeySaved = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
-    const session = await getCreateDealSession(telegramId);
+    const data = await getCreateDealSession(telegramId);
 
-    if (!session || session.data.step !== 'invite_key_confirm') {
+    if (!data || data.step !== 'invite_key_confirm') {
       return;
     }
-
-    const data = session.data;
 
     // Show loading
     await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ Создаём сделку...', {});
