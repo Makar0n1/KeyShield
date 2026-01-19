@@ -30,7 +30,8 @@ const sessionSchema = new mongoose.Schema({
       'my_data',
       'provide_wallet',
       'referral',
-      'deal_template'
+      'deal_template',
+      'invite_accept'
     ],
     index: true
   },

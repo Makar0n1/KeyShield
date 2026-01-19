@@ -59,19 +59,10 @@ const handleAcceptInvite = async (ctx) => {
 
     // Store deal ID in session for wallet input
     const Session = require('../../models/Session');
-    await Session.findOneAndUpdate(
-      { uniqueKey: `invite_accept_${telegramId}` },
-      {
-        uniqueKey: `invite_accept_${telegramId}`,
-        type: 'invite_accept',
-        data: {
-          dealId: deal.dealId,
-          userRole
-        },
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 min
-      },
-      { upsert: true }
-    );
+    await Session.setSession(telegramId, 'invite_accept', {
+      dealId: deal.dealId,
+      userRole
+    }, 0.5); // 30 minutes TTL
 
     if (savedWallets.length > 0) {
       // Show wallet selection
@@ -109,8 +100,7 @@ const handleDeclineInvite = async (ctx) => {
     const dealId = ctx.callbackQuery.data.split(':')[1];
 
     // Clear any session
-    const Session = require('../../models/Session');
-    await Session.deleteOne({ uniqueKey: `invite_accept_${telegramId}` });
+    await clearInviteAcceptSession(telegramId);
 
     // Find the deal to get creator info and cancel it
     const deal = await Deal.findOne({ dealId, status: 'pending_counterparty' });
@@ -166,22 +156,16 @@ ${decliningUsername} отклонил(а) ваше приглашение в с�
  */
 const hasInviteAcceptSession = async (telegramId) => {
   const Session = require('../../models/Session');
-  const session = await Session.findOne({
-    uniqueKey: `invite_accept_${telegramId}`,
-    expiresAt: { $gt: new Date() }
-  });
-  return !!session;
+  const data = await Session.getSession(telegramId, 'invite_accept');
+  return !!data;
 };
 
 /**
- * Get invite accept session
+ * Get invite accept session data
  */
 const getInviteAcceptSession = async (telegramId) => {
   const Session = require('../../models/Session');
-  return await Session.findOne({
-    uniqueKey: `invite_accept_${telegramId}`,
-    expiresAt: { $gt: new Date() }
-  });
+  return await Session.getSession(telegramId, 'invite_accept');
 };
 
 /**
@@ -189,7 +173,7 @@ const getInviteAcceptSession = async (telegramId) => {
  */
 const clearInviteAcceptSession = async (telegramId) => {
   const Session = require('../../models/Session');
-  await Session.deleteOne({ uniqueKey: `invite_accept_${telegramId}` });
+  await Session.deleteSession(telegramId, 'invite_accept');
 };
 
 /**
@@ -199,13 +183,13 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
   const telegramId = ctx.from.id;
 
   try {
-    // Get session
-    const session = await getInviteAcceptSession(telegramId);
-    if (!session) {
+    // Get session data (getInviteAcceptSession returns data directly)
+    const sessionData = await getInviteAcceptSession(telegramId);
+    if (!sessionData) {
       return false;
     }
 
-    const { dealId, userRole } = session.data;
+    const { dealId, userRole } = sessionData;
 
     // Validate wallet address
     const blockchainService = require('../../services/blockchain');
