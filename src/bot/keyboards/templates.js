@@ -121,6 +121,17 @@ const templateDeadlineKeyboard = () => {
 };
 
 /**
+ * Template usage: counterparty method selection (username or invite link)
+ */
+const templateCounterpartyMethodKeyboard = (templateId) => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('👤 Ввести @username', `template_method:username:${templateId}`)],
+    [Markup.button.callback('🔗 Создать ссылку', `template_method:invite:${templateId}`)],
+    [Markup.button.callback('❌ Отмена', `template:view:${templateId}`)]
+  ]);
+};
+
+/**
  * Template usage: counterparty input cancel
  */
 const templateUseKeyboard = (templateId) => {
@@ -184,6 +195,7 @@ module.exports = {
   templateRoleKeyboard,
   templateCommissionKeyboard,
   templateDeadlineKeyboard,
+  templateCounterpartyMethodKeyboard,
   templateUseKeyboard,
   templateInputKeyboard,
   saveAsTemplateKeyboard,

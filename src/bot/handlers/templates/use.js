@@ -9,9 +9,10 @@ const User = require('../../../models/User');
 const dealService = require('../../../services/dealService');
 const blockchainService = require('../../../services/blockchain');
 const messageManager = require('../../utils/messageManager');
-const { templateUseKeyboard } = require('../../keyboards/templates');
-const { walletSelectionKeyboard, mainMenuButton } = require('../../keyboards/main');
+const { templateUseKeyboard, templateCounterpartyMethodKeyboard } = require('../../keyboards/templates');
+const { walletSelectionKeyboard, mainMenuButton, inviteDealCreatedKeyboard } = require('../../keyboards/main');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
+const { Markup } = require('telegraf');
 
 // Lazy require to avoid circular dependency
 let _showTemplatesList = null;
@@ -32,7 +33,7 @@ function getFinalizeDealCreation() {
 }
 
 /**
- * Start using template
+ * Start using template - show counterparty method selection
  */
 async function startUseTemplate(ctx) {
   await ctx.answerCbQuery();
@@ -64,11 +65,12 @@ async function startUseTemplate(ctx) {
     return;
   }
 
-  // Initialize use session
+  // Initialize use session with method selection step
   await setTemplateSession(telegramId, {
     action: 'use_template',
     templateId: template._id.toString(),
-    step: 'counterparty',
+    templateName: template.name,
+    step: 'method_selection',
     data: {
       creatorRole: template.creatorRole,
       productName: template.productName,
@@ -80,7 +82,6 @@ async function startUseTemplate(ctx) {
     }
   });
 
-  const counterpartyLabel = template.creatorRole === 'buyer' ? 'продавца' : 'покупателя';
   const roleIcon = template.creatorRole === 'buyer' ? '💵' : '🛠';
 
   const text = `🚀 *Быстрая сделка по шаблону*
@@ -90,10 +91,88 @@ ${roleIcon} Вы: ${template.creatorRole === 'buyer' ? 'Покупатель' : 
 📦 ${template.productName}
 💰 ${template.amount} ${template.asset}
 
+*Как найти контрагента?*`;
+
+  const keyboard = templateCounterpartyMethodKeyboard(templateId);
+  await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+}
+
+/**
+ * Handle counterparty method selection (username or invite)
+ */
+async function handleTemplateMethodSelection(ctx) {
+  await ctx.answerCbQuery();
+  const telegramId = ctx.from.id;
+
+  const parts = ctx.callbackQuery.data.split(':');
+  const method = parts[1];
+  const templateId = parts[2];
+
+  const session = await getTemplateSession(telegramId);
+  if (!session || session.action !== 'use_template') {
+    return;
+  }
+
+  // Clear previous method data when switching
+  delete session.data.counterpartyUsername;
+  delete session.data.counterpartyId;
+  delete session.data.isInviteLink;
+  delete session.data.buyerId;
+  delete session.data.sellerId;
+
+  session.data.counterpartyMethod = method;
+
+  if (method === 'username') {
+    // Standard flow - ask for username
+    session.step = 'counterparty';
+    await setTemplateSession(telegramId, session);
+
+    const counterpartyLabel = session.data.creatorRole === 'buyer' ? 'продавца' : 'покупателя';
+
+    const text = `🚀 *Быстрая сделка по шаблону*
+
+📑 ${session.templateName}
+
 Введите @username ${counterpartyLabel}:`;
 
-  const keyboard = templateUseKeyboard(templateId);
-  await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+    const keyboard = templateUseKeyboard(templateId);
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+  } else {
+    // Invite link flow - go to wallet
+    session.step = 'wallet';
+    session.data.isInviteLink = true;
+    await setTemplateSession(telegramId, session);
+
+    // Check if user has saved wallets
+    const creator = await User.findOne({ telegramId }).select('wallets');
+    const savedWallets = creator?.wallets || [];
+
+    const walletPurpose = session.data.creatorRole === 'buyer'
+      ? 'для возврата средств'
+      : 'для получения оплаты';
+
+    if (savedWallets.length > 0) {
+      const walletText = `🚀 *Быстрая сделка по шаблону*
+
+📑 ${session.templateName}
+
+💳 *Выберите кошелёк ${walletPurpose}:*
+
+Или введите новый адрес TRON-кошелька.`;
+
+      await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true));
+    } else {
+      const walletText = `🚀 *Быстрая сделка по шаблону*
+
+📑 ${session.templateName}
+
+💳 *Введите адрес TRON-кошелька ${walletPurpose}:*
+
+_(адрес начинается с T, 34 символа)_`;
+
+      await messageManager.sendNewMessage(ctx, telegramId, walletText, templateUseKeyboard(templateId));
+    }
+  }
 }
 
 /**
@@ -302,14 +381,22 @@ async function handleWalletInput(ctx) {
 
 /**
  * Create deal from template - uses shared finalizeDealCreation from createDeal.js
+ * Supports both username and invite link flows
  */
 async function createDealFromTemplate(ctx, session) {
   const telegramId = ctx.from.id;
 
   try {
     // Show loading
-    await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ *Создаём сделку и multisig-кошелёк...*', {});
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ *Создаём сделку...*', {});
 
+    // Check if this is invite link flow
+    if (session.data.isInviteLink) {
+      // Create invite deal (no counterparty yet)
+      return await createInviteDealFromTemplate(ctx, session);
+    }
+
+    // Standard flow with known counterparty
     // Prepare deal data (same format as createDeal.js session.data)
     const dealData = {
       creatorId: telegramId,
@@ -355,8 +442,136 @@ ${error.message || 'Попробуйте позже.'}`;
   }
 }
 
+/**
+ * Create invite deal from template (no counterparty - generates invite link)
+ */
+async function createInviteDealFromTemplate(ctx, session) {
+  const telegramId = ctx.from.id;
+  const creatorUsername = ctx.from.username;
+
+  try {
+    // Prepare deal data for invite
+    const dealData = {
+      creatorId: telegramId,
+      creatorRole: session.data.creatorRole,
+      productName: session.data.productName,
+      description: session.data.description,
+      asset: session.data.asset,
+      amount: session.data.amount,
+      commissionType: session.data.commissionType,
+      deadlineHours: session.data.deadlineHours,
+      fromTemplate: true
+    };
+
+    // Set wallet based on role
+    if (session.data.creatorRole === 'buyer') {
+      dealData.buyerAddress = session.data.buyerAddress;
+    } else {
+      dealData.sellerAddress = session.data.sellerAddress;
+    }
+
+    // Create invite deal via dealService
+    const { deal, creatorPrivateKey } = await dealService.createInviteDeal(dealData, creatorUsername);
+
+    // Update template usage stats
+    await DealTemplate.incrementUsage(session.templateId);
+
+    // Clear template session
+    await clearTemplateSession(telegramId);
+
+    // Calculate display amounts
+    const commission = deal.commission;
+    let depositAmount = deal.amount;
+    if (deal.commissionType === 'buyer') {
+      depositAmount = deal.amount + commission;
+    } else if (deal.commissionType === 'split') {
+      depositAmount = deal.amount + (commission / 2);
+    }
+
+    // Escape markdown helper
+    const escapeMarkdown = (text) => {
+      if (!text) return '';
+      return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+    };
+
+    // Generate invite link
+    const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
+    const inviteLink = `https://t.me/${botUsername}?start=deal_${deal.inviteToken}`;
+
+    const roleLabel = session.data.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец';
+    const roleIcon = session.data.creatorRole === 'buyer' ? '💵' : '🛠';
+
+    const text = `✅ *Сделка создана!*
+
+🆔 ID: \`${deal.dealId}\`
+${roleIcon} Вы: ${roleLabel}
+📦 ${escapeMarkdown(deal.productName)}
+💰 ${deal.amount} ${deal.asset}
+💸 Комиссия: ${commission} ${deal.asset}
+
+🔗 *Ссылка для контрагента:*
+\`${inviteLink}\`
+
+⏳ Ссылка действительна 24 часа.
+Отправьте её контрагенту для участия в сделке.`;
+
+    const keyboard = inviteDealCreatedKeyboard(deal.dealId, deal.inviteToken);
+    await messageManager.showFinalScreen(ctx, telegramId, 'invite_deal_created', text, keyboard);
+
+    // Send private key message
+    const roleKeyLabel = session.data.creatorRole === 'buyer' ? 'покупателя' : 'продавца';
+    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+
+🆔 Сделка: \`${deal.dealId}\`
+
+Ваш приватный ключ ${roleKeyLabel}:
+\`${creatorPrivateKey}\`
+
+⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+
+• Скопируйте и сохраните в надёжном месте
+• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
+• Без этого ключа вы НЕ сможете получить/вернуть средства!
+
+🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+
+    const keyKeyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    ]);
+
+    const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyKeyboard.reply_markup
+    });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.telegram.deleteMessage(telegramId, keyMsg.message_id);
+      } catch (e) {
+        // Already deleted
+      }
+    }, 60000);
+
+    console.log(`✅ Invite deal ${deal.dealId} created from template by ${telegramId}`);
+
+    return true;
+  } catch (error) {
+    console.error('Error creating invite deal from template:', error);
+    await clearTemplateSession(telegramId);
+
+    const errorText = `❌ *Ошибка при создании сделки*
+
+${error.message || 'Попробуйте позже.'}`;
+
+    await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, mainMenuButton());
+    return false;
+  }
+}
+
 module.exports = {
   startUseTemplate,
+  handleTemplateMethodSelection,
   handleCounterpartyInput,
   handleWalletSelection,
   handleWalletInput,

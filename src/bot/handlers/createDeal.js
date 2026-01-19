@@ -251,6 +251,12 @@ const handleCounterpartyMethod = async (ctx) => {
     }
 
     const method = ctx.callbackQuery.data.split(':')[1];
+
+    // Clear previous method data when switching
+    delete session.data.counterpartyUsername;
+    delete session.data.counterpartyId;
+    delete session.data.isInviteLink;
+
     session.data.counterpartyMethod = method;
 
     if (method === 'username') {

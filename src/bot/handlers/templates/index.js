@@ -36,6 +36,7 @@ const {
 // Use
 const {
   startUseTemplate,
+  handleTemplateMethodSelection,
   handleCounterpartyInput,
   handleWalletSelection,
   handleWalletInput,
@@ -81,6 +82,7 @@ module.exports = {
 
   // Use
   startUseTemplate,
+  handleTemplateMethodSelection,
   handleCounterpartyInput,
   handleWalletSelection,
   handleWalletInput,

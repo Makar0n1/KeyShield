@@ -178,6 +178,7 @@ const {
   handleDeadlineSelection: handleTemplateDeadlineSelection,
   handleCreateBack: handleTemplateCreateBack,
   startUseTemplate,
+  handleTemplateMethodSelection,
   handleCounterpartyInput: handleTemplateCounterpartyInput,
   handleWalletSelection: handleTemplateWalletSelection,
   handleWalletInput: handleTemplateWalletInput,
@@ -549,6 +550,7 @@ bot.action('templates', showTemplatesList);
 bot.action('template:create', startCreateTemplate);
 bot.action(/^template:view:/, (ctx) => showTemplateDetails(ctx));
 bot.action(/^template:use:/, startUseTemplate);
+bot.action(/^template_method:/, handleTemplateMethodSelection);
 bot.action(/^template:edit:/, startTemplateEditField);
 bot.action(/^template:delete:/, showTemplateDeleteConfirmation);
 bot.action(/^template:confirm_delete:/, confirmTemplateDelete);
