@@ -54,6 +54,8 @@ const handleAcceptInvite = async (ctx) => {
     const user = await User.findOne({ telegramId });
     const savedWallets = user?.savedWallets?.filter(w => w.isActive) || [];
 
+    console.log(`📨 Invite accept: user ${telegramId} has ${savedWallets.length} saved wallets`);
+
     // Determine user role
     const userRole = deal.creatorRole === 'buyer' ? 'seller' : 'buyer';
 
@@ -65,6 +67,7 @@ const handleAcceptInvite = async (ctx) => {
     }, 0.5); // 30 minutes TTL
 
     if (savedWallets.length > 0) {
+      console.log(`📨 Showing wallet selection for user ${telegramId}`);
       // Show wallet selection
       const text = `💳 *Выберите кошелёк*
 
