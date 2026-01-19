@@ -311,6 +311,31 @@ bot.action(/^role:/, handleRoleSelection);
 bot.action(/^counterparty_method:/, handleCounterpartyMethod);
 bot.action('invite_key_saved', handleInviteKeySaved);
 bot.action(/^cancel_invite:/, handleCancelInvite);
+bot.action(/^copy_invite:/, async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const inviteToken = ctx.callbackQuery.data.split(':')[1];
+    const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
+    const inviteLink = `https://t.me/${botUsername}?start=deal_${inviteToken}`;
+
+    // Send link as separate message for easy copying
+    const linkMsg = await ctx.reply(
+      `🔗 *Ссылка для контрагента:*\n\n\`${inviteLink}\`\n\n_Нажмите на ссылку, чтобы скопировать_`,
+      { parse_mode: 'Markdown' }
+    );
+
+    // Auto-delete after 30 seconds
+    setTimeout(async () => {
+      try {
+        await ctx.deleteMessage(linkMsg.message_id);
+      } catch (e) {
+        // Already deleted
+      }
+    }, 30000);
+  } catch (error) {
+    console.error('Error copying invite link:', error);
+  }
+});
 bot.action(/^accept_invite:/, handleAcceptInvite);
 bot.action(/^decline_invite:/, handleDeclineInvite);
 bot.action(/^asset:/, handleAssetSelection);

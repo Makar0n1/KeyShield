@@ -124,11 +124,8 @@ const counterpartyMethodKeyboard = () => {
  * Invite deal created keyboard (copy link + details + main menu)
  */
 const inviteDealCreatedKeyboard = (dealId, inviteToken) => {
-  const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
-  const inviteLink = `https://t.me/${botUsername}?start=deal_${inviteToken}`;
-
   return Markup.inlineKeyboard([
-    [Markup.button.url('🔗 Скопировать ссылку', inviteLink)],
+    [Markup.button.callback('📋 Скопировать ссылку', `copy_invite:${inviteToken}`)],
     [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
     [Markup.button.callback('❌ Отменить сделку', `cancel_invite:${dealId}`)],
     [Markup.button.callback('🏠 Главное меню', 'main_menu')]
