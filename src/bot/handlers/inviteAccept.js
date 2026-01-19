@@ -52,7 +52,7 @@ const handleAcceptInvite = async (ctx) => {
 
     // Check user has saved wallets
     const user = await User.findOne({ telegramId });
-    const savedWallets = user?.savedWallets?.filter(w => w.isActive) || [];
+    const savedWallets = user?.wallets || [];
 
     console.log(`📨 Invite accept: user ${telegramId} has ${savedWallets.length} saved wallets`);
 
