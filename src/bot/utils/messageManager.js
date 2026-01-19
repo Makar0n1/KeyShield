@@ -75,15 +75,31 @@ class MessageManager {
     const oldMessageId = user?.mainMessageId;
 
     // 1. Delete old message (silent) - via queue for rate limiting
+    // Note: Telegram limits message deletion to 48 hours in private chats
     if (oldMessageId) {
+      let deleteSucceeded = false;
       try {
         if (this.useQueue) {
           await telegramQueue.deleteMessage(ctx.telegram, userId, oldMessageId);
         } else {
           await ctx.telegram.deleteMessage(userId, oldMessageId);
         }
+        deleteSucceeded = true;
       } catch (e) {
-        // Message already deleted or bot blocked - not critical
+        // Message might be older than 48h (Telegram limit) or already deleted
+        // Try to mark it as obsolete instead
+        if (e.description?.includes("can't be deleted") || e.description?.includes('message to delete not found') === false) {
+          try {
+            const obsoleteText = '⚠️ _Это сообщение устарело. Используйте сообщение ниже._';
+            if (this.useQueue) {
+              await telegramQueue.editMessageText(ctx.telegram, userId, oldMessageId, obsoleteText, { parse_mode: 'Markdown' });
+            } else {
+              await ctx.telegram.editMessageText(userId, oldMessageId, null, obsoleteText, { parse_mode: 'Markdown' });
+            }
+          } catch (editError) {
+            // Can't edit either - just continue
+          }
+        }
       }
     }
 

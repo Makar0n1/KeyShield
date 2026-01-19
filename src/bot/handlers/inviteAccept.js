@@ -106,10 +106,48 @@ const handleDeclineInvite = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
+    const dealId = ctx.callbackQuery.data.split(':')[1];
 
     // Clear any session
     const Session = require('../../models/Session');
     await Session.deleteOne({ uniqueKey: `invite_accept_${telegramId}` });
+
+    // Find the deal to get creator info and cancel it
+    const deal = await Deal.findOne({ dealId, status: 'pending_counterparty' });
+
+    if (deal) {
+      // Cancel the deal
+      deal.status = 'cancelled';
+      deal.inviteToken = null;
+      await deal.save();
+
+      // Get declining user info
+      const decliningUser = await User.findOne({ telegramId });
+      const decliningUsername = decliningUser?.username ? `@${decliningUser.username}` : 'Пользователь';
+
+      // Notify creator
+      const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
+      if (creatorId && creatorId !== 0) {
+        const escapeMarkdown = (text) => {
+          if (!text) return '';
+          return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+        };
+
+        const creatorText = `❌ *Приглашение отклонено*
+
+🆔 Сделка: \`${deal.dealId}\`
+📦 ${escapeMarkdown(deal.productName)}
+
+${decliningUsername} отклонил(а) ваше приглашение в сделку.
+
+Вы можете создать новую сделку в любое время.`;
+
+        const creatorKeyboard = mainMenuButton();
+        await messageManager.showNotification(ctx, creatorId, creatorText, creatorKeyboard);
+      }
+
+      console.log(`❌ Invite ${deal.dealId} declined by ${telegramId}, creator notified`);
+    }
 
     const text = `❌ *Приглашение отклонено*
 

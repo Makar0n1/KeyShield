@@ -394,11 +394,10 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     const creator = await User.findOne({ telegramId: creatorId });
     const creatorUsername = creator?.username ? `@${creator.username}` : 'Неизвестный';
 
-    // Get creator rating
+    // Get creator rating using proper User model fields
     let creatorRatingDisplay = '⭐ Новый пользователь';
-    if (creator?.rating?.count > 0) {
-      const avgRating = (creator.rating.sum / creator.rating.count).toFixed(1);
-      creatorRatingDisplay = `⭐ ${avgRating}/5 (${creator.rating.count} отзывов)`;
+    if (creator?.ratingsCount > 0) {
+      creatorRatingDisplay = `⭐ ${creator.averageRating}/5 (${creator.ratingsCount} отзывов)`;
     }
 
     // Calculate amounts
