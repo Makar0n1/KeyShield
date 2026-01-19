@@ -634,6 +634,23 @@ const walletNameInputDealKeyboard = () => {
 };
 
 /**
+ * Text input with "Keep previous value" button (for deal creation back navigation)
+ * @param {string} field - Field name (product_name, description, amount, counterparty_username, creator_wallet)
+ * @param {string} displayValue - Value to display on button (truncated if needed)
+ */
+const keepPreviousValueKeyboard = (field, displayValue) => {
+  // Truncate display value if too long (max 30 chars for button)
+  const truncated = displayValue.length > 30
+    ? displayValue.substring(0, 27) + '...'
+    : displayValue;
+
+  return Markup.inlineKeyboard([
+    [Markup.button.callback(`✅ Оставить "${truncated}"`, `keep_value:${field}`)],
+    [Markup.button.callback('⬅️ Назад', 'back')]
+  ]);
+};
+
+/**
  * Confirm wallet deletion keyboard
  */
 const confirmDeleteWalletKeyboard = (walletIndex) => {
@@ -726,6 +743,7 @@ module.exports = {
   saveWalletPromptKeyboard,
   walletNameInputKeyboard,
   walletNameInputDealKeyboard,
+  keepPreviousValueKeyboard,
   confirmDeleteWalletKeyboard,
   emailInputKeyboard,
   confirmDeleteEmailKeyboard,

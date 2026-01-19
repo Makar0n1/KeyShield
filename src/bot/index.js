@@ -48,7 +48,9 @@ const {
   handleWalletNameBackDeal,
   // Invite deals
   handleInviteKeySaved,
-  handleCancelInvite
+  handleCancelInvite,
+  // Keep value (for back navigation)
+  handleKeepValue
 } = require('./handlers/createDeal');
 const {
   showMyDeals,
@@ -310,6 +312,7 @@ bot.action('create_deal', startCreateDeal);
 bot.action('username_set', handleUsernameSet);
 bot.action(/^role:/, handleRoleSelection);
 bot.action(/^counterparty_method:/, handleCounterpartyMethod);
+bot.action(/^keep_value:/, handleKeepValue);
 bot.action('invite_key_saved', handleInviteKeySaved);
 bot.action(/^cancel_invite:/, handleCancelInvite);
 bot.action(/^copy_invite:/, async (ctx) => {

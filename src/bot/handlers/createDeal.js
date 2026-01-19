@@ -19,7 +19,8 @@ const {
   usernameRequiredKeyboard,
   walletSelectionKeyboard,
   saveWalletPromptKeyboard,
-  walletNameInputDealKeyboard
+  walletNameInputDealKeyboard,
+  keepPreviousValueKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const { MAIN_MENU_TEXT } = require('./start');
@@ -1413,6 +1414,8 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 
     case 'counterparty_username':
       const counterpartyLabel1 = data.creatorRole === 'buyer' ? 'продавца' : 'покупателя';
+      const savedUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
+
       text = `📝 *Создание сделки*
 
 *Шаг 2 из 9: Укажите ${counterpartyLabel1}*
@@ -1420,19 +1423,31 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 Введите Telegram username в формате @username
 
 ⚠️ Второй участник должен уже запустить бота!`;
-      if (data.sellerUsername || data.buyerUsername) {
-        const savedUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
-        if (savedUsername) {
-          text += `\n\n✏️ _Ранее указано: @${savedUsername}_`;
-        }
+
+      if (savedUsername) {
+        text += `\n\n📝 _Введено ранее: @${savedUsername}_\n\nВведите новый username или нажмите кнопку ниже:`;
+        keyboard = keepPreviousValueKeyboard('counterparty_username', `@${savedUsername}`);
+      } else {
+        keyboard = backButton();
       }
-      keyboard = backButton();
       break;
 
     case 'product_name':
       const counterpartyLabel2 = data.creatorRole === 'buyer' ? 'Продавец' : 'Покупатель';
       const counterpartyUsername = data.creatorRole === 'buyer' ? data.sellerUsername : data.buyerUsername;
-      text = `✅ ${counterpartyLabel2} найден: @${counterpartyUsername}
+
+      // Different header for invite link flow (no counterparty yet)
+      if (data.isInviteLink) {
+        text = `📝 *Создание сделки*
+
+*Шаг 3 из 10: Название*
+
+Введите краткое название товара или услуги.
+(от 5 до 200 символов)
+
+Пример: "Разработка логотипа"`;
+      } else {
+        text = `✅ ${counterpartyLabel2} найден: @${counterpartyUsername}
 
 📝 *Создание сделки*
 
@@ -1442,10 +1457,14 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 (от 5 до 200 символов)
 
 Пример: "Разработка логотипа"`;
-      if (data.productName) {
-        text += `\n\n✏️ _Ранее указано: "${escapeMarkdown(data.productName)}"_`;
       }
-      keyboard = backButton();
+
+      if (data.productName) {
+        text += `\n\n📝 _Введено ранее: "${escapeMarkdown(data.productName)}"_\n\nВведите новое название или нажмите кнопку ниже:`;
+        keyboard = keepPreviousValueKeyboard('product_name', data.productName);
+      } else {
+        keyboard = backButton();
+      }
       break;
 
     case 'description':
@@ -1461,11 +1480,14 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 ⚠️ Это описание будет использовано арбитром при спорах!
 
 (от 20 до 5000 символов)`;
+
       if (data.description) {
         const shortDesc = data.description.substring(0, 100);
-        text += `\n\n✏️ _Ранее указано: "${escapeMarkdown(shortDesc)}${data.description.length > 100 ? '...' : ''}"_`;
+        text += `\n\n📝 _Введено ранее: "${escapeMarkdown(shortDesc)}${data.description.length > 100 ? '...' : ''}"_\n\nВведите новое описание или нажмите кнопку ниже:`;
+        keyboard = keepPreviousValueKeyboard('description', shortDesc + (data.description.length > 100 ? '...' : ''));
+      } else {
+        keyboard = backButton();
       }
-      keyboard = backButton();
       break;
 
     case 'asset':
@@ -1494,10 +1516,13 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 • От ${COMMISSION_TIER_1_MAX} USDT — ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%
 • От ${COMMISSION_TIER_2_MAX} USDT — ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}%
 • От ${COMMISSION_TIER_3_MAX} USDT — ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}%`;
+
       if (data.amount) {
-        text += `\n\n✏️ _Ранее указано: ${data.amount} ${data.asset || 'USDT'}_`;
+        text += `\n\n📝 _Введено ранее: ${data.amount} ${data.asset || 'USDT'}_\n\nВведите новую сумму или нажмите кнопку ниже:`;
+        keyboard = keepPreviousValueKeyboard('amount', `${data.amount} ${data.asset || 'USDT'}`);
+      } else {
+        keyboard = backButton();
       }
-      keyboard = backButton();
       break;
 
     case 'commission':
@@ -1540,6 +1565,8 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
       const walletPurpose = data.creatorRole === 'buyer'
         ? 'для возврата средств при отмене/споре'
         : 'для получения оплаты';
+      const savedWalletAddr = data.creatorRole === 'buyer' ? data.buyerAddress : data.sellerAddress;
+
       text = `📝 *Создание сделки*
 
 *Шаг 9 из 9: Ваш кошелёк*
@@ -1549,11 +1576,14 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
 Формат: начинается с T, 34 символа
 
 Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj`;
-      const savedWallet = data.creatorRole === 'buyer' ? data.buyerAddress : data.sellerAddress;
-      if (savedWallet) {
-        text += `\n\n✏️ _Ранее указано: ${savedWallet}_`;
+
+      if (savedWalletAddr) {
+        const shortWalletDisplay = savedWalletAddr.slice(0, 8) + '...' + savedWalletAddr.slice(-6);
+        text += `\n\n📝 _Введено ранее: \`${savedWalletAddr}\`_\n\nВведите новый адрес или нажмите кнопку ниже:`;
+        keyboard = keepPreviousValueKeyboard('creator_wallet', shortWalletDisplay);
+      } else {
+        keyboard = backButton();
       }
-      keyboard = backButton();
       break;
 
     case 'select_wallet':
@@ -2145,6 +2175,94 @@ ${deal.creatorRole === 'buyer' ? `💸 К оплате: ${depositAmount} ${deal.
 };
 
 /**
+ * Handle "Keep previous value" button - user wants to keep existing data
+ * Advances to the next step with the saved value
+ */
+const handleKeepValue = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const field = ctx.callbackQuery.data.split(':')[1];
+
+    const session = await getCreateDealSession(telegramId);
+    if (!session) {
+      return await startCreateDeal(ctx);
+    }
+
+    const { data } = session;
+
+    // Advance to the next step based on field
+    switch (field) {
+      case 'counterparty_username':
+        // Username already saved, go to product_name
+        session.step = 'product_name';
+        await setCreateDealSession(telegramId, session);
+        await showDealCreationScreen(ctx, telegramId, session, 'product_name');
+        break;
+
+      case 'product_name':
+        // Product name already saved, go to description
+        session.step = 'description';
+        await setCreateDealSession(telegramId, session);
+        await showDealCreationScreen(ctx, telegramId, session, 'description');
+        break;
+
+      case 'description':
+        // Description already saved, go to asset
+        session.step = 'asset';
+        await setCreateDealSession(telegramId, session);
+        await showDealCreationScreen(ctx, telegramId, session, 'asset');
+        break;
+
+      case 'amount':
+        // Amount already saved, go to commission
+        session.step = 'commission';
+        await setCreateDealSession(telegramId, session);
+        await showDealCreationScreen(ctx, telegramId, session, 'commission');
+        break;
+
+      case 'creator_wallet':
+        // Wallet already saved and verified - go to confirmation
+        // Check if we should offer to save the wallet
+        const address = data.creatorRole === 'buyer' ? data.buyerAddress : data.sellerAddress;
+        const user = await User.findOne({ telegramId }).select('wallets');
+        const wallets = user?.wallets || [];
+        const alreadySaved = wallets.some(w => w.address.toLowerCase() === address.toLowerCase());
+
+        if (!alreadySaved && wallets.length < 5 && !data.usedSavedWallet) {
+          // Offer to save the wallet
+          session.step = 'save_wallet_prompt';
+          await setCreateDealSession(telegramId, session);
+
+          const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+
+          const promptText = `✅ *Кошелёк проверен!*
+
+📍 \`${shortAddr}\`
+
+Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
+
+          const promptKeyboard = saveWalletPromptKeyboard();
+          await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', promptText, promptKeyboard);
+        } else {
+          // Proceed to confirmation
+          session.step = 'confirm';
+          await setCreateDealSession(telegramId, session);
+          await showConfirmationScreen(ctx, telegramId, session);
+        }
+        break;
+
+      default:
+        console.log(`Unknown keep_value field: ${field}`);
+        break;
+    }
+  } catch (error) {
+    console.error('Error in handleKeepValue:', error);
+  }
+};
+
+/**
  * Handle cancel invite deal button
  */
 const handleCancelInvite = async (ctx) => {
@@ -2195,6 +2313,8 @@ module.exports = {
   confirmInviteDeal,
   handleInviteKeySaved,
   handleCancelInvite,
+  // Keep value (for back navigation)
+  handleKeepValue,
   // Shared for templates
   finalizeDealCreation
 };
