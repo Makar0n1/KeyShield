@@ -243,7 +243,12 @@ const handleCounterpartyMethod = async (ctx) => {
     const telegramId = ctx.from.id;
     const session = await getCreateDealSession(telegramId);
 
-    if (!session) return;
+    console.log(`🔍 handleCounterpartyMethod: user=${telegramId}, session=${session ? 'exists' : 'null'}`);
+
+    if (!session) {
+      console.log(`⚠️ No create_deal session for user ${telegramId}`);
+      return;
+    }
 
     const method = ctx.callbackQuery.data.split(':')[1];
     session.data.counterpartyMethod = method;
