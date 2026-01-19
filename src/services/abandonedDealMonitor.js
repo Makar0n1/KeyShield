@@ -174,9 +174,10 @@ class AbandonedDealMonitor {
       const telegramId = session.telegramId;
       const data = session.data || {};
       const updatedAt = new Date(session.updatedAt).getTime();
+      const timeSinceUpdate = now - updatedAt;
 
       // Skip if user is in the middle of typing (last update < 30 seconds ago)
-      if (now - updatedAt < 30 * 1000) {
+      if (timeSinceUpdate < 30 * 1000) {
         return null;
       }
 
@@ -189,6 +190,7 @@ class AbandonedDealMonitor {
 
         if (timeSinceReminder >= this.AUTO_RETURN_DELAY) {
           // Auto-return to main menu
+          console.log(`🏠 User ${telegramId} auto-return (reminder was ${Math.round(timeSinceReminder / 1000)}s ago)`);
           await this.autoReturnToMainMenu(telegramId, session);
           return 'auto_returned';
         }
@@ -196,11 +198,11 @@ class AbandonedDealMonitor {
         return null;
       }
 
-      // No reminder sent yet - check if it's time
-      const timeSinceUpdate = now - updatedAt;
-
+      // No reminder sent (or it was cleared after user clicked "Continue")
+      // Check if it's time to show reminder
       if (timeSinceUpdate >= this.REMINDER_DELAY) {
         // Time to send reminder
+        console.log(`⏰ User ${telegramId} inactive for ${Math.round(timeSinceUpdate / 1000)}s, sending reminder (step: ${data.step || 'unknown'})`);
         await this.sendReminder(telegramId, session);
         return 'reminded';
       }

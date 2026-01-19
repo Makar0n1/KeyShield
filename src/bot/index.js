@@ -617,14 +617,18 @@ bot.action('abandoned_continue', async (ctx) => {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
-    // Clear reminderSentAt from session so it doesn't trigger again immediately
+    // Clear reminderSentAt from session so reminder can show again after next inactivity period
     const Session = require('../models/Session');
     const session = await Session.getSession(telegramId, 'create_deal');
 
     if (session) {
-      // Remove reminderSentAt flag
+      // Remove reminderSentAt flag - this allows new reminder after 5 min of inactivity
+      // setSession will also update updatedAt, resetting the inactivity timer
+      const hadReminder = !!session.reminderSentAt;
       delete session.reminderSentAt;
       await Session.setSession(telegramId, 'create_deal', session, 2);
+
+      console.log(`▶️ User ${telegramId} continued deal creation (hadReminder: ${hadReminder}, step: ${session.step || 'unknown'}), timer reset`);
 
       // Go back to the deal creation screen (pop from stack)
       const previousScreen = await messageManager.goBack(ctx, telegramId);
