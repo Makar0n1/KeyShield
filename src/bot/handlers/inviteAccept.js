@@ -400,7 +400,7 @@ const handleInviteSelectWallet = async (ctx) => {
 
     // Get user's saved wallets
     const user = await User.findOne({ telegramId });
-    const savedWallets = user?.savedWallets?.filter(w => w.isActive) || [];
+    const savedWallets = user?.wallets || [];
 
     if (walletIndex >= savedWallets.length) {
       await ctx.answerCbQuery('Кошелёк не найден', { show_alert: true });

@@ -321,13 +321,19 @@ bot.action('confirm:create_deal', confirmCreateDeal);
 bot.action(/^select_wallet:/, async (ctx) => {
   const telegramId = ctx.from.id;
   // Check if user is in deal creation flow
-  if (await hasCreateDealSession(telegramId)) {
+  const hasCreateDeal = await hasCreateDealSession(telegramId);
+  const hasTemplate = await hasTemplateSession(telegramId);
+  const hasInvite = await hasInviteAcceptSession(telegramId);
+
+  console.log(`🔍 select_wallet router: user=${telegramId} createDeal=${hasCreateDeal} template=${hasTemplate} invite=${hasInvite}`);
+
+  if (hasCreateDeal) {
     await handleSelectSavedWallet(ctx);
-  } else if (await hasTemplateSession(telegramId)) {
+  } else if (hasTemplate) {
     // Template use flow
     const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[1]);
     await handleTemplateWalletSelection(ctx, walletIndex);
-  } else if (await hasInviteAcceptSession(telegramId)) {
+  } else if (hasInvite) {
     // Invite acceptance flow
     await handleInviteSelectWallet(ctx);
   } else {
