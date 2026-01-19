@@ -110,6 +110,42 @@ const roleSelectionKeyboard = () => {
 };
 
 /**
+ * Counterparty method selection keyboard (username or invite link)
+ */
+const counterpartyMethodKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('👤 Ввести @username', 'counterparty_method:username')],
+    [Markup.button.callback('🔗 Создать ссылку', 'counterparty_method:invite')],
+    [Markup.button.callback('⬅️ Назад', 'back')]
+  ]);
+};
+
+/**
+ * Invite deal created keyboard (copy link + details + main menu)
+ */
+const inviteDealCreatedKeyboard = (dealId, inviteToken) => {
+  const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
+  const inviteLink = `https://t.me/${botUsername}?start=deal_${inviteToken}`;
+
+  return Markup.inlineKeyboard([
+    [Markup.button.url('🔗 Скопировать ссылку', inviteLink)],
+    [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
+    [Markup.button.callback('❌ Отменить сделку', `cancel_invite:${dealId}`)],
+    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+  ]);
+};
+
+/**
+ * Invite deal accept/decline keyboard
+ */
+const inviteAcceptKeyboard = (dealId) => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('✅ Принять сделку', `accept_invite:${dealId}`)],
+    [Markup.button.callback('❌ Отклонить', `decline_invite:${dealId}`)]
+  ]);
+};
+
+/**
  * Asset selection keyboard
  */
 const assetSelectionKeyboard = () => {
@@ -257,6 +293,13 @@ const myDealsEmptyKeyboard = () => {
 const dealDetailsKeyboard = (dealId, userRole, dealStatus, options = {}) => {
   const { isCreator = false, fromTemplate = false } = options;
   const buttons = [];
+
+  // Pending counterparty (invite link deal) - show cancel button for creator
+  if (dealStatus === 'pending_counterparty') {
+    buttons.push([
+      Markup.button.callback('❌ Отменить сделку', `cancel_invite:${dealId}`)
+    ]);
+  }
 
   // Waiting for wallet - show "Enter Wallet" button
   if (userRole === 'seller' && dealStatus === 'waiting_for_seller_wallet') {
@@ -454,6 +497,7 @@ const disputeOpenedKeyboard = (dealId) => {
 function getStatusIcon(status) {
   const icons = {
     'created': '🆕',
+    'pending_counterparty': '🔗',
     'waiting_for_seller_wallet': '⏳',
     'waiting_for_buyer_wallet': '⏳',
     'waiting_for_deposit': '💳',
@@ -663,6 +707,9 @@ module.exports = {
   // Deal creation
   usernameRequiredKeyboard,
   roleSelectionKeyboard,
+  counterpartyMethodKeyboard,
+  inviteDealCreatedKeyboard,
+  inviteAcceptKeyboard,
   assetSelectionKeyboard,
   commissionTypeKeyboard,
   deadlineKeyboard,

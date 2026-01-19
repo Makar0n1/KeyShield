@@ -9,7 +9,7 @@ const constants = require('../config/constants');
 
 class DealService {
   /**
-   * Check if user has any active deals
+   * Check if user has any active deals (including pending invite links)
    * @param {number} telegramId
    * @returns {Promise<boolean>}
    */
@@ -19,10 +19,40 @@ class DealService {
         { buyerId: telegramId },
         { sellerId: telegramId }
       ],
-      status: { $in: constants.ACTIVE_DEAL_STATUSES }
+      status: { $in: constants.BLOCKING_DEAL_STATUSES }
     }).lean();
 
     return !!activeDeal;
+  }
+
+  /**
+   * Check if user has a pending invite link deal (that they created)
+   * @param {number} telegramId
+   * @returns {Promise<Object|null>} Deal with pending invite or null
+   */
+  async getPendingInviteDeal(telegramId) {
+    const deal = await Deal.findOne({
+      $or: [
+        { buyerId: telegramId },
+        { sellerId: telegramId }
+      ],
+      status: 'pending_counterparty',
+      inviteToken: { $ne: null }
+    }).lean();
+
+    return deal;
+  }
+
+  /**
+   * Find deal by invite token
+   * @param {string} token
+   * @returns {Promise<Object|null>}
+   */
+  async getDealByInviteToken(token) {
+    return await Deal.findOne({
+      inviteToken: token,
+      status: 'pending_counterparty'
+    });
   }
 
   /**
@@ -87,19 +117,19 @@ class DealService {
       // Get both users in single query
       User.find({ telegramId: { $in: [buyerId, sellerId] } }).lean(),
 
-      // Check active deals for both users in single query
+      // Check blocking deals for both users in single query (includes pending_counterparty)
       Deal.findOne({
         $or: [
           { buyerId: { $in: [buyerId, sellerId] } },
           { sellerId: { $in: [buyerId, sellerId] } }
         ],
-        status: { $in: constants.ACTIVE_DEAL_STATUSES }
+        status: { $in: constants.BLOCKING_DEAL_STATUSES }
       }).lean(),
 
       // Check for duplicate deal
       Deal.findOne({
         uniqueKey,
-        status: { $in: constants.ACTIVE_DEAL_STATUSES }
+        status: { $in: constants.BLOCKING_DEAL_STATUSES }
       }).lean()
     ]);
 
@@ -142,6 +172,339 @@ class DealService {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Validate invite deal creation (deal without counterparty)
+   * Only checks creator constraints
+   * @param {number} creatorId
+   * @param {number} amount
+   * @returns {Promise<Object>} - { valid, error }
+   */
+  async validateInviteDealCreation(creatorId, amount) {
+    // Validate amount first (no DB query needed)
+    if (amount < constants.MIN_DEAL_AMOUNT) {
+      return { valid: false, error: `Minimum deal amount is ${constants.MIN_DEAL_AMOUNT} USDT` };
+    }
+
+    // Execute queries in parallel
+    const [creator, activeDeal] = await Promise.all([
+      User.findOne({ telegramId: creatorId }).lean(),
+      Deal.findOne({
+        $or: [
+          { buyerId: creatorId },
+          { sellerId: creatorId }
+        ],
+        status: { $in: constants.BLOCKING_DEAL_STATUSES }
+      }).lean()
+    ]);
+
+    // Validate creator exists
+    if (!creator) {
+      return { valid: false, error: 'User not found' };
+    }
+
+    // Check if creator is blacklisted
+    if (creator.blacklisted) {
+      return { valid: false, error: 'You are blacklisted and cannot create deals' };
+    }
+
+    // Check blocking deals
+    if (activeDeal) {
+      return { valid: false, error: 'You already have an active deal or pending invite. Complete it before creating a new one.' };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Create a deal with invite link (no counterparty yet)
+   * @param {Object} dealData
+   * @returns {Promise<Object>} - Created deal with invite token
+   */
+  async createInviteDeal(dealData) {
+    const {
+      creatorRole,
+      creatorId,
+      productName,
+      description,
+      asset,
+      amount,
+      commissionType,
+      deadlineHours,
+      creatorAddress,
+      creatorPrivateKey: providedPrivateKey, // Pre-generated key from UI flow
+      fromTemplate = false
+    } = dealData;
+
+    // Validate
+    const validation = await this.validateInviteDealCreation(creatorId, amount);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Calculate commission
+    const commission = Deal.calculateCommission(amount);
+
+    // Generate deal ID and invite token
+    const dealId = await Deal.generateDealId();
+    const inviteToken = Deal.generateInviteToken();
+
+    // Calculate invite expiration (24 hours)
+    const inviteExpiresAt = new Date();
+    inviteExpiresAt.setHours(inviteExpiresAt.getHours() + constants.INVITE_LINK_EXPIRY_HOURS);
+
+    // Calculate deadline (will start from when counterparty accepts)
+    // For now, store deadlineHours and calculate actual deadline on accept
+    const deadline = new Date();
+    deadline.setHours(deadline.getHours() + deadlineHours);
+
+    // Generate unique key (use creatorId twice since no counterparty yet)
+    const uniqueKey = Deal.generateUniqueKey(creatorId, 0, description);
+
+    // Use provided private key or generate new one
+    let creatorPrivateKey = providedPrivateKey;
+    if (!creatorPrivateKey) {
+      const creatorKeys = await blockchainService.generateKeyPair();
+      creatorPrivateKey = creatorKeys.privateKey;
+    }
+
+    // Set buyer/seller IDs based on creator role
+    // The missing party will be set to 0 (placeholder) until counterparty accepts
+    const buyerId = creatorRole === 'buyer' ? creatorId : 0;
+    const sellerId = creatorRole === 'seller' ? creatorId : 0;
+
+    // Set addresses
+    const buyerAddress = creatorRole === 'buyer' ? creatorAddress : null;
+    const sellerAddress = creatorRole === 'seller' ? creatorAddress : null;
+
+    // Get platform info from creator
+    const creator = await User.findOne({ telegramId: creatorId });
+    const platformId = creator?.platformId || null;
+    const platformCode = creator?.platformCode || null;
+
+    // Create deal record (without multisig - will be created when counterparty accepts)
+    const deal = new Deal({
+      dealId,
+      creatorRole,
+      buyerId,
+      sellerId,
+      platformId,
+      platformCode,
+      productName,
+      description,
+      asset,
+      amount,
+      commission,
+      commissionType,
+      multisigAddress: null, // Will be set when counterparty accepts
+      status: 'pending_counterparty',
+      deadline,
+      uniqueKey,
+      buyerAddress,
+      sellerAddress,
+      buyerPrivateKey: creatorRole === 'buyer' ? creatorPrivateKey : null,
+      sellerPrivateKey: creatorRole === 'seller' ? creatorPrivateKey : null,
+      inviteToken,
+      inviteExpiresAt,
+      fromTemplate
+    });
+
+    await deal.save();
+
+    // Log creation
+    await AuditLog.logDealCreated(creatorId, deal._id, {
+      dealId: deal.dealId,
+      amount,
+      asset,
+      inviteToken: true // Mark as invite-based deal
+    });
+
+    console.log(`📨 Invite deal ${deal.dealId} created by ${creatorId}, token: ${inviteToken}`);
+
+    return {
+      deal,
+      inviteToken,
+      creatorPrivateKey
+    };
+  }
+
+  /**
+   * Accept invite deal - counterparty joins the deal
+   * @param {string} token - Invite token
+   * @param {number} counterpartyId - Telegram ID of counterparty
+   * @param {string} counterpartyAddress - Wallet address
+   * @returns {Promise<Object>}
+   */
+  async acceptInviteDeal(token, counterpartyId, counterpartyAddress) {
+    const deal = await this.getDealByInviteToken(token);
+
+    if (!deal) {
+      throw new Error('Invite link not found or expired');
+    }
+
+    // Check if invite expired
+    if (deal.inviteExpiresAt < new Date()) {
+      // Mark as cancelled
+      deal.status = 'cancelled';
+      deal.inviteToken = null;
+      await deal.save();
+      throw new Error('Invite link has expired');
+    }
+
+    // Check counterparty is not the creator
+    const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
+    if (counterpartyId === creatorId) {
+      throw new Error('You cannot accept your own deal');
+    }
+
+    // Check counterparty exists and is valid
+    const counterparty = await User.findOne({ telegramId: counterpartyId });
+    if (!counterparty) {
+      throw new Error('User not found');
+    }
+    if (counterparty.blacklisted) {
+      throw new Error('You are blacklisted and cannot participate in deals');
+    }
+
+    // Check counterparty doesn't have blocking deals
+    const hasBlocking = await this.hasActiveDeal(counterpartyId);
+    if (hasBlocking) {
+      throw new Error('You already have an active deal. Complete it first.');
+    }
+
+    // Generate private key for counterparty
+    const counterpartyKeys = await blockchainService.generateKeyPair();
+    const counterpartyPrivateKey = counterpartyKeys.privateKey;
+
+    // Get arbiter key
+    const arbiterPrivateKey = process.env.ARBITER_PRIVATE_KEY;
+
+    // Create multisig wallet now that we have both parties
+    const tempBuyerKeys = await blockchainService.generateKeyPair();
+    const tempSellerKeys = await blockchainService.generateKeyPair();
+
+    const multisigWallet = await blockchainService.createMultisigWallet(
+      tempBuyerKeys.privateKey,
+      tempSellerKeys.privateKey,
+      arbiterPrivateKey
+    );
+
+    // Update deal with counterparty info
+    if (deal.creatorRole === 'buyer') {
+      // Creator is buyer, counterparty is seller
+      deal.sellerId = counterpartyId;
+      deal.sellerAddress = counterpartyAddress;
+      deal.sellerPrivateKey = counterpartyPrivateKey;
+      deal.status = 'waiting_for_deposit';
+    } else {
+      // Creator is seller, counterparty is buyer
+      deal.buyerId = counterpartyId;
+      deal.buyerAddress = counterpartyAddress;
+      deal.buyerPrivateKey = counterpartyPrivateKey;
+      deal.status = 'waiting_for_deposit';
+    }
+
+    // Set multisig info
+    deal.multisigAddress = multisigWallet.address;
+    deal.buyerKey = tempBuyerKeys.privateKey;
+    deal.sellerKey = tempSellerKeys.privateKey;
+    deal.arbiterKey = arbiterPrivateKey;
+
+    // Clear invite token (link is now used)
+    deal.inviteToken = null;
+    deal.inviteExpiresAt = null;
+
+    // Recalculate deadline from now
+    deal.deadline = new Date();
+    const testDeadlineMinutes = parseInt(process.env.TEST_DEADLINE_MINUTES);
+    const deadlineHours = Math.ceil((deal.deadline - deal.createdAt) / (1000 * 60 * 60));
+    if (testDeadlineMinutes > 0) {
+      deal.deadline.setMinutes(deal.deadline.getMinutes() + testDeadlineMinutes);
+    } else {
+      // Use original deadline hours (stored in deal)
+      deal.deadline.setHours(deal.deadline.getHours() + 48); // Default 48h if not stored
+    }
+
+    await deal.save();
+
+    // Create multisig wallet record
+    const wallet = new MultisigWallet({
+      dealId: deal._id,
+      address: multisigWallet.address,
+      privateKey: multisigWallet.privateKey,
+      buyerPublicKey: tempBuyerKeys.address,
+      sellerPublicKey: tempSellerKeys.address,
+      arbiterPublicKey: constants.ARBITER_ADDRESS,
+      threshold: constants.MULTISIG_THRESHOLD,
+      permissionsJson: multisigWallet.permissionsJson
+    });
+
+    await wallet.save();
+
+    // Handle platform chain reaction
+    const creator = await User.findOne({ telegramId: creatorId });
+    if (creator?.platformId && !counterparty.platformId) {
+      counterparty.platformId = creator.platformId;
+      counterparty.platformCode = creator.platformCode;
+      await counterparty.save();
+      await Platform.findByIdAndUpdate(creator.platformId, {
+        $inc: { 'stats.totalUsers': 1 }
+      });
+    }
+
+    // Log acceptance
+    await AuditLog.log(counterpartyId, 'deal_invite_accepted', {
+      dealId: deal.dealId,
+      creatorId
+    }, { dealId: deal._id });
+
+    console.log(`✅ Invite deal ${deal.dealId} accepted by ${counterpartyId}`);
+
+    return {
+      deal,
+      wallet,
+      counterpartyPrivateKey
+    };
+  }
+
+  /**
+   * Cancel pending invite deal (by creator)
+   * @param {string} dealId
+   * @param {number} creatorId
+   * @returns {Promise<boolean>}
+   */
+  async cancelInviteDeal(dealId, creatorId) {
+    const deal = await this.getDealById(dealId);
+
+    if (!deal) {
+      throw new Error('Deal not found');
+    }
+
+    if (deal.status !== 'pending_counterparty') {
+      throw new Error('Can only cancel pending invite deals');
+    }
+
+    // Check creator owns this deal
+    const isCreator = (deal.creatorRole === 'buyer' && deal.buyerId === creatorId) ||
+                      (deal.creatorRole === 'seller' && deal.sellerId === creatorId);
+
+    if (!isCreator) {
+      throw new Error('Only the creator can cancel this deal');
+    }
+
+    deal.status = 'cancelled';
+    deal.inviteToken = null;
+    deal.inviteExpiresAt = null;
+    await deal.save();
+
+    await AuditLog.log(creatorId, 'deal_invite_cancelled', {
+      dealId: deal.dealId
+    }, { dealId: deal._id });
+
+    console.log(`❌ Invite deal ${deal.dealId} cancelled by creator ${creatorId}`);
+
+    return true;
   }
 
   /**

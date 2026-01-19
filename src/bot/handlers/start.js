@@ -1,9 +1,11 @@
 const User = require('../../models/User');
 const Platform = require('../../models/Platform');
-const { mainMenuKeyboard } = require('../keyboards/main');
+const Deal = require('../../models/Deal');
+const { mainMenuKeyboard, inviteAcceptKeyboard, mainMenuButton } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
 const activityLogger = require('../../services/activityLogger');
+const dealService = require('../../services/dealService');
 const {
   COMMISSION_TIER_1_FIXED,
   COMMISSION_TIER_2_RATE,
@@ -93,6 +95,14 @@ const startHandler = async (ctx) => {
     let referredByTelegramId = null; // User referral
 
     const startPayload = ctx.message?.text?.split(' ')[1];
+
+    // Handle deal invite link: /start deal_TOKEN
+    if (startPayload && startPayload.startsWith('deal_')) {
+      const inviteToken = startPayload.replace('deal_', '');
+      await handleDealInvite(ctx, telegramId, username, firstName, inviteToken);
+      return;
+    }
+
     if (startPayload && startPayload.startsWith('ref_')) {
       const refCode = startPayload.replace('ref_', '').toUpperCase();
 
@@ -252,9 +262,222 @@ const backHandler = async (ctx) => {
   }
 };
 
+/**
+ * Handle deal invite link
+ * User clicked t.me/BotName?start=deal_TOKEN
+ */
+const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
+  try {
+    // First, ensure user exists (register if new)
+    let user = await User.findOne({ telegramId });
+    let isNewUser = false;
+
+    if (!user) {
+      isNewUser = true;
+      user = new User({
+        telegramId,
+        username,
+        firstName,
+        source: 'invite_link'
+      });
+      await user.save();
+      console.log(`✅ New user registered via invite link: ${telegramId} (@${username})`);
+      await adminAlertService.alertNewUser(user);
+    } else {
+      user.username = username;
+      user.firstName = firstName;
+      await user.save();
+    }
+
+    // Check if user is banned
+    if (user.blacklisted) {
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, BAN_SCREEN_TEXT, {
+        parse_mode: 'Markdown'
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
+    }
+
+    // Find the deal by invite token
+    const deal = await dealService.getDealByInviteToken(inviteToken);
+
+    if (!deal) {
+      // Invalid or expired link
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      await messageManager.resetNavigation(telegramId);
+
+      const errorText = `❌ *Ссылка недействительна*
+
+Эта ссылка-приглашение не найдена или уже истекла.
+
+Возможные причины:
+• Ссылка была отменена создателем
+• Прошло более 24 часов с момента создания
+• Сделка уже принята другим участником`;
+
+      const keyboard = mainMenuButton();
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
+    }
+
+    // Check if link expired
+    if (deal.inviteExpiresAt < new Date()) {
+      // Mark as cancelled
+      deal.status = 'cancelled';
+      deal.inviteToken = null;
+      await deal.save();
+
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      await messageManager.resetNavigation(telegramId);
+
+      const errorText = `❌ *Ссылка истекла*
+
+Эта ссылка-приглашение действовала 24 часа и уже не активна.
+
+Попросите создателя сделки отправить новую ссылку.`;
+
+      const keyboard = mainMenuButton();
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
+    }
+
+    // Check if user is the creator (can't accept own deal)
+    const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
+    if (telegramId === creatorId) {
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      await messageManager.resetNavigation(telegramId);
+
+      const errorText = `❌ *Это ваша сделка*
+
+Вы не можете принять собственную сделку.
+
+Отправьте эту ссылку контрагенту.`;
+
+      const keyboard = mainMenuButton();
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
+    }
+
+    // Check if user already has active deal
+    const hasActiveDeal = await dealService.hasActiveDeal(telegramId);
+    if (hasActiveDeal) {
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      await messageManager.resetNavigation(telegramId);
+
+      const errorText = `❌ *У вас уже есть активная сделка*
+
+Завершите текущую сделку, прежде чем принимать новую.`;
+
+      const keyboard = mainMenuButton();
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
+    }
+
+    // Get creator info
+    const creator = await User.findOne({ telegramId: creatorId });
+    const creatorUsername = creator?.username ? `@${creator.username}` : 'Неизвестный';
+
+    // Get creator rating
+    let creatorRatingDisplay = '⭐ Новый пользователь';
+    if (creator?.rating?.count > 0) {
+      const avgRating = (creator.rating.sum / creator.rating.count).toFixed(1);
+      creatorRatingDisplay = `⭐ ${avgRating}/5 (${creator.rating.count} отзывов)`;
+    }
+
+    // Calculate amounts
+    const commission = deal.commission;
+    let depositAmount = deal.amount;
+    if (deal.commissionType === 'buyer') {
+      depositAmount = deal.amount + commission;
+    } else if (deal.commissionType === 'split') {
+      depositAmount = deal.amount + (commission / 2);
+    }
+
+    let sellerPayout = deal.amount;
+    if (deal.commissionType === 'seller') {
+      sellerPayout = deal.amount - commission;
+    } else if (deal.commissionType === 'split') {
+      sellerPayout = deal.amount - (commission / 2);
+    }
+
+    // Determine user's role in this deal
+    const userRole = deal.creatorRole === 'buyer' ? 'seller' : 'buyer';
+    const userRoleLabel = userRole === 'buyer' ? '💵 Покупатель' : '🛠 Продавец';
+    const creatorRoleLabel = deal.creatorRole === 'buyer' ? '💵 Покупатель' : '🛠 Продавец';
+
+    // Build invite acceptance screen
+    const inviteText = `📨 *Приглашение в сделку*
+
+🆔 ID: \`${deal.dealId}\`
+
+*Ваша роль:* ${userRoleLabel}
+*Контрагент:* ${creatorUsername} (${creatorRoleLabel})
+*Рейтинг:* ${creatorRatingDisplay}
+
+📦 *Товар/услуга:* ${deal.productName}
+${deal.description ? `📝 *Описание:* ${deal.description}\n` : ''}
+💰 *Сумма:* ${deal.amount} ${deal.asset}
+📊 *Комиссия:* ${commission} ${deal.asset}
+${userRole === 'buyer' ? `💸 *К оплате:* ${depositAmount} ${deal.asset}` : `💸 *Вы получите:* ${sellerPayout} ${deal.asset}`}
+
+⚠️ *Внимание:* Для принятия сделки вам нужно будет указать ваш TRON-кошелёк.
+
+Хотите принять эту сделку?`;
+
+    // Delete old message and show invite
+    await messageManager.deleteMainMessage(ctx, telegramId);
+    await messageManager.resetNavigation(telegramId);
+
+    const keyboard = inviteAcceptKeyboard(deal.dealId);
+    const msg = await ctx.telegram.sendMessage(telegramId, inviteText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard.reply_markup
+    });
+    await messageManager.setMainMessage(telegramId, msg.message_id);
+
+    console.log(`📨 Invite screen shown to ${telegramId} for deal ${deal.dealId}`);
+  } catch (error) {
+    console.error('Error handling deal invite:', error);
+
+    const errorText = `❌ *Произошла ошибка*
+
+Попробуйте ещё раз или обратитесь в поддержку.`;
+
+    const keyboard = mainMenuButton();
+    try {
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+    } catch (e) {
+      console.error('Error showing error screen:', e);
+    }
+  }
+};
+
 module.exports = {
   startHandler,
   mainMenuHandler,
   backHandler,
+  handleDealInvite,
   MAIN_MENU_TEXT
 };

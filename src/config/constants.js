@@ -32,6 +32,20 @@ module.exports = {
     'dispute'
   ],
 
+  // Deal statuses that block new deal creation (includes pending invite links)
+  BLOCKING_DEAL_STATUSES: [
+    'pending_counterparty',
+    'waiting_for_seller_wallet',
+    'waiting_for_buyer_wallet',
+    'waiting_for_deposit',
+    'locked',
+    'in_progress',
+    'dispute'
+  ],
+
+  // Invite link expiration time (in hours)
+  INVITE_LINK_EXPIRY_HOURS: 24,
+
   // Auto-ban settings
   AUTO_BAN_LOSS_STREAK: 3,
 

@@ -74,6 +74,7 @@ const dealSchema = new mongoose.Schema({
     type: String,
     enum: [
       'created',
+      'pending_counterparty', // Waiting for counterparty to accept via invite link
       'waiting_for_seller_wallet', // Waiting for seller to provide wallet (buyer-created deal)
       'waiting_for_buyer_wallet', // Waiting for buyer to provide wallet (seller-created deal)
       'waiting_for_deposit',
@@ -175,6 +176,18 @@ const dealSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Invite link for deals without pre-selected counterparty
+  inviteToken: {
+    type: String,
+    default: null,
+    index: true,
+    sparse: true // Allow null values, index non-null only
+  },
+  // Expiration time for invite link (24 hours from creation)
+  inviteExpiresAt: {
+    type: Date,
+    default: null
+  },
   // Operational costs tracking
   operationalCosts: {
     // Activation costs (5 TRX sent, minus what was returned)
@@ -251,6 +264,12 @@ dealSchema.statics.generateUniqueKey = function(buyerId, sellerId, description) 
   const timestamp = Date.now();
   const data = `${buyerId}${sellerId}${description}${timestamp}`;
   return crypto.createHash('sha256').update(data).digest('hex');
+};
+
+// Static method to generate invite token for deal links
+dealSchema.statics.generateInviteToken = function() {
+  // Generate 12-character alphanumeric token (URL-safe)
+  return crypto.randomBytes(9).toString('base64url').slice(0, 12);
 };
 
 // Static method to calculate commission

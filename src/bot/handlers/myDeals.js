@@ -22,6 +22,7 @@ const Deal = require('../../models/Deal');
 function getStatusText(status) {
   const statusMap = {
     'created': 'Создана',
+    'pending_counterparty': '🔗 Ожидание контрагента',
     'waiting_for_seller_wallet': '⏳ Ожидание кошелька продавца',
     'waiting_for_buyer_wallet': '⏳ Ожидание кошелька покупателя',
     'waiting_for_deposit': '💳 Ожидание депозита',
@@ -263,13 +264,18 @@ const showDealDetails = async (ctx, dealId) => {
 
     text += `👤 *Ваша роль:* ${role === 'buyer' ? 'Покупатель' : 'Продавец'}\n`;
 
-    // Get counterparty username
+    // Get counterparty username (or show invite link status)
     const User = require('../../models/User');
     const counterpartyId = role === 'buyer' ? deal.sellerId : deal.buyerId;
-    const counterparty = await User.findOne({ telegramId: counterpartyId });
-    const counterpartyUsername = counterparty?.username || `ID: ${counterpartyId}`;
 
-    text += `🤝 *${role === 'buyer' ? 'Продавец' : 'Покупатель'}:* @${counterpartyUsername}\n\n`;
+    if (deal.status === 'pending_counterparty' || counterpartyId === 0) {
+      // No counterparty yet - show invite link info
+      text += `🤝 *${role === 'buyer' ? 'Продавец' : 'Покупатель'}:* 🔗 _Ожидание по ссылке_\n\n`;
+    } else {
+      const counterparty = await User.findOne({ telegramId: counterpartyId });
+      const counterpartyUsername = counterparty?.username || `ID: ${counterpartyId}`;
+      text += `🤝 *${role === 'buyer' ? 'Продавец' : 'Покупатель'}:* @${counterpartyUsername}\n\n`;
+    }
 
     text += `💰 *Сумма:* ${deal.amount} ${deal.asset}\n`;
     text += `💸 *Комиссия:* ${deal.commission} ${deal.asset}\n`;
@@ -297,6 +303,18 @@ const showDealDetails = async (ctx, dealId) => {
       text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
       text += `⚠️ *Требуется ваш кошелёк!*\n`;
       text += `Нажмите кнопку ниже, чтобы указать адрес TRON-кошелька для возврата средств.`;
+    }
+
+    // Show invite link for pending_counterparty deals
+    if (deal.status === 'pending_counterparty' && deal.inviteToken) {
+      const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
+      const inviteLink = `https://t.me/${botUsername}?start=deal_${deal.inviteToken}`;
+      const expiresAt = deal.inviteExpiresAt ? deal.inviteExpiresAt.toLocaleString('ru-RU') : 'неизвестно';
+
+      text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `🔗 *Ссылка-приглашение:*\n\`${inviteLink}\`\n\n`;
+      text += `⏰ Действует до: ${expiresAt}\n`;
+      text += `\nОтправьте эту ссылку контрагенту.`;
     }
 
     // Show multisig address for waiting_for_deposit

@@ -5,6 +5,7 @@ const connectDB = require('../config/database');
 const depositMonitor = require('../services/depositMonitor');
 const deadlineMonitor = require('../services/deadlineMonitor');
 const abandonedDealMonitor = require('../services/abandonedDealMonitor');
+const inviteExpiryMonitor = require('../services/inviteExpiryMonitor');
 const sessionTimeoutMonitor = require('../services/sessionTimeoutMonitor');
 const disputeService = require('../services/disputeService');
 const notificationService = require('../services/notificationService');
@@ -30,6 +31,7 @@ const {
   handleDeadlineSelection,
   handleCommissionSelection,
   handleRoleSelection,
+  handleCounterpartyMethod,
   confirmCreateDeal,
   cancelCreateDeal,
   handleCreateDealBack,
@@ -43,7 +45,10 @@ const {
   handleEnterNewWallet,
   handleSaveWalletPrompt,
   handleWalletNameSkipDeal,
-  handleWalletNameBackDeal
+  handleWalletNameBackDeal,
+  // Invite deals
+  handleInviteKeySaved,
+  handleCancelInvite
 } = require('./handlers/createDeal');
 const {
   showMyDeals,
@@ -85,6 +90,14 @@ const {
   hasProvideWalletSession,
   deleteProvideWalletSession
 } = require('./handlers/provideWallet');
+const {
+  handleAcceptInvite,
+  handleDeclineInvite,
+  hasInviteAcceptSession,
+  clearInviteAcceptSession,
+  handleInviteWalletInput,
+  handleInviteSelectWallet
+} = require('./handlers/inviteAccept');
 const {
   hasKeyValidationSession,
   handleKeyValidationInput,
@@ -295,6 +308,11 @@ bot.action('back', async (ctx) => {
 bot.action('create_deal', startCreateDeal);
 bot.action('username_set', handleUsernameSet);
 bot.action(/^role:/, handleRoleSelection);
+bot.action(/^counterparty_method:/, handleCounterpartyMethod);
+bot.action('invite_key_saved', handleInviteKeySaved);
+bot.action(/^cancel_invite:/, handleCancelInvite);
+bot.action(/^accept_invite:/, handleAcceptInvite);
+bot.action(/^decline_invite:/, handleDeclineInvite);
 bot.action(/^asset:/, handleAssetSelection);
 bot.action(/^deadline:/, handleDeadlineSelection);
 bot.action(/^commission:/, handleCommissionSelection);
@@ -309,6 +327,9 @@ bot.action(/^select_wallet:/, async (ctx) => {
     // Template use flow
     const walletIndex = parseInt(ctx.callbackQuery.data.split(':')[1]);
     await handleTemplateWalletSelection(ctx, walletIndex);
+  } else if (await hasInviteAcceptSession(telegramId)) {
+    // Invite acceptance flow
+    await handleInviteSelectWallet(ctx);
   } else {
     // Otherwise, it's deal acceptance flow
     await handleSelectSavedWalletDeal(ctx);
@@ -671,6 +692,12 @@ bot.on('text', async (ctx) => {
     if (handled) return;
   }
 
+  // Handle invite accept wallet input
+  if (await hasInviteAcceptSession(telegramId)) {
+    const handled = await handleInviteWalletInput(ctx, text);
+    if (handled) return;
+  }
+
   // Handle wallet input (both seller and buyer)
   // These return true if they handled the message
   if (await handleSellerWalletInput(ctx)) return;
@@ -738,6 +765,9 @@ const startBot = async () => {
     sessionTimeoutMonitor.setBotInstance(bot);
     sessionTimeoutMonitor.start();
 
+    inviteExpiryMonitor.setBotInstance(bot);
+    inviteExpiryMonitor.start();
+
     disputeService.setBotInstance(bot);
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
@@ -761,6 +791,7 @@ const startBot = async () => {
       deadlineMonitor.stop();
       abandonedDealMonitor.stop();
       sessionTimeoutMonitor.stop();
+      inviteExpiryMonitor.stop();
       bot.stop('SIGINT');
       process.exit(0);
     });
@@ -771,6 +802,7 @@ const startBot = async () => {
       deadlineMonitor.stop();
       abandonedDealMonitor.stop();
       sessionTimeoutMonitor.stop();
+      inviteExpiryMonitor.stop();
       bot.stop('SIGTERM');
       process.exit(0);
     });
