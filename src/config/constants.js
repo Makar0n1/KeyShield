@@ -3,6 +3,7 @@ require('dotenv').config();
 module.exports = {
   // Deal constraints
   MIN_DEAL_AMOUNT: 50, // Minimum deal amount is 50 USDT
+  MAX_ACTIVE_DEALS_PER_USER: 3, // Maximum concurrent deals per user
 
   // Commission settings - NEW PRICING MODEL (effective 27.12.2025)
   // Tier 1: 0-150 USDT = 6 USDT fixed

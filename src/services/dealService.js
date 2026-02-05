@@ -9,20 +9,39 @@ const constants = require('../config/constants');
 
 class DealService {
   /**
-   * Check if user has any active deals (including pending invite links)
+   * Count user's active deals (including pending invite links)
    * @param {number} telegramId
-   * @returns {Promise<boolean>}
+   * @returns {Promise<number>}
    */
-  async hasActiveDeal(telegramId) {
-    const activeDeal = await Deal.findOne({
+  async countActiveDeals(telegramId) {
+    return await Deal.countDocuments({
       $or: [
         { buyerId: telegramId },
         { sellerId: telegramId }
       ],
       status: { $in: constants.BLOCKING_DEAL_STATUSES }
-    }).lean();
+    });
+  }
 
-    return !!activeDeal;
+  /**
+   * Check if user can create a new deal (hasn't reached the limit)
+   * @param {number} telegramId
+   * @returns {Promise<boolean>}
+   */
+  async canCreateNewDeal(telegramId) {
+    const count = await this.countActiveDeals(telegramId);
+    return count < constants.MAX_ACTIVE_DEALS_PER_USER;
+  }
+
+  /**
+   * Check if user has any active deals (including pending invite links)
+   * @param {number} telegramId
+   * @returns {Promise<boolean>}
+   * @deprecated Use countActiveDeals or canCreateNewDeal instead
+   */
+  async hasActiveDeal(telegramId) {
+    const count = await this.countActiveDeals(telegramId);
+    return count > 0;
   }
 
   /**
@@ -111,20 +130,30 @@ class DealService {
     }
 
     const uniqueKey = Deal.generateUniqueKey(buyerId, sellerId, description);
+    const maxDeals = constants.MAX_ACTIVE_DEALS_PER_USER;
 
-    // Execute all queries in parallel (batch optimization: 5 queries -> 1 batch)
-    const [users, activeDeal, existingDeal] = await Promise.all([
+    // Execute all queries in parallel (batch optimization)
+    const [users, buyerDealsCount, sellerDealsCount, existingDeal] = await Promise.all([
       // Get both users in single query
       User.find({ telegramId: { $in: [buyerId, sellerId] } }).lean(),
 
-      // Check blocking deals for both users in single query (includes pending_counterparty)
-      Deal.findOne({
+      // Count buyer's active deals
+      Deal.countDocuments({
         $or: [
-          { buyerId: { $in: [buyerId, sellerId] } },
-          { sellerId: { $in: [buyerId, sellerId] } }
+          { buyerId: buyerId },
+          { sellerId: buyerId }
         ],
         status: { $in: constants.BLOCKING_DEAL_STATUSES }
-      }).lean(),
+      }),
+
+      // Count seller's active deals
+      Deal.countDocuments({
+        $or: [
+          { buyerId: sellerId },
+          { sellerId: sellerId }
+        ],
+        status: { $in: constants.BLOCKING_DEAL_STATUSES }
+      }),
 
       // Check for duplicate deal
       Deal.findOne({
@@ -155,15 +184,13 @@ class DealService {
       return { valid: false, error: 'Seller is blacklisted and cannot participate in deals' };
     }
 
-    // Check active deals
-    if (activeDeal) {
-      // Determine who has the active deal
-      if (activeDeal.buyerId === buyerId || activeDeal.sellerId === buyerId) {
-        return { valid: false, error: 'You already have an active deal. Complete it before creating a new one.' };
-      }
-      if (activeDeal.buyerId === sellerId || activeDeal.sellerId === sellerId) {
-        return { valid: false, error: 'The seller already has an active deal. They must complete it first.' };
-      }
+    // Check active deals limit
+    if (buyerDealsCount >= maxDeals) {
+      return { valid: false, error: `У вас уже ${buyerDealsCount} активных сделок (максимум ${maxDeals}). Завершите одну из них перед созданием новой.` };
+    }
+
+    if (sellerDealsCount >= maxDeals) {
+      return { valid: false, error: `У контрагента уже ${sellerDealsCount} активных сделок (максимум ${maxDeals}). Он должен завершить одну из них.` };
     }
 
     // Check for duplicate deal
@@ -187,16 +214,18 @@ class DealService {
       return { valid: false, error: `Minimum deal amount is ${constants.MIN_DEAL_AMOUNT} USDT` };
     }
 
+    const maxDeals = constants.MAX_ACTIVE_DEALS_PER_USER;
+
     // Execute queries in parallel
-    const [creator, activeDeal] = await Promise.all([
+    const [creator, activeDealsCount] = await Promise.all([
       User.findOne({ telegramId: creatorId }).lean(),
-      Deal.findOne({
+      Deal.countDocuments({
         $or: [
           { buyerId: creatorId },
           { sellerId: creatorId }
         ],
         status: { $in: constants.BLOCKING_DEAL_STATUSES }
-      }).lean()
+      })
     ]);
 
     // Validate creator exists
@@ -209,9 +238,9 @@ class DealService {
       return { valid: false, error: 'You are blacklisted and cannot create deals' };
     }
 
-    // Check blocking deals
-    if (activeDeal) {
-      return { valid: false, error: 'You already have an active deal or pending invite. Complete it before creating a new one.' };
+    // Check active deals limit
+    if (activeDealsCount >= maxDeals) {
+      return { valid: false, error: `У вас уже ${activeDealsCount} активных сделок (максимум ${maxDeals}). Завершите одну из них перед созданием новой.` };
     }
 
     return { valid: true };
@@ -367,10 +396,11 @@ class DealService {
       throw new Error('You are blacklisted and cannot participate in deals');
     }
 
-    // Check counterparty doesn't have blocking deals
-    const hasBlocking = await this.hasActiveDeal(counterpartyId);
-    if (hasBlocking) {
-      throw new Error('You already have an active deal. Complete it first.');
+    // Check counterparty hasn't reached the deals limit
+    const canCreate = await this.canCreateNewDeal(counterpartyId);
+    if (!canCreate) {
+      const count = await this.countActiveDeals(counterpartyId);
+      throw new Error(`У вас уже ${count} активных сделок (максимум ${constants.MAX_ACTIVE_DEALS_PER_USER}). Завершите одну из них.`);
     }
 
     // Generate private key for counterparty

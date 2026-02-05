@@ -371,15 +371,19 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       return;
     }
 
-    // Check if user already has active deal
-    const hasActiveDeal = await dealService.hasActiveDeal(telegramId);
-    if (hasActiveDeal) {
+    // Check if user hasn't reached the deals limit
+    const canCreate = await dealService.canCreateNewDeal(telegramId);
+    if (!canCreate) {
+      const count = await dealService.countActiveDeals(telegramId);
+      const { MAX_ACTIVE_DEALS_PER_USER } = require('../../config/constants');
       await messageManager.deleteMainMessage(ctx, telegramId);
       await messageManager.resetNavigation(telegramId);
 
-      const errorText = `❌ *У вас уже есть активная сделка*
+      const errorText = `❌ *Достигнут лимит сделок*
 
-Завершите текущую сделку, прежде чем принимать новую.`;
+У вас уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
+
+Завершите одну из текущих сделок, прежде чем принимать новую.`;
 
       const keyboard = mainMenuButton();
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {

@@ -166,10 +166,13 @@ const startCreateDeal = async (ctx) => {
       return;
     }
 
-    // Check if user already has an active deal
-    if (await dealService.hasActiveDeal(telegramId)) {
-      const text = '⚠️ *У вас уже есть активная сделка*\n\n' +
-        'Завершите или отмените текущую сделку перед созданием новой.';
+    // Check if user hasn't reached the deals limit
+    if (!(await dealService.canCreateNewDeal(telegramId))) {
+      const count = await dealService.countActiveDeals(telegramId);
+      const { MAX_ACTIVE_DEALS_PER_USER } = require('../../config/constants');
+      const text = `⚠️ *Достигнут лимит сделок*\n\n` +
+        `У вас уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).\n\n` +
+        `Завершите одну из текущих сделок перед созданием новой.`;
       const keyboard = mainMenuButton();
       await messageManager.navigateToScreen(ctx, telegramId, 'has_active_deal', text, keyboard);
       return;
@@ -409,10 +412,12 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
     return;
   }
 
-  if (await dealService.hasActiveDeal(counterparty.telegramId)) {
-    const errorText = `⚠️ *У пользователя есть активная сделка*
+  if (!(await dealService.canCreateNewDeal(counterparty.telegramId))) {
+    const count = await dealService.countActiveDeals(counterparty.telegramId);
+    const { MAX_ACTIVE_DEALS_PER_USER } = require('../../config/constants');
+    const errorText = `⚠️ *У пользователя достигнут лимит сделок*
 
-@${username} должен завершить текущую сделку.
+У @${username} уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
 
 Введите другой @username:`;
     const keyboard = backButton();

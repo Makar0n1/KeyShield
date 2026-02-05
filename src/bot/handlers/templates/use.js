@@ -47,11 +47,15 @@ async function startUseTemplate(ctx) {
     return getShowTemplatesList()(ctx);
   }
 
-  // Check if user has active deal
-  if (await dealService.hasActiveDeal(telegramId)) {
-    const text = `⚠️ *У вас уже есть активная сделка*
+  // Check if user hasn't reached the deals limit
+  if (!(await dealService.canCreateNewDeal(telegramId))) {
+    const count = await dealService.countActiveDeals(telegramId);
+    const { MAX_ACTIVE_DEALS_PER_USER } = require('../../../config/constants');
+    const text = `⚠️ *Достигнут лимит сделок*
 
-Завершите текущую сделку перед созданием новой.`;
+У вас уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
+
+Завершите одну из текущих сделок перед созданием новой.`;
     await messageManager.sendNewMessage(ctx, telegramId, text, templateUseKeyboard(templateId));
     return;
   }
@@ -222,10 +226,14 @@ async function handleCounterpartyInput(ctx) {
     return true;
   }
 
-  if (await dealService.hasActiveDeal(counterparty.telegramId)) {
-    const errorText = `⚠️ *У @${username} есть активная сделка*
+  if (!(await dealService.canCreateNewDeal(counterparty.telegramId))) {
+    const count = await dealService.countActiveDeals(counterparty.telegramId);
+    const { MAX_ACTIVE_DEALS_PER_USER } = require('../../../config/constants');
+    const errorText = `⚠️ *У @${username} достигнут лимит сделок*
 
-Он должен завершить её. Введите другой @username:`;
+У него уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
+
+Введите другой @username:`;
     await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId));
     return true;
   }
