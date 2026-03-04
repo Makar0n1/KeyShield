@@ -11,6 +11,7 @@ export interface BlogPost {
   coverImageAlt?: string
   category?: BlogCategory
   tags?: BlogTag[]
+  language?: 'ru' | 'en' | 'uk'
   status: 'draft' | 'published'
   publishedAt?: string
   views: number

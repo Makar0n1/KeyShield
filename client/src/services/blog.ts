@@ -1,4 +1,5 @@
 import api from './api'
+import i18n from '@/locales/i18n'
 import type {
   BlogPost,
   BlogCategory,
@@ -19,6 +20,7 @@ interface BlogPostInput {
   coverImageAlt?: string
   category?: string
   tags?: string[]
+  language?: 'ru' | 'en' | 'uk'
   status?: 'draft' | 'published'
   seoTitle?: string
   seoDescription?: string
@@ -37,8 +39,11 @@ export const blogService = {
     category?: string
     tag?: string
     q?: string
-  }): Promise<BlogPostsResponse> => {
-    const { data } = await api.get('/blog/posts', { params })
+    lang?: string
+  } = {}): Promise<BlogPostsResponse> => {
+    const { data } = await api.get('/blog/posts', {
+      params: { lang: i18n.language, ...params }
+    })
     return data
   },
 
@@ -58,7 +63,7 @@ export const blogService = {
   },
 
   getSidebar: async (): Promise<BlogSidebarData> => {
-    const { data } = await api.get('/blog/sidebar')
+    const { data } = await api.get('/blog/sidebar', { params: { lang: i18n.language } })
     return data
   },
 

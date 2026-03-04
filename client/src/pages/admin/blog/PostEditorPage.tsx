@@ -24,6 +24,7 @@ interface PostFormData {
   coverImageAlt: string
   categoryId: string
   tagIds: string[]
+  language: 'ru' | 'en' | 'uk'
   status: 'draft' | 'published'
   seoTitle: string
   seoDescription: string
@@ -43,6 +44,7 @@ const initialFormData: PostFormData = {
   coverImageAlt: '',
   categoryId: '',
   tagIds: [],
+  language: 'ru',
   status: 'draft',
   seoTitle: '',
   seoDescription: '',
@@ -89,6 +91,7 @@ export function BlogPostEditorPage() {
             coverImageAlt: post.coverImageAlt || '',
             categoryId: post.category?._id || '',
             tagIds: post.tags?.map((t) => t._id) || [],
+            language: (post.language as 'ru' | 'en' | 'uk') || 'ru',
             status: post.status,
             seoTitle: post.seoTitle || '',
             seoDescription: post.seoDescription || '',
@@ -186,6 +189,7 @@ export function BlogPostEditorPage() {
         coverImageAlt: formData.coverImageAlt,
         category: formData.categoryId || undefined,
         tags: formData.tagIds,
+        language: formData.language,
         status: publish ? 'published' : formData.status,
         seoTitle: formData.seoTitle,
         seoDescription: formData.seoDescription,
@@ -521,6 +525,21 @@ export function BlogPostEditorPage() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Публикация</h3>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Язык статьи
+                </label>
+                <select
+                  value={formData.language}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value as 'ru' | 'en' | 'uk' })}
+                  className="w-full h-10 bg-dark border border-border rounded-lg px-3 text-white focus:outline-none focus:border-primary"
+                >
+                  <option value="ru">🇷🇺 Русский</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="uk">🇺🇦 Українська</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Статус

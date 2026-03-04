@@ -55,7 +55,8 @@ setInterval(() => {
 // GET /api/blog/posts - list published posts with pagination
 router.get('/posts', async (req, res) => {
   try {
-    const { page = 1, limit = 6, sort = 'newest', category, tag, q } = req.query;
+    const { page = 1, limit = 6, sort = 'newest', category, tag, q, lang } = req.query;
+    const language = ['ru', 'en', 'uk'].includes(lang) ? lang : null;
 
     // If search query provided, use search method with prioritization
     if (q && q.length >= 3) {
@@ -87,7 +88,8 @@ router.get('/posts', async (req, res) => {
       limit: parseInt(limit),
       sort,
       category: category || null,
-      tag: tag || null
+      tag: tag || null,
+      language
     });
 
     res.json({ success: true, ...result });
@@ -454,10 +456,13 @@ router.get('/search', async (req, res) => {
 // GET /api/blog/sidebar - get all sidebar data in one request
 router.get('/sidebar', async (req, res) => {
   try {
+    const { lang } = req.query;
+    const language = ['ru', 'en', 'uk'].includes(lang) ? lang : null;
+
     const [categories, tags, recentPosts] = await Promise.all([
       BlogCategory.getWithPostsCount(),
       BlogTag.getPopular(15),
-      BlogPost.getRecent(5)
+      BlogPost.getRecent(5, language)
     ]);
 
     res.json({

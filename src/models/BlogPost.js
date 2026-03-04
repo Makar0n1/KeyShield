@@ -81,6 +81,14 @@ const blogPostSchema = new mongoose.Schema({
     default: true
   },
 
+  // Язык статьи
+  language: {
+    type: String,
+    enum: ['ru', 'en', 'uk'],
+    default: 'ru',
+    index: true
+  },
+
   // Статус публикации
   status: {
     type: String,
@@ -236,10 +244,20 @@ blogPostSchema.statics.getPublished = async function(options = {}) {
     limit = 6,
     sort = 'newest', // newest, popular, oldest
     category = null,
-    tag = null
+    tag = null,
+    language = null
   } = options;
 
   const query = { status: 'published' };
+
+  if (language) {
+    if (language === 'ru') {
+      // Include legacy posts without language field (all existing posts are Russian)
+      query.$or = [{ language: 'ru' }, { language: { $exists: false } }, { language: null }];
+    } else {
+      query.language = language;
+    }
+  }
 
   // Category can be ObjectId or slug string
   if (category) {
@@ -360,8 +378,16 @@ blogPostSchema.statics.search = async function(query, limit = 10) {
 };
 
 // Статический метод: получить последние посты
-blogPostSchema.statics.getRecent = async function(limit = 5) {
-  return this.find({ status: 'published' })
+blogPostSchema.statics.getRecent = async function(limit = 5, language = null) {
+  const query = { status: 'published' };
+  if (language) {
+    if (language === 'ru') {
+      query.$or = [{ language: 'ru' }, { language: { $exists: false } }, { language: null }];
+    } else {
+      query.language = language;
+    }
+  }
+  return this.find(query)
     .select('_id title slug publishedAt coverImage')
     .sort({ publishedAt: -1 })
     .limit(limit)
