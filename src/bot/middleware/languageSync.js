@@ -52,15 +52,16 @@ class LanguageSync {
     }
 
     try {
-      const user = await User.findOne({ telegramId }).select('languageCode').lean();
+      const user = await User.findOne({ telegramId }).select('languageCode languageSelected').lean();
 
       if (!user) {
         ctx.state.lang = detectedLang;
         return;
       }
 
-      // If user has manually set a language, respect it
-      const userLang = user.languageCode || detectedLang;
+      // If user has explicitly selected a language, always respect it
+      // Otherwise fall back to detected language
+      const userLang = user.languageSelected ? user.languageCode : (user.languageCode || detectedLang);
 
       // Update cache
       this.cache.set(telegramId, {
@@ -69,16 +70,6 @@ class LanguageSync {
       });
 
       ctx.state.lang = userLang;
-
-      // Auto-detect only for new users (no languageCode set yet)
-      if (!user.languageCode && detectedLang !== DEFAULT_LANGUAGE) {
-        await User.updateOne(
-          { telegramId },
-          { $set: { languageCode: detectedLang } }
-        );
-        ctx.state.lang = detectedLang;
-        this.cache.set(telegramId, { lang: detectedLang, lastChecked: now });
-      }
     } catch (error) {
       console.error('[LanguageSync] Error:', error.message);
       ctx.state.lang = DEFAULT_LANGUAGE;
@@ -93,7 +84,7 @@ class LanguageSync {
 
     await User.updateOne(
       { telegramId },
-      { $set: { languageCode: lang } }
+      { $set: { languageCode: lang, languageSelected: true } }
     );
 
     this.cache.set(telegramId, {

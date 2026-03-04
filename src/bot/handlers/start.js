@@ -1,7 +1,8 @@
 const User = require('../../models/User');
 const Platform = require('../../models/Platform');
 const Deal = require('../../models/Deal');
-const { mainMenuKeyboard, inviteAcceptKeyboard, mainMenuButton } = require('../keyboards/main');
+const { mainMenuKeyboard, languageSelectKeyboard, inviteAcceptKeyboard, mainMenuButton } = require('../keyboards/main');
+const { languageSync } = require('../middleware/languageSync');
 const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
 const activityLogger = require('../../services/activityLogger');
@@ -12,6 +13,14 @@ const {
   COMMISSION_TIER_2_RATE,
   MIN_DEAL_AMOUNT
 } = require('../../config/constants');
+
+// Language selection screen (trilingual — language unknown at this point)
+const LANGUAGE_SELECT_TEXT =
+  `🌐 *Choose your language / Выберите язык / Оберіть мову*
+
+🇷🇺 *Русский* — Безопасные сделки в Telegram
+🇬🇧 *English* — Secure Telegram deals
+🇺🇦 *Українська* — Безпечні угоди в Telegram`;
 
 // Dynamic text functions using i18n
 const getWelcomeText = (lang) => t(lang, 'welcome.title', {
@@ -156,6 +165,18 @@ const startHandler = async (ctx) => {
 
     // Reset navigation to main menu
     await messageManager.resetNavigation(telegramId);
+
+    // Show language selection if user hasn't explicitly chosen yet
+    if (!user.languageSelected) {
+      const keyboard = languageSelectKeyboard();
+      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`Language picker shown to user ${telegramId}, message ID: ${msg.message_id}`);
+      return;
+    }
 
     // Choose text based on new/returning user
     const textToShow = isNewUser ? getWelcomeText(lang) : getMainMenuText(lang);
@@ -418,11 +439,49 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
   }
 };
 
+/**
+ * Language selection callback handler
+ * Triggered when user taps a language button on the /start picker
+ */
+const handleLanguageSelection = async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const selectedLang = ctx.callbackQuery.data.split(':')[1]; // 'ru' | 'en' | 'uk'
+
+    // Save chosen language and mark as explicitly selected
+    await languageSync.setLanguage(telegramId, selectedLang);
+
+    // Reload user to determine new/returning status
+    const user = await User.findOne({ telegramId }).select('blacklisted').lean();
+    if (!user) return;
+
+    if (user.blacklisted) {
+      const banText = getBanScreenText(selectedLang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'ban', banText, null);
+      return;
+    }
+
+    // Show welcome in chosen language
+    const textToShow = getWelcomeText(selectedLang);
+    const keyboard = mainMenuKeyboard(selectedLang);
+
+    await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', textToShow, keyboard);
+    await messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
+
+    console.log(`Language selected: ${selectedLang} for user ${telegramId}`);
+  } catch (error) {
+    console.error('Error in handleLanguageSelection:', error);
+  }
+};
+
 module.exports = {
   startHandler,
   mainMenuHandler,
   backHandler,
   handleDealInvite,
+  handleLanguageSelection,
   getMainMenuText,
   MAIN_MENU_TEXT: getMainMenuText('ru')
 };

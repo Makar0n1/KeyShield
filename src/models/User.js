@@ -20,6 +20,11 @@ const userSchema = new mongoose.Schema({
     enum: ['ru', 'en', 'uk'],
     default: 'ru'
   },
+  // Whether user has explicitly selected a language (via picker on /start)
+  languageSelected: {
+    type: Boolean,
+    default: false
+  },
   role: {
     type: String,
     enum: ['buyer', 'seller', 'both'],

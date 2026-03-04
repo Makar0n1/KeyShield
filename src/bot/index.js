@@ -25,7 +25,7 @@ const { languageSyncMiddleware } = require('./middleware/languageSync');
 const activityLogger = require('../services/activityLogger');
 
 // Handlers
-const { startHandler, mainMenuHandler, backHandler, MAIN_MENU_TEXT } = require('./handlers/start');
+const { startHandler, mainMenuHandler, backHandler, handleLanguageSelection, MAIN_MENU_TEXT } = require('./handlers/start');
 const {
   startCreateDeal,
   handleCreateDealInput,
@@ -298,6 +298,9 @@ bot.command('cancel', async (ctx) => {
 // ============================================
 // CALLBACK QUERIES (Inline buttons)
 // ============================================
+
+// Language selection (shown on /start before main menu)
+bot.action(/^lang_select:/, handleLanguageSelection);
 
 // Navigation
 bot.action('main_menu', mainMenuHandler);

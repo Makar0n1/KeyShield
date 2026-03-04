@@ -24,6 +24,21 @@ const mainMenuKeyboard = (lang = 'ru') => {
 };
 
 // ============================================
+// LANGUAGE SELECTION
+// ============================================
+
+/**
+ * Language selection keyboard (shown on /start before main menu)
+ */
+const languageSelectKeyboard = () => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('🇷🇺 Русский', 'lang_select:ru')],
+    [Markup.button.callback('🇬🇧 English', 'lang_select:en')],
+    [Markup.button.callback('🇺🇦 Українська', 'lang_select:uk')]
+  ]);
+};
+
+// ============================================
 // NAVIGATION BUTTONS
 // ============================================
 
@@ -716,6 +731,7 @@ const depositConfirmationKeyboard = (lang) => depositWarningKeyboard('', lang);
 module.exports = {
   // Main
   mainMenuKeyboard,
+  languageSelectKeyboard,
   helpMenuKeyboard,
   helpSectionKeyboard,
 
