@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Calendar, Eye } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { formatDate, formatNumber } from '@/utils/format'
 import type { BlogPost } from '@/types'
 
@@ -10,7 +11,8 @@ interface RelatedPostsProps {
 }
 
 export function RelatedPosts({ posts, currentPostId, maxPosts = 3 }: RelatedPostsProps) {
-  // Filter out current post and limit
+  const { t } = useTranslation()
+
   const relatedPosts = posts
     .filter((post) => post._id !== currentPostId)
     .slice(0, maxPosts)
@@ -22,33 +24,17 @@ export function RelatedPosts({ posts, currentPostId, maxPosts = 3 }: RelatedPost
   return (
     <section className="mt-12 pt-8 border-t border-border">
       <h2 className="text-2xl font-bold text-white mb-6">
-        Похожие статьи
+        {t('blog.related.title')}
       </h2>
 
       <div className="grid md:grid-cols-3 gap-6">
         {relatedPosts.map((post) => (
-          <Link
-            key={post._id}
-            to={`/blog/${post.slug}`}
-            className="group block"
-          >
+          <Link key={post._id} to={`/blog/${post.slug}`} className="group block">
             <article className="h-full bg-dark-light rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300">
-              {/* Cover Image */}
               {post.coverImage ? (
                 <div className="aspect-video overflow-hidden relative bg-dark">
-                  {/* Blurred background */}
-                  <img
-                    src={post.coverImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-40 group-hover:scale-[1.15] transition-transform duration-300"
-                  />
-                  {/* Main image */}
-                  <img
-                    src={post.coverImage}
-                    alt={post.coverImageAlt || post.title}
-                    className="absolute inset-0 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <img src={post.coverImage} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-40 group-hover:scale-[1.15] transition-transform duration-300" />
+                  <img src={post.coverImage} alt={post.coverImageAlt || post.title} className="absolute inset-0 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
                 </div>
               ) : (
                 <div className="aspect-video bg-dark flex items-center justify-center">
@@ -56,21 +42,15 @@ export function RelatedPosts({ posts, currentPostId, maxPosts = 3 }: RelatedPost
                 </div>
               )}
 
-              {/* Content */}
               <div className="p-4">
-                {/* Category */}
                 {post.category && (
                   <span className="inline-block text-xs text-primary font-medium mb-2">
                     {post.category.name}
                   </span>
                 )}
-
-                {/* Title */}
                 <h3 className="text-white font-semibold line-clamp-2 group-hover:text-primary transition-colors mb-3">
                   {post.title}
                 </h3>
-
-                {/* Meta */}
                 <div className="flex items-center gap-4 text-xs text-muted">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
@@ -89,13 +69,12 @@ export function RelatedPosts({ posts, currentPostId, maxPosts = 3 }: RelatedPost
         ))}
       </div>
 
-      {/* View All Link */}
       <div className="text-center mt-8">
         <Link
           to="/blog"
           className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
         >
-          Смотреть все статьи
+          {t('blog.related.view_all')}
           <span className="text-lg">→</span>
         </Link>
       </div>

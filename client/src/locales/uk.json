@@ -139,6 +139,99 @@
       "read_more": "Читати більше статей"
     }
   },
+  "blog": {
+    "list": {
+      "seo_title": "Блог",
+      "seo_title_search": "Пошук: {{query}}",
+      "seo_description": "Корисні статті про криптовалюту, безпечні угоди та технологію multisig від KeyShield",
+      "breadcrumb_home": "Головна",
+      "breadcrumb_blog": "Блог",
+      "breadcrumb_search": "Результати пошуку: {{query}}",
+      "hero_title": "Блог KeyShield",
+      "hero_subtitle": "Корисні статті про криптовалюту, безпечні угоди та технологію multisig",
+      "search_results": "Результати пошуку: \"{{query}}\"",
+      "nothing_found": "Нічого не знайдено",
+      "sort_newest": "Нові",
+      "sort_popular": "Популярні",
+      "sort_oldest": "Старі",
+      "empty_title": "Статей поки немає",
+      "empty_subtitle": "Ми скоро додамо цікаві матеріали"
+    },
+    "post": {
+      "not_found": "Статтю не знайдено",
+      "back_to_blog": "Повернутися до блогу",
+      "read_time": "{{n}} хв читання",
+      "views": "{{n}} переглядів",
+      "rate_article": "Оцініть статтю:",
+      "tags": "Теги:",
+      "breadcrumb_home": "Головна",
+      "breadcrumb_blog": "Блог"
+    },
+    "sidebar": {
+      "search": "Пошук",
+      "search_placeholder": "Пошук статей...",
+      "show_all_results": "Показати всі результати →",
+      "nothing_found": "Нічого не знайдено",
+      "categories": "📁 Категорії",
+      "all_articles": "Всі статті",
+      "recent_posts": "📝 Останні статті",
+      "tags": "🏷️ Теги"
+    },
+    "category": {
+      "not_found": "Категорію не знайдено",
+      "back_to_blog": "Повернутися до блогу",
+      "posts_count": "{{count}} статей у категорії",
+      "collapse": "Згорнути",
+      "read_more": "Читати повністю",
+      "empty_title": "У цій категорії поки немає статей",
+      "empty_subtitle": "Спробуйте переглянути інші категорії",
+      "all_articles": "Всі статті",
+      "seo_title": "{{name}} — статті",
+      "seo_description": "Статті у категорії {{name}}"
+    },
+    "tag": {
+      "not_found": "Тег не знайдено",
+      "back_to_blog": "Повернутися до блогу",
+      "posts_count": "{{count}} статей з цим тегом",
+      "empty_title": "З цим тегом поки немає статей",
+      "empty_subtitle": "Спробуйте переглянути інші теги",
+      "all_articles": "Всі статті",
+      "seo_title": "#{{name}} — статті за тегом",
+      "seo_description": "Статті з тегом {{name}} у блозі KeyShield"
+    },
+    "related": {
+      "title": "Схожі статті",
+      "view_all": "Дивитися всі статті"
+    },
+    "cta": {
+      "title": "Готові до безпечної угоди?",
+      "subtitle": "Створіть escrow-угоду прямо зараз у нашому Telegram-боті. Захист коштів, автоматичний контроль депозитів, справедливий арбітраж.",
+      "button": "Створити угоду"
+    },
+    "comments": {
+      "title": "Коментарі ({{count}})",
+      "leave_comment": "Залишити коментар",
+      "fill_all_fields": "Будь ласка, заповніть усі поля",
+      "min_length": "Коментар має бути не менше 10 символів",
+      "sent_to_moderation": "Коментар відправлено на модерацію",
+      "submit_error": "Помилка при відправці коментаря",
+      "name_placeholder": "Ваше ім'я",
+      "comment_placeholder": "Ваш коментар...",
+      "submitting": "Відправка...",
+      "submit": "Надіслати",
+      "no_comments": "Поки немає коментарів. Будьте першим!"
+    },
+    "share": {
+      "share": "Поділитися:",
+      "share_on": "Поділитися у {{platform}}",
+      "copy_link": "Копіювати посилання",
+      "link_copied": "Посилання скопійовано!"
+    },
+    "post_card": {
+      "featured": "Вибране",
+      "min_read": "{{n}} хв"
+    }
+  },
   "terms": {
     "seo_title": "Умови використання",
     "seo_description": "Умови використання escrow-сервісу KeyShield. Правила створення угод, комісії, арбітраж суперечок, система банів та відповідальність сторін.",

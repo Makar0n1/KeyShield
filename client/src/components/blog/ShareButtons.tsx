@@ -1,4 +1,5 @@
 import { Share2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
 
 interface ShareButtonsProps {
@@ -8,19 +9,17 @@ interface ShareButtonsProps {
 }
 
 export function ShareButtons({ postId, title, url }: ShareButtonsProps) {
+  const { t } = useTranslation()
   const shareUrl = url || window.location.href
   const encodedUrl = encodeURIComponent(shareUrl)
   const encodedTitle = encodeURIComponent(title)
 
   const handleShare = async (platform: string, shareLink: string) => {
-    // Track share
     try {
       await blogService.trackShare(postId, platform)
     } catch {
       // Silently fail
     }
-
-    // Open share window
     window.open(shareLink, '_blank', 'width=600,height=400')
   }
 
@@ -70,16 +69,15 @@ export function ShareButtons({ postId, title, url }: ShareButtonsProps) {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl)
-      alert('Ссылка скопирована!')
+      alert(t('blog.share.link_copied'))
     } catch {
-      // Fallback
       const input = document.createElement('input')
       input.value = shareUrl
       document.body.appendChild(input)
       input.select()
       document.execCommand('copy')
       document.body.removeChild(input)
-      alert('Ссылка скопирована!')
+      alert(t('blog.share.link_copied'))
     }
   }
 
@@ -87,14 +85,14 @@ export function ShareButtons({ postId, title, url }: ShareButtonsProps) {
     <div className="flex items-center gap-2">
       <span className="text-muted text-sm flex items-center gap-1">
         <Share2 className="w-4 h-4" />
-        Поделиться:
+        {t('blog.share.share')}
       </span>
       {shareLinks.map((link) => (
         <button
           key={link.name}
           onClick={() => handleShare(link.name.toLowerCase(), link.getUrl())}
           className={`w-8 h-8 rounded-full ${link.color} text-white flex items-center justify-center transition-transform hover:scale-110`}
-          title={`Поделиться в ${link.name}`}
+          title={t('blog.share.share_on', { platform: link.name })}
         >
           {link.icon}
         </button>
@@ -102,7 +100,7 @@ export function ShareButtons({ postId, title, url }: ShareButtonsProps) {
       <button
         onClick={handleCopyLink}
         className="w-8 h-8 rounded-full bg-dark-lighter hover:bg-dark-light text-muted hover:text-white flex items-center justify-center transition-colors"
-        title="Копировать ссылку"
+        title={t('blog.share.copy_link')}
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

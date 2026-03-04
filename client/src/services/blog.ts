@@ -53,7 +53,7 @@ export const blogService = {
   },
 
   getCategories: async (): Promise<BlogCategory[]> => {
-    const { data } = await api.get('/blog/categories')
+    const { data } = await api.get('/blog/categories', { params: { lang: i18n.language } })
     return data.categories || []
   },
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { ChevronRight, Tag } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
 import { BlogSidebar, PostCard } from '@/components/blog'
 import { SEO } from '@/components/SEO'
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import type { BlogPost, BlogTag, BlogSidebarData } from '@/types'
 
 export function TagPage() {
+  const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1')
@@ -42,14 +44,14 @@ export function TagPage() {
         setTotalPages(postsData.totalPages || 1)
         setSidebar(sidebarData)
       } catch {
-        setError('Тег не найден')
+        setError(t('blog.tag.not_found'))
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [slug, page])
+  }, [slug, page, t])
 
   const handlePageChange = (newPage: number) => {
     setSearchParams({ page: String(newPage) })
@@ -63,9 +65,9 @@ export function TagPage() {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">🏷️</div>
-        <h1 className="text-2xl text-white mb-4">{error || 'Тег не найден'}</h1>
+        <h1 className="text-2xl text-white mb-4">{error || t('blog.tag.not_found')}</h1>
         <Button asChild>
-          <Link to="/blog">Вернуться к блогу</Link>
+          <Link to="/blog">{t('blog.tag.back_to_blog')}</Link>
         </Button>
       </div>
     )
@@ -74,8 +76,8 @@ export function TagPage() {
   return (
     <>
       <SEO
-        title={`#${tag.name} — статьи по тегу`}
-        description={`Статьи с тегом ${tag.name} в блоге KeyShield`}
+        title={t('blog.tag.seo_title', { name: tag.name })}
+        description={t('blog.tag.seo_description', { name: tag.name })}
         url={`/tag/${tag.slug}`}
       />
 
@@ -83,13 +85,9 @@ export function TagPage() {
       <div className="bg-dark-light border-b border-border">
         <div className="container mx-auto px-4 py-3">
           <nav className="flex items-center gap-2 text-sm text-muted">
-            <Link to="/" className="hover:text-white">
-              Главная
-            </Link>
+            <Link to="/" className="hover:text-white">{t('blog.list.breadcrumb_home')}</Link>
             <ChevronRight className="w-4 h-4" />
-            <Link to="/blog" className="hover:text-white">
-              Блог
-            </Link>
+            <Link to="/blog" className="hover:text-white">{t('blog.list.breadcrumb_blog')}</Link>
             <ChevronRight className="w-4 h-4" />
             <span className="text-white">#{tag.name}</span>
           </nav>
@@ -109,7 +107,7 @@ export function TagPage() {
             <p className="text-gray-300 max-w-2xl">{tag.description}</p>
           )}
           <p className="text-muted mt-4">
-            {tag.postsCount || posts.length} статей с этим тегом
+            {t('blog.tag.posts_count', { count: tag.postsCount || posts.length })}
           </p>
         </div>
       </section>
@@ -117,7 +115,6 @@ export function TagPage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-12">
         <div className="grid lg:grid-cols-[1fr_320px] gap-8">
-          {/* Main Content */}
           <div>
             {posts.length > 0 ? (
               <>
@@ -139,16 +136,15 @@ export function TagPage() {
             ) : (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">📭</div>
-                <h2 className="text-xl text-white mb-2">С этим тегом пока нет статей</h2>
-                <p className="text-muted mb-6">Попробуйте посмотреть другие теги</p>
+                <h2 className="text-xl text-white mb-2">{t('blog.tag.empty_title')}</h2>
+                <p className="text-muted mb-6">{t('blog.tag.empty_subtitle')}</p>
                 <Button asChild>
-                  <Link to="/blog">Все статьи</Link>
+                  <Link to="/blog">{t('blog.tag.all_articles')}</Link>
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Sidebar */}
           <BlogSidebar
             categories={sidebar.categories}
             tags={sidebar.tags}
@@ -158,7 +154,6 @@ export function TagPage() {
         </div>
       </div>
 
-      {/* SEO */}
       {(tag.seoTitle || tag.seoDescription) && (
         <script
           type="application/ld+json"

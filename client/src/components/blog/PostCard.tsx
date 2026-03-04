@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, ThumbsUp, MessageCircle, Clock } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { BlogPost } from '@/types'
 import { formatDateShort, formatNumber, stripHtml } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
@@ -72,61 +73,40 @@ function CardImage({ src, alt, className }: { src: string; alt: string; classNam
 
   return (
     <div className={`${className} relative bg-dark-lighter overflow-hidden`}>
-      {/* Skeleton placeholder */}
       {!loaded && (
         <div className="absolute inset-0 bg-dark-lighter">
           <div className="absolute inset-0 bg-gradient-to-r from-dark-lighter via-dark-light to-dark-lighter bg-[length:200%_100%] animate-shimmer" />
         </div>
       )}
-      {/* Blurred background image */}
-      <img
-        src={src}
-        alt=""
-        aria-hidden="true"
-        className={`absolute inset-0 w-full h-full object-cover blur-xl scale-110 transition-opacity duration-300 ${loaded ? 'opacity-40' : 'opacity-0'}`}
-      />
-      {/* Main image - contain mode */}
-      <img
-        src={src}
-        alt={alt}
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-      />
+      <img src={src} alt="" aria-hidden="true" className={`absolute inset-0 w-full h-full object-cover blur-xl scale-110 transition-opacity duration-300 ${loaded ? 'opacity-40' : 'opacity-0'}`} />
+      <img src={src} alt={alt} className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} onLoad={() => setLoaded(true)} />
     </div>
   )
 }
 
 export function PostCard({ post, featured = false, searchQuery }: PostCardProps) {
+  const { t } = useTranslation()
   const rawExcerpt = post.summary || post.excerpt || stripHtml(post.content).slice(0, 150) + '...'
 
-  // Determine where the match is and what to highlight
   const titleHasMatch = containsQuery(post.title, searchQuery || '')
   const summaryHasMatch = containsQuery(post.summary || '', searchQuery || '')
   const contentHasMatch = containsQuery(post.content || '', searchQuery || '')
 
-  // Title: show snippet around match only if match is in title
   const titleDisplay = searchQuery && titleHasMatch
     ? getSnippetAroundMatch(post.title, searchQuery, 60)
     : post.title
 
-  // Excerpt: depends on where match is found
-  // - If match in title: show normal summary (no highlight needed in excerpt)
-  // - If match in summary: show snippet from summary with highlight
-  // - If match only in content: show snippet from content with highlight
   let excerpt: string
   let highlightExcerpt = false
 
   if (!searchQuery) {
     excerpt = rawExcerpt
   } else if (titleHasMatch) {
-    // Match in title - show normal summary without highlight
     excerpt = rawExcerpt
   } else if (summaryHasMatch) {
-    // Match in summary - show snippet from summary
     excerpt = getSnippetAroundMatch(post.summary || '', searchQuery, 120)
     highlightExcerpt = true
   } else if (contentHasMatch) {
-    // Match only in content - show snippet from content
     excerpt = getSnippetAroundMatch(post.content || '', searchQuery, 120)
     highlightExcerpt = true
   } else {
@@ -139,18 +119,12 @@ export function PostCard({ post, featured = false, searchQuery }: PostCardProps)
         <Link to={`/blog/${post.slug}`} className="block">
           <div className="grid md:grid-cols-2 gap-0">
             {post.coverImage && (
-              <CardImage
-                src={post.coverImage}
-                alt={post.title}
-                className="h-64 md:h-full"
-              />
+              <CardImage src={post.coverImage} alt={post.title} className="h-64 md:h-full" />
             )}
             <div className="p-8 flex flex-col justify-center">
               <div className="flex items-center gap-2 mb-4">
-                {post.category && (
-                  <Badge variant="primary">{post.category.name}</Badge>
-                )}
-                {post.featured && <Badge variant="secondary">Избранное</Badge>}
+                {post.category && <Badge variant="primary">{post.category.name}</Badge>}
+                {post.featured && <Badge variant="secondary">{t('blog.post_card.featured')}</Badge>}
               </div>
               <h2 className="text-2xl font-bold text-white group-hover:text-primary transition-colors mb-4">
                 {searchQuery && titleHasMatch ? highlightText(titleDisplay, searchQuery) : post.title}
@@ -164,7 +138,7 @@ export function PostCard({ post, featured = false, searchQuery }: PostCardProps)
                   {formatDateShort(post.publishedAt || post.createdAt)}
                 </span>
                 {post.readTime && (
-                  <span>{post.readTime} мин чтения</span>
+                  <span>{t('blog.post.read_time', { n: post.readTime })}</span>
                 )}
               </div>
               <div className="flex items-center gap-4 text-sm text-muted mt-4">
@@ -192,11 +166,7 @@ export function PostCard({ post, featured = false, searchQuery }: PostCardProps)
     <article className="bg-dark-light rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-colors group">
       <Link to={`/blog/${post.slug}`} className="block">
         {post.coverImage && (
-          <CardImage
-            src={post.coverImage}
-            alt={post.title}
-            className="h-48"
-          />
+          <CardImage src={post.coverImage} alt={post.title} className="h-48" />
         )}
         <div className="p-6">
           <div className="flex items-center gap-2 text-sm mb-3">
@@ -207,7 +177,7 @@ export function PostCard({ post, featured = false, searchQuery }: PostCardProps)
               {formatDateShort(post.publishedAt || post.createdAt)}
             </span>
             {post.readTime && (
-              <span className="text-muted">• {post.readTime} мин</span>
+              <span className="text-muted">• {t('blog.post_card.min_read', { n: post.readTime })}</span>
             )}
           </div>
           <h2 className="text-xl font-semibold text-white group-hover:text-primary transition-colors mb-2 line-clamp-2">

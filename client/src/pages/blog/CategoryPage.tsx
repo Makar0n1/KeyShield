@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
 import { BlogSidebar, PostCard } from '@/components/blog'
 import { SEO } from '@/components/SEO'
@@ -11,11 +12,12 @@ import type { BlogPost, BlogCategory, BlogSidebarData } from '@/types'
 
 // Collapsible description with text fade (using CSS mask)
 function CollapsibleDescription({ description }: { description: string }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [measured, setMeasured] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState(0)
-  const collapsedHeight = 100 // px - visible height when collapsed
+  const collapsedHeight = 100
 
   useEffect(() => {
     if (contentRef.current) {
@@ -24,14 +26,8 @@ function CollapsibleDescription({ description }: { description: string }) {
     }
   }, [description])
 
-  // Check if content needs collapse (is taller than collapsed height)
-  // Only meaningful after measurement
   const needsCollapse = measured && contentHeight > collapsedHeight + 20
-
-  // If short content and measured, show full height; otherwise stay collapsed
   const showFull = measured && !needsCollapse
-
-  // Apply fade mask when collapsed
   const shouldFade = !showFull && !expanded
 
   return (
@@ -41,7 +37,6 @@ function CollapsibleDescription({ description }: { description: string }) {
         className="overflow-hidden transition-all duration-500 ease-in-out"
         style={{
           maxHeight: showFull ? 'none' : expanded ? contentHeight : collapsedHeight,
-          // CSS mask to fade text to transparent at bottom
           maskImage: shouldFade
             ? 'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)'
             : 'none',
@@ -56,7 +51,6 @@ function CollapsibleDescription({ description }: { description: string }) {
         />
       </div>
 
-      {/* Toggle button - only show after measurement confirms it's needed */}
       {needsCollapse && (
         <button
           onClick={() => setExpanded(!expanded)}
@@ -65,12 +59,12 @@ function CollapsibleDescription({ description }: { description: string }) {
           {expanded ? (
             <>
               <ChevronUp className="w-4 h-4" />
-              Свернуть
+              {t('blog.category.collapse')}
             </>
           ) : (
             <>
               <ChevronDown className="w-4 h-4" />
-              Читать полностью
+              {t('blog.category.read_more')}
             </>
           )}
         </button>
@@ -79,30 +73,21 @@ function CollapsibleDescription({ description }: { description: string }) {
   )
 }
 
-// Hero section with preloaded background image
 function HeroSection({ category, postsCount }: { category: BlogCategory; postsCount: number }) {
-  const [bgLoaded, setBgLoaded] = useState(!category.coverImage) // true if no image
+  const { t } = useTranslation()
+  const [bgLoaded, setBgLoaded] = useState(!category.coverImage)
 
-  // Preload background image
   useEffect(() => {
     if (!category.coverImage) return
-
     const img = new Image()
     img.onload = () => setBgLoaded(true)
     img.src = category.coverImage
   }, [category.coverImage])
 
   return (
-    <section
-      className="relative py-16 overflow-hidden"
-      style={{ minHeight: '200px' }}
-    >
-      {/* Background layer - always render gradient, conditionally add image */}
-      <div
-        className={`absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10 transition-opacity duration-500 ${bgLoaded ? 'opacity-100' : 'opacity-100'}`}
-      />
+    <section className="relative py-16 overflow-hidden" style={{ minHeight: '200px' }}>
+      <div className={`absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10 transition-opacity duration-500 ${bgLoaded ? 'opacity-100' : 'opacity-100'}`} />
 
-      {/* Background image layer with fade-in */}
       {category.coverImage && (
         <div
           className={`absolute inset-0 transition-opacity duration-500 ${bgLoaded ? 'opacity-100' : 'opacity-0'}`}
@@ -114,14 +99,13 @@ function HeroSection({ category, postsCount }: { category: BlogCategory; postsCo
         />
       )}
 
-      {/* Content */}
       <div className="container mx-auto px-4 relative z-10">
         <h1 className="text-4xl font-bold text-white mb-4">{category.name}</h1>
         {category.description && (
           <CollapsibleDescription description={category.description} />
         )}
         <p className="text-muted mt-4">
-          {category.postsCount || postsCount} статей в категории
+          {t('blog.category.posts_count', { count: category.postsCount || postsCount })}
         </p>
       </div>
     </section>
@@ -129,6 +113,7 @@ function HeroSection({ category, postsCount }: { category: BlogCategory; postsCo
 }
 
 export function CategoryPage() {
+  const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1')
@@ -161,14 +146,14 @@ export function CategoryPage() {
         setTotalPages(postsData.totalPages || 1)
         setSidebar(sidebarData)
       } catch {
-        setError('Категория не найдена')
+        setError(t('blog.category.not_found'))
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [slug, page])
+  }, [slug, page, t])
 
   const handlePageChange = (newPage: number) => {
     setSearchParams({ page: String(newPage) })
@@ -182,9 +167,9 @@ export function CategoryPage() {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">📁</div>
-        <h1 className="text-2xl text-white mb-4">{error || 'Категория не найдена'}</h1>
+        <h1 className="text-2xl text-white mb-4">{error || t('blog.category.not_found')}</h1>
         <Button asChild>
-          <Link to="/blog">Вернуться к блогу</Link>
+          <Link to="/blog">{t('blog.category.back_to_blog')}</Link>
         </Button>
       </div>
     )
@@ -193,8 +178,8 @@ export function CategoryPage() {
   return (
     <>
       <SEO
-        title={`${category.name} — статьи`}
-        description={category.description || `Статьи в категории ${category.name}`}
+        title={t('blog.category.seo_title', { name: category.name })}
+        description={category.description || t('blog.category.seo_description', { name: category.name })}
         url={`/category/${category.slug}`}
       />
 
@@ -202,26 +187,19 @@ export function CategoryPage() {
       <div className="bg-dark-light border-b border-border">
         <div className="container mx-auto px-4 py-3">
           <nav className="flex items-center gap-2 text-sm text-muted">
-            <Link to="/" className="hover:text-white">
-              Главная
-            </Link>
+            <Link to="/" className="hover:text-white">{t('blog.list.breadcrumb_home')}</Link>
             <ChevronRight className="w-4 h-4" />
-            <Link to="/blog" className="hover:text-white">
-              Блог
-            </Link>
+            <Link to="/blog" className="hover:text-white">{t('blog.list.breadcrumb_blog')}</Link>
             <ChevronRight className="w-4 h-4" />
             <span className="text-white">{category.name}</span>
           </nav>
         </div>
       </div>
 
-      {/* Hero */}
       <HeroSection category={category} postsCount={posts.length} />
 
-      {/* Content */}
       <div className="container mx-auto px-4 py-12">
         <div className="grid lg:grid-cols-[1fr_320px] gap-8">
-          {/* Main Content */}
           <div>
             {posts.length > 0 ? (
               <>
@@ -243,16 +221,15 @@ export function CategoryPage() {
             ) : (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">📭</div>
-                <h2 className="text-xl text-white mb-2">В этой категории пока нет статей</h2>
-                <p className="text-muted mb-6">Попробуйте посмотреть другие категории</p>
+                <h2 className="text-xl text-white mb-2">{t('blog.category.empty_title')}</h2>
+                <p className="text-muted mb-6">{t('blog.category.empty_subtitle')}</p>
                 <Button asChild>
-                  <Link to="/blog">Все статьи</Link>
+                  <Link to="/blog">{t('blog.category.all_articles')}</Link>
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Sidebar */}
           <BlogSidebar
             categories={sidebar.categories}
             tags={sidebar.tags}
@@ -262,7 +239,6 @@ export function CategoryPage() {
         </div>
       </div>
 
-      {/* SEO */}
       {(category.seoTitle || category.seoDescription) && (
         <script
           type="application/ld+json"

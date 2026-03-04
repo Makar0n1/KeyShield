@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ThumbsUp, ThumbsDown, Send, User } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { BlogComment } from '@/types'
 import { formatRelativeDate, formatNumber } from '@/utils/format'
 import { getVisitorId } from '@/utils/visitor'
@@ -16,6 +17,7 @@ interface CommentSectionProps {
 }
 
 export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSectionProps) {
+  const { t } = useTranslation()
   const [authorName, setAuthorName] = useState('')
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -28,12 +30,12 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
     setSuccess('')
 
     if (!authorName.trim() || !content.trim()) {
-      setError('Пожалуйста, заполните все поля')
+      setError(t('blog.comments.fill_all_fields'))
       return
     }
 
     if (content.length < 10) {
-      setError('Комментарий должен быть не менее 10 символов')
+      setError(t('blog.comments.min_length'))
       return
     }
 
@@ -46,11 +48,11 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
       })
       setAuthorName('')
       setContent('')
-      setSuccess('Комментарий отправлен на модерацию')
+      setSuccess(t('blog.comments.sent_to_moderation'))
       trackContact({ content_name: 'comment_submitted', content_category: postSlug })
       onCommentAdded()
     } catch {
-      setError('Ошибка при отправке комментария')
+      setError(t('blog.comments.submit_error'))
     } finally {
       setIsSubmitting(false)
     }
@@ -61,7 +63,7 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
     try {
       await blogService.vote('comment', commentId, voteType, visitorId)
       trackViewContent({ content_name: `comment_${voteType}`, content_category: postSlug })
-      onCommentAdded() // Refresh comments
+      onCommentAdded()
     } catch {
       // Silently fail
     }
@@ -72,12 +74,11 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
   return (
     <section className="mt-12">
       <h2 className="text-2xl font-bold text-white mb-6">
-        Комментарии ({approvedComments.length})
+        {t('blog.comments.title', { count: approvedComments.length })}
       </h2>
 
-      {/* Comment Form */}
       <form onSubmit={handleSubmit} className="bg-dark-light rounded-xl p-6 border border-border mb-8">
-        <h3 className="text-white font-semibold mb-4">Оставить комментарий</h3>
+        <h3 className="text-white font-semibold mb-4">{t('blog.comments.leave_comment')}</h3>
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-2 rounded-lg mb-4">
@@ -93,13 +94,13 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
 
         <div className="space-y-4">
           <Input
-            placeholder="Ваше имя"
+            placeholder={t('blog.comments.name_placeholder')}
             value={authorName}
             onChange={(e) => setAuthorName(e.target.value)}
             maxLength={50}
           />
           <Textarea
-            placeholder="Ваш комментарий..."
+            placeholder={t('blog.comments.comment_placeholder')}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={4}
@@ -109,11 +110,11 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
             <span className="text-sm text-muted">{content.length}/1000</span>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
-                'Отправка...'
+                t('blog.comments.submitting')
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Отправить
+                  {t('blog.comments.submit')}
                 </>
               )}
             </Button>
@@ -121,20 +122,15 @@ export function CommentSection({ postSlug, comments, onCommentAdded }: CommentSe
         </div>
       </form>
 
-      {/* Comments List */}
       {approvedComments.length > 0 ? (
         <div className="space-y-4">
           {approvedComments.map((comment) => (
-            <CommentItem
-              key={comment._id}
-              comment={comment}
-              onVote={handleVote}
-            />
+            <CommentItem key={comment._id} comment={comment} onVote={handleVote} />
           ))}
         </div>
       ) : (
         <div className="text-center py-12 text-muted">
-          <p>Пока нет комментариев. Будьте первым!</p>
+          <p>{t('blog.comments.no_comments')}</p>
         </div>
       )}
     </section>
@@ -156,9 +152,7 @@ function CommentItem({ comment, onVote }: CommentItemProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <span className="font-medium text-white">{comment.authorName}</span>
-            <span className="text-sm text-muted">
-              {formatRelativeDate(comment.createdAt)}
-            </span>
+            <span className="text-sm text-muted">{formatRelativeDate(comment.createdAt)}</span>
           </div>
           <p className="text-gray-300 whitespace-pre-wrap">{comment.content}</p>
           <div className="flex items-center gap-4 mt-4">

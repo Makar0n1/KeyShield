@@ -139,6 +139,99 @@
       "read_more": "Читать больше статей"
     }
   },
+  "blog": {
+    "list": {
+      "seo_title": "Блог",
+      "seo_title_search": "Поиск: {{query}}",
+      "seo_description": "Полезные статьи о криптовалюте, безопасных сделках и технологии multisig от KeyShield",
+      "breadcrumb_home": "Главная",
+      "breadcrumb_blog": "Блог",
+      "breadcrumb_search": "Результаты поиска: {{query}}",
+      "hero_title": "Блог KeyShield",
+      "hero_subtitle": "Полезные статьи о криптовалюте, безопасных сделках и технологии multisig",
+      "search_results": "Результаты поиска: \"{{query}}\"",
+      "nothing_found": "Ничего не найдено",
+      "sort_newest": "Новые",
+      "sort_popular": "Популярные",
+      "sort_oldest": "Старые",
+      "empty_title": "Статей пока нет",
+      "empty_subtitle": "Мы скоро добавим интересные материалы"
+    },
+    "post": {
+      "not_found": "Статья не найдена",
+      "back_to_blog": "Вернуться к блогу",
+      "read_time": "{{n}} мин чтения",
+      "views": "{{n}} просмотров",
+      "rate_article": "Оцените статью:",
+      "tags": "Теги:",
+      "breadcrumb_home": "Главная",
+      "breadcrumb_blog": "Блог"
+    },
+    "sidebar": {
+      "search": "Поиск",
+      "search_placeholder": "Поиск статей...",
+      "show_all_results": "Показать все результаты →",
+      "nothing_found": "Ничего не найдено",
+      "categories": "📁 Категории",
+      "all_articles": "Все статьи",
+      "recent_posts": "📝 Последние статьи",
+      "tags": "🏷️ Теги"
+    },
+    "category": {
+      "not_found": "Категория не найдена",
+      "back_to_blog": "Вернуться к блогу",
+      "posts_count": "{{count}} статей в категории",
+      "collapse": "Свернуть",
+      "read_more": "Читать полностью",
+      "empty_title": "В этой категории пока нет статей",
+      "empty_subtitle": "Попробуйте посмотреть другие категории",
+      "all_articles": "Все статьи",
+      "seo_title": "{{name}} — статьи",
+      "seo_description": "Статьи в категории {{name}}"
+    },
+    "tag": {
+      "not_found": "Тег не найден",
+      "back_to_blog": "Вернуться к блогу",
+      "posts_count": "{{count}} статей с этим тегом",
+      "empty_title": "С этим тегом пока нет статей",
+      "empty_subtitle": "Попробуйте посмотреть другие теги",
+      "all_articles": "Все статьи",
+      "seo_title": "#{{name}} — статьи по тегу",
+      "seo_description": "Статьи с тегом {{name}} в блоге KeyShield"
+    },
+    "related": {
+      "title": "Похожие статьи",
+      "view_all": "Смотреть все статьи"
+    },
+    "cta": {
+      "title": "Готовы к безопасной сделке?",
+      "subtitle": "Создайте escrow-сделку прямо сейчас в нашем Telegram-боте. Защита средств, автоматический контроль депозитов, справедливый арбитраж.",
+      "button": "Создать сделку"
+    },
+    "comments": {
+      "title": "Комментарии ({{count}})",
+      "leave_comment": "Оставить комментарий",
+      "fill_all_fields": "Пожалуйста, заполните все поля",
+      "min_length": "Комментарий должен быть не менее 10 символов",
+      "sent_to_moderation": "Комментарий отправлен на модерацию",
+      "submit_error": "Ошибка при отправке комментария",
+      "name_placeholder": "Ваше имя",
+      "comment_placeholder": "Ваш комментарий...",
+      "submitting": "Отправка...",
+      "submit": "Отправить",
+      "no_comments": "Пока нет комментариев. Будьте первым!"
+    },
+    "share": {
+      "share": "Поделиться:",
+      "share_on": "Поделиться в {{platform}}",
+      "copy_link": "Копировать ссылку",
+      "link_copied": "Ссылка скопирована!"
+    },
+    "post_card": {
+      "featured": "Избранное",
+      "min_read": "{{n}} мин"
+    }
+  },
   "terms": {
     "seo_title": "Условия использования",
     "seo_description": "Условия использования escrow-сервиса KeyShield. Правила создания сделок, комиссии, арбитраж споров, система банов и ответственность сторон.",

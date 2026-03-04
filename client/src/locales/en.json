@@ -139,6 +139,99 @@
       "read_more": "Read more articles"
     }
   },
+  "blog": {
+    "list": {
+      "seo_title": "Blog",
+      "seo_title_search": "Search: {{query}}",
+      "seo_description": "Useful articles about cryptocurrency, secure deals, and multisig technology from KeyShield",
+      "breadcrumb_home": "Home",
+      "breadcrumb_blog": "Blog",
+      "breadcrumb_search": "Search results: {{query}}",
+      "hero_title": "KeyShield Blog",
+      "hero_subtitle": "Useful articles about cryptocurrency, secure deals, and multisig technology",
+      "search_results": "Search results: \"{{query}}\"",
+      "nothing_found": "Nothing found",
+      "sort_newest": "Newest",
+      "sort_popular": "Popular",
+      "sort_oldest": "Oldest",
+      "empty_title": "No articles yet",
+      "empty_subtitle": "We'll add interesting content soon"
+    },
+    "post": {
+      "not_found": "Article not found",
+      "back_to_blog": "Back to blog",
+      "read_time": "{{n}} min read",
+      "views": "{{n}} views",
+      "rate_article": "Rate this article:",
+      "tags": "Tags:",
+      "breadcrumb_home": "Home",
+      "breadcrumb_blog": "Blog"
+    },
+    "sidebar": {
+      "search": "Search",
+      "search_placeholder": "Search articles...",
+      "show_all_results": "Show all results →",
+      "nothing_found": "Nothing found",
+      "categories": "📁 Categories",
+      "all_articles": "All articles",
+      "recent_posts": "📝 Recent posts",
+      "tags": "🏷️ Tags"
+    },
+    "category": {
+      "not_found": "Category not found",
+      "back_to_blog": "Back to blog",
+      "posts_count": "{{count}} articles in category",
+      "collapse": "Collapse",
+      "read_more": "Read more",
+      "empty_title": "No articles in this category yet",
+      "empty_subtitle": "Try browsing other categories",
+      "all_articles": "All articles",
+      "seo_title": "{{name}} — articles",
+      "seo_description": "Articles in category {{name}}"
+    },
+    "tag": {
+      "not_found": "Tag not found",
+      "back_to_blog": "Back to blog",
+      "posts_count": "{{count}} articles with this tag",
+      "empty_title": "No articles with this tag yet",
+      "empty_subtitle": "Try browsing other tags",
+      "all_articles": "All articles",
+      "seo_title": "#{{name}} — articles by tag",
+      "seo_description": "Articles tagged {{name}} in KeyShield blog"
+    },
+    "related": {
+      "title": "Related articles",
+      "view_all": "View all articles"
+    },
+    "cta": {
+      "title": "Ready for a secure deal?",
+      "subtitle": "Create an escrow deal right now in our Telegram bot. Asset protection, automatic deposit tracking, fair arbitration.",
+      "button": "Create deal"
+    },
+    "comments": {
+      "title": "Comments ({{count}})",
+      "leave_comment": "Leave a comment",
+      "fill_all_fields": "Please fill in all fields",
+      "min_length": "Comment must be at least 10 characters",
+      "sent_to_moderation": "Comment submitted for moderation",
+      "submit_error": "Error submitting comment",
+      "name_placeholder": "Your name",
+      "comment_placeholder": "Your comment...",
+      "submitting": "Sending...",
+      "submit": "Submit",
+      "no_comments": "No comments yet. Be the first!"
+    },
+    "share": {
+      "share": "Share:",
+      "share_on": "Share on {{platform}}",
+      "copy_link": "Copy link",
+      "link_copied": "Link copied!"
+    },
+    "post_card": {
+      "featured": "Featured",
+      "min_read": "{{n}} min"
+    }
+  },
   "terms": {
     "seo_title": "Terms of Service",
     "seo_description": "Terms of Service for KeyShield escrow service. Rules for creating deals, commissions, dispute arbitration, ban system, and liability.",

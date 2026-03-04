@@ -348,7 +348,9 @@ router.post('/comments/:id/vote', async (req, res) => {
 // GET /api/blog/categories - list all categories
 router.get('/categories', async (req, res) => {
   try {
-    const categories = await BlogCategory.getWithPostsCount();
+    const { lang } = req.query;
+    const language = ['ru', 'en', 'uk'].includes(lang) ? lang : null;
+    const categories = await BlogCategory.getWithPostsCount(language);
     res.json({ success: true, categories });
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -460,7 +462,7 @@ router.get('/sidebar', async (req, res) => {
     const language = ['ru', 'en', 'uk'].includes(lang) ? lang : null;
 
     const [categories, tags, recentPosts] = await Promise.all([
-      BlogCategory.getWithPostsCount(),
+      BlogCategory.getWithPostsCount(language),
       BlogTag.getPopular(15),
       BlogPost.getRecent(5, language)
     ]);

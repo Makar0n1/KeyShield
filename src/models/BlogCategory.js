@@ -53,6 +53,14 @@ const blogCategorySchema = new mongoose.Schema({
     default: ''
   },
 
+  // Язык категории
+  language: {
+    type: String,
+    enum: ['ru', 'en', 'uk'],
+    default: 'ru',
+    index: true
+  },
+
   // Денормализованный счётчик постов (для производительности)
   postsCount: {
     type: Number,
@@ -107,8 +115,9 @@ blogCategorySchema.methods.updatePostsCount = async function() {
 };
 
 // Статический метод для получения категорий с кол-вом постов
-blogCategorySchema.statics.getWithPostsCount = async function() {
-  return this.find().sort({ sortOrder: 1, name: 1 }).lean();
+blogCategorySchema.statics.getWithPostsCount = async function(language = null) {
+  const query = language ? { language } : {};
+  return this.find(query).sort({ sortOrder: 1, name: 1 }).lean();
 };
 
 const BlogCategory = mongoose.model('BlogCategory', blogCategorySchema);

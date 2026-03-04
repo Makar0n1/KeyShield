@@ -44,6 +44,7 @@ export interface BlogCategory {
   seoDescription?: string
   sortOrder: number
   postsCount?: number
+  language?: 'ru' | 'en' | 'uk'
   createdAt?: string
 }
 

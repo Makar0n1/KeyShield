@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ArrowUpDown, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
 import { BlogSidebar, PostCard } from '@/components/blog'
 import { SEO } from '@/components/SEO'
@@ -12,6 +13,7 @@ import type { BlogPost, BlogSidebarData } from '@/types'
 type SortType = 'newest' | 'popular' | 'oldest'
 
 export function BlogListPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1')
   const sort = (searchParams.get('sort') as SortType) || 'newest'
@@ -62,17 +64,17 @@ export function BlogListPage() {
     setSearchParams(params)
   }
 
-  const sortOptions: { value: SortType; label: string }[] = [
-    { value: 'newest', label: 'Новые' },
-    { value: 'popular', label: 'Популярные' },
-    { value: 'oldest', label: 'Старые' },
+  const sortOptions: { value: SortType; labelKey: string }[] = [
+    { value: 'newest', labelKey: 'blog.list.sort_newest' },
+    { value: 'popular', labelKey: 'blog.list.sort_popular' },
+    { value: 'oldest', labelKey: 'blog.list.sort_oldest' },
   ]
 
   return (
     <>
       <SEO
-        title={query ? `Поиск: ${query}` : 'Блог'}
-        description="Полезные статьи о криптовалюте, безопасных сделках и технологии multisig от KeyShield"
+        title={query ? t('blog.list.seo_title_search', { query }) : t('blog.list.seo_title')}
+        description={t('blog.list.seo_description')}
         url="/blog"
       />
 
@@ -81,21 +83,21 @@ export function BlogListPage() {
         <div className="container mx-auto px-4 py-3">
           <nav className="flex items-center gap-2 text-sm text-muted">
             <Link to="/" className="hover:text-white">
-              Главная
+              {t('blog.list.breadcrumb_home')}
             </Link>
             <ChevronRight className="w-4 h-4" />
             {query ? (
               <>
                 <Link to="/blog" className="hover:text-white">
-                  Блог
+                  {t('blog.list.breadcrumb_blog')}
                 </Link>
                 <ChevronRight className="w-4 h-4" />
-                <span className="text-white truncate max-w-[200px]" title={`Результаты поиска: ${query}`}>
-                  Результаты поиска: {query}
+                <span className="text-white truncate max-w-[200px]" title={t('blog.list.breadcrumb_search', { query })}>
+                  {t('blog.list.breadcrumb_search', { query })}
                 </span>
               </>
             ) : (
-              <span className="text-white">Блог</span>
+              <span className="text-white">{t('blog.list.breadcrumb_blog')}</span>
             )}
           </nav>
         </div>
@@ -104,9 +106,9 @@ export function BlogListPage() {
       {/* Hero */}
       <section className="bg-gradient-to-br from-primary/20 via-transparent to-secondary/10 py-16">
         <div className="container mx-auto px-4">
-          <h1 className="text-4xl font-bold text-white mb-4">Блог KeyShield</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">{t('blog.list.hero_title')}</h1>
           <p className="text-gray-300 max-w-2xl">
-            Полезные статьи о криптовалюте, безопасных сделках и технологии multisig
+            {t('blog.list.hero_subtitle')}
           </p>
         </div>
       </section>
@@ -120,10 +122,10 @@ export function BlogListPage() {
             {query && (
               <div className="mb-6">
                 <h2 className="text-xl text-white">
-                  Результаты поиска: <span className="text-primary">"{query}"</span>
+                  {t('blog.list.search_results', { query })}
                 </h2>
                 {!loading && posts.length === 0 && (
-                  <p className="text-muted mt-2">Ничего не найдено</p>
+                  <p className="text-muted mt-2">{t('blog.list.nothing_found')}</p>
                 )}
               </div>
             )}
@@ -139,7 +141,7 @@ export function BlogListPage() {
                     size="sm"
                     onClick={() => handleSortChange(option.value)}
                   >
-                    {option.label}
+                    {t(option.labelKey)}
                   </Button>
                 ))}
               </div>
@@ -178,8 +180,8 @@ export function BlogListPage() {
             ) : (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">📭</div>
-                <h2 className="text-xl text-white mb-2">Статей пока нет</h2>
-                <p className="text-muted">Мы скоро добавим интересные материалы</p>
+                <h2 className="text-xl text-white mb-2">{t('blog.list.empty_title')}</h2>
+                <p className="text-muted">{t('blog.list.empty_subtitle')}</p>
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ChevronRight, Eye, ThumbsUp, ThumbsDown, Clock, Calendar } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
 import { getVisitorId } from '@/utils/visitor'
 import { formatDate, formatNumber } from '@/utils/format'
@@ -58,6 +59,7 @@ function VoteButtons({ postId, initialLikes, initialDislikes, postSlug }: {
   initialDislikes: number
   postSlug?: string
 }) {
+  const { t } = useTranslation()
   const [likes, setLikes] = useState(initialLikes)
   const [dislikes, setDislikes] = useState(initialDislikes)
   const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(null)
@@ -84,7 +86,7 @@ function VoteButtons({ postId, initialLikes, initialDislikes, postSlug }: {
 
   return (
     <div className="flex items-center gap-4">
-      <span className="text-muted">Оцените статью:</span>
+      <span className="text-muted">{t('blog.post.rate_article')}</span>
       <button
         onClick={() => handleVote('like')}
         disabled={isVoting}
@@ -117,6 +119,7 @@ function VoteButtons({ postId, initialLikes, initialDislikes, postSlug }: {
 const getScrollKey = (slug: string) => `blog-scroll-${slug}`
 
 export function BlogPostPage() {
+  const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
   const [post, setPost] = useState<BlogPost | null>(null)
   const [comments, setComments] = useState<BlogComment[]>([])
@@ -165,14 +168,14 @@ export function BlogPostPage() {
 
         await fetchComments()
       } catch {
-        setError('Статья не найдена')
+        setError(t('blog.post.not_found'))
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
-  }, [slug, fetchComments])
+  }, [slug, fetchComments, t])
 
   // Restore scroll position after content loads with smooth scroll
   useEffect(() => {
@@ -237,9 +240,9 @@ export function BlogPostPage() {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">📄</div>
-        <h1 className="text-2xl text-white mb-4">{error || 'Статья не найдена'}</h1>
+        <h1 className="text-2xl text-white mb-4">{error || t('blog.post.not_found')}</h1>
         <Button asChild>
-          <Link to="/blog">Вернуться к блогу</Link>
+          <Link to="/blog">{t('blog.post.back_to_blog')}</Link>
         </Button>
       </div>
     )
@@ -257,8 +260,8 @@ export function BlogPostPage() {
       commentCount: comments.length,
     }),
     generateBreadcrumbSchema([
-      { name: 'Главная', url: '/' },
-      { name: 'Блог', url: '/blog' },
+      { name: t('blog.post.breadcrumb_home'), url: '/' },
+      { name: t('blog.post.breadcrumb_blog'), url: '/blog' },
       ...(post.category ? [{ name: post.category.name, url: `/category/${post.category.slug}` }] : []),
       { name: post.title, url: `/blog/${post.slug}` },
     ]),
@@ -283,11 +286,11 @@ export function BlogPostPage() {
         <div className="container mx-auto px-4 py-3">
           <nav className="flex items-center gap-1.5 sm:gap-2 text-sm text-muted overflow-x-auto scrollbar-hide">
             <Link to="/" className="hover:text-white shrink-0">
-              Главная
+              {t('blog.post.breadcrumb_home')}
             </Link>
             <ChevronRight className="w-4 h-4 shrink-0 opacity-50" />
             <Link to="/blog" className="hover:text-white shrink-0">
-              Блог
+              {t('blog.post.breadcrumb_blog')}
             </Link>
             {post.category && (
               <>
@@ -336,12 +339,12 @@ export function BlogPostPage() {
                 {post.readTime && (
                   <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    {post.readTime} мин чтения
+                    {t('blog.post.read_time', { n: post.readTime })}
                   </span>
                 )}
                 <span className="flex items-center gap-1">
                   <Eye className="w-4 h-4" />
-                  {formatNumber(post.views)} просмотров
+                  {t('blog.post.views', { n: formatNumber(post.views) })}
                 </span>
               </div>
 
@@ -371,7 +374,7 @@ export function BlogPostPage() {
             {/* Tags */}
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mt-8 pt-8 border-t border-border">
-                <span className="text-muted">Теги:</span>
+                <span className="text-muted">{t('blog.post.tags')}</span>
                 {post.tags.map((tag) => (
                   <Link
                     key={tag._id}

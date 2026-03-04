@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { BlogCategory, BlogTag, BlogPost } from '@/types'
 import { formatDateShort } from '@/utils/format'
 import { Input } from '@/components/ui/input'
@@ -41,7 +42,6 @@ function getSnippetAroundMatch(text: string, query: string, maxLength = 60): str
     return plainText.length > maxLength ? plainText.slice(0, maxLength) + '...' : plainText
   }
 
-  // Center the snippet around the match
   const halfLength = Math.floor((maxLength - query.length) / 2)
   const start = Math.max(0, index - halfLength)
   const end = Math.min(plainText.length, index + query.length + halfLength)
@@ -83,6 +83,7 @@ export function BlogSidebar({
   currentCategorySlug,
   currentTagSlug,
 }: BlogSidebarProps) {
+  const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<BlogPost[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -90,7 +91,6 @@ export function BlogSidebar({
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
-  // Debounced search
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const performSearch = useCallback(async (query: string) => {
@@ -113,7 +113,6 @@ export function BlogSidebar({
     }
   }, [])
 
-  // Handle search input change with debounce
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchQuery(value)
@@ -132,7 +131,6 @@ export function BlogSidebar({
     }
   }
 
-  // Handle click outside to close results
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
@@ -144,14 +142,12 @@ export function BlogSidebar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Handle result click
   const handleResultClick = (slug: string) => {
     setShowResults(false)
     setSearchQuery('')
     navigate(`/blog/${slug}`)
   }
 
-  // Handle form submit (Enter key)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
@@ -166,7 +162,7 @@ export function BlogSidebar({
       <div className="bg-dark-light rounded-xl p-6 border border-border" ref={searchContainerRef}>
         <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
           <Search className="w-4 h-4" />
-          Поиск
+          {t('blog.sidebar.search')}
         </h3>
         <form onSubmit={handleSubmit} className="relative">
           <div className="relative">
@@ -175,7 +171,7 @@ export function BlogSidebar({
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={() => searchResults.length > 0 && setShowResults(true)}
-              placeholder="Поиск статей..."
+              placeholder={t('blog.sidebar.search_placeholder')}
               className="w-full pr-10"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -192,27 +188,22 @@ export function BlogSidebar({
             <div className="absolute z-50 top-full left-0 mt-2 bg-dark border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 w-full lg:w-[400px]">
               <div className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 {searchResults.map((post) => {
-                  // Determine where match is
                   const titleHasMatch = containsQuery(post.title, searchQuery)
                   const summaryHasMatch = containsQuery(post.summary || '', searchQuery)
                   const contentHasMatch = containsQuery(post.content || '', searchQuery)
 
-                  // Title display - shorter snippet to ensure highlight is visible
                   const titleDisplay = titleHasMatch
                     ? getSnippetAroundMatch(post.title, searchQuery, 40)
                     : post.title.length > 45 ? post.title.slice(0, 45) + '...' : post.title
 
-                  // Excerpt display - depends on where match is
                   let excerptText: string
                   let highlightExcerpt = false
 
                   if (titleHasMatch) {
-                    // Match in title - show normal summary (strip HTML)
                     const plainSummary = stripHtml(post.summary || post.content || '')
                     excerptText = plainSummary.slice(0, 80)
                     if (plainSummary.length > 80) excerptText += '...'
                   } else if (summaryHasMatch) {
-                    // Shorter snippet (60 chars) to ensure highlight is visible on mobile
                     excerptText = getSnippetAroundMatch(post.summary || '', searchQuery, 60)
                     highlightExcerpt = true
                   } else if (contentHasMatch) {
@@ -231,28 +222,14 @@ export function BlogSidebar({
                       onClick={() => handleResultClick(post.slug)}
                       className="w-full text-left p-3 hover:bg-dark-light transition-colors border-b border-border last:border-b-0 flex gap-3"
                     >
-                      {/* Thumbnail */}
                       {post.coverImage ? (
                         <div className="w-14 h-14 rounded-lg flex-shrink-0 relative overflow-hidden bg-dark-lighter">
-                          <img
-                            src={post.coverImage}
-                            alt=""
-                            aria-hidden="true"
-                            className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
-                          />
-                          <img
-                            src={post.coverImage}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-contain"
-                          />
+                          <img src={post.coverImage} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40" />
+                          <img src={post.coverImage} alt="" className="absolute inset-0 w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div className="w-14 h-14 bg-dark-lighter rounded-lg flex items-center justify-center text-xl flex-shrink-0">
-                          📄
-                        </div>
+                        <div className="w-14 h-14 bg-dark-lighter rounded-lg flex items-center justify-center text-xl flex-shrink-0">📄</div>
                       )}
-
-                      {/* Content */}
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <h4 className={`text-sm text-white font-medium ${titleHasMatch ? 'truncate' : 'line-clamp-1'}`}>
                           {titleHasMatch ? highlightText(titleDisplay, searchQuery) : titleDisplay}
@@ -266,7 +243,6 @@ export function BlogSidebar({
                 })}
               </div>
 
-              {/* View all results link */}
               <button
                 type="button"
                 onClick={() => {
@@ -275,15 +251,14 @@ export function BlogSidebar({
                 }}
                 className="w-full p-3 text-center text-sm text-primary hover:bg-dark-light transition-colors border-t border-border"
               >
-                Показать все результаты →
+                {t('blog.sidebar.show_all_results')}
               </button>
             </div>
           )}
 
-          {/* No results message */}
           {showResults && searchQuery.length >= 3 && searchResults.length === 0 && !isSearching && (
             <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-dark border border-border rounded-xl shadow-xl p-4 text-center text-muted text-sm">
-              Ничего не найдено
+              {t('blog.sidebar.nothing_found')}
             </div>
           )}
         </form>
@@ -292,7 +267,7 @@ export function BlogSidebar({
       {/* Categories */}
       {categories.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
-          <h3 className="text-white font-semibold mb-4">📁 Категории</h3>
+          <h3 className="text-white font-semibold mb-4">{t('blog.sidebar.categories')}</h3>
           <ul className="space-y-2 max-h-[140px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             <li>
               <Link
@@ -303,7 +278,7 @@ export function BlogSidebar({
                     : 'text-muted hover:text-white hover:bg-dark-lighter'
                 }`}
               >
-                <span>Все статьи</span>
+                <span>{t('blog.sidebar.all_articles')}</span>
               </Link>
             </li>
             {categories.map((cat) => (
@@ -318,9 +293,7 @@ export function BlogSidebar({
                 >
                   <span>{cat.name}</span>
                   {cat.postsCount !== undefined && (
-                    <span className="text-xs bg-dark px-2 py-0.5 rounded">
-                      {cat.postsCount}
-                    </span>
+                    <span className="text-xs bg-dark px-2 py-0.5 rounded">{cat.postsCount}</span>
                   )}
                 </Link>
               </li>
@@ -332,39 +305,22 @@ export function BlogSidebar({
       {/* Recent Posts */}
       {recentPosts.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
-          <h3 className="text-white font-semibold mb-4">📝 Последние статьи</h3>
+          <h3 className="text-white font-semibold mb-4">{t('blog.sidebar.recent_posts')}</h3>
           <ul className="space-y-4 max-h-[150px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             {recentPosts.map((post) => (
               <li key={post._id}>
                 <Link to={`/blog/${post.slug}`} className="flex gap-3 group">
                   {post.coverImage ? (
                     <div className="w-16 h-16 rounded-lg flex-shrink-0 relative overflow-hidden bg-dark">
-                      {/* Blurred background */}
-                      <img
-                        src={post.coverImage}
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
-                      />
-                      {/* Main image */}
-                      <img
-                        src={post.coverImage}
-                        alt={post.coverImageAlt || post.title}
-                        className="absolute inset-0 w-full h-full object-contain"
-                      />
+                      <img src={post.coverImage} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40" />
+                      <img src={post.coverImage} alt={post.coverImageAlt || post.title} className="absolute inset-0 w-full h-full object-contain" />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 bg-dark rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
-                      📄
-                    </div>
+                    <div className="w-16 h-16 bg-dark rounded-lg flex items-center justify-center text-2xl flex-shrink-0">📄</div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm text-white group-hover:text-primary line-clamp-2 transition-colors">
-                      {post.title}
-                    </h4>
-                    <p className="text-xs text-muted mt-1">
-                      {formatDateShort(post.publishedAt || post.createdAt)}
-                    </p>
+                    <h4 className="text-sm text-white group-hover:text-primary line-clamp-2 transition-colors">{post.title}</h4>
+                    <p className="text-xs text-muted mt-1">{formatDateShort(post.publishedAt || post.createdAt)}</p>
                   </div>
                 </Link>
               </li>
@@ -376,7 +332,7 @@ export function BlogSidebar({
       {/* Tags */}
       {tags.length > 0 && (
         <div className="bg-dark-light rounded-xl p-6 border border-border">
-          <h3 className="text-white font-semibold mb-4">🏷️ Теги</h3>
+          <h3 className="text-white font-semibold mb-4">{t('blog.sidebar.tags')}</h3>
           <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             {tags.map((tag) => (
               <Link

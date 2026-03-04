@@ -14,6 +14,7 @@ interface CategoryFormData {
   seoTitle: string
   seoDescription: string
   sortOrder: number
+  language: 'ru' | 'en' | 'uk'
 }
 
 const initialFormData: CategoryFormData = {
@@ -25,6 +26,7 @@ const initialFormData: CategoryFormData = {
   seoTitle: '',
   seoDescription: '',
   sortOrder: 0,
+  language: 'ru',
 }
 
 export function BlogCategoriesPage() {
@@ -61,6 +63,7 @@ export function BlogCategoriesPage() {
         seoTitle: category.seoTitle || '',
         seoDescription: category.seoDescription || '',
         sortOrder: category.sortOrder,
+        language: (category.language as 'ru' | 'en' | 'uk') || 'ru',
       })
     } else {
       setEditingCategory(null)
@@ -109,6 +112,7 @@ export function BlogCategoriesPage() {
         seoTitle: formData.seoTitle,
         seoDescription: formData.seoDescription,
         sortOrder: formData.sortOrder,
+        language: formData.language,
       }
 
       if (editingCategory) {
@@ -173,6 +177,21 @@ export function BlogCategoriesPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Язык
+                </label>
+                <select
+                  value={formData.language}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value as 'ru' | 'en' | 'uk' })}
+                  className="w-full bg-dark border border-border rounded-lg px-3 py-2 text-white text-sm"
+                >
+                  <option value="ru">🇷🇺 Русский</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="uk">🇺🇦 Українська</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Название *
