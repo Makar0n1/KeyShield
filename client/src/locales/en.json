@@ -1,0 +1,160 @@
+{
+  "header": {
+    "features": "Features",
+    "how_it_works": "How it works",
+    "pricing": "Pricing",
+    "testimonials": "Reviews",
+    "blog": "Blog",
+    "docs": "Docs",
+    "open_bot": "Open bot"
+  },
+  "footer": {
+    "tagline": "Secure multisig escrow on TRON",
+    "documents": "Documents",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "offer": "Public Offer",
+    "support": "Support",
+    "blog": "Blog",
+    "all_posts": "All posts",
+    "copyright": "© {{year}} KeyShield. All rights reserved.",
+    "disclaimer": "KeyShield is not a financial institution and does not provide financial services. We provide a technology platform for secure cryptocurrency exchange between parties."
+  },
+  "home": {
+    "seo_title": "Secure Telegram Deals with USDT | Escrow Service on TRON",
+    "seo_description": "KeyShield — secure Telegram deals with USDT. 2-of-3 multisig wallet on TRON: private keys belong only to deal participants, the service cannot withdraw funds.",
+    "sticky_open_bot": "Open Telegram bot",
+    "sticky_read_reviews": "Read reviews",
+    "hero": {
+      "title": "Secure Telegram Deals with USDT",
+      "subtitle": "Escrow service on the TRON blockchain. Funds are stored in a 2-of-3 multisig wallet: withdrawal requires signatures from two parties, and private keys belong only to the deal participants. No admin can take the funds alone.",
+      "cta_start": "Get started",
+      "cta_how": "How it works",
+      "stat_signatures": "Signatures required to transfer funds",
+      "stat_commission": "Minimum commission per deal",
+      "stat_availability": "Available via Telegram bot"
+    },
+    "what_is": {
+      "title": "What is a secure deal",
+      "p1": "<strong>A secure deal</strong> is a scheme where funds don't go directly from the buyer to the seller. The money is temporarily held by an independent guarantor and transferred only after the agreed conditions are met. This is crucial for freelancing, Telegram advertising, selling digital goods, and any transactions between strangers online.",
+      "p2": "In KeyShield, the guarantor role is performed by a <strong>multisig wallet on the TRON blockchain</strong>. The funds are not held by a human intermediary, but at an address where any transfer requires two signatures — from the buyer and the seller. This makes the deal transparent and technically protected, not just based on trust."
+    },
+    "features": {
+      "title": "Why KeyShield is a secure Telegram escrow",
+      "multisig_title": "Multisig protection",
+      "multisig_desc": "A 2-of-3 multisig wallet is created for each deal. The buyer and seller receive their private keys, the service holds the third. Without two signatures, funds don't move: neither party nor any admin can steal the deposit.",
+      "automation_title": "Automation",
+      "automation_desc": "All steps of a secure deal go through the Telegram bot: setting conditions, depositing USDT, confirming work, and withdrawing funds. No manual transfers or searching for payment details.",
+      "transparency_title": "Transparency",
+      "transparency_desc": "All deal operations are recorded on the TRON blockchain. You can see the wallet address, deposit amount, and transfers — not just trust the guarantor's word.",
+      "arbitration_title": "Arbitration",
+      "arbitration_desc": "If a dispute arises, an independent KeyShield arbitrator joins as the third signer. The decision is made based on chat history and evidence.",
+      "low_fee_title": "Low fees",
+      "low_fee_desc": "Commission from {{fee}} USDT per secure deal. Fixed rate for small amounts, percentage for larger deposits. No hidden fees.",
+      "fast_start_title": "Quick start",
+      "fast_start_desc": "No registration or KYC required. To make a secure deal, just open the bot, describe the terms, and send USDT to the multisig address."
+    },
+    "how_it_works": {
+      "title": "How it works",
+      "step1_title": "Create a deal",
+      "step1_desc": "The buyer or seller opens the Telegram bot and creates a secure deal: describes the service or product, the USDT amount, and the deadline.",
+      "step2_title": "Receive your key",
+      "step2_desc": "Each participant receives their private key for signing transactions. The key is stored only with you; the service cannot see or recover it. Without private keys, the funds cannot be moved.",
+      "step3_title": "Deposit",
+      "step3_desc": "The buyer sends USDT to the multisig address. The funds are locked on the TRON blockchain awaiting participant signatures.",
+      "step4_title": "Work completion",
+      "step4_desc": "The seller completes the work or delivers the product within the agreed timeframe. All agreements are documented in the Telegram chat.",
+      "step5_title": "Finalization",
+      "step5_desc": "If the buyer is satisfied, both parties sign a transfer to the seller — and the USDT goes to their wallet. If the work fails, the buyer signs a refund, and the deposit is returned.",
+      "deadline_title": "Important: Deadline",
+      "deadline_p1": "If the deal deadline expires and there's no confirmation or dispute within <strong>12 hours</strong> — a refund to the buyer is initiated.",
+      "deadline_p2": "<strong>A private key is required to receive funds</strong> — the system will request it to sign the refund transaction.",
+      "deadline_p3": "<strong>The service commission is retained regardless</strong> — it covers infrastructure costs. Please try to complete deals on time."
+    },
+    "pricing": {
+      "title": "Transparent pricing",
+      "standard_title": "Standard commission",
+      "standard_from": "of the deal amount from 150 USDT",
+      "standard_tier3": "{{rate}}% from 500 USDT",
+      "standard_tier4": "{{rate}}% from 1500 USDT",
+      "auto_payouts": "Automatic payouts",
+      "dispute_arbitration": "Dispute arbitration",
+      "support_247": "24/7 support",
+      "minimum_badge": "Minimum",
+      "fixed_title": "Fixed commission",
+      "fixed_desc": "commission for deals up to {{max}} USDT",
+      "fixed_min_amount": "Minimum amount: {{min}} USDT",
+      "fixed_all_features": "All features included",
+      "fixed_ideal": "Perfect for small deals",
+      "who_pays_title": "Who pays the commission?",
+      "who_pays_desc": "When creating a deal, parties agree: buyer, seller, or 50/50.",
+      "no_hidden_title": "No hidden fees",
+      "no_hidden_desc": "The commission covers all operational costs: wallet activation, transactions, arbitration."
+    },
+    "faq": {
+      "title": "Frequently asked questions about secure deals",
+      "q1": "What is a secure deal?",
+      "a1": "A secure deal is a scheme where funds are temporarily held by an independent intermediary and transferred to the seller only after the conditions are met. In KeyShield, funds are stored in a multisig wallet on the TRON blockchain, not in a personal guarantor's wallet.",
+      "q2": "How does the Telegram escrow work with KeyShield?",
+      "a2": "The buyer and seller create a deal through the KeyShield Telegram bot, deposit USDT, and receive their private keys. The funds are locked in a multisig wallet. To transfer funds to the seller or refund the buyer, signatures from two parties are needed, so nobody can take the deposit alone.",
+      "q3": "Who has access to the deal funds?",
+      "a3": "Private keys belong only to the deal participants. KeyShield does not store private keys and cannot withdraw funds on its own. Any fund movement is only possible with two out of three signatures — from the buyer, seller, and in case of a dispute, the arbitrator.",
+      "q4": "Is KeyShield suitable for freelancing and digital services?",
+      "a4": "Yes, the service is especially convenient for Telegram deals: freelance orders, buying digital goods, channel advertising, and any online services paid in USDT. Terms are fixed in the bot, funds are locked in a multisig wallet, and transferred only after obligations are fulfilled."
+    },
+    "testimonials": {
+      "title": "What users say",
+      "subtitle": "Real stories from people who already make secure deals through KeyShield",
+      "swipe_hint": "← Swipe to browse →",
+      "stat_deals": "successful deals",
+      "stat_users": "active users",
+      "stat_fraud": "fraud cases",
+      "stat_support": "support & arbitration",
+      "t1_name": "Andrey K.",
+      "t1_role": "SMM specialist",
+      "t1_text": "I work with clients from different countries. I used to get scammed all the time — either work wasn't paid or money was taken and they disappeared. With KeyShield, not a single problem. Clients are calm too.",
+      "t2_name": "Maria L.",
+      "t2_role": "Telegram channel owner",
+      "t2_text": "I sell ads on a channel with 50K subscribers. Advertisers are often new, unfamiliar. Escrow through a bot is the perfect solution: I'm sure of payment, they're sure of placement.",
+      "t3_name": "Dmitry V.",
+      "t3_role": "Web developer",
+      "t3_text": "Built a website for 800 USDT. The client wanted an escrow, I suggested KeyShield. Everything went smoothly: money in multisig, delivered work — got paid. The commission is tiny.",
+      "t4_name": "Elena P.",
+      "t4_role": "Digital goods buyer",
+      "t4_text": "Bought course access from an unknown seller. Was afraid of getting scammed. Through KeyShield everything went smoothly — funds were released only after I received the product.",
+      "t5_name": "Artem S.",
+      "t5_role": "Traffic arbitrage specialist",
+      "t5_text": "I buy accounts and tools for work. Amounts can be large, don't want to risk it. KeyShield helps — I especially like that the keys are only with me.",
+      "t6_name": "Olga N.",
+      "t6_role": "Designer",
+      "t6_text": "First time using escrow ever. Thought it would be complicated — turned out easier than a regular transfer. The bot explains everything. Now all my orders go through it."
+    },
+    "cta": {
+      "title": "Ready to start secure deals?",
+      "subtitle": "Join KeyShield and protect your cryptocurrency transactions",
+      "button": "Open Telegram bot"
+    },
+    "blog": {
+      "title": "Useful articles",
+      "read_more": "Read more articles"
+    }
+  },
+  "terms": {
+    "seo_title": "Terms of Service",
+    "seo_description": "Terms of Service for KeyShield escrow service. Rules for creating deals, commissions, dispute arbitration, ban system, and liability.",
+    "title": "KeyShield Terms of Service",
+    "date": "December 4, 2025"
+  },
+  "privacy": {
+    "seo_title": "Privacy Policy",
+    "seo_description": "KeyShield Privacy Policy. Learn what data we collect, how we use, store, and protect your information.",
+    "title": "KeyShield Privacy Policy",
+    "date": "December 4, 2025"
+  },
+  "offer": {
+    "seo_title": "Public Offer",
+    "seo_description": "KeyShield Public Offer. Service agreement for secure cryptocurrency escrow deals using multisig wallets.",
+    "title": "KeyShield Public Offer",
+    "date": "December 4, 2025"
+  }
+}

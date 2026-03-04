@@ -14,6 +14,7 @@
 const User = require('../../models/User');
 const telegramQueue = require('../../utils/TelegramQueue');
 const activityLogger = require('../../services/activityLogger');
+const { t } = require('../../locales');
 
 class MessageManager {
   constructor() {
@@ -33,7 +34,7 @@ class MessageManager {
   async loadUserState(userId) {
     try {
       const user = await User.findOne({ telegramId: userId })
-        .select('mainMessageId navigationStack currentScreen currentScreenData lastActivity')
+        .select('mainMessageId navigationStack currentScreen currentScreenData lastActivity languageCode')
         .lean();
       return user;
     } catch (error) {
@@ -90,7 +91,8 @@ class MessageManager {
         // Try to mark it as obsolete instead
         if (e.description?.includes("can't be deleted") || e.description?.includes('message to delete not found') === false) {
           try {
-            const obsoleteText = '⚠️ _Это сообщение устарело. Используйте сообщение ниже._';
+            const userLang = user?.languageCode || 'ru';
+            const obsoleteText = t(userLang, 'common.obsolete_message');
             if (this.useQueue) {
               await telegramQueue.editMessageText(ctx.telegram, userId, oldMessageId, obsoleteText, { parse_mode: 'Markdown' });
             } else {

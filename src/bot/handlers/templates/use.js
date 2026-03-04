@@ -13,6 +13,7 @@ const { templateUseKeyboard, templateCounterpartyMethodKeyboard } = require('../
 const { walletSelectionKeyboard, mainMenuButton, inviteDealCreatedKeyboard } = require('../../keyboards/main');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
 const { Markup } = require('telegraf');
+const { t } = require('../../../locales');
 
 // Lazy require to avoid circular dependency
 let _showTemplatesList = null;
@@ -38,12 +39,13 @@ function getFinalizeDealCreation() {
 async function startUseTemplate(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const templateId = ctx.callbackQuery.data.split(':')[2];
 
   const template = await DealTemplate.findOne({ _id: templateId, telegramId });
   if (!template) {
-    await ctx.answerCbQuery('❌ Шаблон не найден', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'templates.not_found'), { show_alert: true });
     return getShowTemplatesList()(ctx);
   }
 
@@ -51,21 +53,15 @@ async function startUseTemplate(ctx) {
   if (!(await dealService.canCreateNewDeal(telegramId))) {
     const count = await dealService.countActiveDeals(telegramId);
     const { MAX_ACTIVE_DEALS_PER_USER } = require('../../../config/constants');
-    const text = `⚠️ *Достигнут лимит сделок*
-
-У вас уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
-
-Завершите одну из текущих сделок перед созданием новой.`;
-    await messageManager.sendNewMessage(ctx, telegramId, text, templateUseKeyboard(templateId));
+    const text = t(lang, 'templates.use_deals_limit', { count, max: MAX_ACTIVE_DEALS_PER_USER });
+    await messageManager.sendNewMessage(ctx, telegramId, text, templateUseKeyboard(templateId, lang));
     return;
   }
 
   // Check username
   if (!ctx.from.username) {
-    const text = `⚠️ *Необходим username*
-
-Для создания сделок установите публичный username в настройках Telegram.`;
-    await messageManager.sendNewMessage(ctx, telegramId, text, templateUseKeyboard(templateId));
+    const text = t(lang, 'templates.use_username_required');
+    await messageManager.sendNewMessage(ctx, telegramId, text, templateUseKeyboard(templateId, lang));
     return;
   }
 
@@ -87,17 +83,11 @@ async function startUseTemplate(ctx) {
   });
 
   const roleIcon = template.creatorRole === 'buyer' ? '💵' : '🛠';
+  const roleLabel = template.creatorRole === 'buyer' ? t(lang, 'role.buyer') : t(lang, 'role.seller');
 
-  const text = `🚀 *Быстрая сделка по шаблону*
+  const text = t(lang, 'templates.use_title') + `\n\n📑 ${template.name}\n${roleIcon} ${t(lang, 'role.buyer') === roleLabel ? t(lang, 'role.buyer') : t(lang, 'role.seller')}: ${roleLabel}\n📦 ${template.productName}\n💰 ${template.amount} ${template.asset}\n\n` + t(lang, 'templates.use_how_find');
 
-📑 ${template.name}
-${roleIcon} Вы: ${template.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец'}
-📦 ${template.productName}
-💰 ${template.amount} ${template.asset}
-
-*Как найти контрагента?*`;
-
-  const keyboard = templateCounterpartyMethodKeyboard(templateId);
+  const keyboard = templateCounterpartyMethodKeyboard(templateId, lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 }
 
@@ -107,6 +97,7 @@ ${roleIcon} Вы: ${template.creatorRole === 'buyer' ? 'Покупатель' : 
 async function handleTemplateMethodSelection(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const parts = ctx.callbackQuery.data.split(':');
   const method = parts[1];
@@ -131,15 +122,14 @@ async function handleTemplateMethodSelection(ctx) {
     session.step = 'counterparty';
     await setTemplateSession(telegramId, session);
 
-    const counterpartyLabel = session.data.creatorRole === 'buyer' ? 'продавца' : 'покупателя';
+    const counterpartyLabel = session.data.creatorRole === 'buyer' ? t(lang, 'role.seller_gen') : t(lang, 'role.buyer_gen');
 
-    const text = `🚀 *Быстрая сделка по шаблону*
+    const text = t(lang, 'templates.use_enter_username', {
+      templateName: session.templateName,
+      counterpartyLabel
+    });
 
-📑 ${session.templateName}
-
-Введите @username ${counterpartyLabel}:`;
-
-    const keyboard = templateUseKeyboard(templateId);
+    const keyboard = templateUseKeyboard(templateId, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } else {
     // Invite link flow - go to wallet
@@ -152,29 +142,23 @@ async function handleTemplateMethodSelection(ctx) {
     const savedWallets = creator?.wallets || [];
 
     const walletPurpose = session.data.creatorRole === 'buyer'
-      ? 'для возврата средств'
-      : 'для получения оплаты';
+      ? t(lang, 'wallet.purpose_buyer_short')
+      : t(lang, 'wallet.purpose_seller_short');
 
     if (savedWallets.length > 0) {
-      const walletText = `🚀 *Быстрая сделка по шаблону*
+      const walletText = t(lang, 'templates.use_select_wallet', {
+        templateName: session.templateName,
+        walletPurpose
+      });
 
-📑 ${session.templateName}
-
-💳 *Выберите кошелёк ${walletPurpose}:*
-
-Или введите новый адрес TRON-кошелька.`;
-
-      await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true));
+      await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true, lang));
     } else {
-      const walletText = `🚀 *Быстрая сделка по шаблону*
+      const walletText = t(lang, 'templates.use_enter_wallet', {
+        templateName: session.templateName,
+        walletPurpose
+      });
 
-📑 ${session.templateName}
-
-💳 *Введите адрес TRON-кошелька ${walletPurpose}:*
-
-_(адрес начинается с T, 34 символа)_`;
-
-      await messageManager.sendNewMessage(ctx, telegramId, walletText, templateUseKeyboard(templateId));
+      await messageManager.sendNewMessage(ctx, telegramId, walletText, templateUseKeyboard(templateId, lang));
     }
   }
 }
@@ -185,6 +169,7 @@ _(адрес начинается с T, 34 символа)_`;
 async function handleCounterpartyInput(ctx) {
   const telegramId = ctx.from.id;
   const text = ctx.message.text.trim();
+  const lang = ctx.state?.lang || 'ru';
 
   await messageManager.deleteUserMessage(ctx);
 
@@ -197,10 +182,8 @@ async function handleCounterpartyInput(ctx) {
 
   // Can't create deal with yourself
   if (username.toLowerCase() === ctx.from.username?.toLowerCase()) {
-    const errorText = `❌ *Вы не можете создать сделку с самим собой!*
-
-Введите другой @username:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId));
+    const errorText = t(lang, 'templates.use_self_deal');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
 
@@ -210,31 +193,26 @@ async function handleCounterpartyInput(ctx) {
   });
 
   if (!counterparty) {
-    const errorText = `❌ *Пользователь @${username} не найден*
-
-Убедитесь, что он уже запустил бота.
-Введите другой @username:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId));
+    const errorText = t(lang, 'templates.use_user_not_found', { username });
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
 
   if (counterparty.blacklisted) {
-    const errorText = `❌ *Пользователь заблокирован*
-
-Введите другой @username:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId));
+    const errorText = t(lang, 'templates.use_user_blocked');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
 
   if (!(await dealService.canCreateNewDeal(counterparty.telegramId))) {
     const count = await dealService.countActiveDeals(counterparty.telegramId);
     const { MAX_ACTIVE_DEALS_PER_USER } = require('../../../config/constants');
-    const errorText = `⚠️ *У @${username} достигнут лимит сделок*
-
-У него уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
-
-Введите другой @username:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId));
+    const errorText = t(lang, 'templates.use_counterparty_limit', {
+      username,
+      count,
+      max: MAX_ACTIVE_DEALS_PER_USER
+    });
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
 
@@ -263,27 +241,25 @@ async function handleCounterpartyInput(ctx) {
   const savedWallets = creator?.wallets || [];
 
   const walletPurpose = session.data.creatorRole === 'buyer'
-    ? 'для возврата средств'
-    : 'для получения оплаты';
+    ? t(lang, 'wallet.purpose_buyer_short')
+    : t(lang, 'wallet.purpose_seller_short');
 
   if (savedWallets.length > 0) {
-    const walletText = `✅ *Контрагент:* @${counterparty.username}
-📊 *Рейтинг:* ${counterpartyRating}
+    const walletText = t(lang, 'templates.use_counterparty_found_wallet', {
+      username: counterparty.username,
+      rating: counterpartyRating,
+      walletPurpose
+    });
 
-💳 *Выберите кошелёк ${walletPurpose}:*
-
-Или введите новый адрес TRON-кошелька.`;
-
-    await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true));
+    await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true, lang));
   } else {
-    const walletText = `✅ *Контрагент:* @${counterparty.username}
-📊 *Рейтинг:* ${counterpartyRating}
+    const walletText = t(lang, 'templates.use_counterparty_found_input', {
+      username: counterparty.username,
+      rating: counterpartyRating,
+      walletPurpose
+    });
 
-💳 *Введите адрес TRON-кошелька ${walletPurpose}:*
-
-_(адрес начинается с T, 34 символа)_`;
-
-    await messageManager.sendNewMessage(ctx, telegramId, walletText, templateUseKeyboard(session.templateId));
+    await messageManager.sendNewMessage(ctx, telegramId, walletText, templateUseKeyboard(session.templateId, lang));
   }
 
   return true;
@@ -294,6 +270,7 @@ _(адрес начинается с T, 34 символа)_`;
  */
 async function handleWalletSelection(ctx, walletIndex) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const session = await getTemplateSession(telegramId);
   if (!session || session.action !== 'use_template' || session.step !== 'wallet') {
@@ -304,7 +281,7 @@ async function handleWalletSelection(ctx, walletIndex) {
   const wallet = user?.wallets?.[walletIndex];
 
   if (!wallet) {
-    await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
     return false;
   }
 
@@ -328,6 +305,7 @@ async function handleWalletSelection(ctx, walletIndex) {
 async function handleWalletInput(ctx) {
   const telegramId = ctx.from.id;
   const text = ctx.message.text.trim();
+  const lang = ctx.state?.lang || 'ru';
 
   await messageManager.deleteUserMessage(ctx);
 
@@ -338,16 +316,13 @@ async function handleWalletInput(ctx) {
 
   // Basic TRON address format validation
   if (!text.startsWith('T') || text.length !== 34) {
-    const errorText = `❌ *Неверный формат адреса*
-
-Адрес должен начинаться с T и содержать 34 символа.
-Введите адрес TRON-кошелька:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId));
+    const errorText = t(lang, 'wallet.invalid_format_short');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
 
   // Show verification message
-  await messageManager.sendNewMessage(ctx, telegramId, '⏳ *Проверяем кошелёк...*', { inline_keyboard: [] });
+  await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.checking_wallet_short'), { inline_keyboard: [] });
 
   // Verify wallet exists on TRON network
   const verification = await blockchainService.verifyWalletExists(text);
@@ -355,21 +330,13 @@ async function handleWalletInput(ctx) {
   if (!verification.valid) {
     let errorMessage;
     if (verification.reason === 'not_found') {
-      errorMessage = `❌ *Кошелёк не найден*
-
-Адрес не активирован в сети TRON.
-Введите другой адрес:`;
+      errorMessage = t(lang, 'wallet.not_found');
     } else if (verification.reason === 'api_error') {
-      errorMessage = `⚠️ *Ошибка проверки*
-
-Не удалось проверить кошелёк. Попробуйте ещё раз.
-Введите адрес TRON-кошелька:`;
+      errorMessage = t(lang, 'wallet.check_error_short');
     } else {
-      errorMessage = `❌ *Неверный адрес*
-
-Введите корректный адрес TRON-кошелька:`;
+      errorMessage = t(lang, 'wallet.invalid_address_short');
     }
-    await messageManager.sendNewMessage(ctx, telegramId, errorMessage, templateUseKeyboard(session.templateId));
+    await messageManager.sendNewMessage(ctx, telegramId, errorMessage, templateUseKeyboard(session.templateId, lang));
     return true;
   }
 
@@ -393,10 +360,11 @@ async function handleWalletInput(ctx) {
  */
 async function createDealFromTemplate(ctx, session) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   try {
     // Show loading
-    await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', '⏳ *Создаём сделку...*', {});
+    await messageManager.updateScreen(ctx, telegramId, 'create_deal_loading', t(lang, 'common.creating_deal'), {});
 
     // Check if this is invite link flow
     if (session.data.isInviteLink) {
@@ -441,11 +409,9 @@ async function createDealFromTemplate(ctx, session) {
     console.error('Error creating deal from template:', error);
     await clearTemplateSession(telegramId);
 
-    const errorText = `❌ *Ошибка при создании сделки*
+    const errorText = t(lang, 'templates.use_error', { message: error.message });
 
-${error.message || 'Попробуйте позже.'}`;
-
-    await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, mainMenuButton());
+    await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, mainMenuButton(lang));
     return false;
   }
 }
@@ -456,6 +422,7 @@ ${error.message || 'Попробуйте позже.'}`;
 async function createInviteDealFromTemplate(ctx, session) {
   const telegramId = ctx.from.id;
   const creatorUsername = ctx.from.username;
+  const lang = ctx.state?.lang || 'ru';
 
   try {
     // Prepare deal data for invite
@@ -506,45 +473,39 @@ async function createInviteDealFromTemplate(ctx, session) {
     const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
     const inviteLink = `https://t.me/${botUsername}?start=deal_${deal.inviteToken}`;
 
-    const roleLabel = session.data.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец';
+    const roleLabel = session.data.creatorRole === 'buyer' ? t(lang, 'role.buyer') : t(lang, 'role.seller');
     const roleIcon = session.data.creatorRole === 'buyer' ? '💵' : '🛠';
 
-    const text = `✅ *Сделка создана!*
+    const text = t(lang, 'templates.use_deal_created', {
+      dealId: deal.dealId,
+      roleIcon,
+      roleLabel,
+      productName: escapeMarkdown(deal.productName),
+      amount: deal.amount,
+      asset: deal.asset,
+      commission,
+      inviteLink
+    });
 
-🆔 ID: \`${deal.dealId}\`
-${roleIcon} Вы: ${roleLabel}
-📦 ${escapeMarkdown(deal.productName)}
-💰 ${deal.amount} ${deal.asset}
-💸 Комиссия: ${commission} ${deal.asset}
-
-🔗 *Ссылка для контрагента:*
-\`${inviteLink}\`
-
-⏳ Ссылка действительна 24 часа.
-Отправьте её контрагенту для участия в сделке.`;
-
-    const keyboard = inviteDealCreatedKeyboard(deal.dealId, deal.inviteToken);
+    const keyboard = inviteDealCreatedKeyboard(deal.dealId, deal.inviteToken, lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'invite_deal_created', text, keyboard);
 
     // Send private key message
-    const roleKeyLabel = session.data.creatorRole === 'buyer' ? 'покупателя' : 'продавца';
-    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+    const roleKeyLabel = session.data.creatorRole === 'buyer' ? t(lang, 'createDeal.private_key_buyer') : t(lang, 'createDeal.private_key_seller');
+    const keyText = `${t(lang, 'createDeal.private_key_title')}
 
-🆔 Сделка: \`${deal.dealId}\`
+🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId })}
 
-Ваш приватный ключ ${roleKeyLabel}:
+${roleKeyLabel}
 \`${creatorPrivateKey}\`
 
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+${t(lang, 'createDeal.private_key_warning')}
+${t(lang, 'createDeal.private_key_general_warning')}
 
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете получить/вернуть средства!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
     ]);
 
     const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -568,11 +529,9 @@ ${roleIcon} Вы: ${roleLabel}
     console.error('Error creating invite deal from template:', error);
     await clearTemplateSession(telegramId);
 
-    const errorText = `❌ *Ошибка при создании сделки*
+    const errorText = t(lang, 'templates.use_error', { message: error.message });
 
-${error.message || 'Попробуйте позже.'}`;
-
-    await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, mainMenuButton());
+    await messageManager.showFinalScreen(ctx, telegramId, 'error', errorText, mainMenuButton(lang));
     return false;
   }
 }

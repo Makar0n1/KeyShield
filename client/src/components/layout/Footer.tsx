@@ -1,22 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
 import type { BlogPost } from '@/types'
 
-const footerLinks = {
-  documents: [
-    { href: '/terms', label: 'Условия использования' },
-    { href: '/privacy', label: 'Политика конфиденциальности' },
-    { href: '/offer', label: 'Публичная оферта' },
-  ],
-  support: [
-    { href: 'https://t.me/keyshield_support', label: 'Telegram: @keyshield_support', external: true },
-    { href: 'mailto:support@keyshield.me', label: 'Email: support@keyshield.me', external: true },
-  ],
-}
-
 export function Footer() {
   const [recentPosts, setRecentPosts] = useState<BlogPost[]>([])
+  const { t } = useTranslation()
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -30,6 +20,18 @@ export function Footer() {
     fetchPosts()
   }, [])
 
+  const footerLinks = {
+    documents: [
+      { href: '/terms', key: 'footer.terms' },
+      { href: '/privacy', key: 'footer.privacy' },
+      { href: '/offer', key: 'footer.offer' },
+    ],
+    support: [
+      { href: 'https://t.me/keyshield_support', label: 'Telegram: @keyshield_support', external: true },
+      { href: 'mailto:support@keyshield.me', label: 'Email: support@keyshield.me', external: true },
+    ],
+  }
+
   return (
     <footer className="bg-dark-light border-t border-border py-12">
       <div className="container mx-auto px-4">
@@ -38,18 +40,18 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">KeyShield</h4>
             <p className="text-muted text-sm">
-              Безопасный multisig эскроу на TRON
+              {t('footer.tagline')}
             </p>
           </div>
 
           {/* Documents */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Документы</h4>
+            <h4 className="text-white font-semibold mb-4">{t('footer.documents')}</h4>
             <ul className="space-y-2">
               {footerLinks.documents.map((link) => (
                 <li key={link.href}>
                   <Link to={link.href} className="text-muted hover:text-white text-sm transition-colors">
-                    {link.label}
+                    {t(link.key)}
                   </Link>
                 </li>
               ))}
@@ -58,7 +60,7 @@ export function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Поддержка</h4>
+            <h4 className="text-white font-semibold mb-4">{t('footer.support')}</h4>
             <ul className="space-y-2">
               {footerLinks.support.map((link) => (
                 <li key={link.href}>
@@ -77,7 +79,7 @@ export function Footer() {
 
           {/* Blog - Recent Posts */}
           <div>
-            <h4 className="text-white font-semibold mb-4">Блог</h4>
+            <h4 className="text-white font-semibold mb-4">{t('footer.blog')}</h4>
             {recentPosts.length > 0 ? (
               <ul className="space-y-3">
                 {recentPosts.map((post) => (
@@ -110,7 +112,7 @@ export function Footer() {
               </ul>
             ) : (
               <Link to="/blog" className="text-muted hover:text-white text-sm transition-colors">
-                Все статьи
+                {t('footer.all_posts')}
               </Link>
             )}
           </div>
@@ -118,11 +120,10 @@ export function Footer() {
 
         <div className="mt-12 pt-8 border-t border-border text-center">
           <p className="text-muted text-sm">
-            &copy; {new Date().getFullYear()} KeyShield. Все права защищены.
+            {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
           <p className="text-muted/70 text-xs mt-2 max-w-2xl mx-auto">
-            KeyShield не является финансовой организацией и не предоставляет финансовые услуги.
-            Мы предоставляем технологическую платформу для безопасного обмена криптовалютой между сторонами.
+            {t('footer.disclaimer')}
           </p>
         </div>
       </div>

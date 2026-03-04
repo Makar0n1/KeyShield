@@ -11,6 +11,8 @@ const adminAlertService = require('./adminAlertService');
 const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const TronWeb = require('tronweb');
+const User = require('../models/User');
+const { t, formatDate } = require('../locales');
 
 // High-load optimization utilities
 const BoundedSet = require('../utils/BoundedSet');
@@ -294,28 +296,25 @@ class DeadlineMonitor {
     const ctx = { telegram: this.botInstance.telegram };
 
     // Buyer notification
-    const buyerText = `⚠️ *Срок сделки истёк!*
+    const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💰 Сумма: ${deal.amount} ${deal.asset}
-
-⏰ Дедлайн был: ${deadline.toLocaleString('ru-RU')}
-
-У вас есть *${hoursRemaining} часов* чтобы:
-• Подтвердить выполнение работы
-• Или открыть спор
-
-🔄 *Автовозврат:* ${autoRefundTime.toLocaleString('ru-RU')}
-
-Если вы не примете решение, средства будут автоматически возвращены на ваш кошелёк за вычетом комиссии сервиса.`;
+    const buyerText = t(buyerLang, 'deadlineMonitor.buyer_expired', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      amount: deal.amount,
+      asset: deal.asset,
+      deadline: formatDate(buyerLang, deadline),
+      hoursRemaining,
+      autoRefundTime: formatDate(buyerLang, autoRefundTime)
+    });
 
     const buyerKeyboard = {
       inline_keyboard: [
-        [{ text: '✅ Подтвердить работу', callback_data: `confirm_work_${deal.dealId}` }],
-        [{ text: '⚠️ Открыть спор', callback_data: `open_dispute_${deal.dealId}` }],
-        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
-        [{ text: '↩️ Назад', callback_data: 'back' }]
+        [{ text: t(buyerLang, 'btn.confirm_work'), callback_data: `confirm_work_${deal.dealId}` }],
+        [{ text: t(buyerLang, 'btn.open_dispute'), callback_data: `open_dispute_${deal.dealId}` }],
+        [{ text: t(buyerLang, 'btn.deal_details'), callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: t(buyerLang, 'btn.back_arrow'), callback_data: 'back' }]
       ]
     };
 
@@ -327,30 +326,25 @@ class DeadlineMonitor {
     }
 
     // Seller notification
-    const sellerText = `⚠️ *Срок сделки истёк!*
+    const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💰 Сумма: ${deal.amount} ${deal.asset}
-
-⏰ Дедлайн был: ${deadline.toLocaleString('ru-RU')}
-
-У вас есть *${hoursRemaining} часов* чтобы:
-• Отметить работу как сданную
-• Или открыть спор
-
-🔄 *Автовозврат покупателю:* ${autoRefundTime.toLocaleString('ru-RU')}
-
-⚠️ *Внимание!* Если покупатель не подтвердит работу и вы не откроете спор, средства будут автоматически возвращены покупателю.
-
-Комиссия сервиса удерживается в любом случае.`;
+    const sellerText = t(sellerLang, 'deadlineMonitor.seller_expired', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      amount: deal.amount,
+      asset: deal.asset,
+      deadline: formatDate(sellerLang, deadline),
+      hoursRemaining,
+      autoRefundTime: formatDate(sellerLang, autoRefundTime)
+    });
 
     const sellerKeyboard = {
       inline_keyboard: [
-        [{ text: '📤 Работа сдана', callback_data: `work_done_${deal.dealId}` }],
-        [{ text: '⚠️ Открыть спор', callback_data: `open_dispute_${deal.dealId}` }],
-        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
-        [{ text: '↩️ Назад', callback_data: 'back' }]
+        [{ text: t(sellerLang, 'btn.submit_work'), callback_data: `work_done_${deal.dealId}` }],
+        [{ text: t(sellerLang, 'btn.open_dispute'), callback_data: `open_dispute_${deal.dealId}` }],
+        [{ text: t(sellerLang, 'btn.deal_details'), callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: t(sellerLang, 'btn.back_arrow'), callback_data: 'back' }]
       ]
     };
 
@@ -423,7 +417,7 @@ class DeadlineMonitor {
       const buyerAddress = deal.buyerAddress;
       if (!buyerAddress) {
         console.error(`❌ Deal ${deal.dealId} has no buyer address for refund`);
-        await this.notifyRefundError(deal, 'Не указан адрес кошелька покупателя');
+        await this.notifyRefundError(deal, t('ru', 'deadlineMonitor.buyer_address_missing'));
         return;
       }
 
@@ -450,26 +444,20 @@ class DeadlineMonitor {
       const ctx = { telegram: this.botInstance.telegram };
 
       // Notify buyer - request private key
-      const buyerText = `⏰ *Срок сделки истёк!*
+      const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+      const buyerLang = buyerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Работа не была выполнена в срок.
-
-💰 *Для возврата средств введите ваш приватный ключ:*
-
-💸 К возврату: *${refundAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ *Без ввода ключа средства НЕ будут возвращены!*
-❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
+      const buyerText = t(buyerLang, 'deadlineMonitor.buyer_auto_refund_key', {
+        dealId: deal.dealId,
+        productName: deal.productName,
+        refundAmount: refundAmount.toFixed(2),
+        asset: deal.asset,
+        commission: commission.toFixed(2)
+      });
 
       const buyerKeyboard = {
         inline_keyboard: [
-          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+          [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
         ]
       };
 
@@ -484,13 +472,13 @@ class DeadlineMonitor {
       }
 
       // Notify seller (informational)
-      const sellerText = `⏰ *Срок сделки истёк*
+      const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+      const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Работа не была выполнена в срок.
-Покупателю отправлен запрос на возврат средств.`;
+      const sellerText = t(sellerLang, 'deadlineMonitor.seller_expired_notify', {
+        dealId: deal.dealId,
+        productName: deal.productName
+      });
 
       try {
         await messageManager.showNotification(ctx, deal.sellerId, sellerText, buyerKeyboard);
@@ -573,7 +561,7 @@ class DeadlineMonitor {
       const sellerAddress = deal.sellerAddress;
       if (!sellerAddress) {
         console.error(`❌ Deal ${deal.dealId} has no seller address for release`);
-        await this.notifyReleaseError(deal, 'Не указан адрес кошелька продавца');
+        await this.notifyReleaseError(deal, t('ru', 'deadlineMonitor.seller_address_missing'));
         return;
       }
 
@@ -599,27 +587,20 @@ class DeadlineMonitor {
       const ctx = { telegram: this.botInstance.telegram };
 
       // Notify seller - request private key
-      const sellerText = `✅ *Работа принята автоматически!*
+      const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+      const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Покупатель не ответил в течение 12 часов после сдачи работы.
-Работа принята автоматически!
-
-💰 *Для получения средств введите ваш приватный ключ:*
-
-💸 К получению: *${releaseAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ *Без ввода ключа средства НЕ будут переведены!*
-❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
+      const sellerText = t(sellerLang, 'deadlineMonitor.seller_auto_release_key', {
+        dealId: deal.dealId,
+        productName: deal.productName,
+        releaseAmount: releaseAmount.toFixed(2),
+        asset: deal.asset,
+        commission: commission.toFixed(2)
+      });
 
       const sellerKeyboard = {
         inline_keyboard: [
-          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+          [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
         ]
       };
 
@@ -634,15 +615,13 @@ class DeadlineMonitor {
       }
 
       // Notify buyer (informational)
-      const buyerText = `⏰ *Время на проверку работы истекло*
+      const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+      const buyerLang = buyerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Вы не ответили в течение 12 часов после сдачи работы.
-Работа принята автоматически.
-
-Средства будут переведены продавцу после подтверждения.`;
+      const buyerText = t(buyerLang, 'deadlineMonitor.buyer_auto_release_notify', {
+        dealId: deal.dealId,
+        productName: deal.productName
+      });
 
       try {
         await messageManager.showNotification(ctx, deal.buyerId, buyerText, sellerKeyboard);
@@ -799,48 +778,54 @@ class DeadlineMonitor {
     // Create mock ctx for messageManager
     const ctx = { telegram: this.botInstance.telegram };
 
-    // Final screen keyboard (no back button - this is a final state)
-    const finalKeyboard = {
+    // Load buyer language
+    const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+
+    const buyerFinalKeyboard = {
       inline_keyboard: [
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
     // Buyer notification
-    const buyerText = `✅ *Автовозврат выполнен!*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💸 Возвращено: *${refundAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-Срок сделки истёк, средства возвращены на ваш кошелёк.
-
-[Транзакция](https://tronscan.org/#/transaction/${txHash})`;
+    const buyerText = t(buyerLang, 'deadlineMonitor.buyer_refund_complete', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      refundAmount: refundAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash
+    });
 
     try {
-      await messageManager.showFinalScreen(ctx, deal.buyerId, 'auto_refund_complete', buyerText, finalKeyboard);
+      await messageManager.showFinalScreen(ctx, deal.buyerId, 'auto_refund_complete', buyerText, buyerFinalKeyboard);
     } catch (error) {
       console.error(`Error notifying buyer about refund:`, error.message);
     }
 
+    // Load seller language
+    const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
+
+    const sellerFinalKeyboard = {
+      inline_keyboard: [
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+
     // Seller notification
-    const sellerText = `⚠️ *Сделка завершена автовозвратом*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Срок сделки истёк без подтверждения выполнения.
-Средства возвращены покупателю.
-
-💸 Возвращено покупателю: ${refundAmount.toFixed(2)} ${deal.asset}
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-[Транзакция](https://tronscan.org/#/transaction/${txHash})`;
+    const sellerText = t(sellerLang, 'deadlineMonitor.seller_refund_notify', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      refundAmount: refundAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash
+    });
 
     try {
-      await messageManager.showFinalScreen(ctx, deal.sellerId, 'auto_refund_complete', sellerText, finalKeyboard);
+      await messageManager.showFinalScreen(ctx, deal.sellerId, 'auto_refund_complete', sellerText, sellerFinalKeyboard);
     } catch (error) {
       console.error(`Error notifying seller about refund:`, error.message);
     }
@@ -856,28 +841,35 @@ class DeadlineMonitor {
     // Create mock ctx for messageManager
     const ctx = { telegram: this.botInstance.telegram };
 
-    const errorText = `❌ *Ошибка автовозврата*
+    const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+    const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-Ошибка: ${errorMessage}
+    const buyerErrorText = t(buyerLang, 'deadlineMonitor.refund_error', { dealId: deal.dealId, errorMessage });
+    const sellerErrorText = t(sellerLang, 'deadlineMonitor.refund_error', { dealId: deal.dealId, errorMessage });
 
-Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
-
-    const keyboard = {
+    const buyerKeyboard = {
       inline_keyboard: [
-        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(buyerLang, 'btn.deal_details'), callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+    const sellerKeyboard = {
+      inline_keyboard: [
+        [{ text: t(sellerLang, 'btn.deal_details'), callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
     try {
-      await messageManager.showNotification(ctx, deal.buyerId, errorText, keyboard);
+      await messageManager.showNotification(ctx, deal.buyerId, buyerErrorText, buyerKeyboard);
     } catch (error) {
       console.error('Error notifying buyer about error:', error.message);
     }
 
     try {
-      await messageManager.showNotification(ctx, deal.sellerId, errorText, keyboard);
+      await messageManager.showNotification(ctx, deal.sellerId, sellerErrorText, sellerKeyboard);
     } catch (error) {
       console.error('Error notifying seller about error:', error.message);
     }
@@ -893,49 +885,54 @@ class DeadlineMonitor {
     // Create mock ctx for messageManager
     const ctx = { telegram: this.botInstance.telegram };
 
-    // Final screen keyboard (no back button - this is a final state)
-    const finalKeyboard = {
+    // Load seller language
+    const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
+
+    const sellerFinalKeyboard = {
       inline_keyboard: [
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
     // Seller notification (winner)
-    const sellerText = `✅ *Сделка успешно завершена!*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💸 Получено: *${releaseAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-Покупатель не ответил в течение 12 часов после сдачи работы.
-Работа принята автоматически, средства переведены на ваш кошелёк.
-
-[Транзакция](https://tronscan.org/#/transaction/${txHash})`;
+    const sellerText = t(sellerLang, 'deadlineMonitor.seller_release_complete', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      releaseAmount: releaseAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash
+    });
 
     try {
-      await messageManager.showFinalScreen(ctx, deal.sellerId, 'auto_release_complete', sellerText, finalKeyboard);
+      await messageManager.showFinalScreen(ctx, deal.sellerId, 'auto_release_complete', sellerText, sellerFinalKeyboard);
     } catch (error) {
       console.error(`Error notifying seller about release:`, error.message);
     }
 
+    // Load buyer language
+    const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+
+    const buyerFinalKeyboard = {
+      inline_keyboard: [
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+
     // Buyer notification
-    const buyerText = `✅ *Сделка завершена*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Продавец сдал работу, но вы не ответили в течение 12 часов.
-Работа принята автоматически, средства переведены продавцу.
-
-💸 Переведено продавцу: ${releaseAmount.toFixed(2)} ${deal.asset}
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-[Транзакция](https://tronscan.org/#/transaction/${txHash})`;
+    const buyerText = t(buyerLang, 'deadlineMonitor.buyer_release_notify', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      releaseAmount: releaseAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash
+    });
 
     try {
-      await messageManager.showFinalScreen(ctx, deal.buyerId, 'auto_release_complete', buyerText, finalKeyboard);
+      await messageManager.showFinalScreen(ctx, deal.buyerId, 'auto_release_complete', buyerText, buyerFinalKeyboard);
     } catch (error) {
       console.error(`Error notifying buyer about release:`, error.message);
     }
@@ -951,28 +948,35 @@ class DeadlineMonitor {
     // Create mock ctx for messageManager
     const ctx = { telegram: this.botInstance.telegram };
 
-    const errorText = `❌ *Ошибка авто-перевода продавцу*
+    const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+    const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-Ошибка: ${errorMessage}
+    const buyerErrorText = t(buyerLang, 'deadlineMonitor.release_error', { dealId: deal.dealId, errorMessage });
+    const sellerErrorText = t(sellerLang, 'deadlineMonitor.release_error', { dealId: deal.dealId, errorMessage });
 
-Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
-
-    const keyboard = {
+    const buyerKeyboard = {
       inline_keyboard: [
-        [{ text: '📋 Детали сделки', callback_data: `view_deal_${deal.dealId}` }],
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(buyerLang, 'btn.deal_details'), callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+    const sellerKeyboard = {
+      inline_keyboard: [
+        [{ text: t(sellerLang, 'btn.deal_details'), callback_data: `view_deal_${deal.dealId}` }],
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
     try {
-      await messageManager.showNotification(ctx, deal.buyerId, errorText, keyboard);
+      await messageManager.showNotification(ctx, deal.buyerId, buyerErrorText, buyerKeyboard);
     } catch (error) {
       console.error('Error notifying buyer about release error:', error.message);
     }
 
     try {
-      await messageManager.showNotification(ctx, deal.sellerId, errorText, keyboard);
+      await messageManager.showNotification(ctx, deal.sellerId, sellerErrorText, sellerKeyboard);
     } catch (error) {
       console.error('Error notifying seller about release error:', error.message);
     }

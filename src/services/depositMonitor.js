@@ -8,6 +8,8 @@ const adminAlertService = require('./adminAlertService');
 const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const { depositReceivedKeyboard } = require('../bot/keyboards/main');
+const User = require('../models/User');
+const { t, formatDate } = require('../locales');
 
 // High-load optimization utilities
 const RateLimiter = require('../utils/RateLimiter');
@@ -282,16 +284,21 @@ class DepositMonitor {
 
           // Notify buyer to add more funds
           if (this.botInstance) {
-            const warningText = `⚠️ *Недостаточный депозит!*\n\n` +
-              `🆔 Сделка: \`${deal.dealId}\`\n` +
-              `💸 Получено: ${deposit.amount} ${deal.asset}\n` +
-              `💸 Требуется: ${expectedAmount} ${deal.asset}\n\n` +
-              `❌ Недостаёт: ${shortfall.toFixed(2)} ${deal.asset}\n\n` +
-              `Пожалуйста, переведите ещё ${shortfall.toFixed(2)} ${deal.asset} на адрес:\n` +
-              `\`${deal.multisigAddress}\`\n\n` +
-              `⚠️ Допускается отклонение до -${tolerance} ${deal.asset}.`;
+            // Load buyer language
+            const buyerUser = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+            const buyerLang = buyerUser?.languageCode || 'ru';
 
-            const warningKeyboard = depositReceivedKeyboard(deal.dealId);
+            const warningText = t(buyerLang, 'deposit.insufficient', {
+              dealId: deal.dealId,
+              received: deposit.amount,
+              expected: expectedAmount,
+              shortfall: shortfall.toFixed(2),
+              asset: deal.asset,
+              multisigAddress: deal.multisigAddress,
+              tolerance
+            });
+
+            const warningKeyboard = depositReceivedKeyboard(deal.dealId, buyerLang);
             const warningCtx = { telegram: this.botInstance.telegram };
             await messageManager.showNotification(warningCtx, deal.buyerId, warningText, warningKeyboard);
           }
@@ -380,25 +387,31 @@ class DepositMonitor {
           // Notify both parties via Telegram bot
           if (this.botInstance) {
             try {
+              // Load buyer language
+              const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+              const buyerLang = buyerUserDoc?.languageCode || 'ru';
+
               // Prepare overpayment message if applicable
               let overpaymentNote = '';
               if (overpayment > 0) {
-                overpaymentNote = `\n\n⚠️ *Переплата: ${overpayment.toFixed(2)} ${deal.asset}*\n` +
-                  `Разница пойдёт на баланс сервиса.\n` +
-                  `Для возврата свяжитесь с поддержкой.`;
+                overpaymentNote = t(buyerLang, 'deposit.overpayment', {
+                  overpayment: overpayment.toFixed(2),
+                  asset: deal.asset
+                });
               }
 
               // Notify buyer
-              const buyerText = `✅ *Депозит подтверждён!*\n\n` +
-                `🆔 Сделка: \`${deal.dealId}\`\n` +
-                `📦 ${deal.productName}\n` +
-                `💸 Депозит: ${deposit.amount} ${deal.asset}\n` +
-                `💸 Сумма сделки: ${deal.amount} ${deal.asset}\n\n` +
-                `Средства заморожены в multisig-кошельке.\n` +
-                `Продавец может начать работу.${overpaymentNote}\n\n` +
-                `[Транзакция](https://tronscan.org/#/transaction/${deposit.txHash})`;
+              const buyerText = t(buyerLang, 'deposit.buyer_confirmed', {
+                dealId: deal.dealId,
+                productName: deal.productName,
+                depositAmount: deposit.amount,
+                dealAmount: deal.amount,
+                asset: deal.asset,
+                overpaymentNote,
+                txHash: deposit.txHash
+              });
 
-              const buyerKeyboard = depositReceivedKeyboard(deal.dealId);
+              const buyerKeyboard = depositReceivedKeyboard(deal.dealId, buyerLang);
               const buyerCtx = { telegram: this.botInstance.telegram };
               await messageManager.showNotification(buyerCtx, deal.buyerId, buyerText, buyerKeyboard);
 
@@ -410,16 +423,20 @@ class DepositMonitor {
                 sellerPayout = deal.amount - (deal.commission / 2);
               }
 
-              // Notify seller
-              const sellerText = `💰 *Средства поступили!*\n\n` +
-                `🆔 Сделка: \`${deal.dealId}\`\n` +
-                `📦 ${deal.productName}\n\n` +
-                `💸 Депозит: ${deal.amount} ${deal.asset}\n` +
-                `💵 Вы получите: ${sellerPayout.toFixed(2)} ${deal.asset}\n\n` +
-                `Депозит подтверждён. Можете приступать к работе!\n\n` +
-                `Отправьте \`${deal.dealId}\` для просмотра деталей.`;
+              // Load seller language
+              const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+              const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-              const sellerKeyboard = depositReceivedKeyboard(deal.dealId);
+              // Notify seller
+              const sellerText = t(sellerLang, 'deposit.seller_funded', {
+                dealId: deal.dealId,
+                productName: deal.productName,
+                dealAmount: deal.amount,
+                asset: deal.asset,
+                sellerPayout: sellerPayout.toFixed(2)
+              });
+
+              const sellerKeyboard = depositReceivedKeyboard(deal.dealId, sellerLang);
               const sellerCtx = { telegram: this.botInstance.telegram };
               await messageManager.showNotification(sellerCtx, deal.sellerId, sellerText, sellerKeyboard);
 
@@ -480,25 +497,33 @@ class DepositMonitor {
         // Send notifications if bot instance is available
         if (this.botInstance && deal.depositTxHash) {
           try {
-            const buyerText = `✅ *Депозит подтверждён!*\n\n` +
-              `Сделка ${deal.dealId}\n` +
-              `Сумма: ${deal.amount} ${deal.asset}\n\n` +
-              `Средства заморожены в multisig-кошельке.\n` +
-              `Продавец может начать работу.\n\n` +
-              `[Транзакция](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
+            // Load buyer language
+            const buyerUserDoc = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+            const buyerLang = buyerUserDoc?.languageCode || 'ru';
 
-            const buyerKeyboard = depositReceivedKeyboard(deal.dealId);
+            const buyerText = t(buyerLang, 'deposit.buyer_confirmed_short', {
+              dealId: deal.dealId,
+              amount: deal.amount,
+              asset: deal.asset,
+              txHash: deal.depositTxHash
+            });
+
+            const buyerKeyboard = depositReceivedKeyboard(deal.dealId, buyerLang);
             const buyerCtx = { telegram: this.botInstance.telegram };
             await messageManager.showNotification(buyerCtx, deal.buyerId, buyerText, buyerKeyboard);
 
-            const sellerText = `💰 *Средства поступили!*\n\n` +
-              `Сделка ${deal.dealId}\n` +
-              `${deal.productName}\n\n` +
-              `Депозит ${deal.amount} ${deal.asset} подтверждён.\n` +
-              `Можете приступать к работе!\n\n` +
-              `Отправьте \`${deal.dealId}\` для просмотра деталей.`;
+            // Load seller language
+            const sellerUserDoc = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+            const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-            const sellerKeyboard = depositReceivedKeyboard(deal.dealId);
+            const sellerText = t(sellerLang, 'deposit.seller_funded_short', {
+              dealId: deal.dealId,
+              productName: deal.productName,
+              amount: deal.amount,
+              asset: deal.asset
+            });
+
+            const sellerKeyboard = depositReceivedKeyboard(deal.dealId, sellerLang);
             const sellerCtx = { telegram: this.botInstance.telegram };
             await messageManager.showNotification(sellerCtx, deal.sellerId, sellerText, sellerKeyboard);
 

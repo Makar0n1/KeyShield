@@ -12,6 +12,8 @@ const User = require('../../models/User');
 const emailService = require('../../services/emailService');
 const blockchainService = require('../../services/blockchain');
 const messageManager = require('../utils/messageManager');
+const { t, formatDate } = require('../../locales');
+const { languageSync } = require('../middleware/languageSync');
 const {
   mainMenuButton,
   backButton,
@@ -20,7 +22,9 @@ const {
   walletsEmptyKeyboard,
   walletNameInputKeyboard,
   confirmDeleteWalletKeyboard,
-  emailActionsKeyboard
+  emailActionsKeyboard,
+  emailInputKeyboard,
+  confirmDeleteEmailKeyboard
 } = require('../keyboards/main');
 const { Markup } = require('telegraf');
 
@@ -44,6 +48,8 @@ async function clearMyDataSession(telegramId) {
  */
 async function showMyData(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery();
     }
@@ -57,8 +63,8 @@ async function showMyData(ctx) {
     const user = await User.findOne({ telegramId }).select('email username firstName wallets averageRating ratingsCount');
 
     if (!user) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '❌ Пользователь не найден.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.user_not_found'), keyboard);
       return;
     }
 
@@ -68,37 +74,26 @@ async function showMyData(ctx) {
 
     // Get rating display
     const ratingDisplay = user.getRatingDisplay ? user.getRatingDisplay() :
-      (user.ratingsCount > 0 ? `⭐ ${user.averageRating} (${user.ratingsCount})` : 'Нет отзывов');
+      (user.ratingsCount > 0 ? `⭐ ${user.averageRating} (${user.ratingsCount})` : t(lang, 'common.no_reviews'));
 
     // Build display text
-    let emailDisplay = '_Не указан_';
+    let emailDisplay = t(lang, 'common.not_specified');
     if (email) {
       emailDisplay = `\`${email}\``;
     }
 
-    let walletsDisplay = '_Нет сохранённых кошельков_';
+    let walletsDisplay = t(lang, 'myData.no_wallets');
     if (walletsCount > 0) {
       walletsDisplay = wallets.map((w, i) => {
-        const name = w.name || `Кошелёк ${i + 1}`;
+        const name = w.name || t(lang, 'wallet.default_name', { index: i + 1 });
         const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-4);
         return `• ${name}: \`${shortAddr}\``;
       }).join('\n');
     }
 
-    const text = `👤 *Мои данные*
+    const text = t(lang, 'myData.title', { ratingDisplay, emailDisplay, walletsCount, walletsDisplay });
 
-⭐ *Ваш рейтинг:*
-${ratingDisplay}
-
-📧 *Email для чеков:*
-${emailDisplay}
-
-💳 *Сохранённые кошельки (${walletsCount}/5):*
-${walletsDisplay}
-
-_Выберите раздел для редактирования:_`;
-
-    const keyboard = myDataMenuKeyboard(!!email, walletsCount);
+    const keyboard = myDataMenuKeyboard(!!email, walletsCount, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in showMyData:', error);
@@ -110,6 +105,7 @@ _Выберите раздел для редактирования:_`;
  */
 async function handleAddEmail(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
@@ -119,13 +115,9 @@ async function handleAddEmail(ctx) {
       createdAt: new Date()
     }, 1); // TTL 1 hour
 
-    const text = `📧 *Введите email*
+    const text = t(lang, 'myData.add_email');
 
-Отправьте адрес электронной почты для получения чеков:`;
-
-    const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', 'mydata_cancel')]
-    ]);
+    const keyboard = emailInputKeyboard(lang);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
@@ -146,21 +138,13 @@ async function handleChangeEmail(ctx) {
  */
 async function handleDeleteEmail(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
-    const text = `🗑 *Удалить email?*
+    const text = t(lang, 'myData.delete_email_confirm');
 
-Вы уверены, что хотите удалить сохранённый email?
-
-После удаления вам придётся вводить email вручную при каждой сделке.`;
-
-    const keyboard = Markup.inlineKeyboard([
-      [
-        Markup.button.callback('✅ Да, удалить', 'mydata_confirm_delete'),
-        Markup.button.callback('❌ Отмена', 'my_data')
-      ]
-    ]);
+    const keyboard = confirmDeleteEmailKeyboard(lang);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
@@ -173,6 +157,7 @@ async function handleDeleteEmail(ctx) {
  */
 async function handleConfirmDelete(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
@@ -182,9 +167,7 @@ async function handleConfirmDelete(ctx) {
       { $set: { email: null } }
     );
 
-    const text = `✅ *Email удалён*
-
-Сохранённый email был удалён.`;
+    const text = t(lang, 'myData.email_deleted');
 
     await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
@@ -223,6 +206,7 @@ async function handleCancel(ctx) {
  * Handle email input from user
  */
 async function handleMyDataEmailInput(ctx) {
+  const lang = ctx.state?.lang || 'ru';
   const telegramId = ctx.from.id;
   const email = ctx.message.text.trim();
 
@@ -239,13 +223,9 @@ async function handleMyDataEmailInput(ctx) {
 
   // Validate email
   if (!emailService.constructor.isValidEmail(email)) {
-    const text = `❌ *Неверный формат email*
+    const text = t(lang, 'myData.invalid_email');
 
-Пожалуйста, введите корректный адрес электронной почты:`;
-
-    const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', 'mydata_cancel')]
-    ]);
+    const keyboard = emailInputKeyboard(lang);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return true;
@@ -260,11 +240,7 @@ async function handleMyDataEmailInput(ctx) {
     { $set: { email } }
   );
 
-  const text = `✅ *Email сохранён!*
-
-📧 ${email}
-
-Теперь чеки будут автоматически предлагаться на эту почту.`;
+  const text = t(lang, 'myData.email_saved', { email });
 
   await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
@@ -289,6 +265,8 @@ async function handleMyDataEmailInput(ctx) {
  */
 async function showWalletsList(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery();
     }
@@ -297,38 +275,30 @@ async function showWalletsList(ctx) {
     const user = await User.findOne({ telegramId }).select('wallets');
 
     if (!user) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '❌ Пользователь не найден.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.user_not_found'), keyboard);
       return;
     }
 
     const wallets = user.wallets || [];
 
     if (wallets.length === 0) {
-      const text = `💳 *Мои кошельки*
+      const text = t(lang, 'myData.wallets_empty');
 
-_У вас нет сохранённых кошельков._
-
-Добавьте кошелёк, чтобы быстро выбирать его при создании или принятии сделок.`;
-
-      const keyboard = walletsEmptyKeyboard();
+      const keyboard = walletsEmptyKeyboard(lang);
       await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
       return;
     }
 
     // Show wallets list
     let walletsText = wallets.map((w, i) => {
-      const name = w.name || `Кошелёк ${i + 1}`;
+      const name = w.name || t(lang, 'wallet.default_name', { index: i + 1 });
       return `*${i + 1}. ${name}*\n\`${w.address}\``;
     }).join('\n\n');
 
-    const text = `💳 *Мои кошельки (${wallets.length}/5)*
+    const text = t(lang, 'myData.wallets_list', { count: wallets.length, walletsText });
 
-${walletsText}
-
-_Нажмите на кошелёк для просмотра или 🗑️ для удаления._`;
-
-    const keyboard = walletsListKeyboard(wallets);
+    const keyboard = walletsListKeyboard(wallets, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in showWalletsList:', error);
@@ -340,6 +310,8 @@ _Нажмите на кошелёк для просмотра или 🗑️ д�
  */
 async function viewWallet(ctx, walletIndexOverride = null) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery();
     }
@@ -353,31 +325,24 @@ async function viewWallet(ctx, walletIndexOverride = null) {
     const user = await User.findOne({ telegramId }).select('wallets');
     if (!user || !user.wallets[walletIndex]) {
       if (ctx.callbackQuery) {
-        await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+        await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       }
       return;
     }
 
     const wallet = user.wallets[walletIndex];
-    const name = wallet.name || `Кошелёк ${walletIndex + 1}`;
-    const createdAt = wallet.createdAt ? new Date(wallet.createdAt).toLocaleDateString('ru-RU') : 'Неизвестно';
+    const name = wallet.name || t(lang, 'wallet.default_name', { index: walletIndex + 1 });
+    const createdAt = wallet.createdAt ? formatDate(lang, wallet.createdAt, { hour: undefined, minute: undefined, second: undefined }) : t(lang, 'myData.wallet_unknown_date');
 
-    const text = `💳 *${name}*
-
-📍 *Адрес:*
-\`${wallet.address}\`
-
-📅 *Добавлен:* ${createdAt}
-
-[🔍 Посмотреть в TronScan](https://tronscan.org/#/address/${wallet.address})`;
+    const text = t(lang, 'myData.wallet_details', { name, address: wallet.address, createdAt });
 
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('✏️ Название', `wallet:edit_name:${walletIndex}`),
-        Markup.button.callback('📍 Адрес', `wallet:edit_address:${walletIndex}`)
+        Markup.button.callback(t(lang, 'btn.edit_name'), `wallet:edit_name:${walletIndex}`),
+        Markup.button.callback(t(lang, 'btn.edit_address'), `wallet:edit_address:${walletIndex}`)
       ],
-      [Markup.button.callback('🗑️ Удалить кошелёк', `wallet:delete:${walletIndex}`)],
-      [Markup.button.callback('⬅️ Назад', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.delete_wallet'), `wallet:delete:${walletIndex}`)],
+      [Markup.button.callback(t(lang, 'btn.back'), 'mydata:wallets')]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -391,6 +356,7 @@ async function viewWallet(ctx, walletIndexOverride = null) {
  */
 async function handleDeleteWallet(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -398,22 +364,17 @@ async function handleDeleteWallet(ctx) {
 
     const user = await User.findOne({ telegramId }).select('wallets');
     if (!user || !user.wallets[walletIndex]) {
-      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       return;
     }
 
     const wallet = user.wallets[walletIndex];
-    const name = wallet.name || `Кошелёк ${walletIndex + 1}`;
+    const name = wallet.name || t(lang, 'wallet.default_name', { index: walletIndex + 1 });
     const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
 
-    const text = `🗑️ *Удалить кошелёк?*
+    const text = t(lang, 'myData.delete_wallet_confirm', { name, address: shortAddr });
 
-*${name}*
-\`${shortAddr}\`
-
-Вы уверены, что хотите удалить этот кошелёк?`;
-
-    const keyboard = confirmDeleteWalletKeyboard(walletIndex);
+    const keyboard = confirmDeleteWalletKeyboard(walletIndex, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in handleDeleteWallet:', error);
@@ -425,6 +386,7 @@ async function handleDeleteWallet(ctx) {
  */
 async function confirmDeleteWallet(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -432,7 +394,7 @@ async function confirmDeleteWallet(ctx) {
 
     const user = await User.findOne({ telegramId });
     if (!user || !user.wallets[walletIndex]) {
-      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       return;
     }
 
@@ -444,7 +406,7 @@ async function confirmDeleteWallet(ctx) {
       return;
     }
 
-    const text = `✅ *Кошелёк удалён*`;
+    const text = t(lang, 'myData.wallet_deleted');
     await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
     // Return to wallets list after 1.5 seconds
@@ -465,6 +427,7 @@ async function confirmDeleteWallet(ctx) {
  */
 async function handleAddWallet(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -472,7 +435,7 @@ async function handleAddWallet(ctx) {
     // Check limit
     const user = await User.findOne({ telegramId }).select('wallets');
     if (user && user.wallets && user.wallets.length >= 5) {
-      await ctx.answerCbQuery('❌ Достигнут лимит (5) кошельков. Удалите один, чтобы добавить новый.', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.limit_reached'), { show_alert: true });
       return;
     }
 
@@ -483,15 +446,10 @@ async function handleAddWallet(ctx) {
       createdAt: new Date()
     }, 1); // TTL 1 hour
 
-    const text = `💳 *Добавить кошелёк*
-
-Введите адрес вашего TRON-кошелька (TRC-20):
-
-_Адрес должен начинаться с T и содержать 34 символа_
-_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
+    const text = t(lang, 'myData.add_wallet');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.cancel'), 'mydata:wallets')]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -504,6 +462,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
  * Handle wallet address input
  */
 async function handleWalletAddressInput(ctx) {
+  const lang = ctx.state?.lang || 'ru';
   const telegramId = ctx.from.id;
   const address = ctx.message.text.trim();
 
@@ -518,12 +477,10 @@ async function handleWalletAddressInput(ctx) {
   // Check limit again
   const user = await User.findOne({ telegramId }).select('wallets');
   if (user && user.wallets && user.wallets.length >= 5) {
-    const text = `❌ *Достигнут лимит кошельков*
-
-У вас уже сохранено 5 кошельков. Удалите один, чтобы добавить новый.`;
+    const text = t(lang, 'wallet.limit_reached_long');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('⬅️ К кошелькам', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.back'), 'mydata:wallets')]
     ]);
 
     await clearMyDataSession(telegramId);
@@ -535,12 +492,10 @@ async function handleWalletAddressInput(ctx) {
   if (user && user.wallets) {
     const exists = user.wallets.some(w => w.address.toLowerCase() === address.toLowerCase());
     if (exists) {
-      const text = `❌ *Этот адрес уже сохранён*
-
-Введите другой адрес:`;
+      const text = t(lang, 'wallet.duplicate');
 
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('❌ Отмена', 'mydata:wallets')]
+        [Markup.button.callback(t(lang, 'btn.cancel'), 'mydata:wallets')]
       ]);
 
       await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -549,23 +504,16 @@ async function handleWalletAddressInput(ctx) {
   }
 
   // Show verification loading
-  const verifyingText = `⏳ *Проверяем адрес...*
-
-Проверка кошелька в сети TRON.`;
+  const verifyingText = t(lang, 'common.checking_address');
 
   await messageManager.sendNewMessage(ctx, telegramId, verifyingText, null);
 
   // Validate address format first
   if (!blockchainService.isValidAddress(address)) {
-    const text = `❌ *Неверный формат адреса*
-
-Адрес должен начинаться с T и содержать 34 символа.
-_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
-
-Попробуйте ещё раз:`;
+    const text = t(lang, 'wallet.invalid_format');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.cancel'), 'mydata:wallets')]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -578,26 +526,15 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
   if (!verification.valid) {
     let errorMessage;
     if (verification.errorType === 'not_found') {
-      errorMessage = `❌ *Кошелёк не найден*
-
-Этот адрес не активирован в сети TRON.
-Убедитесь, что кошелёк имеет хотя бы одну транзакцию.
-
-Введите другой адрес:`;
+      errorMessage = t(lang, 'wallet.not_found_detailed');
     } else if (verification.errorType === 'api_error') {
-      errorMessage = `❌ *Ошибка проверки*
-
-Не удалось проверить кошелёк. Попробуйте позже.`;
+      errorMessage = t(lang, 'wallet.check_error_mydata');
     } else {
-      errorMessage = `❌ *Ошибка*
-
-${verification.error || 'Неизвестная ошибка'}
-
-Введите другой адрес:`;
+      errorMessage = `${t(lang, 'common.error')}\n\n${verification.error || t(lang, 'common.unknown_error')}\n\n${t(lang, 'common.try_again')}`;
     }
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.cancel'), 'mydata:wallets')]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, errorMessage, keyboard);
@@ -614,16 +551,9 @@ ${verification.error || 'Неизвестная ошибка'}
 
   const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
 
-  const text = `✅ *Кошелёк проверен!*
+  const text = t(lang, 'wallet.save_name_prompt', { address: shortAddr });
 
-📍 \`${shortAddr}\`
-
-✏️ *Введите название и отправьте в чат*
-Например: "Основной", "Binance", "Рабочий"
-
-Или нажмите «Пропустить» — кошелёк сохранится как "Кошелёк 1"`;
-
-  const keyboard = walletNameInputKeyboard();
+  const keyboard = walletNameInputKeyboard(lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   return true;
 }
@@ -632,6 +562,7 @@ ${verification.error || 'Неизвестная ошибка'}
  * Handle wallet name input
  */
 async function handleWalletNameInput(ctx) {
+  const lang = ctx.state?.lang || 'ru';
   const telegramId = ctx.from.id;
   const name = ctx.message.text.trim();
 
@@ -645,11 +576,9 @@ async function handleWalletNameInput(ctx) {
 
   // Validate name length
   if (name.length > 30) {
-    const text = `❌ *Слишком длинное название*
+    const text = t(lang, 'wallet.name_too_long');
 
-Максимум 30 символов. Попробуйте короче:`;
-
-    const keyboard = walletNameInputKeyboard();
+    const keyboard = walletNameInputKeyboard(lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return true;
   }
@@ -705,6 +634,7 @@ async function handleWalletNameBack(ctx) {
  */
 async function handleEditWalletName(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -712,12 +642,12 @@ async function handleEditWalletName(ctx) {
 
     const user = await User.findOne({ telegramId }).select('wallets');
     if (!user || !user.wallets[walletIndex]) {
-      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       return;
     }
 
     const wallet = user.wallets[walletIndex];
-    const currentName = wallet.name || `Кошелёк ${walletIndex + 1}`;
+    const currentName = wallet.name || t(lang, 'wallet.default_name', { index: walletIndex + 1 });
     const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
 
     // Create session for name edit
@@ -727,15 +657,10 @@ async function handleEditWalletName(ctx) {
       createdAt: new Date()
     }, 1);
 
-    const text = `✏️ *Изменить название*
-
-💳 \`${shortAddr}\`
-Текущее название: *${currentName}*
-
-Введите новое название и отправьте в чат:`;
+    const text = t(lang, 'myData.edit_name', { address: shortAddr, currentName });
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `wallet:view:${walletIndex}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -749,6 +674,7 @@ async function handleEditWalletName(ctx) {
  */
 async function handleEditWalletAddress(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -756,12 +682,12 @@ async function handleEditWalletAddress(ctx) {
 
     const user = await User.findOne({ telegramId }).select('wallets');
     if (!user || !user.wallets[walletIndex]) {
-      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       return;
     }
 
     const wallet = user.wallets[walletIndex];
-    const name = wallet.name || `Кошелёк ${walletIndex + 1}`;
+    const name = wallet.name || t(lang, 'wallet.default_name', { index: walletIndex + 1 });
 
     // Create session for address edit
     await Session.setSession(telegramId, 'my_data', {
@@ -771,16 +697,10 @@ async function handleEditWalletAddress(ctx) {
       createdAt: new Date()
     }, 1);
 
-    const text = `📍 *Изменить адрес*
-
-💳 *${name}*
-Текущий адрес:
-\`${wallet.address}\`
-
-Введите новый адрес TRON-кошелька (TRC-20):`;
+    const text = t(lang, 'myData.edit_address', { name, address: wallet.address });
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `wallet:view:${walletIndex}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -793,6 +713,7 @@ async function handleEditWalletAddress(ctx) {
  * Handle wallet name edit input
  */
 async function handleWalletNameEditInput(ctx) {
+  const lang = ctx.state?.lang || 'ru';
   const telegramId = ctx.from.id;
   const newName = ctx.message.text.trim();
 
@@ -808,12 +729,10 @@ async function handleWalletNameEditInput(ctx) {
 
   // Validate name length
   if (newName.length > 30) {
-    const text = `❌ *Слишком длинное название*
-
-Максимум 30 символов. Попробуйте короче:`;
+    const text = t(lang, 'wallet.name_too_long');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `wallet:view:${walletIndex}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -824,9 +743,9 @@ async function handleWalletNameEditInput(ctx) {
   const user = await User.findOne({ telegramId });
   if (!user || !user.wallets[walletIndex]) {
     await clearMyDataSession(telegramId);
-    const text = `❌ *Кошелёк не найден*`;
+    const text = t(lang, 'myData.wallet_not_found');
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('⬅️ К кошелькам', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.back'), 'mydata:wallets')]
     ]);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return true;
@@ -838,10 +757,7 @@ async function handleWalletNameEditInput(ctx) {
 
   const shortAddr = user.wallets[walletIndex].address.slice(0, 6) + '...' + user.wallets[walletIndex].address.slice(-4);
 
-  const text = `✅ *Название изменено!*
-
-💳 *${newName}*
-\`${shortAddr}\``;
+  const text = t(lang, 'myData.name_changed', { name: newName, address: shortAddr });
 
   await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
@@ -861,6 +777,7 @@ async function handleWalletNameEditInput(ctx) {
  * Handle wallet address edit input
  */
 async function handleWalletAddressEditInput(ctx) {
+  const lang = ctx.state?.lang || 'ru';
   const telegramId = ctx.from.id;
   const newAddress = ctx.message.text.trim();
 
@@ -878,9 +795,9 @@ async function handleWalletAddressEditInput(ctx) {
   const user = await User.findOne({ telegramId });
   if (!user || !user.wallets[walletIndex]) {
     await clearMyDataSession(telegramId);
-    const text = `❌ *Кошелёк не найден*`;
+    const text = t(lang, 'myData.wallet_not_found');
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('⬅️ К кошелькам', 'mydata:wallets')]
+      [Markup.button.callback(t(lang, 'btn.back'), 'mydata:wallets')]
     ]);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return true;
@@ -891,12 +808,10 @@ async function handleWalletAddressEditInput(ctx) {
     i !== walletIndex && w.address.toLowerCase() === newAddress.toLowerCase()
   );
   if (exists) {
-    const text = `❌ *Этот адрес уже сохранён*
-
-Введите другой адрес:`;
+    const text = t(lang, 'wallet.duplicate');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `wallet:view:${walletIndex}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -904,22 +819,16 @@ async function handleWalletAddressEditInput(ctx) {
   }
 
   // Show verification loading
-  const verifyingText = `⏳ *Проверяем адрес...*
-
-Проверка кошелька в сети TRON.`;
+  const verifyingText = t(lang, 'common.checking_address');
 
   await messageManager.sendNewMessage(ctx, telegramId, verifyingText, null);
 
   // Validate address format
   if (!blockchainService.isValidAddress(newAddress)) {
-    const text = `❌ *Неверный формат адреса*
-
-Адрес должен начинаться с T и содержать 34 символа.
-
-Попробуйте ещё раз:`;
+    const text = t(lang, 'wallet.invalid_format_short');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `wallet:view:${walletIndex}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -932,26 +841,15 @@ async function handleWalletAddressEditInput(ctx) {
   if (!verification.valid) {
     let errorMessage;
     if (verification.errorType === 'not_found') {
-      errorMessage = `❌ *Кошелёк не найден*
-
-Этот адрес не активирован в сети TRON.
-Убедитесь, что кошелёк имеет хотя бы одну транзакцию.
-
-Введите другой адрес:`;
+      errorMessage = t(lang, 'wallet.not_found_detailed');
     } else if (verification.errorType === 'api_error') {
-      errorMessage = `❌ *Ошибка проверки*
-
-Не удалось проверить кошелёк. Попробуйте позже.`;
+      errorMessage = t(lang, 'wallet.check_error_mydata');
     } else {
-      errorMessage = `❌ *Ошибка*
-
-${verification.error || 'Неизвестная ошибка'}
-
-Введите другой адрес:`;
+      errorMessage = `${t(lang, 'common.error')}\n\n${verification.error || t(lang, 'common.unknown_error')}\n\n${t(lang, 'common.try_again')}`;
     }
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `wallet:view:${walletIndex}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `wallet:view:${walletIndex}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, errorMessage, keyboard);
@@ -965,10 +863,7 @@ ${verification.error || 'Неизвестная ошибка'}
 
   const shortAddr = newAddress.slice(0, 6) + '...' + newAddress.slice(-4);
 
-  const text = `✅ *Адрес изменён!*
-
-💳 *${walletName}*
-\`${shortAddr}\``;
+  const text = t(lang, 'myData.address_changed', { name: walletName, address: shortAddr });
 
   await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
@@ -989,9 +884,11 @@ ${verification.error || 'Неизвестная ошибка'}
  */
 async function saveWalletFromSession(ctx, telegramId, address, name) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     const user = await User.findOne({ telegramId });
     if (!user) {
-      await ctx.answerCbQuery('❌ Пользователь не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.user_not_found'), { show_alert: true });
       return;
     }
 
@@ -999,25 +896,20 @@ async function saveWalletFromSession(ctx, telegramId, address, name) {
     await clearMyDataSession(telegramId);
 
     if (error) {
-      const text = `❌ *Ошибка*
-
-${error}`;
+      const text = `${t(lang, 'common.error')}\n\n${error}`;
 
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('⬅️ К кошелькам', 'mydata:wallets')]
+        [Markup.button.callback(t(lang, 'btn.back'), 'mydata:wallets')]
       ]);
 
       await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
       return;
     }
 
-    const displayName = name || 'Кошелёк';
+    const displayName = name || t(lang, 'wallet.default_name', { index: '' }).trim();
     const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
 
-    const text = `✅ *Кошелёк сохранён!*
-
-*${displayName}*
-\`${shortAddr}\``;
+    const text = t(lang, 'wallet.saved_success', { name: displayName, address: shortAddr });
 
     await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
@@ -1076,6 +968,75 @@ async function handleMyDataTextInput(ctx) {
   return false;
 }
 
+// ============================================
+// LANGUAGE SELECTION
+// ============================================
+
+const LANGUAGE_LABELS = {
+  ru: '🇷🇺 Русский',
+  en: '🇬🇧 English',
+  uk: '🇺🇦 Українська'
+};
+
+/**
+ * Show language selection screen
+ */
+async function showLanguageSelect(ctx) {
+  try {
+    const lang = ctx.state?.lang || 'ru';
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const currentLang = LANGUAGE_LABELS[lang] || LANGUAGE_LABELS.ru;
+
+    const text = t(lang, 'myData.language_select', { currentLang });
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('🇷🇺 Русский', 'mydata:set_lang:ru')],
+      [Markup.button.callback('🇬🇧 English', 'mydata:set_lang:en')],
+      [Markup.button.callback('🇺🇦 Українська', 'mydata:set_lang:uk')],
+      [Markup.button.callback(t(lang, 'btn.back'), 'my_data')]
+    ]);
+
+    await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
+  } catch (error) {
+    console.error('Error in showLanguageSelect:', error);
+  }
+}
+
+/**
+ * Handle language change
+ */
+async function handleSetLanguage(ctx) {
+  try {
+    await ctx.answerCbQuery();
+
+    const telegramId = ctx.from.id;
+    const newLang = ctx.callbackQuery.data.split(':')[2];
+
+    // Update language via languageSync (updates DB + cache)
+    const success = await languageSync.setLanguage(telegramId, newLang);
+    if (!success) return;
+
+    // Update ctx.state.lang for immediate use
+    ctx.state.lang = newLang;
+
+    const text = t(newLang, 'myData.language_changed');
+    await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
+
+    // Return to My Data after 1.5 seconds
+    setTimeout(async () => {
+      try {
+        await showMyData(ctx);
+      } catch (e) {
+        // Message might have been changed
+      }
+    }, 1500);
+  } catch (error) {
+    console.error('Error in handleSetLanguage:', error);
+  }
+}
+
 module.exports = {
   hasMyDataSession,
   clearMyDataSession,
@@ -1099,6 +1060,9 @@ module.exports = {
   // Wallet edit
   handleEditWalletName,
   handleEditWalletAddress,
+  // Language
+  showLanguageSelect,
+  handleSetLanguage,
   // Combined handler
   handleMyDataTextInput
 };

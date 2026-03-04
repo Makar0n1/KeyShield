@@ -3,6 +3,7 @@ const {
   helpSectionKeyboard
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
+const { t } = require('../../locales');
 const {
   COMMISSION_TIER_1_MAX,
   COMMISSION_TIER_1_FIXED,
@@ -24,20 +25,15 @@ const {
  */
 const showHelp = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const isCallbackQuery = !!ctx.callbackQuery;
     if (isCallbackQuery) await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
 
-    const text = `ℹ️ *Помощь*
+    const text = t(lang, 'help.menu');
 
-Выберите раздел:
-
-📖 *Как это работает* — принцип работы escrow
-💰 *Правила и комиссии* — тарифы и условия
-🆘 *Поддержка* — контакты и FAQ`;
-
-    const keyboard = helpMenuKeyboard();
+    const keyboard = helpMenuKeyboard(lang);
     await messageManager.navigateToScreen(ctx, telegramId, 'help', text, keyboard);
   } catch (error) {
     console.error('Error in showHelp:', error);
@@ -53,56 +49,17 @@ const showHelp = async (ctx) => {
  */
 const howItWorks = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
 
-    const text = `ℹ️ *Как работает KeyShield?*
+    const text = t(lang, 'help.how_it_works', {
+      autoBanStreak: AUTO_BAN_LOSS_STREAK,
+      minAmount: MIN_DEAL_AMOUNT
+    });
 
-🔐 *Принцип работы:*
-
-1️⃣ *Создание сделки*
-Покупатель или продавец создаёт сделку через бота, указывая все условия.
-
-2️⃣ *Multisig-кошелёк*
-Автоматически создаётся защищённый кошелёк с 3 ключами:
-• Покупатель (1 подпись)
-• Продавец (1 подпись)
-• Арбитр (1 подпись)
-Кошелек создается в блокчейне TRON автоматически перед депозитом от заказчика или исполнителя.
-Обеим сторонам предоставляются их ключи, которые необходимо их сохранить для совершения перевода средств.
-Покупателю или заказчику на случай возврата средств, продавцу или исполнителю на случай успешной сдачи работы и перевода средств.
-
-Для любой операции нужны *2 из 3 подписей*.
-
-3️⃣ *Депозит*
-Покупатель переводит средства на multisig-адрес.
-Деньги замораживаются в блокчейне, никто не может их украсть.
-
-4️⃣ *Работа*
-Продавец выполняет работу.
-
-5️⃣ *Завершение*
-• *Без споров:* Покупатель принимает → деньги продавцу
-• *Со спором:* Арбитр принимает решение
-
-✅ *Преимущества:*
-• Мультиподпись (multisig)
-• Защита от мошенничества
-• Никто не может украсть средства в одиночку
-• Полная прозрачность в блокчейне
-• Быстрое разрешение споров
-• Анонимность (без KYC)
-• UI бота, мы разработали удобный интерфейс. Наша концепция - одно сообщение на весь чат, чтобы не засорять его не нужными сообщениями.
-
-⚠️ *Важно:*
-• Оба участника должны запустить бота
-• Проигрыш ${AUTO_BAN_LOSS_STREAK} споров подряд = автобан
-• Сохраняйте ключи multisig в надёжном месте
-• Никому не передавайте свои ключи
-• Минимальная сумма сделки: ${MIN_DEAL_AMOUNT} USDT`;
-
-    const keyboard = helpSectionKeyboard();
+    const keyboard = helpSectionKeyboard(lang);
     await messageManager.navigateToScreen(ctx, telegramId, 'how_it_works', text, keyboard);
   } catch (error) {
     console.error('Error in howItWorks:', error);
@@ -118,49 +75,24 @@ const howItWorks = async (ctx) => {
  */
 const rulesAndFees = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
 
-    const text = `💰 *Правила и комиссии*
+    const text = t(lang, 'help.rules_fees', {
+      tier1Max: COMMISSION_TIER_1_MAX,
+      tier1Fixed: COMMISSION_TIER_1_FIXED,
+      tier2Max: COMMISSION_TIER_2_MAX,
+      tier2Rate: COMMISSION_TIER_2_RATE,
+      tier3Max: COMMISSION_TIER_3_MAX,
+      tier3Rate: COMMISSION_TIER_3_RATE,
+      tier4Rate: COMMISSION_TIER_4_RATE,
+      autoBanStreak: AUTO_BAN_LOSS_STREAK,
+      minAmount: MIN_DEAL_AMOUNT
+    });
 
-💵 *Комиссия сервиса:*
-• До ${COMMISSION_TIER_1_MAX} USDT: фиксированная *${COMMISSION_TIER_1_FIXED} USDT*
-• ${COMMISSION_TIER_1_MAX}-${COMMISSION_TIER_2_MAX} USDT: *${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%* от суммы
-• ${COMMISSION_TIER_2_MAX}-${COMMISSION_TIER_3_MAX} USDT: *${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}%* от суммы
-• Свыше ${COMMISSION_TIER_3_MAX} USDT: *${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}%* от суммы
-
-*Примеры:*
-• Сделка 50 USDT → комиссия ${COMMISSION_TIER_1_FIXED} USDT (${(COMMISSION_TIER_1_FIXED / 50 * 100).toFixed(0)}%)
-• Сделка 100 USDT → комиссия ${COMMISSION_TIER_1_FIXED} USDT (${(COMMISSION_TIER_1_FIXED / 100 * 100).toFixed(0)}%)
-• Сделка 500 USDT → комиссия ${(500 * COMMISSION_TIER_2_RATE).toFixed(1)} USDT (${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%)
-• Сделка 1000 USDT → комиссия ${(1000 * COMMISSION_TIER_3_RATE).toFixed(0)} USDT (${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}%)
-
-Комиссии покрывают расходы и обеспечивает надёжность сервиса.
-
-*Кто платит комиссию?*
-При создании сделки выбирается:
-• Покупатель платит всю комиссию
-• Продавец платит всю комиссию
-• 50/50 (каждый по половине)
-
-📋 *Правила использования:*
-
-1️⃣ *Оба должны быть в боте*
-Нельзя создать сделку с пользователем, который ещё не запустил бота.
-
-2️⃣ *Минимальная сумма:* ${MIN_DEAL_AMOUNT} USDT
-
-3️⃣ *Споры*
-• Любая сторона может открыть спор
-• Арбитр принимает финальное решение
-• Решение необратимо
-
-⚠️ *Система банов:*
-• ${AUTO_BAN_LOSS_STREAK} проигрыша подряд = автобан
-• Выигрыш 1 спора = счётчик сбрасывается`;
-
-    const keyboard = helpSectionKeyboard();
+    const keyboard = helpSectionKeyboard(lang);
     await messageManager.navigateToScreen(ctx, telegramId, 'rules', text, keyboard);
   } catch (error) {
     console.error('Error in rulesAndFees:', error);
@@ -176,42 +108,17 @@ const rulesAndFees = async (ctx) => {
  */
 const support = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
 
-    const text = `🆘 *Поддержка*
+    const text = t(lang, 'help.support', {
+      tier1Fixed: COMMISSION_TIER_1_FIXED,
+      minAmount: MIN_DEAL_AMOUNT
+    });
 
-Если у вас возникли проблемы или вопросы:
-
-📧 Email: support@keyshield.me
-💬 Telegram: @keyshield\\_support
-
-⏰ Время ответа: обычно в течение 24 часов
-
-*Частые вопросы:*
-
-❓ *Как долго ждать депозит?*
-Обычно 1-3 минуты после подтверждения в блокчейне TRON. А так же зависит от нагруженности сервиса. Если задержка более 15 минут, пожалуйста, свяжитесь с поддержкой.
-
-❓ *Можно ли отменить сделку?*
-Да, до внесения депозита. После депозита средства замораживаются в блокчейне, и сделку можно завершить только через арбитраж. Администрация сервиса не может отменить сделку или вернуть средства без участия продавца или покупателя.
-
-❓ *Сколько длится арбитраж?*
-Обычно 1-3 дня. Чаще всего быстрее. Мы стремимся к быстрому разрешению споров, но при этом тщательно рассматриваем все доказательства.
-
-❓ *Безопасно ли это?*
-Да. Мультиподпись гарантирует, что никто не может украсть средства в одиночку, включая сервис. Для каждого перевода средств подпись сервиса + те приватные ключи, которые быоли предоставлены сторонам сделки. В противном случае при утрате ключей средства не могут быть переведены и они на всегда останутся на блокчейне. Будьте внимательны и храните свои ключи в надёжном месте!
-
-❓ *Какие комиссии?*
-• До ${COMMISSION_TIER_1_MAX} USDT: ${COMMISSION_TIER_1_FIXED} USDT
-• ${COMMISSION_TIER_1_MAX}-${COMMISSION_TIER_2_MAX} USDT: ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%
-• ${COMMISSION_TIER_2_MAX}-${COMMISSION_TIER_3_MAX} USDT: ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}%
-• Свыше ${COMMISSION_TIER_3_MAX} USDT: ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}%
-
-Если у вас есть другие вопросы, не стесняйтесь обращаться!`;
-
-    const keyboard = helpSectionKeyboard();
+    const keyboard = helpSectionKeyboard(lang);
     await messageManager.navigateToScreen(ctx, telegramId, 'support', text, keyboard);
   } catch (error) {
     console.error('Error in support:', error);

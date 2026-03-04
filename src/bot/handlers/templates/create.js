@@ -13,6 +13,7 @@ const {
 } = require('../../keyboards/templates');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
 const { showTemplatesList, showTemplateDetails } = require('./list');
+const { t } = require('../../../locales');
 
 /**
  * Start creating template manually
@@ -20,11 +21,12 @@ const { showTemplatesList, showTemplateDetails } = require('./list');
 async function startCreateTemplate(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   // Check limit
   const canCreate = await DealTemplate.canCreateTemplate(telegramId);
   if (!canCreate) {
-    await ctx.answerCbQuery('❌ Достигнут лимит (5) шаблонов', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'templates.limit_reached'), { show_alert: true });
     return showTemplatesList(ctx);
   }
 
@@ -35,14 +37,8 @@ async function startCreateTemplate(ctx) {
     data: {}
   });
 
-  const text = `📑 *Создание шаблона*
-
-*Шаг 1 из 7: Название*
-
-Введите короткое название для шаблона:
-_(например: «Дизайн логотипа», «Консультация»)_`;
-
-  const keyboard = templateInputKeyboard();
+  const text = t(lang, 'templates.step1');
+  const keyboard = templateInputKeyboard(lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 }
 
@@ -52,6 +48,7 @@ _(например: «Дизайн логотипа», «Консультаци�
 async function saveFromDeal(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   // Get dealId from callback
   const dealId = ctx.callbackQuery.data.split(':')[2];
@@ -59,13 +56,13 @@ async function saveFromDeal(ctx) {
   // Check limit
   const canCreate = await DealTemplate.canCreateTemplate(telegramId);
   if (!canCreate) {
-    await ctx.answerCbQuery('❌ Достигнут лимит (5) шаблонов', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'templates.limit_reached'), { show_alert: true });
     return;
   }
 
   const deal = await Deal.findOne({ dealId });
   if (!deal) {
-    await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'common.deal_not_found'), { show_alert: true });
     return;
   }
 
@@ -91,16 +88,14 @@ async function saveFromDeal(ctx) {
     dealId
   });
 
-  const text = `💾 *Сохранение шаблона*
+  const text = t(lang, 'templates.save_from_deal', {
+    dealId,
+    productName: deal.productName,
+    amount: deal.amount,
+    asset: deal.asset
+  });
 
-Сделка: \`${dealId}\`
-📦 ${deal.productName}
-💰 ${deal.amount} ${deal.asset}
-
-*Введите название для шаблона:*
-_(например: «Дизайн логотипа»)_`;
-
-  const keyboard = templateInputKeyboard();
+  const keyboard = templateInputKeyboard(lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 }
 
@@ -135,12 +130,11 @@ async function handleCreateInput(ctx) {
  */
 async function handleNameInput(ctx, session, text) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   if (text.length < 2 || text.length > 50) {
-    const errorText = `❌ Название должно быть от 2 до 50 символов.
-
-Введите название шаблона:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard());
+    const errorText = t(lang, 'templates.name_error');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard(lang));
     return true;
   }
 
@@ -155,13 +149,8 @@ async function handleNameInput(ctx, session, text) {
   session.step = 'role';
   await setTemplateSession(telegramId, session);
 
-  const screenText = `📑 *Создание шаблона*
-
-*Шаг 2 из 7: Ваша роль*
-
-Выберите вашу роль в сделках по этому шаблону:`;
-
-  await messageManager.sendNewMessage(ctx, telegramId, screenText, templateRoleKeyboard());
+  const screenText = t(lang, 'templates.step2');
+  await messageManager.sendNewMessage(ctx, telegramId, screenText, templateRoleKeyboard(lang));
   return true;
 }
 
@@ -171,6 +160,7 @@ async function handleNameInput(ctx, session, text) {
 async function handleRoleSelection(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const session = await getTemplateSession(telegramId);
   if (!session || session.action !== 'create') return;
@@ -180,14 +170,8 @@ async function handleRoleSelection(ctx) {
   session.step = 'product_name';
   await setTemplateSession(telegramId, session);
 
-  const text = `📑 *Создание шаблона*
-
-*Шаг 3 из 7: Название товара/услуги*
-
-Введите название товара или услуги:
-_(от 5 до 200 символов)_`;
-
-  await messageManager.sendNewMessage(ctx, telegramId, text, templateInputKeyboard());
+  const text = t(lang, 'templates.step3');
+  await messageManager.sendNewMessage(ctx, telegramId, text, templateInputKeyboard(lang));
 }
 
 /**
@@ -195,12 +179,11 @@ _(от 5 до 200 символов)_`;
  */
 async function handleProductNameInput(ctx, session, text) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   if (text.length < 5 || text.length > 200) {
-    const errorText = `❌ Название должно быть от 5 до 200 символов.
-
-Введите название товара/услуги:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard());
+    const errorText = t(lang, 'templates.product_name_error');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard(lang));
     return true;
   }
 
@@ -208,14 +191,8 @@ async function handleProductNameInput(ctx, session, text) {
   session.step = 'description';
   await setTemplateSession(telegramId, session);
 
-  const screenText = `📑 *Создание шаблона*
-
-*Шаг 4 из 7: Описание*
-
-Введите описание работы:
-_(от 20 до 5000 символов)_`;
-
-  await messageManager.sendNewMessage(ctx, telegramId, screenText, templateInputKeyboard());
+  const screenText = t(lang, 'templates.step4');
+  await messageManager.sendNewMessage(ctx, telegramId, screenText, templateInputKeyboard(lang));
   return true;
 }
 
@@ -224,12 +201,11 @@ _(от 20 до 5000 символов)_`;
  */
 async function handleDescriptionInput(ctx, session, text) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   if (text.length < 20 || text.length > 5000) {
-    const errorText = `❌ Описание должно быть от 20 до 5000 символов.
-
-Введите описание:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard());
+    const errorText = t(lang, 'templates.description_error');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard(lang));
     return true;
   }
 
@@ -238,14 +214,8 @@ async function handleDescriptionInput(ctx, session, text) {
   session.step = 'amount';
   await setTemplateSession(telegramId, session);
 
-  const screenText = `📑 *Создание шаблона*
-
-*Шаг 5 из 7: Сумма*
-
-Введите сумму сделки в USDT:
-_(минимум 50 USDT)_`;
-
-  await messageManager.sendNewMessage(ctx, telegramId, screenText, templateInputKeyboard());
+  const screenText = t(lang, 'templates.step5');
+  await messageManager.sendNewMessage(ctx, telegramId, screenText, templateInputKeyboard(lang));
   return true;
 }
 
@@ -254,13 +224,12 @@ _(минимум 50 USDT)_`;
  */
 async function handleAmountInput(ctx, session, text) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
   const amount = parseFloat(text.replace(',', '.'));
 
   if (isNaN(amount) || amount < 50) {
-    const errorText = `❌ Неверная сумма. Минимум: 50 USDT.
-
-Введите сумму:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard());
+    const errorText = t(lang, 'templates.amount_error');
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateInputKeyboard(lang));
     return true;
   }
 
@@ -270,16 +239,9 @@ async function handleAmountInput(ctx, session, text) {
 
   const commission = Deal.calculateCommission(amount);
 
-  const screenText = `📑 *Создание шаблона*
+  const screenText = t(lang, 'templates.step6', { amount, commission });
 
-*Шаг 6 из 7: Комиссия*
-
-💰 Сумма: ${amount} USDT
-💸 Комиссия: ${commission} USDT
-
-Кто оплачивает комиссию?`;
-
-  const keyboard = templateCommissionKeyboard(amount, commission, 'USDT');
+  const keyboard = templateCommissionKeyboard(amount, commission, 'USDT', lang);
   await messageManager.sendNewMessage(ctx, telegramId, screenText, keyboard);
   return true;
 }
@@ -290,6 +252,7 @@ async function handleAmountInput(ctx, session, text) {
 async function handleCommissionSelection(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const session = await getTemplateSession(telegramId);
   if (!session || session.action !== 'create') return;
@@ -299,13 +262,8 @@ async function handleCommissionSelection(ctx) {
   session.step = 'deadline';
   await setTemplateSession(telegramId, session);
 
-  const text = `📑 *Создание шаблона*
-
-*Шаг 7 из 7: Срок выполнения*
-
-Выберите стандартный срок выполнения:`;
-
-  await messageManager.sendNewMessage(ctx, telegramId, text, templateDeadlineKeyboard());
+  const text = t(lang, 'templates.step7');
+  await messageManager.sendNewMessage(ctx, telegramId, text, templateDeadlineKeyboard(lang));
 }
 
 /**
@@ -329,6 +287,7 @@ async function handleDeadlineSelection(ctx) {
  */
 async function saveTemplate(ctx, session) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   try {
     const template = new DealTemplate({
@@ -346,13 +305,12 @@ async function saveTemplate(ctx, session) {
     await template.save();
     await clearTemplateSession(telegramId);
 
-    const text = `✅ *Шаблон создан!*
-
-📑 *${template.name}*
-📦 ${template.productName}
-💰 ${template.amount} ${template.asset}
-
-Теперь вы можете создавать сделки в 2 клика!`;
+    const text = t(lang, 'templates.created', {
+      name: template.name,
+      productName: template.productName,
+      amount: template.amount,
+      asset: template.asset
+    });
 
     await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
@@ -369,7 +327,7 @@ async function saveTemplate(ctx, session) {
   } catch (error) {
     console.error('Error saving template:', error);
     await clearTemplateSession(telegramId);
-    await ctx.answerCbQuery('❌ Ошибка сохранения', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'templates.save_error'), { show_alert: true });
     return showTemplatesList(ctx);
   }
 }
@@ -380,6 +338,7 @@ async function saveTemplate(ctx, session) {
 async function handleCreateBack(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const session = await getTemplateSession(telegramId);
   if (!session) {
@@ -398,72 +357,40 @@ async function handleCreateBack(ctx) {
   await setTemplateSession(telegramId, session);
 
   // Re-show previous step
-  await showCreateStep(ctx, session);
+  await showCreateStep(ctx, session, lang);
 }
 
 /**
  * Show create step based on session
  */
-async function showCreateStep(ctx, session) {
+async function showCreateStep(ctx, session, lang = 'ru') {
   const telegramId = ctx.from.id;
 
   switch (session.step) {
     case 'name':
-      const nameText = `📑 *Создание шаблона*
-
-*Шаг 1 из 7: Название*
-
-Введите короткое название для шаблона:`;
-      await messageManager.sendNewMessage(ctx, telegramId, nameText, templateInputKeyboard());
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'templates.step1'), templateInputKeyboard(lang));
       break;
 
     case 'role':
-      const roleText = `📑 *Создание шаблона*
-
-*Шаг 2 из 7: Ваша роль*
-
-Выберите вашу роль в сделках по этому шаблону:`;
-      await messageManager.sendNewMessage(ctx, telegramId, roleText, templateRoleKeyboard());
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'templates.step2'), templateRoleKeyboard(lang));
       break;
 
     case 'product_name':
-      const productText = `📑 *Создание шаблона*
-
-*Шаг 3 из 7: Название товара/услуги*
-
-Введите название товара или услуги:`;
-      await messageManager.sendNewMessage(ctx, telegramId, productText, templateInputKeyboard());
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'templates.step3'), templateInputKeyboard(lang));
       break;
 
     case 'description':
-      const descText = `📑 *Создание шаблона*
-
-*Шаг 4 из 7: Описание*
-
-Введите описание работы:`;
-      await messageManager.sendNewMessage(ctx, telegramId, descText, templateInputKeyboard());
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'templates.step4'), templateInputKeyboard(lang));
       break;
 
     case 'amount':
-      const amountText = `📑 *Создание шаблона*
-
-*Шаг 5 из 7: Сумма*
-
-Введите сумму сделки в USDT:`;
-      await messageManager.sendNewMessage(ctx, telegramId, amountText, templateInputKeyboard());
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'templates.step5'), templateInputKeyboard(lang));
       break;
 
     case 'commission':
       const commission = Deal.calculateCommission(session.data.amount);
-      const commText = `📑 *Создание шаблона*
-
-*Шаг 6 из 7: Комиссия*
-
-💰 Сумма: ${session.data.amount} USDT
-💸 Комиссия: ${commission} USDT
-
-Кто оплачивает комиссию?`;
-      const commKeyboard = templateCommissionKeyboard(session.data.amount, commission, 'USDT');
+      const commText = t(lang, 'templates.step6', { amount: session.data.amount, commission });
+      const commKeyboard = templateCommissionKeyboard(session.data.amount, commission, 'USDT', lang);
       await messageManager.sendNewMessage(ctx, telegramId, commText, commKeyboard);
       break;
   }

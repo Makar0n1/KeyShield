@@ -14,6 +14,7 @@ const {
 } = require('../keyboards/main');
 const User = require('../../models/User');
 const messageManager = require('../utils/messageManager');
+const { t } = require('../../locales');
 
 // ============================================
 // SESSION HELPERS for wallet saving flow
@@ -51,6 +52,7 @@ function escapeMarkdown(text) {
  */
 const enterWalletHandler = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -59,8 +61,8 @@ const enterWalletHandler = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
@@ -68,21 +70,21 @@ const enterWalletHandler = async (ctx) => {
     const role = deal.getUserRole(telegramId);
 
     if (!role) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Вы не являетесь участником этой сделки.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.not_participant'), keyboard);
       return;
     }
 
     // Check if waiting for this user's wallet
     if (role === 'seller' && deal.status !== 'waiting_for_seller_wallet') {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не ожидает вашего кошелька.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.not_awaiting_wallet'), keyboard);
       return;
     }
 
     if (role === 'buyer' && deal.status !== 'waiting_for_buyer_wallet') {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не ожидает вашего кошелька.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.not_awaiting_wallet'), keyboard);
       return;
     }
 
@@ -93,16 +95,16 @@ const enterWalletHandler = async (ctx) => {
     if (savedWallets.length > 0) {
       // User has saved wallets - show selection screen
       const walletPurpose = role === 'buyer'
-        ? 'для возврата средств при отмене/споре'
-        : 'для получения оплаты';
+        ? t(lang, 'wallet.purpose_buyer')
+        : t(lang, 'wallet.purpose_seller');
 
-      const text = `💳 *Укажите кошелек для сделки*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💰 ${deal.amount} ${deal.asset}
-
-Выберите кошелёк ${walletPurpose}:`;
+      const text = t(lang, 'provideWallet.select_title', {
+        dealId: deal.dealId,
+        productName: deal.productName,
+        amount: deal.amount,
+        asset: deal.asset,
+        walletPurpose
+      });
 
       // Store deal info for wallet selection
       await User.updateOne(
@@ -113,22 +115,18 @@ const enterWalletHandler = async (ctx) => {
         }
       );
 
-      const keyboard = walletSelectionKeyboard(savedWallets, true);
+      const keyboard = walletSelectionKeyboard(savedWallets, true, lang);
       await messageManager.navigateToScreen(ctx, telegramId, `select_wallet_${dealId}`, text, keyboard);
     } else {
       // No saved wallets - show direct input
-      const text = `💳 *Укажите кошелек для сделки*
+      const text = t(lang, 'provideWallet.input_title', {
+        dealId: deal.dealId,
+        productName: deal.productName,
+        amount: deal.amount,
+        asset: deal.asset
+      });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💰 ${deal.amount} ${deal.asset}
-
-Введите адрес вашего TRON-кошелька (TRC-20):
-
-_Адрес должен начинаться с T и содержать 34 символа_
-_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
-
-      const keyboard = backButton();
+      const keyboard = backButton(lang);
       await messageManager.navigateToScreen(ctx, telegramId, `enter_wallet_${dealId}`, text, keyboard);
     }
   } catch (error) {
@@ -146,6 +144,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
  */
 const handleSellerWalletInput = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
     const text = ctx.message.text.trim();
 
@@ -164,14 +163,9 @@ const handleSellerWalletInput = async (ctx) => {
 
     // Validate TRON address format
     if (!blockchainService.isValidAddress(text)) {
-      const errorText = `❌ *Неверный адрес кошелька!*
+      const errorText = t(lang, 'wallet.invalid_format');
 
-Адрес должен начинаться с T и содержать 34 символа.
-_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
-
-Попробуйте ещё раз:`;
-
-      const keyboard = backButton();
+      const keyboard = backButton(lang);
       await messageManager.updateScreen(ctx, telegramId, 'seller_wallet_error', errorText, keyboard);
       return true;
     }
@@ -182,9 +176,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       { currentScreen: 'wallet_verification' }
     );
 
-    const verifyingText = `⏳ *Проверяем ваш адрес...*
-
-Проверка кошелька в сети TRON.`;
+    const verifyingText = t(lang, 'common.checking_wallet');
 
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verification', verifyingText, null);
 
@@ -195,25 +187,14 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
       // Wallet verification failed - show error
       let errorMessage;
       if (verification.errorType === 'invalid_address') {
-        errorMessage = `❌ *Неверный адрес*
-
-Адрес не является действительным TRON-адресом.
-
-Введите другой адрес:`;
+        errorMessage = t(lang, 'wallet.invalid_address');
       } else if (verification.errorType === 'not_found') {
-        errorMessage = `❌ *Кошелёк не найден*
-
-Этот адрес не активирован в сети TRON.
-Убедитесь, что кошелёк имеет хотя бы одну транзакцию.
-
-Введите другой адрес:`;
+        errorMessage = t(lang, 'wallet.not_found_detailed');
       } else {
-        errorMessage = `❌ *Ошибка проверки*
-
-Не удалось проверить кошелёк. Попробуйте позже или укажите другой адрес.`;
+        errorMessage = t(lang, 'wallet.check_error');
       }
 
-      const keyboard = backButton();
+      const keyboard = backButton(lang);
       await messageManager.updateScreen(ctx, telegramId, 'seller_wallet_error', errorMessage, keyboard);
       return true;
     }
@@ -226,11 +207,7 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
     if (canSaveWallet) {
       // Ask to save wallet before proceeding
       const shortAddr = text.slice(0, 6) + '...' + text.slice(-4);
-      const savePromptText = `✅ *Кошелёк проверен!*
-
-📍 \`${shortAddr}\`
-
-Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
+      const savePromptText = t(lang, 'wallet.verified_save', { address: shortAddr });
 
       // Save session with wallet info
       await setProvideWalletSession(telegramId, {
@@ -240,13 +217,13 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
         role: 'seller'
       });
 
-      const keyboard = saveWalletPromptKeyboard();
+      const keyboard = saveWalletPromptKeyboard(lang);
       await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', savePromptText, keyboard);
       return true;
     }
 
     // No save prompt needed - proceed directly
-    await processSellerWalletNew(ctx, telegramId, deal, text);
+    await processSellerWalletNew(ctx, telegramId, deal, text, lang);
     return true;
   } catch (error) {
     console.error('Error handling seller wallet input:', error);
@@ -257,7 +234,9 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_
 /**
  * Process seller wallet after validation (and optional save prompt)
  */
-async function processSellerWalletNew(ctx, telegramId, deal, walletAddress) {
+async function processSellerWalletNew(ctx, telegramId, deal, walletAddress, lang) {
+    if (!lang) lang = ctx.state?.lang || 'ru';
+
     // ========== STEP 4: Generate private key and save deal ==========
     const sellerKeys = await blockchainService.generateKeyPair();
     const sellerPrivateKey = sellerKeys.privateKey;
@@ -271,37 +250,20 @@ async function processSellerWalletNew(ctx, telegramId, deal, walletAddress) {
     console.log(`✅ Seller wallet verified and set for deal ${deal.dealId}: ${walletAddress}`);
 
     // Show confirmation to seller FIRST (main message)
-    const sellerText = `✅ *Кошелек сохранен!*
+    const sellerText = t(lang, 'provideWallet.seller_wallet_saved', {
+      walletAddress,
+      dealId: deal.dealId,
+      productName: escapeMarkdown(deal.productName)
+    });
 
-Адрес: \`${walletAddress}\`
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-Ожидаем депозит от покупателя.
-Вы получите уведомление, когда средства поступят.`;
-
-    const sellerKeyboard = mainMenuButton();
+    const sellerKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'wallet_saved', sellerText, sellerKeyboard);
 
     // ========== SHOW PRIVATE KEY (separate message below with button) ==========
-    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
-
-🆔 Сделка: \`${deal.dealId}\`
-
-Ваш приватный ключ продавца:
-\`${sellerPrivateKey}\`
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
-
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете получить средства по сделке!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_seller')}\n\`${sellerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_seller_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
     ]);
 
     const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -324,42 +286,37 @@ async function processSellerWalletNew(ctx, telegramId, deal, walletAddress) {
 
     if (deal.commissionType === 'buyer') {
       depositAmount = deal.amount + deal.commission;
-      depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
     } else if (deal.commissionType === 'split') {
       const halfCommission = deal.commission / 2;
       depositAmount = deal.amount + halfCommission;
-      depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
+    }
+
+    // Load buyer language for notification
+    const buyerUser = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUser?.languageCode || 'ru';
+
+    // Recalculate depositNote in buyer's language
+    let buyerDepositNote = '';
+    if (deal.commissionType === 'buyer') {
+      buyerDepositNote = `\n${t(buyerLang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
+    } else if (deal.commissionType === 'split') {
+      const halfCommission = deal.commission / 2;
+      buyerDepositNote = `\n${t(buyerLang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
     }
 
     // Show WARNING notification to buyer
-    const buyerText = `⚠️ *ВНИМАНИЕ! Прочитайте перед переводом*
+    const buyerText = t(buyerLang, 'provideWallet.deposit_warning', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      depositAmount,
+      asset: deal.asset,
+      depositNote: buyerDepositNote,
+      commission: deal.commission
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💸 К оплате: *${depositAmount} ${deal.asset}*${depositNote}
-
-❗️ *ВАЖНЫЕ УСЛОВИЯ:*
-
-1️⃣ *Депозит необратим*
-После перевода средства будут заморожены в multisig-кошельке.
-
-2️⃣ *Возврат только через арбитраж*
-Если продавец не выполнит работу - открывайте спор.
-
-3️⃣ *Комиссия не возвращается*
-Комиссия сервиса (${deal.commission} ${deal.asset}) остаётся у сервиса.
-
-4️⃣ *Точная сумма*
-Переведите ТОЧНО ${depositAmount} ${deal.asset}.
-
-5️⃣ *Срок 24 часа*
-Если не внесёте депозит в течение 24 часов, сделка будет отменена.
-
-❗️ *Просьба, прямо сейчас проверить ваш приватный ключ и убедиться, что вы его сохранили!*
-
-✅ *Если вы понимаете и согласны с условиями, нажмите кнопку ниже.*`;
-
-    const buyerKeyboard = depositWarningKeyboard(deal.dealId);
+    const buyerKeyboard = depositWarningKeyboard(deal.dealId, buyerLang);
     await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
 }
 
@@ -373,6 +330,7 @@ async function processSellerWalletNew(ctx, telegramId, deal, walletAddress) {
  */
 const handleBuyerWalletInput = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
     const text = ctx.message.text.trim();
 
@@ -396,13 +354,7 @@ const handleBuyerWalletInput = async (ctx) => {
       { currentScreen: 'wallet_verification' }
     );
 
-    const verifyingText = `⏳ *Проверяем ваш адрес...*
-
-Пожалуйста, подождите. Мы проверяем:
-• Корректность адреса
-• Наличие средств на кошельке
-
-Это может занять несколько секунд.`;
+    const verifyingText = t(lang, 'common.checking_wallet_detailed');
 
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verification', verifyingText, null);
 
@@ -425,14 +377,10 @@ const handleBuyerWalletInput = async (ctx) => {
       if (verification.errorType === 'insufficient_funds' || verification.errorType === 'no_buffer') {
         // Show warning with choice instead of blocking
         const currentBalance = verification.balance || 0;
-        const warningMessage = `⚠️ *Внимание: баланс не обнаружен*
-
-На указанном кошельке обнаружено: *${currentBalance.toFixed(2)} USDT*
-Для сделки необходимо: *${depositAmount.toFixed(2)} USDT* (депозит) + *5 USDT* (буфер)
-
-💡 *Если ваши средства хранятся на криптобирже* (Binance, Bybit, OKX и др.) — это нормально! Баланс на бирже не виден в блокчейне.
-
-Нажмите «Продолжить», если средства у вас есть, или укажите другой адрес.`;
+        const warningMessage = t(lang, 'wallet.balance_warning', {
+          balance: currentBalance.toFixed(2),
+          depositAmount: depositAmount.toFixed(2)
+        });
 
         // Store pending wallet for later confirmation
         await User.findOneAndUpdate(
@@ -446,9 +394,9 @@ const handleBuyerWalletInput = async (ctx) => {
 
         const keyboard = {
           inline_keyboard: [
-            [{ text: '✅ Продолжить — средства есть', callback_data: `wallet_continue:${deal.dealId}` }],
-            [{ text: '📝 Изменить адрес кошелька', callback_data: `retry_wallet:${deal.dealId}` }],
-            [{ text: '⬅️ Назад', callback_data: 'back' }]
+            [{ text: t(lang, 'btn.continue_funds'), callback_data: `wallet_continue:${deal.dealId}` }],
+            [{ text: t(lang, 'btn.change_wallet'), callback_data: `retry_wallet:${deal.dealId}` }],
+            [{ text: t(lang, 'btn.back'), callback_data: 'back' }]
           ]
         };
         await messageManager.updateScreen(ctx, telegramId, 'wallet_balance_warning', warningMessage, keyboard);
@@ -456,13 +404,9 @@ const handleBuyerWalletInput = async (ctx) => {
       }
 
       // Other errors (invalid address, not found) - show error
-      const errorText = `❌ *Проверка кошелька не пройдена*
+      const errorText = t(lang, 'provideWallet.check_failed', { error: verification.error });
 
-${verification.error}
-
-Выберите действие:`;
-
-      const keyboard = walletVerificationErrorKeyboard(deal.dealId);
+      const keyboard = walletVerificationErrorKeyboard(deal.dealId, lang);
       await messageManager.updateScreen(ctx, telegramId, 'wallet_verification_error', errorText, keyboard);
       return true;
     }
@@ -475,12 +419,7 @@ ${verification.error}
     if (canSaveWallet) {
       // Ask to save wallet before proceeding
       const shortAddr = text.slice(0, 6) + '...' + text.slice(-4);
-      const savePromptText = `✅ *Кошелёк проверен!*
-
-📍 \`${shortAddr}\`
-✓ Баланс достаточен для совершения сделки.
-
-Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
+      const savePromptText = t(lang, 'wallet.verified_save_balance', { address: shortAddr });
 
       // Save session with wallet info
       await setProvideWalletSession(telegramId, {
@@ -490,13 +429,13 @@ ${verification.error}
         role: 'buyer'
       });
 
-      const keyboard = saveWalletPromptKeyboard();
+      const keyboard = saveWalletPromptKeyboard(lang);
       await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', savePromptText, keyboard);
       return true;
     }
 
     // No save prompt needed - proceed directly
-    await processBuyerWalletNew(ctx, telegramId, deal, text);
+    await processBuyerWalletNew(ctx, telegramId, deal, text, lang);
     return true;
   } catch (error) {
     console.error('Error handling buyer wallet input:', error);
@@ -507,7 +446,9 @@ ${verification.error}
 /**
  * Process buyer wallet after validation (and optional save prompt)
  */
-async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress) {
+async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress, lang) {
+    if (!lang) lang = ctx.state?.lang || 'ru';
+
     // ========== STEP 5: Generate private key and save deal ==========
     const buyerKeys = await blockchainService.generateKeyPair();
     const buyerPrivateKey = buyerKeys.privateKey;
@@ -530,52 +471,30 @@ async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress) {
     // Calculate deposit note for display
     let depositNote = '';
     if (deal.commissionType === 'buyer') {
-      depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
     } else if (deal.commissionType === 'split') {
       const halfCommission = deal.commission / 2;
-      depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
     }
 
     // ========== STEP 6: Show deposit instructions ==========
-    const buyerDepositText = `✅ *Кошелек подтверждён! Теперь внесите депозит.*
+    const buyerDepositText = t(lang, 'provideWallet.deposit_confirmed', {
+      dealId: deal.dealId,
+      productName: escapeMarkdown(deal.productName),
+      asset: deal.asset,
+      multisigAddress: deal.multisigAddress,
+      depositAmount: depositAmount.toFixed(2),
+      depositNote
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-🔐 *Адрес для депозита (${deal.asset}):*
-\`${deal.multisigAddress}\`
-
-💸 *К оплате: ${depositAmount.toFixed(2)} ${deal.asset}*${depositNote}
-
-⚠️ *ВАЖНО:*
-• Переведите ТОЧНО ${depositAmount.toFixed(2)} ${deal.asset}
-• Срок: 24 часа
-
-⏱ Система автоматически обнаружит депозит.
-
-[🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
-
-    const buyerKeyboard = mainMenuButton();
+    const buyerKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
     // ========== STEP 7: Show private key (separate message) ==========
-    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
-
-🆔 Сделка: \`${deal.dealId}\`
-
-Ваш приватный ключ покупателя:
-\`${buyerPrivateKey}\`
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
-
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
     ]);
 
     const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -593,15 +512,15 @@ async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress) {
     }, 60000);
 
     // ========== STEP 8: Notify seller ==========
-    const sellerNotifyText = `✅ *Покупатель указал кошелек!*
+    const sellerUser = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
+    const sellerNotifyText = t(sellerLang, 'provideWallet.buyer_wallet_set_notify', {
+      dealId: deal.dealId,
+      productName: escapeMarkdown(deal.productName)
+    });
 
-Ожидаем депозит от покупателя.
-Вы получите уведомление, когда средства поступят.`;
-
-    const sellerKeyboard = mainMenuButton();
+    const sellerKeyboard = mainMenuButton(sellerLang);
     await messageManager.showNotification(ctx, deal.sellerId, sellerNotifyText, sellerKeyboard);
 }
 
@@ -614,6 +533,7 @@ async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress) {
  */
 const handleDepositWarningConfirmation = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -627,8 +547,8 @@ const handleDepositWarningConfirmation = async (ctx) => {
     });
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена или уже завершена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found_or_completed'), keyboard);
       return;
     }
 
@@ -638,33 +558,24 @@ const handleDepositWarningConfirmation = async (ctx) => {
 
     if (deal.commissionType === 'buyer') {
       depositAmount = deal.amount + deal.commission;
-      depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
     } else if (deal.commissionType === 'split') {
       const halfCommission = deal.commission / 2;
       depositAmount = deal.amount + halfCommission;
-      depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
     }
 
     // Show deposit instructions (final screen)
-    const text = `✅ *Готово! Теперь внесите депозит*
+    const text = t(lang, 'provideWallet.deposit_ready', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      asset: deal.asset,
+      multisigAddress: deal.multisigAddress,
+      depositAmount,
+      depositNote
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-🔐 *Адрес для депозита (${deal.asset}):*
-\`${deal.multisigAddress}\`
-
-💸 *К оплате: ${depositAmount} ${deal.asset}*${depositNote}
-
-⚠️ *ВАЖНО:*
-• Переведите ТОЧНО ${depositAmount} ${deal.asset}
-• Срок: 24 часа
-
-⏱ Система автоматически обнаружит депозит в течение 1-3 минут.
-
-[🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', text, keyboard);
   } catch (error) {
     console.error('Error handling deposit warning confirmation:', error);
@@ -680,6 +591,7 @@ const handleDepositWarningConfirmation = async (ctx) => {
  */
 const showDepositAddress = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -688,20 +600,20 @@ const showDepositAddress = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
     if (deal.buyerId !== telegramId) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Только покупатель может видеть адрес депозита.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.only_buyer_deposit'), keyboard);
       return;
     }
 
     if (deal.status !== 'waiting_for_deposit') {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не ожидает депозита.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.not_waiting_deposit'), keyboard);
       return;
     }
 
@@ -711,32 +623,23 @@ const showDepositAddress = async (ctx) => {
 
     if (deal.commissionType === 'buyer') {
       depositAmount = deal.amount + deal.commission;
-      depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
     } else if (deal.commissionType === 'split') {
       const halfCommission = deal.commission / 2;
       depositAmount = deal.amount + halfCommission;
-      depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
     }
 
-    const text = `💳 *Адрес для депозита*
+    const text = t(lang, 'provideWallet.deposit_ready', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      asset: deal.asset,
+      multisigAddress: deal.multisigAddress,
+      depositAmount,
+      depositNote
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-🔐 *Адрес (${deal.asset}):*
-\`${deal.multisigAddress}\`
-
-💸 *К оплате: ${depositAmount} ${deal.asset}*${depositNote}
-
-⚠️ *ВАЖНО:*
-• Переведите ТОЧНО ${depositAmount} ${deal.asset}
-• Срок: 24 часа
-
-⏱ Система автоматически обнаружит депозит.
-
-[🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.navigateToScreen(ctx, telegramId, `deposit_${dealId}`, text, keyboard);
   } catch (error) {
     console.error('Error showing deposit address:', error);
@@ -752,6 +655,7 @@ const showDepositAddress = async (ctx) => {
  */
 const declineDeal = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -760,23 +664,23 @@ const declineDeal = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
     // Check if user is participant
     if (!deal.isParticipant(telegramId)) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Вы не являетесь участником этой сделки.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.not_participant'), keyboard);
       return;
     }
 
     // Check if deal can be declined
     const declinableStatuses = ['waiting_for_seller_wallet', 'waiting_for_buyer_wallet', 'waiting_for_deposit'];
     if (!declinableStatuses.includes(deal.status)) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделку нельзя отклонить на данном этапе.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.cannot_decline'), keyboard);
       return;
     }
 
@@ -784,28 +688,32 @@ const declineDeal = async (ctx) => {
     await dealService.updateDealStatus(dealId, 'cancelled', telegramId);
 
     // Notify decliner
-    const declinerText = `❌ *Сделка отклонена*
+    const declinerText = t(lang, 'myDeals.deal_declined_you', {
+      dealId,
+      productName: deal.productName
+    });
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-Сделка была отменена по вашему запросу.`;
-
-    const declinerKeyboard = mainMenuButton();
+    const declinerKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'deal_declined', declinerText, declinerKeyboard);
 
     // Notify other party
     const otherPartyId = deal.buyerId === telegramId ? deal.sellerId : deal.buyerId;
-    const otherPartyRole = deal.buyerId === telegramId ? 'Продавец' : 'Покупатель';
 
-    const otherText = `❌ *Сделка отклонена*
+    // Load counterparty language
+    const counterpartyUser = await User.findOne({ telegramId: otherPartyId }).select('languageCode').lean();
+    const counterpartyLang = counterpartyUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
+    const otherPartyRole = deal.buyerId === telegramId
+      ? t(counterpartyLang, 'role.buyer')
+      : t(counterpartyLang, 'role.seller');
 
-${otherPartyRole === 'Продавец' ? 'Покупатель' : 'Продавец'} отклонил сделку.`;
+    const otherText = t(counterpartyLang, 'myDeals.deal_declined_other', {
+      dealId,
+      productName: deal.productName,
+      role: otherPartyRole
+    });
 
-    const otherKeyboard = mainMenuButton();
+    const otherKeyboard = mainMenuButton(counterpartyLang);
     await messageManager.showNotification(ctx, otherPartyId, otherText, otherKeyboard);
 
     console.log(`❌ Deal ${dealId} declined by user ${telegramId}`);
@@ -823,6 +731,7 @@ ${otherPartyRole === 'Продавец' ? 'Покупатель' : 'Продав
  */
 const cancelDeal = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -831,16 +740,16 @@ const cancelDeal = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
     // Check if deal can be cancelled
     const cancellableStatuses = ['waiting_for_seller_wallet', 'waiting_for_buyer_wallet', 'waiting_for_deposit'];
     if (!cancellableStatuses.includes(deal.status)) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделку нельзя отменить на данном этапе.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.cannot_cancel'), keyboard);
       return;
     }
 
@@ -848,27 +757,28 @@ const cancelDeal = async (ctx) => {
     await dealService.updateDealStatus(dealId, 'cancelled', telegramId);
 
     // Notify canceller
-    const text = `❌ *Сделка отменена*
+    const text = t(lang, 'myDeals.deal_cancelled_you', {
+      dealId,
+      productName: deal.productName
+    });
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-Сделка была отменена.`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'deal_cancelled', text, keyboard);
 
     // Notify other party if exists
     const otherPartyId = deal.buyerId === telegramId ? deal.sellerId : deal.buyerId;
     if (otherPartyId && otherPartyId !== telegramId) {
-      const otherText = `❌ *Сделка отменена*
+      // Load counterparty language
+      const counterpartyUser = await User.findOne({ telegramId: otherPartyId }).select('languageCode').lean();
+      const counterpartyLang = counterpartyUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
+      const otherText = t(counterpartyLang, 'myDeals.deal_cancelled_other', {
+        dealId,
+        productName: deal.productName
+      });
 
-Другой участник отменил сделку.`;
-
-      await messageManager.showNotification(ctx, otherPartyId, otherText, keyboard);
+      const otherKeyboard = mainMenuButton(counterpartyLang);
+      await messageManager.showNotification(ctx, otherPartyId, otherText, otherKeyboard);
     }
 
     console.log(`❌ Deal ${dealId} cancelled by user ${telegramId}`);
@@ -887,6 +797,7 @@ const cancelDeal = async (ctx) => {
  */
 const handleWalletContinue = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -894,7 +805,7 @@ const handleWalletContinue = async (ctx) => {
     // Get pending wallet from user record
     const user = await User.findOne({ telegramId });
     if (!user || !user.pendingWallet || user.pendingDealId !== dealId) {
-      await ctx.answerCbQuery('❌ Сессия истекла. Попробуйте снова.', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.session_expired_restart'), { show_alert: true });
       return;
     }
 
@@ -908,8 +819,8 @@ const handleWalletContinue = async (ctx) => {
     });
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена или статус изменился.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found_or_status'), keyboard);
       return;
     }
 
@@ -923,11 +834,7 @@ const handleWalletContinue = async (ctx) => {
     );
 
     // Show success
-    const successText = `✅ *Кошелёк принят!*
-
-Адрес: \`${walletAddress}\`
-
-Подготовка данных...`;
+    const successText = t(lang, 'wallet.accepted', { address: walletAddress });
 
     await messageManager.updateScreen(ctx, telegramId, 'wallet_verified', successText, null);
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -948,53 +855,31 @@ const handleWalletContinue = async (ctx) => {
     let depositNote = '';
     if (deal.commissionType === 'buyer') {
       depositAmount = deal.amount + deal.commission;
-      depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
     } else if (deal.commissionType === 'split') {
       const halfCommission = deal.commission / 2;
       depositAmount = deal.amount + halfCommission;
-      depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+      depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
     }
 
     // Show deposit instructions
-    const buyerDepositText = `✅ *Кошелек подтверждён! Теперь внесите депозит.*
+    const buyerDepositText = t(lang, 'provideWallet.deposit_confirmed', {
+      dealId: deal.dealId,
+      productName: escapeMarkdown(deal.productName),
+      asset: deal.asset,
+      multisigAddress: deal.multisigAddress,
+      depositAmount: depositAmount.toFixed(2),
+      depositNote
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-🔐 *Адрес для депозита (${deal.asset}):*
-\`${deal.multisigAddress}\`
-
-💸 *К оплате: ${depositAmount.toFixed(2)} ${deal.asset}*${depositNote}
-
-⚠️ *ВАЖНО:*
-• Переведите ТОЧНО ${depositAmount.toFixed(2)} ${deal.asset}
-• Срок: 24 часа
-
-⏱ Система автоматически обнаружит депозит.
-
-[🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
-
-    const buyerKeyboard = mainMenuButton();
+    const buyerKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
     // Show private key (separate message)
-    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
-
-🆔 Сделка: \`${deal.dealId}\`
-
-Ваш приватный ключ покупателя:
-\`${buyerPrivateKey}\`
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
-
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
     ]);
 
     const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -1012,15 +897,15 @@ const handleWalletContinue = async (ctx) => {
     }, 60000);
 
     // Notify seller
-    const sellerNotifyText = `✅ *Покупатель указал кошелек!*
+    const sellerUser = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
+    const sellerNotifyText = t(sellerLang, 'provideWallet.buyer_wallet_set_notify', {
+      dealId: deal.dealId,
+      productName: escapeMarkdown(deal.productName)
+    });
 
-Ожидаем депозит от покупателя.
-Вы получите уведомление, когда средства поступят.`;
-
-    const sellerKeyboard = mainMenuButton();
+    const sellerKeyboard = mainMenuButton(sellerLang);
     await messageManager.showNotification(ctx, deal.sellerId, sellerNotifyText, sellerKeyboard);
 
   } catch (error) {
@@ -1037,6 +922,7 @@ const handleWalletContinue = async (ctx) => {
  */
 const handleSelectSavedWalletDeal = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -1045,19 +931,19 @@ const handleSelectSavedWalletDeal = async (ctx) => {
     // Get user's pending deal
     const user = await User.findOne({ telegramId }).select('wallets pendingDealId');
     if (!user || !user.wallets[walletIndex]) {
-      await ctx.answerCbQuery('❌ Кошелёк не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       return;
     }
 
     const dealId = user.pendingDealId;
     if (!dealId) {
-      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.deal_not_found'), { show_alert: true });
       return;
     }
 
     const deal = await dealService.getDealById(dealId);
     if (!deal) {
-      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.deal_not_found'), { show_alert: true });
       return;
     }
 
@@ -1066,18 +952,16 @@ const handleSelectSavedWalletDeal = async (ctx) => {
     const address = wallet.address;
 
     // Show loading
-    const loadingText = `⏳ *Подготовка...*
-
-Выбран кошелёк: \`${address.slice(0, 6)}...${address.slice(-4)}\``;
+    const loadingText = t(lang, 'common.preparing', { address: address.slice(0, 6) + '...' + address.slice(-4) });
 
     await messageManager.updateScreen(ctx, telegramId, 'wallet_loading', loadingText, {});
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Process based on role
     if (role === 'seller') {
-      await processSellerWalletSaved(ctx, telegramId, deal, address);
+      await processSellerWalletSaved(ctx, telegramId, deal, address, lang);
     } else {
-      await processBuyerWalletSaved(ctx, telegramId, deal, address);
+      await processBuyerWalletSaved(ctx, telegramId, deal, address, lang);
     }
 
     // Clear pending deal
@@ -1092,13 +976,14 @@ const handleSelectSavedWalletDeal = async (ctx) => {
  */
 const handleEnterNewWalletDeal = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
     const user = await User.findOne({ telegramId }).select('pendingDealId');
 
     if (!user || !user.pendingDealId) {
-      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.deal_not_found'), { show_alert: true });
       return;
     }
 
@@ -1106,22 +991,18 @@ const handleEnterNewWalletDeal = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      await ctx.answerCbQuery('❌ Сделка не найдена', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.deal_not_found'), { show_alert: true });
       return;
     }
 
-    const text = `💳 *Укажите кошелек для сделки*
+    const text = t(lang, 'provideWallet.input_title', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      amount: deal.amount,
+      asset: deal.asset
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💰 ${deal.amount} ${deal.asset}
-
-Введите адрес вашего TRON-кошелька (TRC-20):
-
-_Адрес должен начинаться с T и содержать 34 символа_
-_Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
-
-    const keyboard = backButton();
+    const keyboard = backButton(lang);
     await messageManager.navigateToScreen(ctx, telegramId, `enter_wallet_${dealId}`, text, keyboard);
   } catch (error) {
     console.error('Error in handleEnterNewWalletDeal:', error);
@@ -1131,7 +1012,9 @@ _Пример: TQRfXYMDSspGDB7GB8MevZpkYgUXkviCSj_`;
 /**
  * Process seller wallet selection (saved wallet, skip validation)
  */
-async function processSellerWalletSaved(ctx, telegramId, deal, address) {
+async function processSellerWalletSaved(ctx, telegramId, deal, address, lang) {
+  if (!lang) lang = ctx.state?.lang || 'ru';
+
   // Generate private key and save deal
   const sellerKeys = await blockchainService.generateKeyPair();
   const sellerPrivateKey = sellerKeys.privateKey;
@@ -1145,37 +1028,20 @@ async function processSellerWalletSaved(ctx, telegramId, deal, address) {
   console.log(`✅ Seller wallet (saved) set for deal ${deal.dealId}: ${address}`);
 
   // Show confirmation to seller
-  const sellerText = `✅ *Кошелек сохранен!*
+  const sellerText = t(lang, 'provideWallet.seller_wallet_saved', {
+    walletAddress: address,
+    dealId: deal.dealId,
+    productName: escapeMarkdown(deal.productName)
+  });
 
-Адрес: \`${address}\`
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-Ожидаем депозит от покупателя.
-Вы получите уведомление, когда средства поступят.`;
-
-  const sellerKeyboard = mainMenuButton();
+  const sellerKeyboard = mainMenuButton(lang);
   await messageManager.showFinalScreen(ctx, telegramId, 'wallet_saved', sellerText, sellerKeyboard);
 
   // Show private key
-  const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
-
-🆔 Сделка: \`${deal.dealId}\`
-
-Ваш приватный ключ продавца:
-\`${sellerPrivateKey}\`
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
-
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете получить средства по сделке!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+  const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_seller')}\n\`${sellerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_seller_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
   const keyKeyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
   ]);
 
   const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -1198,49 +1064,46 @@ async function processSellerWalletSaved(ctx, telegramId, deal, address) {
 
   if (deal.commissionType === 'buyer') {
     depositAmount = deal.amount + deal.commission;
-    depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+    depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
   } else if (deal.commissionType === 'split') {
     const halfCommission = deal.commission / 2;
     depositAmount = deal.amount + halfCommission;
-    depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+    depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
+  }
+
+  // Load buyer language for notification
+  const buyerUser = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+  const buyerLang = buyerUser?.languageCode || 'ru';
+
+  // Recalculate depositNote in buyer's language
+  let buyerDepositNote = '';
+  if (deal.commissionType === 'buyer') {
+    buyerDepositNote = `\n${t(buyerLang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
+  } else if (deal.commissionType === 'split') {
+    const halfCommission = deal.commission / 2;
+    buyerDepositNote = `\n${t(buyerLang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
   }
 
   // Notify buyer
-  const buyerText = `⚠️ *ВНИМАНИЕ! Прочитайте перед переводом*
+  const buyerText = t(buyerLang, 'provideWallet.deposit_warning', {
+    dealId: deal.dealId,
+    productName: deal.productName,
+    depositAmount,
+    asset: deal.asset,
+    depositNote: buyerDepositNote,
+    commission: deal.commission
+  });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-💸 К оплате: *${depositAmount} ${deal.asset}*${depositNote}
-
-❗️ *ВАЖНЫЕ УСЛОВИЯ:*
-
-1️⃣ *Депозит необратим*
-После перевода средства будут заморожены в multisig-кошельке.
-
-2️⃣ *Возврат только через арбитраж*
-Если продавец не выполнит работу - открывайте спор.
-
-3️⃣ *Комиссия не возвращается*
-Комиссия сервиса (${deal.commission} ${deal.asset}) остаётся у сервиса.
-
-4️⃣ *Точная сумма*
-Переведите ТОЧНО ${depositAmount} ${deal.asset}.
-
-5️⃣ *Срок 24 часа*
-Если не внесёте депозит в течение 24 часов, сделка будет отменена.
-
-❗️ *Просьба, прямо сейчас проверить ваш приватный ключ и убедиться, что вы его сохранили!*
-
-✅ *Если вы понимаете и согласны с условиями, нажмите кнопку ниже.*`;
-
-  const buyerKeyboard = depositWarningKeyboard(deal.dealId);
+  const buyerKeyboard = depositWarningKeyboard(deal.dealId, buyerLang);
   await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
 }
 
 /**
  * Process buyer wallet selection (saved wallet, skip validation)
  */
-async function processBuyerWalletSaved(ctx, telegramId, deal, address) {
+async function processBuyerWalletSaved(ctx, telegramId, deal, address, lang) {
+  if (!lang) lang = ctx.state?.lang || 'ru';
+
   // Generate private key and save deal
   const buyerKeys = await blockchainService.generateKeyPair();
   const buyerPrivateKey = buyerKeys.privateKey;
@@ -1257,53 +1120,31 @@ async function processBuyerWalletSaved(ctx, telegramId, deal, address) {
   let depositNote = '';
   if (deal.commissionType === 'buyer') {
     depositAmount = deal.amount + deal.commission;
-    depositNote = `\n💡 Включая комиссию: ${deal.commission} ${deal.asset}`;
+    depositNote = `\n${t(lang, 'commission.including', { commission: deal.commission, asset: deal.asset })}`;
   } else if (deal.commissionType === 'split') {
     const halfCommission = deal.commission / 2;
     depositAmount = deal.amount + halfCommission;
-    depositNote = `\n💡 Включая 50% комиссии: ${halfCommission.toFixed(2)} ${deal.asset}`;
+    depositNote = `\n${t(lang, 'commission.including_half', { half: halfCommission.toFixed(2), asset: deal.asset })}`;
   }
 
   // Show deposit instructions to buyer
-  const buyerDepositText = `✅ *Кошелек подтверждён! Теперь внесите депозит.*
+  const buyerDepositText = t(lang, 'provideWallet.deposit_confirmed', {
+    dealId: deal.dealId,
+    productName: escapeMarkdown(deal.productName),
+    asset: deal.asset,
+    multisigAddress: deal.multisigAddress,
+    depositAmount: depositAmount.toFixed(2),
+    depositNote
+  });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
-
-🔐 *Адрес для депозита (${deal.asset}):*
-\`${deal.multisigAddress}\`
-
-💸 *К оплате: ${depositAmount.toFixed(2)} ${deal.asset}*${depositNote}
-
-⚠️ *ВАЖНО:*
-• Переведите ТОЧНО ${depositAmount.toFixed(2)} ${deal.asset}
-• Срок: 24 часа
-
-⏱ Система автоматически обнаружит депозит.
-
-[🔍 Проверить в TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
-
-  const buyerKeyboard = mainMenuButton();
+  const buyerKeyboard = mainMenuButton(lang);
   await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
   // Show private key
-  const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
-
-🆔 Сделка: \`${deal.dealId}\`
-
-Ваш приватный ключ покупателя:
-\`${buyerPrivateKey}\`
-
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
-
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете подтвердить/отменить сделку!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+  const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
   const keyKeyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${deal.dealId}`)]
+    [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
   ]);
 
   const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -1321,15 +1162,15 @@ async function processBuyerWalletSaved(ctx, telegramId, deal, address) {
   }, 60000);
 
   // Notify seller
-  const sellerNotifyText = `✅ *Покупатель указал кошелек!*
+  const sellerUser = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+  const sellerLang = sellerUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
+  const sellerNotifyText = t(sellerLang, 'provideWallet.buyer_wallet_set_notify', {
+    dealId: deal.dealId,
+    productName: escapeMarkdown(deal.productName)
+  });
 
-Ожидаем депозит от покупателя.
-Вы получите уведомление, когда средства поступят.`;
-
-  const sellerKeyboard = mainMenuButton();
+  const sellerKeyboard = mainMenuButton(sellerLang);
   await messageManager.showNotification(ctx, deal.sellerId, sellerNotifyText, sellerKeyboard);
 }
 
@@ -1342,6 +1183,7 @@ async function processBuyerWalletSaved(ctx, telegramId, deal, address) {
  */
 const handleSaveWalletPromptDeal = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -1355,8 +1197,8 @@ const handleSaveWalletPromptDeal = async (ctx) => {
 
     if (!deal) {
       await deleteProvideWalletSession(telegramId);
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
@@ -1364,9 +1206,9 @@ const handleSaveWalletPromptDeal = async (ctx) => {
       // Skip saving, proceed with deal
       await deleteProvideWalletSession(telegramId);
       if (role === 'seller') {
-        await processSellerWalletNew(ctx, telegramId, deal, walletAddress);
+        await processSellerWalletNew(ctx, telegramId, deal, walletAddress, lang);
       } else {
-        await processBuyerWalletNew(ctx, telegramId, deal, walletAddress);
+        await processBuyerWalletNew(ctx, telegramId, deal, walletAddress, lang);
       }
       return;
     }
@@ -1376,16 +1218,9 @@ const handleSaveWalletPromptDeal = async (ctx) => {
     await setProvideWalletSession(telegramId, session);
 
     const shortAddr = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
-    const text = `💳 *Сохранение кошелька*
+    const text = t(lang, 'wallet.save_name_prompt', { address: shortAddr });
 
-📍 \`${shortAddr}\`
-
-✏️ *Введите название и отправьте в чат*
-Например: "Основной", "Binance", "Рабочий"
-
-Или нажмите «Пропустить» — кошелёк сохранится как "Кошелёк 1"`;
-
-    const keyboard = walletNameInputDealKeyboard();
+    const keyboard = walletNameInputDealKeyboard(lang);
     await messageManager.updateScreen(ctx, telegramId, 'wallet_name_input', text, keyboard);
   } catch (error) {
     console.error('Error in handleSaveWalletPromptDeal:', error);
@@ -1397,6 +1232,7 @@ const handleSaveWalletPromptDeal = async (ctx) => {
  */
 const handleWalletNameSkipProvide = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -1409,8 +1245,8 @@ const handleWalletNameSkipProvide = async (ctx) => {
 
     if (!deal) {
       await deleteProvideWalletSession(telegramId);
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
@@ -1423,9 +1259,9 @@ const handleWalletNameSkipProvide = async (ctx) => {
     // Proceed with deal
     await deleteProvideWalletSession(telegramId);
     if (role === 'seller') {
-      await processSellerWalletNew(ctx, telegramId, deal, walletAddress);
+      await processSellerWalletNew(ctx, telegramId, deal, walletAddress, lang);
     } else {
-      await processBuyerWalletNew(ctx, telegramId, deal, walletAddress);
+      await processBuyerWalletNew(ctx, telegramId, deal, walletAddress, lang);
     }
   } catch (error) {
     console.error('Error in handleWalletNameSkipProvide:', error);
@@ -1437,6 +1273,7 @@ const handleWalletNameSkipProvide = async (ctx) => {
  */
 const handleWalletNameBackProvide = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -1448,13 +1285,9 @@ const handleWalletNameBackProvide = async (ctx) => {
     await setProvideWalletSession(telegramId, session);
 
     const shortAddr = session.walletAddress.slice(0, 6) + '...' + session.walletAddress.slice(-4);
-    const text = `✅ *Кошелёк проверен!*
+    const text = t(lang, 'wallet.verified_save', { address: shortAddr });
 
-📍 \`${shortAddr}\`
-
-Хотите сохранить этот адрес для быстрого выбора в будущих сделках?`;
-
-    const keyboard = saveWalletPromptKeyboard();
+    const keyboard = saveWalletPromptKeyboard(lang);
     await messageManager.updateScreen(ctx, telegramId, 'save_wallet_prompt', text, keyboard);
   } catch (error) {
     console.error('Error in handleWalletNameBackProvide:', error);
@@ -1466,6 +1299,7 @@ const handleWalletNameBackProvide = async (ctx) => {
  */
 const handleWalletNameInputProvide = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
     const walletName = ctx.message.text.trim();
 
@@ -1479,17 +1313,15 @@ const handleWalletNameInputProvide = async (ctx) => {
 
     if (!deal) {
       await deleteProvideWalletSession(telegramId);
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return true;
     }
 
     // Validate name length
     if (walletName.length > 30) {
-      const text = `❌ Название слишком длинное (макс. 30 символов).
-
-Введите более короткое название:`;
-      const keyboard = walletNameInputDealKeyboard();
+      const text = t(lang, 'wallet.name_too_long_provide');
+      const keyboard = walletNameInputDealKeyboard(lang);
       await messageManager.updateScreen(ctx, telegramId, 'wallet_name_error', text, keyboard);
       return true;
     }
@@ -1503,9 +1335,9 @@ const handleWalletNameInputProvide = async (ctx) => {
     // Proceed with deal
     await deleteProvideWalletSession(telegramId);
     if (role === 'seller') {
-      await processSellerWalletNew(ctx, telegramId, deal, walletAddress);
+      await processSellerWalletNew(ctx, telegramId, deal, walletAddress, lang);
     } else {
-      await processBuyerWalletNew(ctx, telegramId, deal, walletAddress);
+      await processBuyerWalletNew(ctx, telegramId, deal, walletAddress, lang);
     }
 
     return true;

@@ -1,5 +1,6 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
+import { useTranslation } from 'react-i18next'
 import {
   COMMISSION_TIER_1_MAX,
   COMMISSION_TIER_1_FIXED,
@@ -13,23 +14,25 @@ import {
 } from '@/config/constants'
 
 export function TermsPage() {
+  const { t } = useTranslation()
+
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    name: 'Условия использования KeyShield',
-    description: 'Условия использования escrow-сервиса KeyShield. Правила создания сделок, комиссии, арбитраж споров, система банов.',
+    name: t('terms.title'),
+    description: t('terms.seo_description'),
     dateModified: '2025-12-04',
   }
 
   return (
     <>
       <SEO
-        title="Условия использования"
-        description="Условия использования escrow-сервиса KeyShield. Правила создания сделок, комиссии, арбитраж споров, система банов и ответственность сторон."
+        title={t('terms.seo_title')}
+        description={t('terms.seo_description')}
         url="/terms"
         schema={schema}
       />
-      <DocumentLayout title="Условия использования KeyShield" date="4 декабря 2025 г.">
+      <DocumentLayout title={t('terms.title')} date={t('terms.date')}>
       <Section title="1. Общие положения">
         <Paragraph>
           1.1. Настоящие Условия использования (далее - "Условия") регулируют отношения между

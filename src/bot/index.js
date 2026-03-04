@@ -13,11 +13,13 @@ const blogNotificationService = require('../services/blogNotificationService');
 const adminAlertService = require('../services/adminAlertService');
 const emailService = require('../services/emailService');
 const messageManager = require('./utils/messageManager');
+const { t } = require('../locales');
 
 // Middleware for high-load optimization
 const { deduplicationMiddleware } = require('./middleware/deduplication');
 const { loadingTimeoutMiddleware } = require('./middleware/loadingTimeout');
 const { usernameSyncMiddleware } = require('./middleware/usernameSync');
+const { languageSyncMiddleware } = require('./middleware/languageSync');
 
 // Activity logging
 const activityLogger = require('../services/activityLogger');
@@ -145,6 +147,9 @@ const {
   // Wallet edit
   handleEditWalletName,
   handleEditWalletAddress,
+  // Language
+  showLanguageSelect,
+  handleSetLanguage,
   // Combined text handler
   handleMyDataTextInput
 } = require('./handlers/myData');
@@ -245,6 +250,9 @@ bot.use(async (ctx, next) => {
 // Critical for arbitration and finding users by @username
 bot.use(usernameSyncMiddleware);
 
+// 1.5. Language sync - detects and stores user's language from Telegram
+bot.use(languageSyncMiddleware);
+
 // 2. Callback deduplication - prevents double-tap issues
 // User clicks button twice quickly → only first click is processed
 bot.use(deduplicationMiddleware);
@@ -323,8 +331,9 @@ bot.action(/^copy_invite:/, async (ctx) => {
     const inviteLink = `https://t.me/${botUsername}?start=deal_${inviteToken}`;
 
     // Send link as separate message for easy copying
+    const lang = ctx.state?.lang || 'ru';
     const linkMsg = await ctx.reply(
-      `🔗 *Ссылка для контрагента:*\n\n\`${inviteLink}\`\n\n_Нажмите на ссылку, чтобы скопировать_`,
+      t(lang, 'invite.copy_link_text', { inviteLink }),
       { parse_mode: 'Markdown' }
     );
 
@@ -390,7 +399,7 @@ bot.action(/^save_wallet:/, async (ctx) => {
     // provideWallet flow (deal acceptance)
     await handleSaveWalletPromptDeal(ctx);
   } else {
-    await ctx.answerCbQuery('❌ Сессия истекла', { show_alert: true });
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.session_expired_alert'), { show_alert: true });
   }
 });
 // Wallet name buttons - unified handler for both flows
@@ -401,7 +410,7 @@ bot.action('deal_wallet_name:skip', async (ctx) => {
   } else if (await hasProvideWalletSession(telegramId)) {
     await handleWalletNameSkipProvide(ctx);
   } else {
-    await ctx.answerCbQuery('❌ Сессия истекла', { show_alert: true });
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.session_expired_alert'), { show_alert: true });
   }
 });
 bot.action('deal_wallet_name:back', async (ctx) => {
@@ -411,7 +420,7 @@ bot.action('deal_wallet_name:back', async (ctx) => {
   } else if (await hasProvideWalletSession(telegramId)) {
     await handleWalletNameBackProvide(ctx);
   } else {
-    await ctx.answerCbQuery('❌ Сессия истекла', { show_alert: true });
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.session_expired_alert'), { show_alert: true });
   }
 });
 
@@ -453,7 +462,7 @@ bot.action(/^wallet_continue:/, handleWalletContinue);
 // Key saved button - just delete the message
 bot.action(/^key_saved:/, async (ctx) => {
   try {
-    await ctx.answerCbQuery('✅ Ключ сохранён!');
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.key_saved_alert'));
     await ctx.deleteMessage();
   } catch (e) {
     // Message might already be deleted
@@ -523,6 +532,9 @@ bot.action('mydata_wallet_name:back', handleWalletNameBack);
 // My Data - Email (new pattern)
 bot.action('mydata:add_email', handleAddEmail);
 bot.action('mydata:change_email', handleChangeEmail);
+// My Data - Language
+bot.action('mydata:language', showLanguageSelect);
+bot.action(/^mydata:set_lang:/, handleSetLanguage);
 
 // Referral program handlers
 bot.action('referrals', showReferrals);

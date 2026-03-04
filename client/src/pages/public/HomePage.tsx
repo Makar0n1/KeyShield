@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { SEO, generateOrganizationSchema } from '@/components/SEO'
 import { blogService } from '@/services/blog'
@@ -19,6 +20,7 @@ import {
 // ========== Sticky Mobile CTA ==========
 function StickyCTA() {
   const [isVisible, setIsVisible] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -43,7 +45,7 @@ function StickyCTA() {
             rel="noopener noreferrer"
             onClick={() => trackLead({ content_name: 'sticky_mobile_cta', content_category: 'telegram_bot' })}
           >
-            Открыть Telegram бота
+            {t('home.sticky_open_bot')}
           </a>
         </Button>
         <button
@@ -53,7 +55,7 @@ function StickyCTA() {
             document.getElementById('testimonials')?.scrollIntoView({ behavior: 'smooth' })
           }}
         >
-          Читать отзывы
+          {t('home.sticky_read_reviews')}
         </button>
       </div>
     </div>
@@ -62,6 +64,8 @@ function StickyCTA() {
 
 // ========== Hero Section ==========
 function HeroSection() {
+  const { t } = useTranslation()
+
   return (
     <section className="relative py-20 md:py-32 overflow-hidden">
       {/* Background gradient */}
@@ -71,12 +75,10 @@ function HeroSection() {
       <div className="container mx-auto px-4 relative">
         <div className="max-w-3xl mx-auto text-center animate-fade-in">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Безопасная сделка в Telegram с USDT
+            {t('home.hero.title')}
           </h1>
           <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
-            Гарант-сервис на блокчейне TRON. Деньги хранятся на мультисиг-кошельке 2-из-3:
-            для вывода нужны подписи двух сторон, приватные ключи есть только у участников сделки.
-            Ни один админ не может забрать средства в одиночку.
+            {t('home.hero.subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
@@ -86,7 +88,7 @@ function HeroSection() {
                 rel="noopener noreferrer"
                 onClick={() => trackLead({ content_name: 'hero_cta', content_category: 'telegram_bot' })}
               >
-                Начать работу
+                {t('home.hero.cta_start')}
               </a>
             </Button>
             <Button
@@ -97,22 +99,22 @@ function HeroSection() {
                 document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
-              Как это работает
+              {t('home.hero.cta_how')}
             </Button>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 mt-16">
             {[
-              { value: '2/3', label: 'Подписей для перевода средств' },
-              { value: `${COMMISSION_TIER_1_FIXED} USDT`, label: 'Минимальная комиссия за сделку' },
-              { value: '24/7', label: 'Работа через Telegram-бота' },
+              { value: '2/3', labelKey: 'home.hero.stat_signatures' },
+              { value: `${COMMISSION_TIER_1_FIXED} USDT`, labelKey: 'home.hero.stat_commission' },
+              { value: '24/7', labelKey: 'home.hero.stat_availability' },
             ].map((stat) => (
-              <div key={stat.label} className="text-center">
+              <div key={stat.labelKey} className="text-center">
                 <div className="text-3xl md:text-4xl font-bold text-primary mb-2">
                   {stat.value}
                 </div>
-                <div className="text-sm text-muted">{stat.label}</div>
+                <div className="text-sm text-muted">{t(stat.labelKey)}</div>
               </div>
             ))}
           </div>
@@ -124,26 +126,18 @@ function HeroSection() {
 
 // ========== What Is Safe Deal Section ==========
 function WhatIsSafeDealSection() {
+  const { t } = useTranslation()
+
   return (
     <section className="py-16 bg-dark-light/30">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-8">
-            Что такое безопасная сделка
+            {t('home.what_is.title')}
           </h2>
           <div className="space-y-4 text-gray-300 text-lg leading-relaxed">
-            <p>
-              <strong className="text-white">Безопасная сделка</strong> — это схема, при которой деньги не идут сразу
-              от покупателя к исполнителю. Средства временно блокируются у независимого гаранта и переводятся
-              только после выполнения оговорённых условий. В онлайне это важно для фриланса, рекламы в Telegram,
-              продажи цифровых товаров и любых сделок между незнакомыми людьми.
-            </p>
-            <p>
-              В KeyShield роль гаранта выполняет <strong className="text-white">мультисиг-кошелёк на блокчейне TRON</strong>.
-              Деньги лежат не у человека-посредника, а на адресе, где для любого перевода нужны две подписи —
-              покупателя и исполнителя. Так безопасная сделка становится прозрачной и защищённой технически,
-              а не только «на доверии».
-            </p>
+            <p dangerouslySetInnerHTML={{ __html: t('home.what_is.p1') }} />
+            <p dangerouslySetInnerHTML={{ __html: t('home.what_is.p2') }} />
           </div>
         </div>
       </div>
@@ -152,58 +146,36 @@ function WhatIsSafeDealSection() {
 }
 
 // ========== Features Section ==========
-const features = [
-  {
-    icon: '&#x1F512;',
-    title: 'Multisig защита',
-    description: 'Для каждой сделки создаётся мультисиг-кошелёк 2-из-3. Заказчик и исполнитель получают свои приватные ключи, сервис — третий. Без двух подписей деньги не двигаются: ни одна сторона и ни админ не могут украсть депозит.',
-  },
-  {
-    icon: '&#x26A1;',
-    title: 'Автоматизация',
-    description: 'Все шаги безопасной сделки проходят через Telegram-бота: создание условий, депонирование USDT, подтверждение работы и вывод средств. Никаких ручных переводов и поиска реквизитов.',
-  },
-  {
-    icon: '&#x1F3AF;',
-    title: 'Прозрачность',
-    description: 'Все операции по сделке записаны в блокчейне TRON. Вы видите адрес кошелька, сумму депозита и переводы, а не просто доверяете гаранту на слово.',
-  },
-  {
-    icon: '&#x1F6E1;',
-    title: 'Арбитраж',
-    description: 'Если возникает спор, к сделке подключается независимый арбитр KeyShield как третья подпись. Решение принимается по переписке и доказательствам в чате.',
-  },
-  {
-    icon: '&#x1F4B8;',
-    title: 'Низкая комиссия',
-    description: `Комиссия от ${COMMISSION_TIER_1_FIXED} USDT за безопасную сделку. Для небольших сумм — фиксированный тариф, для крупных — процент от депозита. Без скрытых платежей.`,
-  },
-  {
-    icon: '&#x1F680;',
-    title: 'Быстрый запуск',
-    description: 'Без регистрации и KYC. Чтобы провести безопасную сделку, достаточно открыть бота, описать условия и отправить USDT на мультисиг-адрес.',
-  },
-]
-
 function FeaturesSection() {
+  const { t } = useTranslation()
+
+  const features = [
+    { icon: '&#x1F512;', titleKey: 'home.features.multisig_title', descKey: 'home.features.multisig_desc' },
+    { icon: '&#x26A1;', titleKey: 'home.features.automation_title', descKey: 'home.features.automation_desc' },
+    { icon: '&#x1F3AF;', titleKey: 'home.features.transparency_title', descKey: 'home.features.transparency_desc' },
+    { icon: '&#x1F6E1;', titleKey: 'home.features.arbitration_title', descKey: 'home.features.arbitration_desc' },
+    { icon: '&#x1F4B8;', titleKey: 'home.features.low_fee_title', descKey: 'home.features.low_fee_desc' },
+    { icon: '&#x1F680;', titleKey: 'home.features.fast_start_title', descKey: 'home.features.fast_start_desc' },
+  ]
+
   return (
     <section id="features" className="py-20 bg-dark-light/50">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
-          Почему KeyShield — безопасный гарант в Telegram
+          {t('home.features.title')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature) => (
             <div
-              key={feature.title}
+              key={feature.titleKey}
               className="bg-dark-light rounded-xl p-6 border border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
             >
               <div
                 className="text-4xl mb-4"
                 dangerouslySetInnerHTML={{ __html: feature.icon }}
               />
-              <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
-              <p className="text-muted">{feature.description}</p>
+              <h3 className="text-xl font-semibold text-white mb-2">{t(feature.titleKey)}</h3>
+              <p className="text-muted">{t(feature.descKey, { fee: COMMISSION_TIER_1_FIXED })}</p>
             </div>
           ))}
         </div>
@@ -213,40 +185,22 @@ function FeaturesSection() {
 }
 
 // ========== How It Works Section ==========
-const steps = [
-  {
-    number: 1,
-    title: 'Создание сделки',
-    description: 'Покупатель или продавец запускает Telegram-бота и создаёт безопасную сделку: описывает услугу или товар, сумму в USDT и сроки.',
-  },
-  {
-    number: 2,
-    title: 'Получение ключа',
-    description: 'Каждый участник получает свой приватный ключ для подписи транзакций. Ключ хранится только у вас; сервис его не видит и не может восстановить. Без приватных ключей деньги не сдвинутся с места.',
-  },
-  {
-    number: 3,
-    title: 'Депозит',
-    description: 'Покупатель переводит USDT на мультисиг-адрес. Средства блокируются в блокчейне TRON и ждут подписей участников.',
-  },
-  {
-    number: 4,
-    title: 'Выполнение работы',
-    description: 'Исполнитель выполняет работу или передаёт товар в согласованный срок. Все договорённости фиксируются в чате Telegram.',
-  },
-  {
-    number: 5,
-    title: 'Завершение',
-    description: 'Если заказчик доволен, стороны подписывают перевод в пользу исполнителя — и USDT уходят на его кошелёк. Если работа сорвана, заказчик подписывает возврат, и депозит возвращается ему.',
-  },
-]
-
 function HowItWorksSection() {
+  const { t } = useTranslation()
+
+  const steps = [
+    { number: 1, titleKey: 'home.how_it_works.step1_title', descKey: 'home.how_it_works.step1_desc' },
+    { number: 2, titleKey: 'home.how_it_works.step2_title', descKey: 'home.how_it_works.step2_desc' },
+    { number: 3, titleKey: 'home.how_it_works.step3_title', descKey: 'home.how_it_works.step3_desc' },
+    { number: 4, titleKey: 'home.how_it_works.step4_title', descKey: 'home.how_it_works.step4_desc' },
+    { number: 5, titleKey: 'home.how_it_works.step5_title', descKey: 'home.how_it_works.step5_desc' },
+  ]
+
   return (
     <section id="how-it-works" className="py-20">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
-          Как это работает
+          {t('home.how_it_works.title')}
         </h2>
         <div className="max-w-3xl mx-auto space-y-8">
           {steps.map((step) => (
@@ -255,8 +209,8 @@ function HowItWorksSection() {
                 {step.number}
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-white mb-2">{step.title}</h3>
-                <p className="text-muted">{step.description}</p>
+                <h3 className="text-xl font-semibold text-white mb-2">{t(step.titleKey)}</h3>
+                <p className="text-muted">{t(step.descKey)}</p>
               </div>
             </div>
           ))}
@@ -265,20 +219,11 @@ function HowItWorksSection() {
         {/* Deadline Warning */}
         <div className="max-w-3xl mx-auto mt-12 p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
           <h3 className="text-xl font-semibold text-yellow-400 mb-3">
-            &#x23F0; Важно: Срок выполнения
+            &#x23F0; {t('home.how_it_works.deadline_title')}
           </h3>
-          <p className="text-gray-300">
-            Если срок сделки истёк и в течение <strong>12 часов</strong> не будет
-            подтверждения или спора — инициируется возврат средств покупателю.
-          </p>
-          <p className="text-gray-300 mt-2">
-            <strong className="text-yellow-400">Для получения средств потребуется приватный ключ</strong> —
-            система запросит его для подписи транзакции возврата.
-          </p>
-          <p className="text-gray-300 mt-2">
-            <strong>Комиссия сервиса удерживается в любом случае</strong> — она идёт
-            на поддержку инфраструктуры. Пожалуйста, старайтесь завершать сделки вовремя.
-          </p>
+          <p className="text-gray-300" dangerouslySetInnerHTML={{ __html: t('home.how_it_works.deadline_p1') }} />
+          <p className="text-gray-300 mt-2" dangerouslySetInnerHTML={{ __html: t('home.how_it_works.deadline_p2') }} />
+          <p className="text-gray-300 mt-2" dangerouslySetInnerHTML={{ __html: t('home.how_it_works.deadline_p3') }} />
         </div>
       </div>
     </section>
@@ -287,22 +232,24 @@ function HowItWorksSection() {
 
 // ========== Pricing Section ==========
 function PricingSection() {
+  const { t } = useTranslation()
+
   return (
     <section id="pricing" className="py-20 bg-dark-light/50">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
-          Прозрачное ценообразование
+          {t('home.pricing.title')}
         </h2>
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Standard */}
           <div className="bg-dark rounded-xl p-8 border border-border">
-            <h3 className="text-xl font-semibold text-white mb-4">Стандартная комиссия</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">{t('home.pricing.standard_title')}</h3>
             <div className="text-5xl font-bold text-primary mb-2">{(COMMISSION_TIER_2_RATE * 100).toFixed(1)}%</div>
-            <p className="text-muted">от суммы безопасной сделки от 150 USDT</p>
-            <p className="text-muted">{(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от 500 USDT</p>
-            <p className="text-muted mb-2">{(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от 1500 USDT</p>
+            <p className="text-muted">{t('home.pricing.standard_from')}</p>
+            <p className="text-muted">{t('home.pricing.standard_tier3', { rate: (COMMISSION_TIER_3_RATE * 100).toFixed(0) })}</p>
+            <p className="text-muted mb-2">{t('home.pricing.standard_tier4', { rate: (COMMISSION_TIER_4_RATE * 100).toFixed(1) })}</p>
             <ul className="space-y-3">
-              {['Автоматические выплаты', 'Арбитраж при спорах', 'Техподдержка 24/7'].map((item) => (
+              {[t('home.pricing.auto_payouts'), t('home.pricing.dispute_arbitration'), t('home.pricing.support_247')].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-gray-300">
                   <span className="text-secondary">&#x2713;</span> {item}
                 </li>
@@ -313,13 +260,17 @@ function PricingSection() {
           {/* Fixed */}
           <div className="bg-dark rounded-xl p-8 border-2 border-primary relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white px-4 py-1 rounded-full text-sm font-medium">
-              Минимум
+              {t('home.pricing.minimum_badge')}
             </div>
-            <h3 className="text-xl font-semibold text-white mb-4">Фиксированная комиссия</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">{t('home.pricing.fixed_title')}</h3>
             <div className="text-5xl font-bold text-primary mb-2">{COMMISSION_TIER_1_FIXED} USDT</div>
-            <p className="text-muted mb-6">комиссия за безопасную сделку до {COMMISSION_TIER_1_MAX} USDT</p>
+            <p className="text-muted mb-6">{t('home.pricing.fixed_desc', { max: COMMISSION_TIER_1_MAX })}</p>
             <ul className="space-y-3">
-              {[`Минимальная сумма: ${MIN_DEAL_AMOUNT} USDT`, 'Все функции включены', 'Идеально для небольших сделок'].map((item) => (
+              {[
+                t('home.pricing.fixed_min_amount', { min: MIN_DEAL_AMOUNT }),
+                t('home.pricing.fixed_all_features'),
+                t('home.pricing.fixed_ideal'),
+              ].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-gray-300">
                   <span className="text-secondary">&#x2713;</span> {item}
                 </li>
@@ -335,10 +286,8 @@ function PricingSection() {
               <span className="text-2xl">&#x1F4B3;</span>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-1">Кто платит комиссию?</h4>
-              <p className="text-muted text-sm">
-                При создании сделки стороны договариваются: покупатель, продавец или 50/50.
-              </p>
+              <h4 className="text-white font-semibold mb-1">{t('home.pricing.who_pays_title')}</h4>
+              <p className="text-muted text-sm">{t('home.pricing.who_pays_desc')}</p>
             </div>
           </div>
           <div className="bg-dark rounded-xl p-5 border border-border flex items-start gap-4">
@@ -346,10 +295,8 @@ function PricingSection() {
               <span className="text-2xl">&#x2705;</span>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-1">Без скрытых платежей</h4>
-              <p className="text-muted text-sm">
-                Комиссия включает все операционные расходы: активация кошелька, транзакции, арбитраж.
-              </p>
+              <h4 className="text-white font-semibold mb-1">{t('home.pricing.no_hidden_title')}</h4>
+              <p className="text-muted text-sm">{t('home.pricing.no_hidden_desc')}</p>
             </div>
           </div>
         </div>
@@ -359,33 +306,22 @@ function PricingSection() {
 }
 
 // ========== FAQ Section ==========
-const faqItems = [
-  {
-    question: 'Что такое безопасная сделка?',
-    answer: 'Безопасная сделка — это схема, при которой деньги временно блокируются у независимого посредника и переводятся исполнителю только после выполнения условий. В KeyShield средства хранятся на мультисиг-кошельке в блокчейне TRON, а не на личном кошельке гаранта.',
-  },
-  {
-    question: 'Как работает гарант в Telegram через KeyShield?',
-    answer: 'Заказчик и исполнитель создают сделку через Telegram-бота KeyShield, вносят депозит в USDT и получают свои приватные ключи. Деньги блокируются на мультисиг-кошельке. Для перевода средств исполнителю или возврата заказчику нужны подписи двух сторон, поэтому никто не может забрать депозит в одиночку.',
-  },
-  {
-    question: 'Кто имеет доступ к деньгам на сделке?',
-    answer: 'Приватные ключи есть только у участников сделки. Сервис KeyShield не хранит приватные ключи и не может вывести средства самостоятельно. Любое движение средств возможно только при наличии двух подписей из трех — заказчика, исполнителя и, при споре, арбитра.',
-  },
-  {
-    question: 'Подходит ли KeyShield для фриланса и цифровых услуг?',
-    answer: 'Да, сервис особенно удобен для сделок в Telegram: заказов у фрилансеров, покупки цифровых товаров, рекламы в каналах и любых онлайн-услуг с оплатой в USDT. Условия фиксируются в боте, деньги блокируются на мультисиг-кошельке и переводятся только после выполнения обязательств.',
-  },
-]
-
 function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const { t } = useTranslation()
+
+  const faqItems = [
+    { question: t('home.faq.q1'), answer: t('home.faq.a1') },
+    { question: t('home.faq.q2'), answer: t('home.faq.a2') },
+    { question: t('home.faq.q3'), answer: t('home.faq.a3') },
+    { question: t('home.faq.q4'), answer: t('home.faq.a4') },
+  ]
 
   return (
     <section id="faq" className="py-20">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
-          Частые вопросы о безопасных сделках
+          {t('home.faq.title')}
         </h2>
         <div className="max-w-3xl mx-auto space-y-4">
           {faqItems.map((item, index) => (
@@ -416,50 +352,19 @@ function FAQSection() {
 }
 
 // ========== Testimonials Section ==========
-const testimonials = [
-  {
-    name: 'Андрей К.',
-    role: 'SMM-специалист',
-    avatar: '👨‍💻',
-    text: 'Работаю с заказчиками из разных стран. Раньше постоянно кидали — то работу не оплатят, то деньги заберут и пропадут. С KeyShield ни одной проблемы. Клиенты тоже спокойны.',
-    rating: 5,
-  },
-  {
-    name: 'Мария Л.',
-    role: 'Владелец Telegram-канала',
-    avatar: '👩‍💼',
-    text: 'Продаю рекламу в канале на 50К подписчиков. Рекламодатели часто новые, незнакомые. Гарант через бота — идеальное решение: я уверена в оплате, они уверены в размещении.',
-    rating: 5,
-  },
-  {
-    name: 'Дмитрий В.',
-    role: 'Веб-разработчик',
-    avatar: '🧑‍🔧',
-    text: 'Делал сайт за 800 USDT. Заказчик хотел гаранта, я предложил KeyShield. Всё прошло чётко: деньги на мультисиге, сдал работу — получил оплату. Комиссия копеечная.',
-    rating: 5,
-  },
-  {
-    name: 'Елена П.',
-    role: 'Покупатель цифровых товаров',
-    avatar: '👩',
-    text: 'Покупала доступы к курсам у незнакомого продавца. Боялась, что кинут. Через KeyShield всё прошло гладко — деньги списались только после того, как получила товар.',
-    rating: 5,
-  },
-  {
-    name: 'Артём С.',
-    role: 'Арбитражник трафика',
-    avatar: '🧔',
-    text: 'Покупаю аккаунты и инструменты для работы. Суммы бывают большие, рисковать не хочется. KeyShield выручает — особенно нравится, что ключи только у меня.',
-    rating: 4,
-  },
-  {
-    name: 'Ольга Н.',
-    role: 'Дизайнер',
-    avatar: '👩‍🎨',
-    text: 'Первый раз пользовалась гарантом вообще. Думала будет сложно — оказалось проще, чем обычный перевод. Бот сам всё объясняет. Теперь все заказы только так.',
-    rating: 5,
-  },
-]
+function useTestimonials() {
+  const { t } = useTranslation()
+  return [
+    { name: t('home.testimonials.t1_name'), role: t('home.testimonials.t1_role'), avatar: '👨‍💻', text: t('home.testimonials.t1_text'), rating: 5 },
+    { name: t('home.testimonials.t2_name'), role: t('home.testimonials.t2_role'), avatar: '👩‍💼', text: t('home.testimonials.t2_text'), rating: 5 },
+    { name: t('home.testimonials.t3_name'), role: t('home.testimonials.t3_role'), avatar: '🧑‍🔧', text: t('home.testimonials.t3_text'), rating: 5 },
+    { name: t('home.testimonials.t4_name'), role: t('home.testimonials.t4_role'), avatar: '👩', text: t('home.testimonials.t4_text'), rating: 5 },
+    { name: t('home.testimonials.t5_name'), role: t('home.testimonials.t5_role'), avatar: '🧔', text: t('home.testimonials.t5_text'), rating: 4 },
+    { name: t('home.testimonials.t6_name'), role: t('home.testimonials.t6_role'), avatar: '👩‍🎨', text: t('home.testimonials.t6_text'), rating: 5 },
+  ]
+}
+
+type Testimonial = ReturnType<typeof useTestimonials>[0]
 
 // Skeleton card for loading state
 function TestimonialCardSkeleton({ isCenter }: { isCenter: boolean }) {
@@ -502,7 +407,7 @@ function TestimonialCard({
   isActive,
   isJumping,
 }: {
-  testimonial: typeof testimonials[0]
+  testimonial: Testimonial
   isActive: boolean
   isJumping: boolean
 }) {
@@ -548,12 +453,14 @@ function TestimonialCard({
 }
 
 function TestimonialsSection() {
+  const testimonials = useTestimonials()
   const totalSlides = testimonials.length
   const [activeIndex, setActiveIndex] = useState(0) // For dots UI only
   const [visualPosition, setVisualPosition] = useState(3) // Which card is visually active
   const [isJumping, setIsJumping] = useState(false) // Disable card transitions during reset
   const [isLoading, setIsLoading] = useState(true) // Show skeleton until visible
   const [hasBeenVisible, setHasBeenVisible] = useState(false) // Track if section was ever visible
+  const { t } = useTranslation()
 
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
@@ -747,10 +654,10 @@ function TestimonialsSection() {
       <div className="container mx-auto px-4 overflow-hidden">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Что говорят пользователи
+            {t('home.testimonials.title')}
           </h2>
           <p className="text-muted text-lg max-w-2xl mx-auto">
-            Реальные истории людей, которые уже проводят безопасные сделки через KeyShield
+            {t('home.testimonials.subtitle')}
           </p>
         </div>
 
@@ -845,7 +752,7 @@ function TestimonialsSection() {
 
             {/* Mobile hint */}
             <p className="text-center text-xs text-muted mt-3 md:hidden">
-              ← Листайте пальцем →
+              {t('home.testimonials.swipe_hint')}
             </p>
           </div>
         </div>
@@ -854,19 +761,19 @@ function TestimonialsSection() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mt-12 pt-8 border-t border-border max-w-3xl mx-auto">
           <div className="text-center">
             <div className="text-3xl font-bold text-primary">150+</div>
-            <div className="text-sm text-muted">успешных сделок</div>
+            <div className="text-sm text-muted">{t('home.testimonials.stat_deals')}</div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-primary">70+</div>
-            <div className="text-sm text-muted">активных пользователей</div>
+            <div className="text-sm text-muted">{t('home.testimonials.stat_users')}</div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-primary">0</div>
-            <div className="text-sm text-muted">случаев мошенничества</div>
+            <div className="text-sm text-muted">{t('home.testimonials.stat_fraud')}</div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-primary">24/7</div>
-            <div className="text-sm text-muted">поддержка и арбитраж</div>
+            <div className="text-sm text-muted">{t('home.testimonials.stat_support')}</div>
           </div>
         </div>
       </div>
@@ -876,14 +783,16 @@ function TestimonialsSection() {
 
 // ========== CTA Section ==========
 function CTASection() {
+  const { t } = useTranslation()
+
   return (
     <section className="py-20 bg-gradient-to-r from-primary to-primary-dark">
       <div className="container mx-auto px-4 text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-          Готовы начать безопасные сделки?
+          {t('home.cta.title')}
         </h2>
         <p className="text-white/80 text-lg mb-8">
-          Присоединяйтесь к KeyShield и защитите свои криптовалютные транзакции
+          {t('home.cta.subtitle')}
         </p>
         <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-gray-100" asChild>
           <a
@@ -892,7 +801,7 @@ function CTASection() {
             rel="noopener noreferrer"
             onClick={() => trackLead({ content_name: 'cta_section', content_category: 'telegram_bot' })}
           >
-            Открыть Telegram бота
+            {t('home.cta.button')}
           </a>
         </Button>
       </div>
@@ -921,6 +830,7 @@ function BlogCardSkeleton() {
 function BlogSection() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
+  const { t } = useTranslation()
 
   useEffect(() => {
     blogService
@@ -939,7 +849,7 @@ function BlogSection() {
     <section className="py-20 bg-dark-light/50">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
-          Полезные статьи
+          {t('home.blog.title')}
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? (
@@ -989,7 +899,7 @@ function BlogSection() {
         </div>
         <div className="text-center mt-8">
           <Button size="lg" asChild>
-            <Link to="/blog">Читать больше статей</Link>
+            <Link to="/blog">{t('home.blog.read_more')}</Link>
           </Button>
         </div>
       </div>
@@ -1000,17 +910,25 @@ function BlogSection() {
 // ========== Main Page Component ==========
 export function HomePage() {
   const webDomain = import.meta.env.VITE_WEB_DOMAIN || 'https://keyshield.me'
+  const { t } = useTranslation()
 
-  // FAQ Schema
+  // FAQ Schema - use translated text
+  const faqItems = [
+    { q: t('home.faq.q1'), a: t('home.faq.a1') },
+    { q: t('home.faq.q2'), a: t('home.faq.a2') },
+    { q: t('home.faq.q3'), a: t('home.faq.a3') },
+    { q: t('home.faq.q4'), a: t('home.faq.a4') },
+  ]
+
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: faqItems.map((item) => ({
       '@type': 'Question',
-      name: item.question,
+      name: item.q,
       acceptedAnswer: {
         '@type': 'Answer',
-        text: item.answer,
+        text: item.a,
       },
     })),
   }
@@ -1023,7 +941,7 @@ export function HomePage() {
       '@type': 'WebSite',
       name: 'KeyShield',
       url: webDomain,
-      description: 'Безопасная сделка в Telegram с USDT. Гарант-сервис на блокчейне TRON с мультисиг-кошельками.',
+      description: t('home.seo_description'),
       potentialAction: {
         '@type': 'SearchAction',
         target: `${webDomain}/blog?search={search_term_string}`,
@@ -1033,9 +951,9 @@ export function HomePage() {
     {
       '@context': 'https://schema.org',
       '@type': 'Service',
-      name: 'KeyShield — безопасная сделка',
-      serviceType: 'Гарант-сервис для криптовалютных сделок',
-      description: 'Безопасная сделка в Telegram с USDT. Мультисиг-кошелёк 2-из-3 на TRON: приватные ключи только у участников сделки, сервис не может вывести деньги.',
+      name: 'KeyShield',
+      serviceType: 'Escrow service for cryptocurrency deals',
+      description: t('home.seo_description'),
       provider: {
         '@type': 'Organization',
         name: 'KeyShield',
@@ -1043,14 +961,14 @@ export function HomePage() {
       areaServed: 'Worldwide',
       offers: {
         '@type': 'Offer',
-        description: 'Комиссия за безопасную сделку',
+        description: t('home.pricing.fixed_title'),
         price: COMMISSION_TIER_1_FIXED.toString(),
         priceCurrency: 'USD',
         priceSpecification: {
           '@type': 'PriceSpecification',
           price: (COMMISSION_TIER_2_RATE * 100).toFixed(1),
           priceCurrency: 'USD',
-          unitText: 'процент от суммы сделки',
+          unitText: 'percent of deal amount',
         },
       },
     },
@@ -1060,8 +978,8 @@ export function HomePage() {
   return (
     <>
       <SEO
-        title="Безопасная сделка в Telegram с USDT | Гарант-сервис на TRON"
-        description="KeyShield — безопасная сделка в Telegram с USDT. Мультисиг-кошелёк 2-из-3 на TRON: приватные ключи только у участников сделки, сервис не может вывести деньги."
+        title={t('home.seo_title')}
+        description={t('home.seo_description')}
         url="/"
         schema={schemas}
       />

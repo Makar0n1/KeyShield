@@ -11,6 +11,7 @@ const {
   templateDetailsKeyboard
 } = require('../../keyboards/templates');
 const { clearTemplateSession } = require('./session');
+const { t } = require('../../../locales');
 
 /**
  * Show templates list
@@ -19,6 +20,7 @@ async function showTemplatesList(ctx) {
   if (ctx.callbackQuery) await ctx.answerCbQuery();
 
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   // Clear any active session
   await clearTemplateSession(telegramId);
@@ -27,34 +29,31 @@ async function showTemplatesList(ctx) {
   const canCreate = await DealTemplate.canCreateTemplate(telegramId);
 
   if (templates.length === 0) {
-    const text = `📑 *Мои шаблоны*
-
-_У вас пока нет сохранённых шаблонов._
-
-Шаблоны позволяют создавать сделки в 2 клика!
-
-💡 *Как создать шаблон:*
-• Нажмите «Создать шаблон» ниже
-• Или сохраните успешную сделку как шаблон`;
-
-    const keyboard = templatesEmptyKeyboard();
+    const text = t(lang, 'templates.empty');
+    const keyboard = templatesEmptyKeyboard(lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
     return;
   }
 
-  let text = `📑 *Мои шаблоны* (${templates.length}/5)\n\n`;
+  let text = t(lang, 'templates.title_count', { count: templates.length }) + '\n\n';
 
   templates.forEach((tpl, i) => {
     const roleIcon = tpl.creatorRole === 'buyer' ? '💵' : '🛠';
-    const roleText = tpl.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец';
-    text += `${i + 1}. ${roleIcon} *${tpl.name}*\n`;
-    text += `   ${tpl.productName}\n`;
-    text += `   ${tpl.amount} ${tpl.asset} • ${roleText}\n\n`;
+    const roleText = tpl.creatorRole === 'buyer' ? t(lang, 'role.buyer') : t(lang, 'role.seller');
+    text += t(lang, 'templates.list_item', {
+      index: i + 1,
+      roleIcon,
+      name: tpl.name,
+      productName: tpl.productName,
+      amount: tpl.amount,
+      asset: tpl.asset,
+      roleText
+    }) + '\n\n';
   });
 
-  text += `_Выберите шаблон для использования:_`;
+  text += t(lang, 'templates.select_hint');
 
-  const keyboard = templatesListKeyboard(templates, canCreate);
+  const keyboard = templatesListKeyboard(templates, canCreate, lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 }
 
@@ -65,6 +64,7 @@ async function showTemplateDetails(ctx, templateIdOverride = null) {
   if (ctx.callbackQuery) await ctx.answerCbQuery();
 
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   // Get templateId from callback or override
   let templateId = templateIdOverride;
@@ -76,64 +76,39 @@ async function showTemplateDetails(ctx, templateIdOverride = null) {
 
   if (!template) {
     if (ctx.callbackQuery) {
-      await ctx.answerCbQuery('❌ Шаблон не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'templates.not_found'), { show_alert: true });
     }
     return showTemplatesList(ctx);
   }
 
-  const roleText = template.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец';
+  const roleText = template.creatorRole === 'buyer' ? t(lang, 'role.buyer') : t(lang, 'role.seller');
   const roleIcon = template.creatorRole === 'buyer' ? '💵' : '🛠';
   const commission = Deal.calculateCommission(template.amount);
-  const deadlineText = formatDeadline(template.deadlineHours);
-  const commissionText = formatCommission(template.commissionType, commission, template.asset);
+  const deadlineTextVal = t(lang, 'templates.deadline_format', { hours: template.deadlineHours });
+  const commissionText = t(lang, 'templates.commission_format', { type: template.commissionType, commission, asset: template.asset });
 
   const descriptionPreview = template.description.length > 200
     ? template.description.substring(0, 200) + '...'
     : template.description;
 
-  const text = `📑 *${template.name}*
+  const text = t(lang, 'templates.detail', {
+    name: template.name,
+    roleIcon,
+    roleText,
+    productName: template.productName,
+    description: descriptionPreview,
+    amount: template.amount,
+    asset: template.asset,
+    commissionText,
+    deadlineText: deadlineTextVal,
+    usageCount: template.usageCount
+  });
 
-${roleIcon} *Роль:* ${roleText}
-📦 *Товар/услуга:* ${template.productName}
-
-📝 *Описание:*
-${descriptionPreview}
-
-💰 *Сумма:* ${template.amount} ${template.asset}
-💸 *Комиссия:* ${commissionText}
-⏰ *Срок:* ${deadlineText}
-
-📊 *Использовано:* ${template.usageCount} раз`;
-
-  const keyboard = templateDetailsKeyboard(templateId);
+  const keyboard = templateDetailsKeyboard(templateId, lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
-}
-
-/**
- * Format deadline hours to readable text
- */
-function formatDeadline(hours) {
-  if (hours === 24) return '24 часа';
-  if (hours === 48) return '48 часов';
-  if (hours < 24) return `${hours} часов`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return '1 день';
-  if (days < 5) return `${days} дня`;
-  return `${days} дней`;
-}
-
-/**
- * Format commission type to readable text
- */
-function formatCommission(type, commission, asset) {
-  if (type === 'buyer') return `Платит покупатель (${commission} ${asset})`;
-  if (type === 'seller') return `Платит продавец (${commission} ${asset})`;
-  return `50/50 (по ${(commission / 2).toFixed(2)} ${asset})`;
 }
 
 module.exports = {
   showTemplatesList,
-  showTemplateDetails,
-  formatDeadline,
-  formatCommission
+  showTemplateDetails
 };

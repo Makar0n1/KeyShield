@@ -14,27 +14,14 @@ const { MAIN_MENU_TEXT } = require('./start');
 const feesaverService = require('../../services/feesaver');
 const { createKeyValidationSession } = require('./keyValidation');
 const Deal = require('../../models/Deal');
+const { t, formatDate } = require('../../locales');
 
 // ============================================
 // STATUS HELPERS
 // ============================================
 
-function getStatusText(status) {
-  const statusMap = {
-    'created': 'Создана',
-    'pending_counterparty': '🔗 Ожидание контрагента',
-    'waiting_for_seller_wallet': '⏳ Ожидание кошелька продавца',
-    'waiting_for_buyer_wallet': '⏳ Ожидание кошелька покупателя',
-    'waiting_for_deposit': '💳 Ожидание депозита',
-    'locked': '🔒 Депозит заблокирован',
-    'in_progress': '⚡ Работа выполнена',
-    'completed': '✅ Завершена',
-    'dispute': '⚠️ Спор',
-    'resolved': '⚖️ Решена',
-    'cancelled': '❌ Отменена',
-    'expired': '⌛ Истекла'
-  };
-  return statusMap[status] || status;
+function getStatusText(status, lang = 'ru') {
+  return t(lang, 'status.' + status) || status;
 }
 
 // ============================================
@@ -45,6 +32,7 @@ const DEALS_PER_PAGE = 3;
 
 const showMyDeals = async (ctx, page) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const isCallbackQuery = !!ctx.callbackQuery;
     if (isCallbackQuery) await ctx.answerCbQuery();
 
@@ -52,13 +40,9 @@ const showMyDeals = async (ctx, page) => {
     const deals = await dealService.getUserDeals(telegramId);
 
     if (deals.length === 0) {
-      const text = `📋 *Мои сделки*
+      const text = t(lang, 'myDeals.empty');
 
-У вас пока нет сделок. Не забудьте, что вторая сторона должна так же запустить бота.
-
-Создайте первую сделку, чтобы начать!`;
-
-      const keyboard = myDealsEmptyKeyboard();
+      const keyboard = myDealsEmptyKeyboard(lang);
       await messageManager.navigateToScreen(ctx, telegramId, 'my_deals', text, keyboard);
       return;
     }
@@ -71,16 +55,16 @@ const showMyDeals = async (ctx, page) => {
     const dealsOnPage = deals.slice(startIndex, endIndex);
 
     // Format deals list
-    let text = `📋 *Мои сделки* (${deals.length})\n\n`;
+    let text = t(lang, 'myDeals.title_count', { count: deals.length }) + '\n\n';
 
     for (const deal of dealsOnPage) {
       const role = deal.getUserRole(telegramId);
       const statusIcon = getStatusIcon(deal.status);
-      const statusText = getStatusText(deal.status);
+      const statusText = getStatusText(deal.status, lang);
 
       text += `${statusIcon} \`${deal.dealId}\`\n`;
       text += `📦 ${deal.productName}\n`;
-      text += `👤 ${role === 'buyer' ? 'Покупатель' : 'Продавец'}\n`;
+      text += `👤 ${t(lang, 'role.' + role)}\n`;
       text += `💰 ${deal.amount} ${deal.asset}\n`;
       text += `📊 ${statusText}\n\n`;
     }
@@ -88,10 +72,10 @@ const showMyDeals = async (ctx, page) => {
     // Add pagination info
     if (totalPages > 1) {
       text += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      text += `📄 Страница ${currentPage} из ${totalPages}`;
+      text += t(lang, 'myDeals.page', { current: currentPage, total: totalPages });
     }
 
-    const keyboard = myDealsKeyboard(dealsOnPage, currentPage, totalPages);
+    const keyboard = myDealsKeyboard(dealsOnPage, currentPage, totalPages, lang);
     await messageManager.navigateToScreen(ctx, telegramId, 'my_deals', text, keyboard);
   } catch (error) {
     console.error('Error showing deals:', error);
@@ -104,6 +88,7 @@ const showMyDeals = async (ctx, page) => {
 
 const showDealDetails = async (ctx, dealId) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
 
     // Delete user message if text input
@@ -114,15 +99,15 @@ const showDealDetails = async (ctx, dealId) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const text = '❌ *Сделка не найдена*\n\nПроверьте ID сделки.';
-      const keyboard = mainMenuButton();
+      const text = t(lang, 'myDeals.not_found');
+      const keyboard = mainMenuButton(lang);
       await messageManager.updateScreen(ctx, telegramId, 'deal_not_found', text, keyboard);
       return;
     }
 
     if (!deal.isParticipant(telegramId)) {
-      const text = '❌ *Доступ запрещён*\n\nВы не являетесь участником этой сделки.';
-      const keyboard = mainMenuButton();
+      const text = t(lang, 'myDeals.access_denied');
+      const keyboard = mainMenuButton(lang);
       await messageManager.updateScreen(ctx, telegramId, 'deal_access_denied', text, keyboard);
       return;
     }
@@ -135,41 +120,25 @@ const showDealDetails = async (ctx, dealId) => {
       if (role === 'buyer') {
         // Buyer needs to enter key for refund
         const refundAmount = deal.amount - deal.commission;
-        const text = `⏰ *Срок сделки истёк!*
+        const text = t(lang, 'myDeals.pending_buyer_refund', {
+          dealId: deal.dealId,
+          productName: deal.productName,
+          refundAmount: refundAmount.toFixed(2),
+          asset: deal.asset,
+          commission: deal.commission.toFixed(2)
+        });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Работа не была выполнена в срок.
-
-💰 *Для возврата средств введите ваш приватный ключ:*
-
-💸 К возврату: *${refundAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ *Без ввода ключа средства НЕ будут возвращены!*
-❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
-
-        const keyboard = backAndMainMenu();
+        const keyboard = backAndMainMenu(lang);
         await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_refund`, text, keyboard);
         return;
       } else {
         // Seller sees info that deal expired
-        const text = `⏰ *Срок сделки истёк*
+        const text = t(lang, 'myDeals.pending_seller_expired', {
+          dealId: deal.dealId,
+          productName: deal.productName
+        });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Работа не была выполнена в срок.
-Дедлайн и grace-период были проигнорированы.
-
-💸 Средства возвращаются покупателю (за вычетом комиссии сервиса).
-
-Покупателю отправлен запрос на ввод приватного ключа для возврата.`;
-
-        const keyboard = backAndMainMenu();
+        const keyboard = backAndMainMenu(lang);
         await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_expired`, text, keyboard);
         return;
       }
@@ -179,41 +148,25 @@ const showDealDetails = async (ctx, dealId) => {
       if (role === 'seller') {
         // Seller needs to enter key for release (work accepted by timeout)
         const releaseAmount = deal.amount - deal.commission;
-        const text = `✅ *Работа принята автоматически!*
+        const text = t(lang, 'myDeals.pending_seller_release', {
+          dealId: deal.dealId,
+          productName: deal.productName,
+          releaseAmount: releaseAmount.toFixed(2),
+          asset: deal.asset,
+          commission: deal.commission.toFixed(2)
+        });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Покупатель не ответил в течение 12 часов после сдачи работы.
-Работа принята автоматически!
-
-💰 *Для получения средств введите ваш приватный ключ:*
-
-💸 К получению: *${releaseAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ *Без ввода ключа средства НЕ будут переведены!*`;
-
-        const keyboard = backAndMainMenu();
+        const keyboard = backAndMainMenu(lang);
         await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_release`, text, keyboard);
         return;
       } else {
         // Buyer sees info that work was accepted
-        const text = `✅ *Работа принята автоматически*
+        const text = t(lang, 'myDeals.pending_buyer_autoaccept', {
+          dealId: deal.dealId,
+          productName: deal.productName
+        });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Вы не ответили в течение 12 часов после сдачи работы.
-Работа принята автоматически.
-
-💸 Средства переводятся продавцу (за вычетом комиссии сервиса).
-
-Продавцу отправлен запрос на ввод приватного ключа для получения средств.`;
-
-        const keyboard = backAndMainMenu();
+        const keyboard = backAndMainMenu(lang);
         await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_auto_accepted`, text, keyboard);
         return;
       }
@@ -223,110 +176,98 @@ const showDealDetails = async (ctx, dealId) => {
       if (role === 'seller') {
         // Seller needs to enter key for payout (work accepted by buyer)
         const releaseAmount = deal.amount - deal.commission;
-        const text = `🎉 *Покупатель принял работу!*
+        const text = t(lang, 'myDeals.pending_seller_payout', {
+          dealId: deal.dealId,
+          productName: deal.productName,
+          releaseAmount: releaseAmount.toFixed(2),
+          asset: deal.asset,
+          commission: deal.commission.toFixed(2)
+        });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💰 *Для получения средств введите ваш приватный ключ:*
-
-💸 К получению: *${releaseAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ Без ввода ключа средства НЕ будут переведены!`;
-
-        const keyboard = backAndMainMenu();
+        const keyboard = backAndMainMenu(lang);
         await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_payout`, text, keyboard);
         return;
       } else {
         // Buyer sees waiting for seller
-        const text = `✅ *Работа принята!*
+        const text = t(lang, 'myDeals.pending_buyer_waiting', {
+          dealId: deal.dealId,
+          productName: deal.productName
+        });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-⏳ *Ожидаем подтверждение от продавца*
-
-Продавец должен ввести свой приватный ключ для получения средств.
-Вы получите уведомление, когда сделка будет завершена.`;
-
-        const keyboard = backAndMainMenu();
+        const keyboard = backAndMainMenu(lang);
         await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}_waiting_seller`, text, keyboard);
         return;
       }
     }
 
-    let text = `📋 *Сделка ${deal.dealId}*\n\n`;
-    text += `📦 *Название:* ${deal.productName}\n\n`;
-    text += `📝 *Описание:*\n${deal.description.substring(0, 300)}${deal.description.length > 300 ? '...' : ''}\n\n`;
+    let text = t(lang, 'myDeals.deal_label', { dealId: deal.dealId }) + '\n\n';
+    text += `${t(lang, 'myDeals.product_label')} ${deal.productName}\n\n`;
+    text += `${t(lang, 'myDeals.description_label')}\n${deal.description.substring(0, 300)}${deal.description.length > 300 ? '...' : ''}\n\n`;
 
-    text += `👤 *Ваша роль:* ${role === 'buyer' ? 'Покупатель' : 'Продавец'}\n`;
+    text += `${t(lang, 'myDeals.your_role')} ${t(lang, 'role.' + role)}\n`;
 
     // Get counterparty username (or show invite link status)
     const User = require('../../models/User');
     const counterpartyId = role === 'buyer' ? deal.sellerId : deal.buyerId;
+    const counterpartyRole = role === 'buyer' ? 'seller' : 'buyer';
 
     if (deal.status === 'pending_counterparty' || counterpartyId === 0) {
       // No counterparty yet - show invite link info
-      text += `🤝 *${role === 'buyer' ? 'Продавец' : 'Покупатель'}:* 🔗 _Ожидание по ссылке_\n\n`;
+      text += t(lang, 'myDeals.counterparty_label', { role: t(lang, 'role.' + counterpartyRole) }) + ` ${t(lang, 'myDeals.counterparty_by_link')}\n\n`;
     } else {
       const counterparty = await User.findOne({ telegramId: counterpartyId });
       const counterpartyUsername = counterparty?.username || `ID: ${counterpartyId}`;
-      text += `🤝 *${role === 'buyer' ? 'Продавец' : 'Покупатель'}:* @${counterpartyUsername}\n\n`;
+      text += t(lang, 'myDeals.counterparty_label', { role: t(lang, 'role.' + counterpartyRole) }) + ` @${counterpartyUsername}\n\n`;
     }
 
-    text += `💰 *Сумма:* ${deal.amount} ${deal.asset}\n`;
-    text += `💸 *Комиссия:* ${deal.commission} ${deal.asset}\n`;
+    text += `${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}\n`;
+    text += `${t(lang, 'myDeals.commission_label')} ${deal.commission} ${deal.asset}\n`;
 
     if (role === 'buyer') {
-      text += `📥 *Вы платите:* ${deal.amount + commission.buyerPays} ${deal.asset}\n`;
+      text += `${t(lang, 'myDeals.you_pay')} ${deal.amount + commission.buyerPays} ${deal.asset}\n`;
     } else {
-      text += `📤 *Вы получите:* ${deal.amount - commission.sellerPays} ${deal.asset}\n`;
+      text += `${t(lang, 'myDeals.you_receive')} ${deal.amount - commission.sellerPays} ${deal.asset}\n`;
     }
 
-    text += `\n📊 *Статус:* ${getStatusText(deal.status)}\n`;
+    text += `\n${t(lang, 'myDeals.status_label')} ${getStatusText(deal.status, lang)}\n`;
 
     if (deal.deadline) {
-      text += `⏰ *Дедлайн:* ${deal.deadline.toLocaleString('ru-RU')}\n`;
+      text += `${t(lang, 'myDeals.deadline_label')} ${formatDate(lang, deal.deadline)}\n`;
     }
 
     // Show hint when waiting for wallet
     if (role === 'seller' && deal.status === 'waiting_for_seller_wallet') {
       text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      text += `⚠️ *Требуется ваш кошелёк!*\n`;
-      text += `Нажмите кнопку ниже, чтобы указать адрес TRON-кошелька для получения оплаты.`;
+      text += t(lang, 'myDeals.seller_wallet_required');
     }
 
     if (role === 'buyer' && deal.status === 'waiting_for_buyer_wallet') {
       text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      text += `⚠️ *Требуется ваш кошелёк!*\n`;
-      text += `Нажмите кнопку ниже, чтобы указать адрес TRON-кошелька для возврата средств.`;
+      text += t(lang, 'myDeals.buyer_wallet_required');
     }
 
     // Show invite link for pending_counterparty deals
     if (deal.status === 'pending_counterparty' && deal.inviteToken) {
       const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
       const inviteLink = `https://t.me/${botUsername}?start=deal_${deal.inviteToken}`;
-      const expiresAt = deal.inviteExpiresAt ? deal.inviteExpiresAt.toLocaleString('ru-RU') : 'неизвестно';
+      const expiresAt = deal.inviteExpiresAt ? formatDate(lang, deal.inviteExpiresAt) : t(lang, 'myDeals.unknown');
 
       text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      text += `🔗 *Ссылка-приглашение:*\n\`${inviteLink}\`\n\n`;
-      text += `⏰ Действует до: ${expiresAt}\n`;
-      text += `\nОтправьте эту ссылку контрагенту.`;
+      text += `${t(lang, 'myDeals.invite_link')}\n\`${inviteLink}\`\n\n`;
+      text += t(lang, 'myDeals.invite_expires', { date: expiresAt }) + '\n';
+      text += `\n${t(lang, 'myDeals.invite_send_to')}`;
     }
 
     // Show multisig address for waiting_for_deposit
     if (deal.status === 'waiting_for_deposit' && deal.multisigAddress) {
       text += `\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      text += `🔐 *Escrow-адрес:*\n\`${deal.multisigAddress}\`\n`;
-      text += `\n[Проверить на TronScan](https://tronscan.org/#/address/${deal.multisigAddress})`;
+      text += `${t(lang, 'myDeals.escrow_address')}\n\`${deal.multisigAddress}\`\n`;
+      text += `\n[${t(lang, 'myDeals.check_tronscan')}](https://tronscan.org/#/address/${deal.multisigAddress})`;
     }
 
     // Show deposit TX
     if (deal.depositTxHash) {
-      text += `\n\n✅ *Депозит:* [Транзакция](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
+      text += `\n\n${t(lang, 'myDeals.deposit_label')} [${t(lang, 'myDeals.transaction_link_label')}](https://tronscan.org/#/transaction/${deal.depositTxHash})`;
     }
 
     // Determine if user is the deal creator
@@ -334,7 +275,8 @@ const showDealDetails = async (ctx, dealId) => {
 
     const keyboard = dealDetailsKeyboard(deal.dealId, role, deal.status, {
       isCreator,
-      fromTemplate: deal.fromTemplate || false
+      fromTemplate: deal.fromTemplate || false,
+      lang
     });
     await messageManager.navigateToScreen(ctx, telegramId, `deal_${dealId}`, text, keyboard);
   } catch (error) {
@@ -348,6 +290,7 @@ const showDealDetails = async (ctx, dealId) => {
 
 const submitWork = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -356,35 +299,20 @@ const submitWork = async (ctx) => {
     const deal = await dealService.submitWork(dealId, telegramId);
 
     // Show confirmation to seller
-    const sellerText = `✅ *Работа отмечена как выполненная*
+    const sellerText = t(lang, 'myDeals.work_submitted_seller', { dealId: deal.dealId });
 
-Сделка: \`${deal.dealId}\`
-
-Покупатель получил уведомление и может:
-• Принять работу
-• Открыть спор
-
-Ожидайте решения покупателя.`;
-
-    const sellerKeyboard = mainMenuButton();
+    const sellerKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'work_submitted', sellerText, sellerKeyboard);
 
     // Notify buyer with notification
-    const buyerText = `📬 *Работа выполнена!*
+    const buyerText = t(lang, 'myDeals.work_submitted_buyer', { dealId: deal.dealId, productName: deal.productName });
 
-Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Продавец отметил работу как выполненную.
-
-Проверьте результат и выберите действие:`;
-
-    const buyerKeyboard = workSubmittedKeyboard(deal.dealId);
+    const buyerKeyboard = workSubmittedKeyboard(deal.dealId, lang);
     await messageManager.showNotification(ctx, deal.buyerId, buyerText, buyerKeyboard);
 
   } catch (error) {
     console.error('Error submitting work:', error);
-    await ctx.answerCbQuery('❌ Ошибка');
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.error'));
   }
 };
 
@@ -395,6 +323,7 @@ const submitWork = async (ctx) => {
 
 const acceptWork = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -403,27 +332,27 @@ const acceptWork = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
     if (deal.buyerId !== telegramId) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Только покупатель может принять работу.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.only_buyer_can_accept'), keyboard);
       return;
     }
 
     if (deal.status !== 'in_progress') {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', `❌ Невозможно принять работу в статусе: ${getStatusText(deal.status)}`, keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.cannot_accept_status', { status: getStatusText(deal.status, lang) }), keyboard);
       return;
     }
 
     // Check seller address
     if (!deal.sellerAddress) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Адрес продавца не найден.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'myDeals.seller_address_missing'), keyboard);
       return;
     }
 
@@ -440,32 +369,25 @@ const acceptWork = async (ctx) => {
     console.log(`🔐 Key validation requested for deal ${dealId}: seller must input private key`);
 
     // Notify buyer - waiting for seller confirmation
-    const buyerText = `✅ *Работа принята!*
+    const buyerText = t(lang, 'myDeals.pending_buyer_waiting', {
+      dealId: dealId,
+      productName: deal.productName
+    });
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-⏳ *Ожидаем подтверждение от продавца*
-
-Продавец должен ввести свой приватный ключ для получения средств.
-Вы получите уведомление, когда сделка будет завершена.`;
-
-    const buyerKeyboard = mainMenuButton();
+    const buyerKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'waiting_seller_key', buyerText, buyerKeyboard);
 
     // Notify seller - request private key
-    const sellerText = `🎉 *Покупатель принял работу!*
+    const releaseAmount = deal.amount - deal.commission;
+    const sellerText = t(lang, 'myDeals.pending_seller_payout', {
+      dealId: dealId,
+      productName: deal.productName,
+      releaseAmount: releaseAmount.toFixed(2),
+      asset: deal.asset,
+      commission: deal.commission.toFixed(2)
+    });
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-💰 *Для получения средств введите ваш приватный ключ:*
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ Без ввода ключа средства НЕ будут переведены!`;
-
-    const sellerKeyboard = mainMenuButton();
+    const sellerKeyboard = mainMenuButton(lang);
     await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
 
   } catch (error) {

@@ -22,6 +22,7 @@ const adminAlertService = require('../../services/adminAlertService');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton, backButton } = require('../keyboards/main');
 const { showReceiptQuestion, sendReceiptNotification } = require('./receiptEmail');
+const { t } = require('../../locales');
 
 // ============================================
 // REFERRAL BONUS SYSTEM
@@ -185,6 +186,7 @@ async function createKeyValidationSession(telegramId, dealId, type, extraData = 
 async function handleKeyValidationInput(ctx) {
   const telegramId = ctx.from.id;
   const inputKey = ctx.message.text.trim();
+  const lang = ctx.state?.lang || 'ru';
 
   // Delete user message immediately (key should not stay in chat!)
   await messageManager.deleteUserMessage(ctx);
@@ -234,9 +236,7 @@ async function handleKeyValidationInput(ctx) {
     await clearKeyValidationSession(telegramId);
 
     // Show "Processing payout..." message immediately
-    const processingText = `⏳ *Загрузка...*
-
-Идёт процесс выплаты, пожалуйста подождите.`;
+    const processingText = t(lang, 'payout.processing');
 
     await messageManager.updateScreen(ctx, telegramId, 'payout_processing', processingText, { inline_keyboard: [] });
 
@@ -265,22 +265,12 @@ async function handleKeyValidationInput(ctx) {
   let errorText;
 
   if (session.attempts >= 3) {
-    errorText = `❌ *Неверный ключ!*
-
-Попытка ${session.attempts}
-
-⚠️ Если вы потеряли ключ, обратитесь в поддержку: @keyshield\\_support
-
-Попробуйте ещё раз:`;
+    errorText = t(lang, 'payout.wrong_key_many', { attempts: session.attempts });
   } else {
-    errorText = `❌ *Неверный ключ!*
-
-Попытка ${session.attempts} из 3
-
-Введите ваш приватный ключ ещё раз:`;
+    errorText = t(lang, 'payout.wrong_key', { attempts: session.attempts });
   }
 
-  const keyboard = mainMenuButton();
+  const keyboard = mainMenuButton(lang);
   await messageManager.updateScreen(ctx, telegramId, 'key_error', errorText, keyboard);
   return true;
 }
@@ -294,6 +284,7 @@ async function handleKeyValidationInput(ctx) {
  */
 async function processSellerPayout(ctx, deal, buyerId) {
   const telegramId = deal.sellerId;
+  const lang = ctx.state?.lang || 'ru';
   let energyMethod = 'none';
   let feesaverEnergyCost = 0;
   let feesaverBandwidthCost = 0;
@@ -541,15 +532,14 @@ async function processSellerPayout(ctx, deal, buyerId) {
     await saveOperationalCosts(deal, energyMethod, feesaverCosts, trxReturned, 'seller_payout');
 
     // Notify seller (success) - with receipt option
-    const sellerText = `✅ *Средства получены!*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💸 Получено: *${releaseAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-[Транзакция](https://tronscan.org/#/transaction/${releaseResult.txHash})`;
+    const sellerText = t(lang, 'payout.seller_success', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      releaseAmount: releaseAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash: releaseResult.txHash
+    });
 
     // Transaction data for email receipt
     const transactionData = {
@@ -571,18 +561,14 @@ async function processSellerPayout(ctx, deal, buyerId) {
 
     // Notify buyer with receipt option
     if (buyerId) {
-      const buyerText = `✅ *Сделка завершена!*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💸 Сумма покупки: *${deal.amount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-Продавец подтвердил получение средств.
-Сделка успешно завершена!
-
-[Транзакция](https://tronscan.org/#/transaction/${releaseResult.txHash})`;
+      const buyerText = t(lang, 'payout.buyer_deal_complete', {
+        dealId: deal.dealId,
+        productName: deal.productName,
+        amount: deal.amount.toFixed(2),
+        asset: deal.asset,
+        commission: commission.toFixed(2),
+        txHash: releaseResult.txHash
+      });
 
       // Transaction data for buyer's receipt
       const buyerTransactionData = {
@@ -643,14 +629,12 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // Alert admin about error
     await adminAlertService.alertError(`Seller payout ${deal.dealId}`, error);
 
-    const errorText = `❌ *Ошибка выплаты*
+    const errorText = t(lang, 'payout.seller_error', {
+      dealId: deal.dealId,
+      errorMessage: error.message
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-Ошибка: ${error.message}
-
-Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     // Update the "Processing..." message to show error
     await messageManager.updateScreen(ctx, telegramId, 'payout_error', errorText, keyboard);
   }
@@ -669,6 +653,7 @@ async function processSellerRelease(ctx, deal) {
  */
 async function processBuyerRefund(ctx, deal) {
   const telegramId = deal.buyerId;
+  const lang = ctx.state?.lang || 'ru';
   let energyMethod = 'none';
   let feesaverEnergyCost = 0;
   let feesaverBandwidthCost = 0;
@@ -905,15 +890,14 @@ async function processBuyerRefund(ctx, deal) {
     await saveOperationalCosts(deal, energyMethod, feesaverCosts, trxReturned, 'buyer_refund');
 
     // Notify buyer (success) - with receipt option
-    const buyerText = `✅ *Возврат выполнен!*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💸 Возвращено: *${refundAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-[Транзакция](https://tronscan.org/#/transaction/${refundResult.txHash})`;
+    const buyerText = t(lang, 'payout.buyer_refund_success', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      refundAmount: refundAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash: refundResult.txHash
+    });
 
     // Transaction data for email receipt
     const transactionData = {
@@ -927,19 +911,16 @@ async function processBuyerRefund(ctx, deal) {
     await showReceiptQuestion(ctx, telegramId, deal, transactionData, buyerText);
 
     // Notify seller
-    const sellerText = `⚠️ *Сделка завершена возвратом*
+    const sellerText = t(lang, 'payout.seller_refund_notify', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      refundAmount: refundAmount.toFixed(2),
+      asset: deal.asset,
+      txHash: refundResult.txHash
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-Срок сделки истёк без подтверждения выполнения.
-Средства возвращены покупателю.
-
-💸 Возвращено: ${refundAmount.toFixed(2)} ${deal.asset}
-
-[Транзакция](https://tronscan.org/#/transaction/${refundResult.txHash})`;
-
-    await messageManager.showNotification(ctx, deal.sellerId, sellerText, keyboard);
+    const sellerKeyboard = mainMenuButton(lang);
+    await messageManager.showNotification(ctx, deal.sellerId, sellerText, sellerKeyboard);
 
     // Audit log
     await AuditLog.create({
@@ -981,14 +962,12 @@ async function processBuyerRefund(ctx, deal) {
     // Alert admin about error
     await adminAlertService.alertError(`Buyer refund ${deal.dealId}`, error);
 
-    const errorText = `❌ *Ошибка возврата*
+    const errorText = t(lang, 'payout.buyer_refund_error', {
+      dealId: deal.dealId,
+      errorMessage: error.message
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-Ошибка: ${error.message}
-
-Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     // Update the "Processing..." message to show error
     await messageManager.updateScreen(ctx, telegramId, 'refund_error', errorText, keyboard);
   }
@@ -1001,6 +980,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
   const winnerId = winnerRole === 'buyer' ? deal.buyerId : deal.sellerId;
   const loserId = winnerRole === 'buyer' ? deal.sellerId : deal.buyerId;
   const winnerAddress = winnerRole === 'buyer' ? deal.buyerAddress : deal.sellerAddress;
+  const lang = ctx.state?.lang || 'ru';
 
   let energyMethod = 'none';
   let feesaverEnergyCost = 0;
@@ -1237,15 +1217,14 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     await saveOperationalCosts(deal, energyMethod, feesaverCosts, trxReturned, 'dispute_payout');
 
     // Notify winner - with receipt option
-    const winnerText = `✅ *Средства получены!*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
-
-💸 Получено: *${payoutAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-[Транзакция](https://tronscan.org/#/transaction/${payoutResult.txHash})`;
+    const winnerText = t(lang, 'payout.dispute_winner', {
+      dealId: deal.dealId,
+      productName: deal.productName,
+      payoutAmount: payoutAmount.toFixed(2),
+      asset: deal.asset,
+      commission: commission.toFixed(2),
+      txHash: payoutResult.txHash
+    });
 
     // Transaction data for email receipt
     const transactionData = {
@@ -1299,14 +1278,12 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     // Alert admin about error
     await adminAlertService.alertError(`Dispute payout ${deal.dealId}`, error);
 
-    const errorText = `❌ *Ошибка выплаты*
+    const errorText = t(lang, 'payout.dispute_error', {
+      dealId: deal.dealId,
+      errorMessage: error.message
+    });
 
-🆔 Сделка: \`${deal.dealId}\`
-Ошибка: ${error.message}
-
-Пожалуйста, свяжитесь с поддержкой: @keyshield\\_support`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     // Update the "Processing..." message to show error
     await messageManager.updateScreen(ctx, winnerId, 'dispute_payout_error', errorText, keyboard);
   }

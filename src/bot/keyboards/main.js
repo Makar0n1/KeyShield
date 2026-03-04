@@ -1,4 +1,5 @@
 const { Markup } = require('telegraf');
+const { t } = require('../../locales');
 
 // ============================================
 // MAIN MENU
@@ -7,18 +8,18 @@ const { Markup } = require('telegraf');
 /**
  * Main menu keyboard (no Back button - this is root)
  */
-const mainMenuKeyboard = () => {
+const mainMenuKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📝 Создать сделку', 'create_deal')],
+    [Markup.button.callback(t(lang, 'btn.create_deal'), 'create_deal')],
     [
-      Markup.button.callback('📋 Мои сделки', 'my_deals'),
-      Markup.button.callback('📑 Шаблоны сделок', 'templates')
+      Markup.button.callback(t(lang, 'btn.my_deals'), 'my_deals'),
+      Markup.button.callback(t(lang, 'btn.templates'), 'templates')
     ],
     [
-      Markup.button.callback('👤 Мои данные', 'my_data'),
-      Markup.button.callback('🎁 Рефералы', 'referrals')
+      Markup.button.callback(t(lang, 'btn.my_data'), 'my_data'),
+      Markup.button.callback(t(lang, 'btn.referrals'), 'referrals')
     ],
-    [Markup.button.callback('ℹ️ Помощь', 'help')]
+    [Markup.button.callback(t(lang, 'btn.help'), 'help')]
   ]);
 };
 
@@ -29,29 +30,29 @@ const mainMenuKeyboard = () => {
 /**
  * Back button only
  */
-const backButton = () => {
+const backButton = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Back to main menu only (for final screens)
  */
-const mainMenuButton = () => {
+const mainMenuButton = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
   ]);
 };
 
 /**
  * Both Back and Main Menu buttons
  */
-const backAndMainMenu = () => {
+const backAndMainMenu = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('⬅️ Назад', 'back'),
-      Markup.button.callback('🏠 Главное меню', 'main_menu')
+      Markup.button.callback(t(lang, 'btn.back'), 'back'),
+      Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')
     ]
   ]);
 };
@@ -63,23 +64,23 @@ const backAndMainMenu = () => {
 /**
  * Help menu keyboard
  */
-const helpMenuKeyboard = () => {
+const helpMenuKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('ℹ️ Как это работает', 'how_it_works')],
-    [Markup.button.callback('💰 Правила и комиссии', 'rules')],
-    [Markup.button.callback('🆘 Поддержка', 'support')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.how_it_works'), 'how_it_works')],
+    [Markup.button.callback(t(lang, 'btn.rules_fees'), 'rules')],
+    [Markup.button.callback(t(lang, 'btn.support'), 'support')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Help section keyboard (back to help + main menu)
  */
-const helpSectionKeyboard = () => {
+const helpSectionKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('⬅️ Назад', 'back'),
-      Markup.button.callback('🏠 Главное меню', 'main_menu')
+      Markup.button.callback(t(lang, 'btn.back'), 'back'),
+      Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')
     ]
   ]);
 };
@@ -91,97 +92,97 @@ const helpSectionKeyboard = () => {
 /**
  * Username required keyboard (when user has no username)
  */
-const usernameRequiredKeyboard = () => {
+const usernameRequiredKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Ник установлен', 'username_set')],
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback(t(lang, 'btn.username_set'), 'username_set')],
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
   ]);
 };
 
 /**
  * Role selection keyboard
  */
-const roleSelectionKeyboard = () => {
+const roleSelectionKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('💵 Я покупатель', 'role:buyer')],
-    [Markup.button.callback('🛠 Я продавец', 'role:seller')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.i_am_buyer'), 'role:buyer')],
+    [Markup.button.callback(t(lang, 'btn.i_am_seller'), 'role:seller')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Counterparty method selection keyboard (username or invite link)
  */
-const counterpartyMethodKeyboard = () => {
+const counterpartyMethodKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('👤 Ввести @username', 'counterparty_method:username')],
-    [Markup.button.callback('🔗 Создать ссылку', 'counterparty_method:invite')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.enter_username'), 'counterparty_method:username')],
+    [Markup.button.callback(t(lang, 'btn.create_link'), 'counterparty_method:invite')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Invite deal created keyboard (copy link + details + main menu)
  */
-const inviteDealCreatedKeyboard = (dealId, inviteToken) => {
+const inviteDealCreatedKeyboard = (dealId, inviteToken, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📋 Скопировать ссылку', `copy_invite:${inviteToken}`)],
-    [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
-    [Markup.button.callback('❌ Отменить сделку', `cancel_invite:${dealId}`)],
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback(t(lang, 'btn.copy_link'), `copy_invite:${inviteToken}`)],
+    [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.cancel_deal'), `cancel_invite:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
   ]);
 };
 
 /**
  * Invite deal accept/decline keyboard
  */
-const inviteAcceptKeyboard = (dealId) => {
+const inviteAcceptKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Принять сделку', `accept_invite:${dealId}`)],
-    [Markup.button.callback('❌ Отклонить', `decline_invite:${dealId}`)]
+    [Markup.button.callback(t(lang, 'btn.accept_deal'), `accept_invite:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.decline'), `decline_invite:${dealId}`)]
   ]);
 };
 
 /**
  * Asset selection keyboard
  */
-const assetSelectionKeyboard = () => {
+const assetSelectionKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [Markup.button.callback('💵 USDT (TRC-20)', 'asset:USDT')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Commission type selection keyboard
  */
-const commissionTypeKeyboard = (amount, asset) => {
+const commissionTypeKeyboard = (amount, asset, lang = 'ru') => {
   const Deal = require('../../models/Deal');
   const commission = Deal.calculateCommission(amount);
 
   return Markup.inlineKeyboard([
-    [Markup.button.callback(`💵 Покупатель (депозит ${amount + commission} ${asset})`, 'commission:buyer')],
-    [Markup.button.callback(`🛠 Продавец (получит ${amount - commission} ${asset})`, 'commission:seller')],
-    [Markup.button.callback(`⚖️ 50/50 (по ${(commission / 2).toFixed(2)} ${asset})`, 'commission:split')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'commission.buyer_pays', { commission: amount + commission, asset }), 'commission:buyer')],
+    [Markup.button.callback(t(lang, 'commission.seller_pays', { amount: amount - commission, asset }), 'commission:seller')],
+    [Markup.button.callback(t(lang, 'commission.split', { half: (commission / 2).toFixed(2), asset }), 'commission:split')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Deadline selection keyboard
  */
-const deadlineKeyboard = () => {
+const deadlineKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('24 часа', 'deadline:24'),
-      Markup.button.callback('48 часов', 'deadline:48')
+      Markup.button.callback(t(lang, 'btn.hours_24'), 'deadline:24'),
+      Markup.button.callback(t(lang, 'btn.hours_48'), 'deadline:48')
     ],
     [
-      Markup.button.callback('3 дня', 'deadline:72'),
-      Markup.button.callback('7 дней', 'deadline:168')
+      Markup.button.callback(t(lang, 'btn.days_3'), 'deadline:72'),
+      Markup.button.callback(t(lang, 'btn.days_7'), 'deadline:168')
     ],
-    [Markup.button.callback('14 дней', 'deadline:336')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.days_14'), 'deadline:336')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
@@ -189,20 +190,20 @@ const deadlineKeyboard = () => {
  * Deal confirmation keyboard
  * No "Back" button - wallet already verified, can only create or cancel
  */
-const dealConfirmationKeyboard = () => {
+const dealConfirmationKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Создать сделку', 'confirm:create_deal')],
-    [Markup.button.callback('❌ Отменить', 'cancel_create_deal')]
+    [Markup.button.callback(t(lang, 'btn.create_deal_btn'), 'confirm:create_deal')],
+    [Markup.button.callback(t(lang, 'btn.cancel'), 'cancel_create_deal')]
   ]);
 };
 
 /**
  * Deal created keyboard (view deal + main menu)
  */
-const dealCreatedKeyboard = (dealId) => {
+const dealCreatedKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
   ]);
 };
 
@@ -213,7 +214,7 @@ const dealCreatedKeyboard = (dealId) => {
 /**
  * My deals list keyboard (dynamic based on deals)
  */
-const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1) => {
+const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1, lang = 'ru') => {
   const buttons = [];
 
   // Add buttons for each deal on current page
@@ -263,7 +264,7 @@ const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1) => {
   }
 
   // Back button (returns to main menu)
-  buttons.push([Markup.button.callback('⬅️ Назад', 'main_menu')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'main_menu')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -271,10 +272,10 @@ const myDealsKeyboard = (deals = [], currentPage = 1, totalPages = 1) => {
 /**
  * My deals empty keyboard
  */
-const myDealsEmptyKeyboard = () => {
+const myDealsEmptyKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📝 Создать сделку', 'create_deal')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.create_deal'), 'create_deal')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
@@ -286,70 +287,71 @@ const myDealsEmptyKeyboard = () => {
  * @param {Object} options - Additional options
  * @param {boolean} options.isCreator - Whether user is deal creator
  * @param {boolean} options.fromTemplate - Whether deal was created from template
+ * @param {string} options.lang - Language code
  */
 const dealDetailsKeyboard = (dealId, userRole, dealStatus, options = {}) => {
-  const { isCreator = false, fromTemplate = false } = options;
+  const { isCreator = false, fromTemplate = false, lang = 'ru' } = options;
   const buttons = [];
 
   // Pending counterparty (invite link deal) - show cancel button for creator
   if (dealStatus === 'pending_counterparty') {
     buttons.push([
-      Markup.button.callback('❌ Отменить сделку', `cancel_invite:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.cancel_deal'), `cancel_invite:${dealId}`)
     ]);
   }
 
   // Waiting for wallet - show "Enter Wallet" button
   if (userRole === 'seller' && dealStatus === 'waiting_for_seller_wallet') {
     buttons.push([
-      Markup.button.callback('💳 Указать кошелёк', `enter_wallet:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.provide_wallet'), `enter_wallet:${dealId}`)
     ]);
     buttons.push([
-      Markup.button.callback('❌ Отклонить сделку', `decline_deal:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.decline_deal'), `decline_deal:${dealId}`)
     ]);
   }
 
   if (userRole === 'buyer' && dealStatus === 'waiting_for_buyer_wallet') {
     buttons.push([
-      Markup.button.callback('💳 Указать кошелёк', `enter_wallet:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.provide_wallet'), `enter_wallet:${dealId}`)
     ]);
     buttons.push([
-      Markup.button.callback('❌ Отклонить сделку', `decline_deal:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.decline_deal'), `decline_deal:${dealId}`)
     ]);
   }
 
   // Action buttons based on role and status
   if (userRole === 'seller' && dealStatus === 'locked') {
     buttons.push([
-      Markup.button.callback('✅ Работа выполнена', `submit_work:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.work_done'), `submit_work:${dealId}`)
     ]);
     buttons.push([
-      Markup.button.callback('⚠️ Открыть спор', `open_dispute:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.open_dispute'), `open_dispute:${dealId}`)
     ]);
   }
 
   if (userRole === 'buyer' && dealStatus === 'in_progress') {
     buttons.push([
-      Markup.button.callback('✅ Принять работу', `accept_work:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.accept_work'), `accept_work:${dealId}`)
     ]);
     buttons.push([
-      Markup.button.callback('❌ Открыть спор', `open_dispute:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.open_dispute_cross'), `open_dispute:${dealId}`)
     ]);
   }
 
   // General dispute button for locked deals
   if ((dealStatus === 'locked' || dealStatus === 'in_progress') && buttons.length === 0) {
     buttons.push([
-      Markup.button.callback('⚠️ Открыть спор', `open_dispute:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.open_dispute'), `open_dispute:${dealId}`)
     ]);
   }
 
   // Show deposit address button for buyer waiting for deposit
   if (userRole === 'buyer' && dealStatus === 'waiting_for_deposit') {
     buttons.push([
-      Markup.button.callback('💳 Показать адрес депозита', `show_deposit:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.show_deposit'), `show_deposit:${dealId}`)
     ]);
     buttons.push([
-      Markup.button.callback('❌ Отменить сделку', `cancel_deal:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.cancel_deal'), `cancel_deal:${dealId}`)
     ]);
   }
 
@@ -357,14 +359,14 @@ const dealDetailsKeyboard = (dealId, userRole, dealStatus, options = {}) => {
   // Only show for: creator + not from template
   if (dealStatus === 'completed' && isCreator && !fromTemplate) {
     buttons.push([
-      Markup.button.callback('💾 Сохранить как шаблон', `template:save_from_deal:${dealId}`)
+      Markup.button.callback(t(lang, 'btn.save_template'), `template:save_from_deal:${dealId}`)
     ]);
   }
 
   // Navigation
   buttons.push([
-    Markup.button.callback('⬅️ Назад', 'back'),
-    Markup.button.callback('🏠 Главное меню', 'main_menu')
+    Markup.button.callback(t(lang, 'btn.back'), 'back'),
+    Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')
   ]);
 
   return Markup.inlineKeyboard(buttons);
@@ -377,22 +379,22 @@ const dealDetailsKeyboard = (dealId, userRole, dealStatus, options = {}) => {
 /**
  * New deal notification keyboard (for counterparty)
  */
-const newDealNotificationKeyboard = (dealId) => {
+const newDealNotificationKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('💳 Указать кошелёк', `enter_wallet:${dealId}`)],
-    [Markup.button.callback('❌ Отклонить', `decline_deal:${dealId}`)],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.provide_wallet'), `enter_wallet:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.decline'), `decline_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Deposit warning keyboard
  */
-const depositWarningKeyboard = (dealId) => {
+const depositWarningKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Понятно, продолжить', `confirm_deposit_warning:${dealId}`)],
-    [Markup.button.callback('❌ Отменить сделку', `cancel_deal:${dealId}`)],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.continue_understood'), `confirm_deposit_warning:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.cancel_deal'), `cancel_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
@@ -400,52 +402,52 @@ const depositWarningKeyboard = (dealId) => {
  * Wallet verification error keyboard (for buyer)
  * Shows when wallet verification fails (insufficient funds, not found, etc.)
  */
-const walletVerificationErrorKeyboard = (dealId) => {
+const walletVerificationErrorKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('💳 Указать другой кошелёк', `retry_wallet:${dealId}`)],
-    [Markup.button.callback('❌ Отменить сделку', `cancel_deal:${dealId}`)]
+    [Markup.button.callback(t(lang, 'btn.change_wallet_other'), `retry_wallet:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.cancel_deal'), `cancel_deal:${dealId}`)]
   ]);
 };
 
 /**
  * Deposit received notification keyboard
  */
-const depositReceivedKeyboard = (dealId) => {
+const depositReceivedKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Work submitted notification keyboard (for buyer)
  */
-const workSubmittedKeyboard = (dealId) => {
+const workSubmittedKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Принять работу', `accept_work:${dealId}`)],
-    [Markup.button.callback('❌ Открыть спор', `open_dispute:${dealId}`)],
-    [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.accept_work'), `accept_work:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.open_dispute_cross'), `open_dispute:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Deadline expired keyboard (depends on status)
  */
-const deadlineExpiredKeyboard = (dealId, status, role) => {
+const deadlineExpiredKeyboard = (dealId, status, role, lang = 'ru') => {
   const buttons = [];
 
   if (role === 'seller' && status === 'locked') {
-    buttons.push([Markup.button.callback('✅ Работа выполнена', `submit_work:${dealId}`)]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.work_done'), `submit_work:${dealId}`)]);
   }
 
   if (role === 'buyer' && status === 'in_progress') {
-    buttons.push([Markup.button.callback('✅ Принять работу', `accept_work:${dealId}`)]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.accept_work'), `accept_work:${dealId}`)]);
   }
 
-  buttons.push([Markup.button.callback('❌ Открыть спор', `open_dispute:${dealId}`)]);
-  buttons.push([Markup.button.callback('⬅️ Назад', 'back')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.open_dispute_cross'), `open_dispute:${dealId}`)]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'back')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -453,9 +455,9 @@ const deadlineExpiredKeyboard = (dealId, status, role) => {
 /**
  * Final screen keyboard (completed/resolved deals)
  */
-const finalScreenKeyboard = () => {
+const finalScreenKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
   ]);
 };
 
@@ -466,21 +468,21 @@ const finalScreenKeyboard = () => {
 /**
  * Dispute media upload keyboard
  */
-const disputeMediaKeyboard = (dealId) => {
+const disputeMediaKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Отправить спор', `finalize_dispute:${dealId}`)],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.submit_dispute'), `finalize_dispute:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Dispute opened notification keyboard
  */
-const disputeOpenedKeyboard = (dealId) => {
+const disputeOpenedKeyboard = (dealId, lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📋 Детали сделки', `view_deal:${dealId}`)],
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
@@ -516,21 +518,24 @@ function getStatusIcon(status) {
 /**
  * My Data main menu keyboard
  */
-const myDataMenuKeyboard = (hasEmail, walletsCount) => {
+const myDataMenuKeyboard = (hasEmail, walletsCount, lang = 'ru') => {
   const buttons = [];
 
   // Email section
   if (hasEmail) {
-    buttons.push([Markup.button.callback('📧 Изменить email', 'mydata:change_email')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.change_email'), 'mydata:change_email')]);
   } else {
-    buttons.push([Markup.button.callback('📧 Добавить email', 'mydata:add_email')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.add_email'), 'mydata:add_email')]);
   }
 
   // Wallets section
-  buttons.push([Markup.button.callback(`💳 Мои кошельки (${walletsCount}/5)`, 'mydata:wallets')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.my_wallets', { count: walletsCount }), 'mydata:wallets')]);
+
+  // Language
+  buttons.push([Markup.button.callback(t(lang, 'btn.language'), 'mydata:language')]);
 
   // Back button
-  buttons.push([Markup.button.callback('⬅️ Назад', 'main_menu')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'main_menu')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -538,12 +543,12 @@ const myDataMenuKeyboard = (hasEmail, walletsCount) => {
 /**
  * Wallets list keyboard (delete is on wallet details screen)
  */
-const walletsListKeyboard = (wallets) => {
+const walletsListKeyboard = (wallets, lang = 'ru') => {
   const buttons = [];
 
   // List each wallet
   wallets.forEach((wallet, index) => {
-    const displayName = wallet.name || `Кошелёк ${index + 1}`;
+    const displayName = wallet.name || t(lang, 'wallet.default_name', { index: index + 1 });
     const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
     buttons.push([
       Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `wallet:view:${index}`)
@@ -552,11 +557,11 @@ const walletsListKeyboard = (wallets) => {
 
   // Add wallet button (if under limit)
   if (wallets.length < 5) {
-    buttons.push([Markup.button.callback('➕ Добавить кошелёк', 'mydata:add_wallet')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.add_wallet'), 'mydata:add_wallet')]);
   }
 
   // Back button
-  buttons.push([Markup.button.callback('⬅️ Назад', 'my_data')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'my_data')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -564,22 +569,22 @@ const walletsListKeyboard = (wallets) => {
 /**
  * Empty wallets keyboard
  */
-const walletsEmptyKeyboard = () => {
+const walletsEmptyKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('➕ Добавить кошелёк', 'mydata:add_wallet')],
-    [Markup.button.callback('⬅️ Назад', 'my_data')]
+    [Markup.button.callback(t(lang, 'btn.add_wallet'), 'mydata:add_wallet')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'my_data')]
   ]);
 };
 
 /**
  * Wallet selection keyboard for deal creation/acceptance
  */
-const walletSelectionKeyboard = (wallets, showNewOption = true) => {
+const walletSelectionKeyboard = (wallets, showNewOption = true, lang = 'ru') => {
   const buttons = [];
 
   // List saved wallets
   wallets.forEach((wallet, index) => {
-    const displayName = wallet.name || `Кошелёк ${index + 1}`;
+    const displayName = wallet.name || t(lang, 'wallet.default_name', { index: index + 1 });
     const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
     buttons.push([
       Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `select_wallet:${index}`)
@@ -588,11 +593,11 @@ const walletSelectionKeyboard = (wallets, showNewOption = true) => {
 
   // Option to enter new address
   if (showNewOption) {
-    buttons.push([Markup.button.callback('✏️ Ввести другой адрес', 'enter_new_wallet')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.enter_new_wallet'), 'enter_new_wallet')]);
   }
 
   // Back button
-  buttons.push([Markup.button.callback('⬅️ Назад', 'back')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'back')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -600,11 +605,11 @@ const walletSelectionKeyboard = (wallets, showNewOption = true) => {
 /**
  * Save wallet prompt keyboard (after validation)
  */
-const saveWalletPromptKeyboard = () => {
+const saveWalletPromptKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('✅ Да', 'save_wallet:yes'),
-      Markup.button.callback('❌ Нет', 'save_wallet:no')
+      Markup.button.callback(t(lang, 'btn.yes'), 'save_wallet:yes'),
+      Markup.button.callback(t(lang, 'btn.no'), 'save_wallet:no')
     ]
   ]);
 };
@@ -612,11 +617,11 @@ const saveWalletPromptKeyboard = () => {
 /**
  * Wallet name input keyboard (for myData section)
  */
-const walletNameInputKeyboard = () => {
+const walletNameInputKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('⬅️ Назад', 'mydata_wallet_name:back'),
-      Markup.button.callback('➡️ Пропустить', 'mydata_wallet_name:skip')
+      Markup.button.callback(t(lang, 'btn.back'), 'mydata_wallet_name:back'),
+      Markup.button.callback(t(lang, 'btn.skip_arrow'), 'mydata_wallet_name:skip')
     ]
   ]);
 };
@@ -624,11 +629,11 @@ const walletNameInputKeyboard = () => {
 /**
  * Wallet name input keyboard (for deal creation flow)
  */
-const walletNameInputDealKeyboard = () => {
+const walletNameInputDealKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('⬅️ Назад', 'deal_wallet_name:back'),
-      Markup.button.callback('➡️ Пропустить', 'deal_wallet_name:skip')
+      Markup.button.callback(t(lang, 'btn.back'), 'deal_wallet_name:back'),
+      Markup.button.callback(t(lang, 'btn.skip_arrow'), 'deal_wallet_name:skip')
     ]
   ]);
 };
@@ -637,27 +642,28 @@ const walletNameInputDealKeyboard = () => {
  * Text input with "Keep previous value" button (for deal creation back navigation)
  * @param {string} field - Field name (product_name, description, amount, counterparty_username, creator_wallet)
  * @param {string} displayValue - Value to display on button (truncated if needed)
+ * @param {string} lang - Language code
  */
-const keepPreviousValueKeyboard = (field, displayValue) => {
+const keepPreviousValueKeyboard = (field, displayValue, lang = 'ru') => {
   // Truncate display value if too long (max 30 chars for button)
   const truncated = displayValue.length > 30
     ? displayValue.substring(0, 27) + '...'
     : displayValue;
 
   return Markup.inlineKeyboard([
-    [Markup.button.callback(`✅ Оставить "${truncated}"`, `keep_value:${field}`)],
-    [Markup.button.callback('⬅️ Назад', 'back')]
+    [Markup.button.callback(t(lang, 'btn.keep_value', { value: truncated }), `keep_value:${field}`)],
+    [Markup.button.callback(t(lang, 'btn.back'), 'back')]
   ]);
 };
 
 /**
  * Confirm wallet deletion keyboard
  */
-const confirmDeleteWalletKeyboard = (walletIndex) => {
+const confirmDeleteWalletKeyboard = (walletIndex, lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('✅ Удалить', `wallet:confirm_delete:${walletIndex}`),
-      Markup.button.callback('❌ Отмена', 'mydata:wallets')
+      Markup.button.callback(t(lang, 'btn.delete'), `wallet:confirm_delete:${walletIndex}`),
+      Markup.button.callback(t(lang, 'btn.cancel'), 'mydata:wallets')
     ]
   ]);
 };
@@ -665,20 +671,20 @@ const confirmDeleteWalletKeyboard = (walletIndex) => {
 /**
  * Email input keyboard (back only)
  */
-const emailInputKeyboard = () => {
+const emailInputKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('⬅️ Назад', 'my_data')]
+    [Markup.button.callback(t(lang, 'btn.back'), 'my_data')]
   ]);
 };
 
 /**
  * Confirm email delete keyboard
  */
-const confirmDeleteEmailKeyboard = () => {
+const confirmDeleteEmailKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('✅ Удалить', 'email:confirm_delete'),
-      Markup.button.callback('❌ Отмена', 'my_data')
+      Markup.button.callback(t(lang, 'btn.delete'), 'email:confirm_delete'),
+      Markup.button.callback(t(lang, 'btn.cancel'), 'my_data')
     ]
   ]);
 };
@@ -686,11 +692,11 @@ const confirmDeleteEmailKeyboard = () => {
 /**
  * Email actions keyboard (change/delete)
  */
-const emailActionsKeyboard = () => {
+const emailActionsKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✏️ Изменить', 'mydata:change_email_input')],
-    [Markup.button.callback('🗑️ Удалить', 'mydata:delete_email')],
-    [Markup.button.callback('⬅️ Назад', 'my_data')]
+    [Markup.button.callback(t(lang, 'btn.edit'), 'mydata:change_email_input')],
+    [Markup.button.callback(t(lang, 'btn.delete_btn'), 'mydata:delete_email')],
+    [Markup.button.callback(t(lang, 'btn.back'), 'my_data')]
   ]);
 };
 
@@ -702,10 +708,10 @@ const persistentKeyboard = () => Markup.removeKeyboard();
 const removeKeyboard = () => Markup.removeKeyboard();
 const backToMainMenu = mainMenuButton;
 const cancelDealButton = backButton;
-const cancelActiveDealButton = (dealId) => dealCreatedKeyboard(dealId);
-const confirmationKeyboard = (action) => dealConfirmationKeyboard();
+const cancelActiveDealButton = (dealId, lang) => dealCreatedKeyboard(dealId, lang);
+const confirmationKeyboard = (action, lang) => dealConfirmationKeyboard(lang);
 const dealActionKeyboard = dealDetailsKeyboard;
-const depositConfirmationKeyboard = () => depositWarningKeyboard('');
+const depositConfirmationKeyboard = (lang) => depositWarningKeyboard('', lang);
 
 module.exports = {
   // Main

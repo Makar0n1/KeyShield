@@ -15,6 +15,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  languageCode: {
+    type: String,
+    enum: ['ru', 'en', 'uk'],
+    default: 'ru'
+  },
   role: {
     type: String,
     enum: ['buyer', 'seller', 'both'],

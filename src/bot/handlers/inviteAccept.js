@@ -6,6 +6,7 @@
 const Deal = require('../../models/Deal');
 const User = require('../../models/User');
 const { Markup } = require('telegraf');
+const { t } = require('../../locales');
 const {
   mainMenuButton,
   backButton,
@@ -22,6 +23,7 @@ const adminAlertService = require('../../services/adminAlertService');
  */
 const handleAcceptInvite = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -31,7 +33,7 @@ const handleAcceptInvite = async (ctx) => {
     const deal = await Deal.findOne({ dealId, status: 'pending_counterparty' });
 
     if (!deal) {
-      await ctx.answerCbQuery('Сделка не найдена или уже принята', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'common.deal_not_found_or_taken'), { show_alert: true });
       return;
     }
 
@@ -41,11 +43,9 @@ const handleAcceptInvite = async (ctx) => {
       deal.inviteToken = null;
       await deal.save();
 
-      const text = `❌ *Ссылка истекла*
+      const text = t(lang, 'invite.expired');
 
-Время действия ссылки истекло. Попросите создателя отправить новую.`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       await messageManager.showFinalScreen(ctx, telegramId, 'invite_expired', text, keyboard);
       return;
     }
@@ -69,26 +69,23 @@ const handleAcceptInvite = async (ctx) => {
     if (savedWallets.length > 0) {
       console.log(`📨 Showing wallet selection for user ${telegramId}`);
       // Show wallet selection
-      const text = `💳 *Выберите кошелёк*
+      const text = t(lang, 'invite.select_wallet');
 
-Выберите сохранённый кошелёк или введите новый адрес для участия в сделке.`;
-
-      const keyboard = walletSelectionKeyboard(savedWallets);
+      const keyboard = walletSelectionKeyboard(savedWallets, true, lang);
       await messageManager.navigateToScreen(ctx, telegramId, 'invite_wallet_select', text, keyboard);
     } else {
       // Ask for wallet address
-      const text = `💳 *Введите адрес кошелька*
+      const purpose = userRole === 'buyer'
+        ? t(lang, 'wallet.purpose_buyer_invite')
+        : t(lang, 'wallet.purpose_seller_invite');
+      const text = t(lang, 'invite.enter_wallet', { purpose });
 
-Введите ваш TRON-кошелёк (начинается с T).
-
-На этот кошелёк ${userRole === 'buyer' ? 'будут возвращены средства в случае отмены' : 'будут отправлены средства после успешной сделки'}.`;
-
-      const keyboard = backButton();
+      const keyboard = backButton(lang);
       await messageManager.navigateToScreen(ctx, telegramId, 'invite_wallet_input', text, keyboard);
     }
   } catch (error) {
     console.error('Error accepting invite:', error);
-    await ctx.answerCbQuery('Произошла ошибка', { show_alert: true });
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.error'), { show_alert: true });
   }
 };
 
@@ -97,6 +94,7 @@ const handleAcceptInvite = async (ctx) => {
  */
 const handleDeclineInvite = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -116,7 +114,7 @@ const handleDeclineInvite = async (ctx) => {
 
       // Get declining user info
       const decliningUser = await User.findOne({ telegramId });
-      const decliningUsername = decliningUser?.username ? `@${decliningUser.username}` : 'Пользователь';
+      const decliningUsername = decliningUser?.username ? `@${decliningUser.username}` : t(lang, 'common.user');
 
       // Notify creator
       const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
@@ -126,31 +124,30 @@ const handleDeclineInvite = async (ctx) => {
           return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
         };
 
-        const creatorText = `❌ *Приглашение отклонено*
+        // Load creator's language
+        const creatorUser = await User.findOne({ telegramId: creatorId }).select('languageCode').lean();
+        const creatorLang = creatorUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${escapeMarkdown(deal.productName)}
+        const creatorText = t(creatorLang, 'invite.declined_creator', {
+          dealId: deal.dealId,
+          productName: escapeMarkdown(deal.productName),
+          username: decliningUsername
+        });
 
-${decliningUsername} отклонил(а) ваше приглашение в сделку.
-
-Вы можете создать новую сделку в любое время.`;
-
-        const creatorKeyboard = mainMenuButton();
+        const creatorKeyboard = mainMenuButton(creatorLang);
         await messageManager.showNotification(ctx, creatorId, creatorText, creatorKeyboard);
       }
 
       console.log(`❌ Invite ${deal.dealId} declined by ${telegramId}, creator notified`);
     }
 
-    const text = `❌ *Приглашение отклонено*
+    const text = t(lang, 'invite.declined_user');
 
-Вы отклонили приглашение в сделку.`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'invite_declined', text, keyboard);
   } catch (error) {
     console.error('Error declining invite:', error);
-    await ctx.answerCbQuery('Произошла ошибка', { show_alert: true });
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.error'), { show_alert: true });
   }
 };
 
@@ -184,6 +181,7 @@ const clearInviteAcceptSession = async (telegramId) => {
  */
 const handleInviteWalletInput = async (ctx, walletAddress) => {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   try {
     // Get session data (getInviteAcceptSession returns data directly)
@@ -197,11 +195,9 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
     // Validate wallet address
     const blockchainService = require('../../services/blockchain');
     if (!blockchainService.isValidAddress(walletAddress)) {
-      const text = `❌ *Неверный адрес*
+      const text = t(lang, 'wallet.invalid_address_short');
 
-Введите корректный TRON-адрес (начинается с T, 34 символа).`;
-
-      const keyboard = backButton();
+      const keyboard = backButton(lang);
       await messageManager.updateScreen(ctx, telegramId, 'invite_wallet_input', text, keyboard);
       return true;
     }
@@ -209,18 +205,16 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
     // Find the deal
     const deal = await Deal.findOne({ dealId, status: 'pending_counterparty' });
     if (!deal) {
-      const text = `❌ *Сделка не найдена*
+      const text = t(lang, 'invite.deal_not_found');
 
-Сделка была отменена или уже принята.`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       await messageManager.showFinalScreen(ctx, telegramId, 'invite_error', text, keyboard);
       await clearInviteAcceptSession(telegramId);
       return true;
     }
 
     // Show loading
-    await messageManager.updateScreen(ctx, telegramId, 'invite_loading', '⏳ Принимаем сделку и создаём multisig-кошелёк...', {});
+    await messageManager.updateScreen(ctx, telegramId, 'invite_loading', t(lang, 'common.accepting_deal'), {});
 
     // Accept the deal
     const result = await dealService.acceptInviteDeal(deal.inviteToken, telegramId, walletAddress);
@@ -256,61 +250,49 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
 
     if (userRole === 'buyer') {
       // User is buyer - show deposit info
-      const buyerText = `✅ *Сделка принята!*
+      const buyerText = t(lang, 'invite.accepted_buyer', {
+        dealId: updatedDeal.dealId,
+        productName: escapeMarkdown(updatedDeal.productName),
+        amount: updatedDeal.amount,
+        asset: updatedDeal.asset,
+        depositAmount,
+        shortWallet,
+        multisigAddress: updatedDeal.multisigAddress
+      });
 
-🆔 ID: \`${updatedDeal.dealId}\`
-📦 ${escapeMarkdown(updatedDeal.productName)}
-
-💰 Сумма: ${updatedDeal.amount} ${updatedDeal.asset}
-💸 К оплате: ${depositAmount} ${updatedDeal.asset}
-💳 Ваш кошелёк: \`${shortWallet}\`
-
-📥 *Адрес для депозита:*
-\`${updatedDeal.multisigAddress}\`
-
-⚠️ Отправьте *ровно ${depositAmount} USDT* на указанный адрес.
-После подтверждения транзакции сделка начнётся автоматически.`;
-
-      const buyerKeyboard = dealCreatedKeyboard(updatedDeal.dealId);
+      const buyerKeyboard = dealCreatedKeyboard(updatedDeal.dealId, lang);
       await messageManager.showFinalScreen(ctx, telegramId, 'deal_accepted', buyerText, buyerKeyboard);
     } else {
       // User is seller - waiting for deposit
-      const sellerText = `✅ *Сделка принята!*
+      const sellerText = t(lang, 'invite.accepted_seller', {
+        dealId: updatedDeal.dealId,
+        productName: escapeMarkdown(updatedDeal.productName),
+        amount: updatedDeal.amount,
+        asset: updatedDeal.asset,
+        sellerPayout,
+        shortWallet
+      });
 
-🆔 ID: \`${updatedDeal.dealId}\`
-📦 ${escapeMarkdown(updatedDeal.productName)}
-
-💰 Сумма: ${updatedDeal.amount} ${updatedDeal.asset}
-💸 Вы получите: ${sellerPayout} ${updatedDeal.asset}
-💳 Ваш кошелёк: \`${shortWallet}\`
-
-⏳ *Статус:* Ожидание депозита от покупателя
-
-Покупатель получил адрес для оплаты.`;
-
-      const sellerKeyboard = dealCreatedKeyboard(updatedDeal.dealId);
+      const sellerKeyboard = dealCreatedKeyboard(updatedDeal.dealId, lang);
       await messageManager.showFinalScreen(ctx, telegramId, 'deal_accepted', sellerText, sellerKeyboard);
     }
 
     // Show private key message
-    const roleLabel = userRole === 'buyer' ? 'покупателя' : 'продавца';
-    const keyText = `🔐 *ВАЖНО: Ваш приватный ключ!*
+    const roleLabel = userRole === 'buyer' ? t(lang, 'createDeal.private_key_buyer') : t(lang, 'createDeal.private_key_seller');
+    const keyText = `${t(lang, 'createDeal.private_key_title')}
 
-🆔 Сделка: \`${updatedDeal.dealId}\`
+🆔 ${t(lang, 'myDeals.deal_label', { dealId: updatedDeal.dealId })}
 
-Ваш приватный ключ ${roleLabel}:
+${roleLabel}
 \`${counterpartyPrivateKey}\`
 
-⚠️ *СОХРАНИТЕ ЭТОТ КЛЮЧ ПРЯМО СЕЙЧАС!*
+${t(lang, 'createDeal.private_key_warning')}
+${t(lang, 'createDeal.private_key_general_warning')}
 
-• Скопируйте и сохраните в надёжном месте
-• Этот ключ показан *ОДИН РАЗ* и *НЕ ХРАНИТСЯ* на сервере
-• Без этого ключа вы НЕ сможете получить/вернуть средства!
-
-🗑 Сообщение удалится через 60 секунд или по нажатию кнопки.`;
+${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('✅ Я сохранил ключ', `key_saved:${updatedDeal.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${updatedDeal.dealId}`)]
     ]);
 
     const keyMsg = await ctx.telegram.sendMessage(telegramId, keyText, {
@@ -330,40 +312,34 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
     // ========== NOTIFY CREATOR ==========
     const creatorId = updatedDeal.creatorRole === 'buyer' ? updatedDeal.buyerId : updatedDeal.sellerId;
     const counterpartyUser = await User.findOne({ telegramId });
-    const counterpartyUsername = counterpartyUser?.username ? `@${counterpartyUser.username}` : 'Контрагент';
+    const counterpartyUsername = counterpartyUser?.username ? `@${counterpartyUser.username}` : t(lang, 'common.counterparty');
+
+    // Load creator's language
+    const creatorUserDoc = await User.findOne({ telegramId: creatorId }).select('languageCode').lean();
+    const creatorLang = creatorUserDoc?.languageCode || 'ru';
 
     if (updatedDeal.creatorRole === 'buyer') {
       // Creator is buyer - now has deposit address
-      const creatorText = `✅ *Контрагент принял сделку!*
+      const creatorText = t(creatorLang, 'invite.creator_notify_buyer', {
+        dealId: updatedDeal.dealId,
+        productName: escapeMarkdown(updatedDeal.productName),
+        counterpartyUsername,
+        multisigAddress: updatedDeal.multisigAddress,
+        depositAmount,
+        asset: updatedDeal.asset
+      });
 
-🆔 ID: \`${updatedDeal.dealId}\`
-📦 ${escapeMarkdown(updatedDeal.productName)}
-
-👤 Продавец: ${counterpartyUsername}
-
-📥 *Адрес для депозита:*
-\`${updatedDeal.multisigAddress}\`
-
-💸 К оплате: ${depositAmount} ${updatedDeal.asset}
-
-⚠️ Отправьте *ровно ${depositAmount} USDT* на указанный адрес.`;
-
-      const creatorKeyboard = dealCreatedKeyboard(updatedDeal.dealId);
+      const creatorKeyboard = dealCreatedKeyboard(updatedDeal.dealId, creatorLang);
       await messageManager.showNotification(ctx, creatorId, creatorText, creatorKeyboard);
     } else {
       // Creator is seller - buyer should deposit
-      const creatorText = `✅ *Контрагент принял сделку!*
+      const creatorText = t(creatorLang, 'invite.creator_notify_seller', {
+        dealId: updatedDeal.dealId,
+        productName: escapeMarkdown(updatedDeal.productName),
+        counterpartyUsername
+      });
 
-🆔 ID: \`${updatedDeal.dealId}\`
-📦 ${escapeMarkdown(updatedDeal.productName)}
-
-👤 Покупатель: ${counterpartyUsername}
-
-⏳ *Статус:* Ожидание депозита
-
-Покупатель получил адрес для оплаты. После поступления депозита вы получите уведомление.`;
-
-      const creatorKeyboard = dealCreatedKeyboard(updatedDeal.dealId);
+      const creatorKeyboard = dealCreatedKeyboard(updatedDeal.dealId, creatorLang);
       await messageManager.showNotification(ctx, creatorId, creatorText, creatorKeyboard);
     }
 
@@ -376,11 +352,9 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
   } catch (error) {
     console.error('Error processing invite wallet:', error);
 
-    const text = `❌ *Ошибка*
+    const text = t(lang, 'invite.error', { message: error.message });
 
-${error.message}`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'invite_error', text, keyboard);
     await clearInviteAcceptSession(telegramId);
 
@@ -393,6 +367,7 @@ ${error.message}`;
  */
 const handleInviteSelectWallet = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
@@ -403,7 +378,7 @@ const handleInviteSelectWallet = async (ctx) => {
     const savedWallets = user?.wallets || [];
 
     if (walletIndex >= savedWallets.length) {
-      await ctx.answerCbQuery('Кошелёк не найден', { show_alert: true });
+      await ctx.answerCbQuery(t(lang, 'wallet.not_found_alert'), { show_alert: true });
       return;
     }
 
@@ -413,7 +388,7 @@ const handleInviteSelectWallet = async (ctx) => {
     await handleInviteWalletInput(ctx, selectedWallet.address);
   } catch (error) {
     console.error('Error selecting wallet for invite:', error);
-    await ctx.answerCbQuery('Произошла ошибка', { show_alert: true });
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.error'), { show_alert: true });
   }
 };
 

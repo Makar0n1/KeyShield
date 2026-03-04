@@ -16,6 +16,7 @@ const ReferralWithdrawal = require('../../models/ReferralWithdrawal');
 const messageManager = require('../utils/messageManager');
 const blockchainService = require('../../services/blockchain');
 const adminAlertService = require('../../services/adminAlertService');
+const { t, formatDate } = require('../../locales');
 const { Markup } = require('telegraf');
 
 // ============================================
@@ -44,22 +45,22 @@ async function clearReferralSession(telegramId) {
 /**
  * Main referral menu keyboard
  */
-const referralMenuKeyboard = (canWithdraw, hasBalance) => {
+const referralMenuKeyboard = (canWithdraw, hasBalance, lang = 'ru') => {
   const buttons = [];
 
-  buttons.push([Markup.button.callback('🔗 Моя ссылка', 'referral:link')]);
-  buttons.push([Markup.button.callback('👥 Мои рефералы', 'referral:list')]);
-  buttons.push([Markup.button.callback('📊 История начислений', 'referral:history')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.my_link'), 'referral:link')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.my_referrals'), 'referral:list')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.accrual_history'), 'referral:history')]);
 
   if (hasBalance) {
     if (canWithdraw) {
-      buttons.push([Markup.button.callback('💸 Вывести баланс', 'referral:withdraw')]);
+      buttons.push([Markup.button.callback(t(lang, 'btn.withdraw_balance'), 'referral:withdraw')]);
     } else {
-      buttons.push([Markup.button.callback('💸 Вывести (мин. 10$)', 'referral:withdraw_info')]);
+      buttons.push([Markup.button.callback(t(lang, 'btn.withdraw_min'), 'referral:withdraw_info')]);
     }
   }
 
-  buttons.push([Markup.button.callback('⬅️ Назад', 'main_menu')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'main_menu')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -67,17 +68,17 @@ const referralMenuKeyboard = (canWithdraw, hasBalance) => {
 /**
  * Referral link screen keyboard
  */
-const referralLinkKeyboard = () => {
+const referralLinkKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('⬅️ Назад', 'referral:back')],
-    [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+    [Markup.button.callback(t(lang, 'btn.back'), 'referral:back')],
+    [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
   ]);
 };
 
 /**
  * Referrals list keyboard with pagination
  */
-const referralsListKeyboard = (page, totalPages, hasReferrals) => {
+const referralsListKeyboard = (page, totalPages, hasReferrals, lang = 'ru') => {
   const buttons = [];
 
   if (hasReferrals && totalPages > 1) {
@@ -92,7 +93,7 @@ const referralsListKeyboard = (page, totalPages, hasReferrals) => {
     buttons.push(navRow);
   }
 
-  buttons.push([Markup.button.callback('⬅️ Назад', 'referral:back')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'referral:back')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -100,7 +101,7 @@ const referralsListKeyboard = (page, totalPages, hasReferrals) => {
 /**
  * History keyboard with pagination
  */
-const historyKeyboard = (page, totalPages, hasHistory) => {
+const historyKeyboard = (page, totalPages, hasHistory, lang = 'ru') => {
   const buttons = [];
 
   if (hasHistory && totalPages > 1) {
@@ -115,7 +116,7 @@ const historyKeyboard = (page, totalPages, hasHistory) => {
     buttons.push(navRow);
   }
 
-  buttons.push([Markup.button.callback('⬅️ Назад', 'referral:back')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'referral:back')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -123,19 +124,19 @@ const historyKeyboard = (page, totalPages, hasHistory) => {
 /**
  * Withdrawal wallet input keyboard
  */
-const withdrawalWalletKeyboard = (savedWallets = []) => {
+const withdrawalWalletKeyboard = (savedWallets = [], lang = 'ru') => {
   const buttons = [];
 
   // Show saved wallets as options
   savedWallets.forEach((wallet, index) => {
-    const displayName = wallet.name || `Кошелёк ${index + 1}`;
+    const displayName = wallet.name || t(lang, 'wallet.default_name', { index: index + 1 });
     const shortAddr = wallet.address.slice(0, 6) + '...' + wallet.address.slice(-4);
     buttons.push([
       Markup.button.callback(`💳 ${displayName}: ${shortAddr}`, `referral:use_wallet:${index}`)
     ]);
   });
 
-  buttons.push([Markup.button.callback('❌ Отмена', 'referral:back')]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.cancel'), 'referral:back')]);
 
   return Markup.inlineKeyboard(buttons);
 };
@@ -143,10 +144,10 @@ const withdrawalWalletKeyboard = (savedWallets = []) => {
 /**
  * Withdrawal confirmation keyboard
  */
-const withdrawalConfirmKeyboard = () => {
+const withdrawalConfirmKeyboard = (lang = 'ru') => {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Подтвердить', 'referral:confirm_withdraw')],
-    [Markup.button.callback('❌ Отмена', 'referral:back')]
+    [Markup.button.callback(t(lang, 'btn.confirm'), 'referral:confirm_withdraw')],
+    [Markup.button.callback(t(lang, 'btn.cancel'), 'referral:back')]
   ]);
 };
 
@@ -159,6 +160,8 @@ const withdrawalConfirmKeyboard = () => {
  */
 async function showReferrals(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery();
     }
@@ -171,8 +174,8 @@ async function showReferrals(ctx) {
     // Get user with referral data
     const user = await User.findOne({ telegramId });
     if (!user) {
-      await messageManager.sendNewMessage(ctx, telegramId, '❌ Пользователь не найден.',
-        Markup.inlineKeyboard([[Markup.button.callback('🏠 Главное меню', 'main_menu')]]));
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.user_not_found'),
+        Markup.inlineKeyboard([[Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]]));
       return;
     }
 
@@ -193,26 +196,25 @@ async function showReferrals(ctx) {
 
     let withdrawalStatus = '';
     if (pendingWithdrawal) {
-      const statusText = pendingWithdrawal.status === 'pending' ? 'ожидает обработки' : 'в процессе';
-      withdrawalStatus = `\n\n⏳ *Заявка ${pendingWithdrawal.withdrawalId}*: ${statusText}`;
+      const statusText = pendingWithdrawal.status === 'pending'
+        ? t(lang, 'referral.status_pending')
+        : t(lang, 'referral.status_processing');
+      withdrawalStatus = t(lang, 'referral.pending_withdrawal', {
+        withdrawalId: pendingWithdrawal.withdrawalId,
+        status: statusText
+      });
     }
 
-    const text = `🎁 *Реферальная программа*
+    const text = t(lang, 'referral.main', {
+      balance: balance.toFixed(2),
+      totalEarned: totalEarned.toFixed(2),
+      withdrawn: withdrawn.toFixed(2),
+      totalInvited,
+      activeReferrals,
+      withdrawalStatus
+    });
 
-Приглашай друзей и получай *10%* от комиссии сервиса с каждой их сделки!
-
-━━━━━━━━━━━━━━━━━━━━━━
-💰 *Баланс:* ${balance.toFixed(2)} USDT
-📊 *Всего заработано:* ${totalEarned.toFixed(2)} USDT
-💸 *Выведено:* ${withdrawn.toFixed(2)} USDT
-━━━━━━━━━━━━━━━━━━━━━━
-👥 *Приглашено:* ${totalInvited}
-✅ *Активных:* ${activeReferrals}
-━━━━━━━━━━━━━━━━━━━━━━${withdrawalStatus}
-
-_Минимальная сумма для вывода: 10 USDT_`;
-
-    const keyboard = referralMenuKeyboard(canWithdraw && !pendingWithdrawal, hasBalance);
+    const keyboard = referralMenuKeyboard(canWithdraw && !pendingWithdrawal, hasBalance, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in showReferrals:', error);
@@ -224,6 +226,7 @@ _Минимальная сумма для вывода: 10 USDT_`;
  */
 async function showReferralLink(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
@@ -233,25 +236,9 @@ async function showReferralLink(ctx) {
     const referralLink = await user.getReferralLink();
     const referralCode = user.referralCode;
 
-    const text = `🔗 *Твоя реферальная ссылка*
+    const text = t(lang, 'referral.link', { referralLink, referralCode });
 
-Поделись ссылкой с друзьями:
-
-\`${referralLink}\`
-
-Или код для ввода: \`${referralCode}\`
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-*Как это работает:*
-1️⃣ Друг переходит по твоей ссылке
-2️⃣ Регистрируется в боте
-3️⃣ Совершает сделку
-4️⃣ Ты получаешь *10%* от комиссии сервиса!
-
-_Бонус начисляется после успешного завершения сделки._`;
-
-    const keyboard = referralLinkKeyboard();
+    const keyboard = referralLinkKeyboard(lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in showReferralLink:', error);
@@ -271,6 +258,8 @@ function escapeMarkdown(text) {
  */
 async function showReferralsList(ctx, page = 0) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery();
     }
@@ -289,11 +278,10 @@ async function showReferralsList(ctx, page = 0) {
       .limit(pageSize)
       .lean();
 
-    let text = `👥 *Мои рефералы*\n\n`;
+    let text = t(lang, 'referral.my_referrals_title');
 
     if (referrals.length === 0) {
-      text += `_У вас пока нет приглашённых пользователей._\n\n`;
-      text += `Поделитесь своей реферальной ссылкой, чтобы начать зарабатывать!`;
+      text += t(lang, 'referral.no_referrals');
     } else {
       // Get earnings per referral
       const earnings = await ReferralTransaction.aggregate([
@@ -302,7 +290,7 @@ async function showReferralsList(ctx, page = 0) {
       ]);
       const earningsMap = new Map(earnings.map(e => [e._id, e.total]));
 
-      text += `Всего: ${totalReferrals}\n\n`;
+      text += t(lang, 'referral.total_referrals', { count: totalReferrals });
 
       for (const ref of referrals) {
         // Escape username/firstName to prevent Markdown parsing errors
@@ -311,15 +299,15 @@ async function showReferralsList(ctx, page = 0) {
           : (escapeMarkdown(ref.firstName) || `ID: ${ref.telegramId}`);
         const dealsCompleted = ref.stats?.dealsCompleted || 0;
         const earned = earningsMap.get(ref.telegramId) || 0;
-        const date = new Date(ref.createdAt).toLocaleDateString('ru-RU');
+        const date = formatDate(lang, ref.createdAt, { hour: undefined, minute: undefined, second: undefined });
 
         const status = dealsCompleted > 0 ? '✅' : '⏳';
         text += `${status} ${safeName}\n`;
-        text += `   📅 ${date} • 📊 ${dealsCompleted} сделок • 💰 ${earned.toFixed(2)}$\n\n`;
+        text += t(lang, 'referral.referral_stats', { date, deals: dealsCompleted, earned: earned.toFixed(2) });
       }
     }
 
-    const keyboard = referralsListKeyboard(page, totalPages, referrals.length > 0);
+    const keyboard = referralsListKeyboard(page, totalPages, referrals.length > 0, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in showReferralsList:', error);
@@ -331,6 +319,8 @@ async function showReferralsList(ctx, page = 0) {
  */
 async function showReferralHistory(ctx, page = 0) {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     if (ctx.callbackQuery) {
       await ctx.answerCbQuery();
     }
@@ -348,28 +338,27 @@ async function showReferralHistory(ctx, page = 0) {
       .limit(pageSize)
       .lean();
 
-    let text = `📊 *История начислений*\n\n`;
+    let text = t(lang, 'referral.history_title');
 
     if (transactions.length === 0) {
-      text += `_Пока нет начислений._\n\n`;
-      text += `Начисления появятся после того, как ваши рефералы завершат сделки.`;
+      text += t(lang, 'referral.no_history');
     } else {
-      text += `Всего операций: ${totalTransactions}\n\n`;
+      text += t(lang, 'referral.total_operations', { count: totalTransactions });
 
       for (const tx of transactions) {
-        const date = new Date(tx.createdAt).toLocaleDateString('ru-RU');
+        const date = formatDate(lang, tx.createdAt, { hour: undefined, minute: undefined, second: undefined });
         const referee = await User.findOne({ telegramId: tx.refereeId }).select('username firstName').lean();
         const refName = referee?.username
           ? `@${escapeMarkdown(referee.username)}`
-          : (escapeMarkdown(referee?.firstName) || 'Пользователь');
+          : (escapeMarkdown(referee?.firstName) || t(lang, 'common.user'));
 
         text += `💰 *+${tx.bonusAmount.toFixed(2)} USDT*\n`;
-        text += `   ${refName} • Сделка ${tx.dealId}\n`;
+        text += `   ${refName} • ${t(lang, 'referral.deal_label')} ${tx.dealId}\n`;
         text += `   📅 ${date}\n\n`;
       }
     }
 
-    const keyboard = historyKeyboard(page, totalPages, transactions.length > 0);
+    const keyboard = historyKeyboard(page, totalPages, transactions.length > 0, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in showReferralHistory:', error);
@@ -385,6 +374,7 @@ async function showReferralHistory(ctx, page = 0) {
  */
 async function showWithdrawalInfo(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
@@ -392,17 +382,13 @@ async function showWithdrawalInfo(ctx) {
     const balance = user?.referralBalance || 0;
     const needed = (10 - balance).toFixed(2);
 
-    const text = `💸 *Вывод средств*
-
-Минимальная сумма для вывода: *10 USDT*
-
-Ваш баланс: *${balance.toFixed(2)} USDT*
-Осталось накопить: *${needed} USDT*
-
-_Продолжайте приглашать друзей, чтобы быстрее достичь минимальной суммы!_`;
+    const text = t(lang, 'referral.withdraw_not_enough', {
+      balance: balance.toFixed(2),
+      needed
+    });
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('⬅️ Назад', 'referral:back')]
+      [Markup.button.callback(t(lang, 'btn.back'), 'referral:back')]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -416,21 +402,24 @@ _Продолжайте приглашать друзей, чтобы быстр
  */
 async function startWithdrawal(ctx) {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
 
     // Check for pending withdrawal
     const pendingWithdrawal = await ReferralWithdrawal.getUserPendingWithdrawal(telegramId);
     if (pendingWithdrawal) {
-      const text = `⚠️ *У вас уже есть активная заявка*
+      const statusText = pendingWithdrawal.status === 'pending'
+        ? t(lang, 'referral.status_pending')
+        : t(lang, 'referral.status_processing');
 
-Заявка: \`${pendingWithdrawal.withdrawalId}\`
-Статус: ${pendingWithdrawal.status === 'pending' ? 'ожидает обработки' : 'в процессе'}
-
-Дождитесь завершения текущей заявки.`;
+      const text = t(lang, 'referral.withdraw_pending_exists', {
+        withdrawalId: pendingWithdrawal.withdrawalId,
+        status: statusText
+      });
 
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('⬅️ Назад', 'referral:back')]
+        [Markup.button.callback(t(lang, 'btn.back'), 'referral:back')]
       ]);
 
       await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -453,19 +442,15 @@ async function startWithdrawal(ctx) {
 
     const savedWallets = user.wallets || [];
 
-    let text = `💸 *Вывод реферального баланса*
-
-💰 Сумма к выводу: *${user.referralBalance.toFixed(2)} USDT*
-
-`;
+    let text = t(lang, 'referral.withdraw_select_wallet', { balance: user.referralBalance.toFixed(2) });
 
     if (savedWallets.length > 0) {
-      text += `Выберите кошелёк из сохранённых или введите новый адрес TRC-20:`;
+      text += t(lang, 'referral.withdraw_select_saved');
     } else {
-      text += `Введите адрес кошелька TRC-20 для получения выплаты:`;
+      text += t(lang, 'referral.withdraw_enter_address');
     }
 
-    const keyboard = withdrawalWalletKeyboard(savedWallets);
+    const keyboard = withdrawalWalletKeyboard(savedWallets, lang);
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in startWithdrawal:', error);
@@ -507,19 +492,14 @@ async function useSavedWallet(ctx, walletIndex) {
  */
 async function showWithdrawalConfirmation(ctx, amount, walletAddress) {
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
-  const shortAddr = walletAddress.slice(0, 8) + '...' + walletAddress.slice(-6);
+  const text = t(lang, 'referral.withdraw_confirm', {
+    amount: amount.toFixed(2),
+    walletAddress
+  });
 
-  const text = `📤 *Подтверждение вывода*
-
-💰 Сумма: *${amount.toFixed(2)} USDT*
-📍 Кошелёк: \`${walletAddress}\`
-
-⚠️ Выплаты обрабатываются вручную в течение 24-48 часов.
-
-Подтвердить заявку на вывод?`;
-
-  const keyboard = withdrawalConfirmKeyboard();
+  const keyboard = withdrawalConfirmKeyboard(lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 }
 
@@ -529,6 +509,7 @@ async function showWithdrawalConfirmation(ctx, amount, walletAddress) {
 async function confirmWithdrawal(ctx) {
   try {
     await ctx.answerCbQuery();
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
 
     const session = await Session.getSession(telegramId, 'referral');
@@ -571,19 +552,15 @@ async function confirmWithdrawal(ctx) {
     // Clear session
     await clearReferralSession(telegramId);
 
-    const text = `✅ *Заявка на вывод создана!*
-
-📋 Номер заявки: \`${withdrawal.withdrawalId}\`
-💰 Сумма: *${amount.toFixed(2)} USDT*
-📍 Кошелёк: \`${walletAddress}\`
-
-⏳ Заявка будет обработана в течение 24-48 часов.
-
-Вы получите уведомление о выполнении.`;
+    const text = t(lang, 'referral.withdraw_success', {
+      withdrawalId: withdrawal.withdrawalId,
+      amount: amount.toFixed(2),
+      walletAddress
+    });
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('🎁 Рефералы', 'referral:main')],
-      [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+      [Markup.button.callback(t(lang, 'btn.referrals_btn'), 'referral:main')],
+      [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -621,12 +598,11 @@ async function handleReferralTextInput(ctx) {
       // Validate TRC-20 address
       const isValid = blockchainService.validateAddress(text);
       if (!isValid) {
-        const errorText = `❌ *Неверный адрес*
-
-Введите корректный адрес кошелька TRC-20 (начинается с T):`;
+        const lang = ctx.state?.lang || 'ru';
+        const errorText = t(lang, 'referral.invalid_address');
 
         const user = await User.findOne({ telegramId }).select('wallets');
-        const keyboard = withdrawalWalletKeyboard(user?.wallets || []);
+        const keyboard = withdrawalWalletKeyboard(user?.wallets || [], lang);
 
         await messageManager.sendNewMessage(ctx, telegramId, errorText, keyboard);
         return true;

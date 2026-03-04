@@ -1,24 +1,27 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
+import { useTranslation } from 'react-i18next'
 
 export function PrivacyPage() {
+  const { t } = useTranslation()
+
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    name: 'Политика конфиденциальности KeyShield',
-    description: 'Политика конфиденциальности escrow-сервиса KeyShield. Какие данные мы собираем, как используем и защищаем.',
+    name: t('privacy.title'),
+    description: t('privacy.seo_description'),
     dateModified: '2025-12-04',
   }
 
   return (
     <>
       <SEO
-        title="Политика конфиденциальности"
-        description="Политика конфиденциальности KeyShield. Узнайте какие данные мы собираем, как используем, храним и защищаем вашу информацию."
+        title={t('privacy.seo_title')}
+        description={t('privacy.seo_description')}
         url="/privacy"
         schema={schema}
       />
-      <DocumentLayout title="Политика конфиденциальности KeyShield" date="4 декабря 2025 г.">
+      <DocumentLayout title={t('privacy.title')} date={t('privacy.date')}>
       <Section title="1. Общие положения">
         <Paragraph>
           1.1. Настоящая Политика конфиденциальности (далее - "Политика") описывает, как KeyShield

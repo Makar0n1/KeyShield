@@ -1,5 +1,6 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
+import { useTranslation } from 'react-i18next'
 import {
   COMMISSION_TIER_1_MAX,
   COMMISSION_TIER_1_FIXED,
@@ -12,23 +13,25 @@ import {
 } from '@/config/constants'
 
 export function OfferPage() {
+  const { t } = useTranslation()
+
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
-    name: 'Публичная оферта KeyShield',
-    description: 'Публичная оферта escrow-сервиса KeyShield. Договор на оказание услуг по проведению безопасных криптовалютных сделок.',
+    name: t('offer.title'),
+    description: t('offer.seo_description'),
     dateModified: '2025-12-04',
   }
 
   return (
     <>
       <SEO
-        title="Публичная оферта"
-        description="Публичная оферта KeyShield. Договор на оказание услуг безопасного escrow для криптовалютных сделок с использованием multisig-кошельков."
+        title={t('offer.seo_title')}
+        description={t('offer.seo_description')}
         url="/offer"
         schema={schema}
       />
-      <DocumentLayout title="Публичная оферта KeyShield" date="4 декабря 2025 г.">
+      <DocumentLayout title={t('offer.title')} date={t('offer.date')}>
       <Section title="1. Общие положения">
         <Paragraph>
           1.1. Настоящая публичная оферта (далее - "Оферта") является официальным предложением

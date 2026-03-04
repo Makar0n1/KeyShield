@@ -16,6 +16,7 @@ const User = require('../../models/User');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton } = require('../keyboards/main');
 const { Markup } = require('telegraf');
+const { t } = require('../../locales');
 
 /**
  * Check if user has active rating session
@@ -57,8 +58,9 @@ async function createRatingSession(telegramId, dealId, counterpartyId, counterpa
  * Generate star buttons for rating
  * @param {number} selectedRating - Currently selected rating (0-5)
  * @param {string} dealId - Deal ID for callback data
+ * @param {string} lang - Language code
  */
-function getRatingKeyboard(selectedRating, dealId) {
+function getRatingKeyboard(selectedRating, dealId, lang = 'ru') {
   const stars = [];
   for (let i = 1; i <= 5; i++) {
     // Yellow star if selected, gray/empty if not
@@ -72,11 +74,11 @@ function getRatingKeyboard(selectedRating, dealId) {
 
   // Add confirm button only if rating is selected
   if (selectedRating > 0) {
-    buttons.push([Markup.button.callback('✅ Подтвердить оценку', `rating_confirm:${dealId}`)]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.confirm_rating'), `rating_confirm:${dealId}`)]);
   }
 
   // Skip button always available
-  buttons.push([Markup.button.callback('⏭ Пропустить', `rating_skip:${dealId}`)]);
+  buttons.push([Markup.button.callback(t(lang, 'btn.skip'), `rating_skip:${dealId}`)]);
 
   return Markup.inlineKeyboard(buttons);
 }
@@ -92,21 +94,22 @@ function getRatingKeyboard(selectedRating, dealId) {
  * @param {string} finalMessage - Final message to show after rating
  */
 async function showRatingScreen(ctx, telegramId, deal, counterpartyId, counterpartyRole, counterpartyUsername, finalMessage) {
+  const lang = ctx.state?.lang || 'ru';
+
   // Create session
   await createRatingSession(telegramId, deal.dealId, counterpartyId, counterpartyRole, counterpartyUsername, finalMessage);
 
-  const roleLabel = counterpartyRole === 'seller' ? 'продавца' : 'покупателя';
+  const roleLabel = counterpartyRole === 'seller' ? t(lang, 'role.seller_gen') : t(lang, 'role.buyer_gen');
+  const counterpartyRoleDisplay = counterpartyRole === 'seller' ? t(lang, 'role.seller') : t(lang, 'role.buyer');
 
-  const text = `⭐ *Оцените ${roleLabel}*
+  const text = t(lang, 'rating.ask', {
+    roleLabel,
+    dealId: deal.dealId,
+    counterpartyRole: counterpartyRoleDisplay,
+    counterpartyUsername
+  });
 
-🆔 Сделка: \`${deal.dealId}\`
-👤 ${counterpartyRole === 'seller' ? 'Продавец' : 'Покупатель'}: @${counterpartyUsername}
-
-Как прошла сделка? Оцените контрагента:
-
-_Выберите от 1 до 5 звёзд_`;
-
-  const keyboard = getRatingKeyboard(0, deal.dealId);
+  const keyboard = getRatingKeyboard(0, deal.dealId, lang);
   await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
 }
 
@@ -116,14 +119,15 @@ _Выберите от 1 до 5 звёзд_`;
 async function handleRatingSelect(ctx) {
   try {
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
     const [, dealId, ratingStr] = ctx.callbackQuery.data.split(':');
     const rating = parseInt(ratingStr, 10);
 
     const session = await Session.getSession(telegramId, 'deal_rating');
     if (!session) {
-      await ctx.answerCbQuery('⚠️ Сессия истекла');
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      await ctx.answerCbQuery(t(lang, 'common.session_expired'));
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.session_expired'), keyboard);
       return;
     }
 
@@ -132,20 +136,21 @@ async function handleRatingSelect(ctx) {
     await Session.setSession(telegramId, 'deal_rating', session, 1);
 
     // Update message with new stars
-    const roleLabel = session.counterpartyRole === 'seller' ? 'продавца' : 'покупателя';
+    const roleLabel = session.counterpartyRole === 'seller' ? t(lang, 'role.seller_gen') : t(lang, 'role.buyer_gen');
+    const counterpartyRoleDisplay = session.counterpartyRole === 'seller' ? t(lang, 'role.seller') : t(lang, 'role.buyer');
 
-    const text = `⭐ *Оцените ${roleLabel}*
+    const text = t(lang, 'rating.updated', {
+      roleLabel,
+      dealId: session.dealId,
+      counterpartyRole: counterpartyRoleDisplay,
+      counterpartyUsername: session.counterpartyUsername,
+      stars: '⭐'.repeat(rating),
+      emptyStars: '☆'.repeat(5 - rating)
+    });
 
-🆔 Сделка: \`${session.dealId}\`
-👤 ${session.counterpartyRole === 'seller' ? 'Продавец' : 'Покупатель'}: @${session.counterpartyUsername}
+    const keyboard = getRatingKeyboard(rating, session.dealId, lang);
 
-Как прошла сделка? Оцените контрагента:
-
-Ваша оценка: ${'⭐'.repeat(rating)}${'☆'.repeat(5 - rating)}`;
-
-    const keyboard = getRatingKeyboard(rating, session.dealId);
-
-    await ctx.answerCbQuery(`${rating} ${rating === 1 ? 'звезда' : rating < 5 ? 'звезды' : 'звёзд'}`);
+    await ctx.answerCbQuery(t(lang, 'rating.star_count', { rating }));
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } catch (error) {
     console.error('Error in handleRatingSelect:', error);
@@ -157,13 +162,14 @@ async function handleRatingSelect(ctx) {
  */
 async function handleRatingConfirm(ctx) {
   try {
-    await ctx.answerCbQuery('✅ Оценка сохранена');
+    const lang = ctx.state?.lang || 'ru';
+    await ctx.answerCbQuery(t(lang, 'rating.saved'));
     const telegramId = ctx.from.id;
 
     const session = await Session.getSession(telegramId, 'deal_rating');
     if (!session || session.selectedRating === 0) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.session_expired'), keyboard);
       return;
     }
 
@@ -178,13 +184,13 @@ async function handleRatingConfirm(ctx) {
     await clearRatingSession(telegramId);
 
     // Show final message with thank you
-    const thankYouText = `✅ *Спасибо за оценку!*
+    const thankYouText = t(lang, 'rating.thank_you', {
+      stars: '⭐'.repeat(session.selectedRating),
+      username: session.counterpartyUsername,
+      finalMessage: session.finalMessage
+    });
 
-Вы поставили ${'⭐'.repeat(session.selectedRating)} @${session.counterpartyUsername}
-
-${session.finalMessage}`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.sendNewMessage(ctx, telegramId, thankYouText, keyboard);
   } catch (error) {
     console.error('Error in handleRatingConfirm:', error);
@@ -198,11 +204,12 @@ async function handleRatingSkip(ctx) {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     const session = await Session.getSession(telegramId, 'deal_rating');
     if (!session) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.session_expired'), keyboard);
       return;
     }
 
@@ -210,7 +217,7 @@ async function handleRatingSkip(ctx) {
     await clearRatingSession(telegramId);
 
     // Show final message without rating
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.sendNewMessage(ctx, telegramId, session.finalMessage, keyboard);
   } catch (error) {
     console.error('Error in handleRatingSkip:', error);

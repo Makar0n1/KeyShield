@@ -6,68 +6,25 @@ const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
 const activityLogger = require('../../services/activityLogger');
 const dealService = require('../../services/dealService');
+const { t } = require('../../locales');
 const {
   COMMISSION_TIER_1_FIXED,
   COMMISSION_TIER_2_RATE,
   MIN_DEAL_AMOUNT
-} = require('../../config/constants'); 
+} = require('../../config/constants');
 
-// Welcome text for NEW users
-const WELCOME_TEXT = `👋 *Добро пожаловать в KeyShield!*
+// Dynamic text functions using i18n
+const getWelcomeText = (lang) => t(lang, 'welcome.title', {
+  commissionFixed: COMMISSION_TIER_1_FIXED,
+  minAmount: MIN_DEAL_AMOUNT
+});
 
-🛡 *Что умеет этот бот?*
+const getMainMenuText = (lang) => t(lang, 'welcome.main_menu', {
+  commissionFixed: COMMISSION_TIER_1_FIXED,
+  minAmount: MIN_DEAL_AMOUNT
+});
 
-KeyShield — это escrow-сервис для безопасных сделок между покупателями и продавцами в криптовалюте.
-
-✅ *Защита от мошенничества*
-Средства замораживаются на multisig-кошельке, пока сделка не завершена.
-
-✅ *Автоматический контроль*
-Бот сам отслеживает депозиты в блокчейне TRON.
-
-✅ *Справедливый арбитраж*
-При споре — нейтральный арбитр рассмотрит доказательства обеих сторон.
-
-✅ *Анонимность*
-Никакой верификации. Только ваш Telegram и TRON-кошелёк.
-
-💰 *Комиссия:* от ${COMMISSION_TIER_1_FIXED} USDT
-📊 *Минимум:* ${MIN_DEAL_AMOUNT} USDT
-💵 *Актив:* USDT (TRC-20)
-
-Нажмите кнопку ниже, чтобы начать!`;
-
-// Main menu text (used in multiple places)
-const MAIN_MENU_TEXT = `🛡 *KeyShield — Безопасные сделки*
-
-Защищённый escrow-сервис для сделок между покупателями и продавцами.
-
-🔐 *Мультисиг-кошельки*
-Средства хранятся на защищённом кошельке с мультиподписью 2-из-3.
-
-⚡️ *Автоматический контроль*
-Система автоматически отслеживает депозиты в блокчейне TRON.
-
-⚖️ *Арбитраж споров*
-При конфликте — нейтральный арбитр рассмотрит доказательства.
-
-💰 *Комиссия:* от ${COMMISSION_TIER_1_FIXED} USDT
-📊 *Минимум:* ${MIN_DEAL_AMOUNT} USDT
-💵 *Актив:* USDT (TRC-20)
-
-🌐 [keyshield.me](https://keyshield.me/)
-
-Выберите действие:`;
-
-// Ban screen text
-const BAN_SCREEN_TEXT = `🚫 *Аккаунт заблокирован*
-
-Ваш аккаунт заблокирован из-за нарушения правил сервиса.
-
-Если вы считаете, что блокировка ошибочна, обратитесь в поддержку:
-
-📧 support@keyshield.io
-💬 @keyshield\\_support`;
+const getBanScreenText = (lang) => t(lang, 'welcome.ban_screen');
 
 /**
  * /start command handler
@@ -81,6 +38,7 @@ const startHandler = async (ctx) => {
     const telegramId = ctx.from.id;
     const username = ctx.from.username;
     const firstName = ctx.from.first_name;
+    const lang = ctx.state?.lang || 'ru';
 
     // Log bot unblocked if user was blocked before (they're back!)
     await activityLogger.logBotUnblocked(telegramId);
@@ -186,7 +144,7 @@ const startHandler = async (ctx) => {
       await messageManager.deleteMainMessage(ctx, telegramId);
 
       // Send ban screen (no keyboard)
-      const msg = await ctx.telegram.sendMessage(telegramId, BAN_SCREEN_TEXT, {
+      const msg = await ctx.telegram.sendMessage(telegramId, getBanScreenText(lang), {
         parse_mode: 'Markdown'
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
@@ -200,10 +158,10 @@ const startHandler = async (ctx) => {
     await messageManager.resetNavigation(telegramId);
 
     // Choose text based on new/returning user
-    const textToShow = isNewUser ? WELCOME_TEXT : MAIN_MENU_TEXT;
+    const textToShow = isNewUser ? getWelcomeText(lang) : getMainMenuText(lang);
 
     // Send new main message
-    const keyboard = mainMenuKeyboard();
+    const keyboard = mainMenuKeyboard(lang);
     const msg = await ctx.telegram.sendMessage(telegramId, textToShow, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
@@ -229,12 +187,13 @@ const mainMenuHandler = async (ctx) => {
     }
 
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     // Reset navigation and show main menu (uses delete + send)
     await messageManager.resetNavigation(telegramId);
 
-    const keyboard = mainMenuKeyboard();
-    await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+    const keyboard = mainMenuKeyboard(lang);
+    await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', getMainMenuText(lang), keyboard);
   } catch (error) {
     console.error('Error in main menu handler:', error);
   }
@@ -248,14 +207,15 @@ const backHandler = async (ctx) => {
     await ctx.answerCbQuery();
 
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     // Try to go back (uses delete + send)
     const previousScreen = await messageManager.goBack(ctx, telegramId);
 
     // If no previous screen, show main menu
     if (!previousScreen) {
-      const keyboard = mainMenuKeyboard();
-      await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', MAIN_MENU_TEXT, keyboard);
+      const keyboard = mainMenuKeyboard(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', getMainMenuText(lang), keyboard);
     }
   } catch (error) {
     console.error('Error in back handler:', error);
@@ -268,6 +228,8 @@ const backHandler = async (ctx) => {
  */
 const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
+
     // First, ensure user exists (register if new)
     let user = await User.findOne({ telegramId });
     let isNewUser = false;
@@ -292,7 +254,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     // Check if user is banned
     if (user.blacklisted) {
       await messageManager.deleteMainMessage(ctx, telegramId);
-      const msg = await ctx.telegram.sendMessage(telegramId, BAN_SCREEN_TEXT, {
+      const msg = await ctx.telegram.sendMessage(telegramId, getBanScreenText(lang), {
         parse_mode: 'Markdown'
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
@@ -307,16 +269,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       await messageManager.deleteMainMessage(ctx, telegramId);
       await messageManager.resetNavigation(telegramId);
 
-      const errorText = `❌ *Ссылка недействительна*
+      const errorText = t(lang, 'invite.invalid');
 
-Эта ссылка-приглашение не найдена или уже истекла.
-
-Возможные причины:
-• Ссылка была отменена создателем
-• Прошло более 24 часов с момента создания
-• Сделка уже принята другим участником`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
         parse_mode: 'Markdown',
         reply_markup: keyboard.reply_markup
@@ -335,13 +290,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       await messageManager.deleteMainMessage(ctx, telegramId);
       await messageManager.resetNavigation(telegramId);
 
-      const errorText = `❌ *Ссылка истекла*
+      const errorText = t(lang, 'invite.expired_long');
 
-Эта ссылка-приглашение действовала 24 часа и уже не активна.
-
-Попросите создателя сделки отправить новую ссылку.`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
         parse_mode: 'Markdown',
         reply_markup: keyboard.reply_markup
@@ -356,13 +307,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       await messageManager.deleteMainMessage(ctx, telegramId);
       await messageManager.resetNavigation(telegramId);
 
-      const errorText = `❌ *Это ваша сделка*
+      const errorText = t(lang, 'invite.own_deal');
 
-Вы не можете принять собственную сделку.
-
-Отправьте эту ссылку контрагенту.`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
         parse_mode: 'Markdown',
         reply_markup: keyboard.reply_markup
@@ -379,13 +326,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       await messageManager.deleteMainMessage(ctx, telegramId);
       await messageManager.resetNavigation(telegramId);
 
-      const errorText = `❌ *Достигнут лимит сделок*
+      const errorText = t(lang, 'invite.deals_limit', { count, max: MAX_ACTIVE_DEALS_PER_USER });
 
-У вас уже ${count} активных сделок (максимум ${MAX_ACTIVE_DEALS_PER_USER}).
-
-Завершите одну из текущих сделок, прежде чем принимать новую.`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
         parse_mode: 'Markdown',
         reply_markup: keyboard.reply_markup
@@ -396,12 +339,12 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
 
     // Get creator info
     const creator = await User.findOne({ telegramId: creatorId });
-    const creatorUsername = creator?.username ? `@${creator.username}` : 'Неизвестный';
+    const creatorUsername = creator?.username ? `@${creator.username}` : t(lang, 'common.unknown_user');
 
     // Get creator rating using proper User model fields
-    let creatorRatingDisplay = '⭐ Новый пользователь';
+    let creatorRatingDisplay = t(lang, 'common.new_user_rating');
     if (creator?.ratingsCount > 0) {
-      creatorRatingDisplay = `⭐ ${creator.averageRating}/5 (${creator.ratingsCount} отзывов)`;
+      creatorRatingDisplay = `⭐ ${creator.averageRating}/5 (${creator.ratingsCount} ${t(lang, 'plural.reviews', { count: creator.ratingsCount })})`;
     }
 
     // Calculate amounts
@@ -422,33 +365,33 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
 
     // Determine user's role in this deal
     const userRole = deal.creatorRole === 'buyer' ? 'seller' : 'buyer';
-    const userRoleLabel = userRole === 'buyer' ? '💵 Покупатель' : '🛠 Продавец';
-    const creatorRoleLabel = deal.creatorRole === 'buyer' ? '💵 Покупатель' : '🛠 Продавец';
+    const userRoleLabel = t(lang, `role.${userRole}_icon`);
+    const creatorRoleLabel = t(lang, `role.${deal.creatorRole}_icon`);
 
     // Build invite acceptance screen
-    const inviteText = `📨 *Приглашение в сделку*
+    const paymentInfo = userRole === 'buyer'
+      ? t(lang, 'invite.to_pay', { amount: depositAmount, asset: deal.asset })
+      : t(lang, 'invite.you_receive', { amount: sellerPayout, asset: deal.asset });
 
-🆔 ID: \`${deal.dealId}\`
-
-*Ваша роль:* ${userRoleLabel}
-*Контрагент:* ${creatorUsername} (${creatorRoleLabel})
-*Рейтинг:* ${creatorRatingDisplay}
-
-📦 *Товар/услуга:* ${deal.productName}
-${deal.description ? `📝 *Описание:* ${deal.description}\n` : ''}
-💰 *Сумма:* ${deal.amount} ${deal.asset}
-📊 *Комиссия:* ${commission} ${deal.asset}
-${userRole === 'buyer' ? `💸 *К оплате:* ${depositAmount} ${deal.asset}` : `💸 *Вы получите:* ${sellerPayout} ${deal.asset}`}
-
-⚠️ *Внимание:* Для принятия сделки вам нужно будет указать ваш TRON-кошелёк.
-
-Хотите принять эту сделку?`;
+    const inviteText = t(lang, 'invite.acceptance', {
+      dealId: deal.dealId,
+      userRoleLabel,
+      creatorUsername,
+      creatorRoleLabel,
+      creatorRatingDisplay,
+      productName: deal.productName,
+      description: deal.description || '',
+      amount: deal.amount,
+      asset: deal.asset,
+      commission,
+      paymentInfo
+    });
 
     // Delete old message and show invite
     await messageManager.deleteMainMessage(ctx, telegramId);
     await messageManager.resetNavigation(telegramId);
 
-    const keyboard = inviteAcceptKeyboard(deal.dealId);
+    const keyboard = inviteAcceptKeyboard(deal.dealId, lang);
     const msg = await ctx.telegram.sendMessage(telegramId, inviteText, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
@@ -459,11 +402,9 @@ ${userRole === 'buyer' ? `💸 *К оплате:* ${depositAmount} ${deal.asset}
   } catch (error) {
     console.error('Error handling deal invite:', error);
 
-    const errorText = `❌ *Произошла ошибка*
+    const errorText = t(lang, 'common.error_generic');
 
-Попробуйте ещё раз или обратитесь в поддержку.`;
-
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     try {
       await messageManager.deleteMainMessage(ctx, telegramId);
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
@@ -482,5 +423,6 @@ module.exports = {
   mainMenuHandler,
   backHandler,
   handleDealInvite,
-  MAIN_MENU_TEXT
+  getMainMenuText,
+  MAIN_MENU_TEXT: getMainMenuText('ru')
 };

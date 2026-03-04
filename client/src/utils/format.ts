@@ -1,16 +1,23 @@
 import { format, formatDistanceToNow } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { ru, enUS, uk } from 'date-fns/locale'
+import i18n from '../locales/i18n'
+
+const localeMap: Record<string, Locale> = { ru, en: enUS, uk }
+
+function getLocale(): Locale {
+  return localeMap[i18n.language] || ru
+}
 
 export function formatDate(date: string | Date, formatStr: string = 'd MMMM yyyy'): string {
-  return format(new Date(date), formatStr, { locale: ru })
+  return format(new Date(date), formatStr, { locale: getLocale() })
 }
 
 export function formatDateShort(date: string | Date): string {
-  return format(new Date(date), 'd MMM yyyy', { locale: ru })
+  return format(new Date(date), 'd MMM yyyy', { locale: getLocale() })
 }
 
 export function formatRelativeDate(date: string | Date): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ru })
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: getLocale() })
 }
 
 export function formatNumber(num: number | undefined | null): string {

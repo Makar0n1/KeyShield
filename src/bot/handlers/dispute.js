@@ -1,6 +1,7 @@
 const disputeService = require('../../services/disputeService');
 const dealService = require('../../services/dealService');
 const Session = require('../../models/Session');
+const User = require('../../models/User');
 const {
   mainMenuButton,
   backButton,
@@ -9,6 +10,7 @@ const {
 } = require('../keyboards/main');
 const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
+const { t } = require('../../locales');
 
 // ============================================
 // SESSION HELPERS (MongoDB persistence)
@@ -40,6 +42,7 @@ async function hasDisputeSession(telegramId) {
  */
 const startDispute = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -48,26 +51,23 @@ const startDispute = async (ctx) => {
     const deal = await dealService.getDealById(dealId);
 
     if (!deal) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
     if (!deal.isParticipant(telegramId)) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Вы не являетесь участником этой сделки.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'common.not_participant'), keyboard);
       return;
     }
 
     // Check if dispute already exists
     const existingDispute = await disputeService.getDisputeByDealId(dealId);
     if (existingDispute) {
-      const text = `⚠️ *Спор уже открыт*
+      const text = t(lang, 'dispute.already_exists');
 
-По этой сделке уже есть активный спор.
-Арбитр рассмотрит его в ближайшее время.`;
-
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       await messageManager.showFinalScreen(ctx, telegramId, 'dispute_exists', text, keyboard);
       return;
     }
@@ -79,23 +79,9 @@ const startDispute = async (ctx) => {
       media: []
     });
 
-    const text = `⚠️ *Открытие спора*
+    const text = t(lang, 'dispute.start', { dealId, productName: deal.productName });
 
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-Опишите суть проблемы:
-• Что пошло не так?
-• Какие условия не выполнены?
-• Ваши ожидания?
-Принимается только текстовое описание.
-Скриншоты и файлы прикрепляются на следующем шаге.
-
-📎 После отправки текста вы сможете прикрепить доказательства.
-
-_Минимум 20 символов_`;
-
-    const keyboard = backButton();
+    const keyboard = backButton(lang);
     await messageManager.navigateToScreen(ctx, telegramId, `dispute_${dealId}`, text, keyboard);
   } catch (error) {
     console.error('Error starting dispute:', error);
@@ -111,6 +97,7 @@ _Минимум 20 символов_`;
  */
 const handleDisputeInput = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
     const session = await getDisputeSession(telegramId);
 
@@ -125,13 +112,9 @@ const handleDisputeInput = async (ctx) => {
       const text = ctx.message.text.trim();
 
       if (text.length < 20) {
-        const errorText = `❌ *Описание слишком короткое*
+        const errorText = t(lang, 'dispute.reason_too_short', { length: text.length });
 
-Минимум 20 символов. Пожалуйста, опишите проблему подробнее.
-
-Текущая длина: ${text.length} символов`;
-
-        const keyboard = backButton();
+        const keyboard = backButton(lang);
         await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
         return true;
       }
@@ -141,22 +124,9 @@ const handleDisputeInput = async (ctx) => {
       session.step = 'media';
       await setDisputeSession(telegramId, session);
 
-      const mediaText = `📎 *Прикрепите доказательства*
+      const mediaText = t(lang, 'dispute.media_upload', { dealId: session.dealId, mediaCount: session.media.length });
 
-🆔 Сделка: \`${session.dealId}\`
-
-Отправьте файлы для подтверждения:
-• Скриншоты переписки
-• Фото/видео товара
-• Документы
-• Голосовые сообщения
-Пожалуйста, прикрепляйте файлы по одному. Если у вас несколько файлов, отправьте их по очереди (по одному).
-
-_Добавлено файлов: ${session.media.length}_
-
-Нажмите *"Отправить спор"* когда закончите.`;
-
-      const keyboard = disputeMediaKeyboard(session.dealId);
+      const keyboard = disputeMediaKeyboard(session.dealId, lang);
       await messageManager.updateScreen(ctx, telegramId, 'dispute_media', mediaText, keyboard);
       return true;
     }
@@ -193,6 +163,7 @@ setInterval(() => {
  */
 const handleDisputeMedia = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     const telegramId = ctx.from.id;
     const session = await getDisputeSession(telegramId);
 
@@ -224,13 +195,13 @@ const handleDisputeMedia = async (ctx) => {
 
           await messageManager.deleteUserMessage(ctx);
 
-          const errorText = `❌ *Сначала опишите проблему*
+          const errorText = `❌ *${t(lang, 'common.error')}*
 
-${caption ? `Описание слишком короткое (${caption.length} символов).` : 'Отправьте текстовое описание проблемы (минимум 20 символов), затем прикрепите доказательства.'}
+${caption ? t(lang, 'dispute.media_without_reason_caption', { length: caption.length }) : t(lang, 'dispute.media_without_reason')}
 
-Или отправьте группу фото с подписью — описанием проблемы (минимум 20 символов).`;
+${t(lang, 'dispute.media_group_hint')}`;
 
-          const keyboard = backButton();
+          const keyboard = backButton(lang);
           await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
           return true;
         } else {
@@ -243,13 +214,13 @@ ${caption ? `Описание слишком короткое (${caption.length}
         if (!caption || caption.length < 20) {
           await messageManager.deleteUserMessage(ctx);
 
-          const errorText = `❌ *Сначала опишите проблему*
+          const errorText = `❌ *${t(lang, 'common.error')}*
 
-${caption ? `Описание слишком короткое (${caption.length} символов).` : 'Отправьте текстовое описание проблемы (минимум 20 символов), затем прикрепите доказательства.'}
+${caption ? t(lang, 'dispute.media_without_reason_caption', { length: caption.length }) : t(lang, 'dispute.media_without_reason')}
 
-Или отправьте фото/документ с подписью — описанием проблемы (минимум 20 символов).`;
+${t(lang, 'dispute.media_single_hint')}`;
 
-          const keyboard = backButton();
+          const keyboard = backButton(lang);
           await messageManager.updateScreen(ctx, telegramId, 'dispute_reason_error', errorText, keyboard);
           return true;
         }
@@ -320,23 +291,9 @@ ${caption ? `Описание слишком короткое (${caption.length}
             const latestSession = await getDisputeSession(telegramId);
             if (!latestSession) return;
 
-            const mediaText = `📎 *Прикрепите доказательства*
+            const mediaText = t(lang, 'dispute.media_upload', { dealId: latestSession.dealId, mediaCount: latestSession.media.length });
 
-🆔 Сделка: \`${latestSession.dealId}\`
-
-Отправьте файлы для подтверждения:
-• Скриншоты переписки
-• Фото/видео товара
-• Документы
-• Голосовые сообщения
-Пожалуйста, прикрепляйте файлы по одному. Если у вас несколько файлов, отправьте их по очереди (по одному).
-
-
-✅ *Добавлено файлов: ${latestSession.media.length}*
-
-Нажмите *"Отправить спор"* когда закончите.`;
-
-            const keyboard = disputeMediaKeyboard(latestSession.dealId);
+            const keyboard = disputeMediaKeyboard(latestSession.dealId, lang);
             await messageManager.updateScreen(ctx, telegramId, 'dispute_media_group', mediaText, keyboard);
           } catch (err) {
             console.error('Error updating screen for media group:', err.message);
@@ -348,23 +305,9 @@ ${caption ? `Описание слишком короткое (${caption.length}
       }
 
       // Single file - update screen immediately
-      const mediaText = `📎 *Прикрепите доказательства*
+      const mediaText = t(lang, 'dispute.media_upload', { dealId: session.dealId, mediaCount: session.media.length });
 
-🆔 Сделка: \`${session.dealId}\`
-
-Отправьте файлы для подтверждения:
-• Скриншоты переписки
-• Фото/видео товара
-• Документы
-• Голосовые сообщения
-Пожалуйста, прикрепляйте файлы по одному. Если у вас несколько файлов, отправьте их по очереди (по одному).
-
-
-✅ *Добавлено файлов: ${session.media.length}*
-
-Нажмите *"Отправить спор"* когда закончите.`;
-
-      const keyboard = disputeMediaKeyboard(session.dealId);
+      const keyboard = disputeMediaKeyboard(session.dealId, lang);
       await messageManager.updateScreen(ctx, telegramId, 'dispute_media', mediaText, keyboard);
       return true;
     }
@@ -385,6 +328,7 @@ ${caption ? `Описание слишком короткое (${caption.length}
  */
 const finalizeDisputeHandler = async (ctx) => {
   try {
+    const lang = ctx.state?.lang || 'ru';
     await ctx.answerCbQuery();
 
     const dealId = ctx.callbackQuery.data.split(':')[1];
@@ -393,20 +337,20 @@ const finalizeDisputeHandler = async (ctx) => {
     const session = await getDisputeSession(telegramId);
 
     if (!session || session.dealId !== dealId) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Сессия спора не найдена. Начните заново.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'dispute.session_not_found'), keyboard);
       return;
     }
 
     if (!session.reasonText) {
-      const keyboard = mainMenuButton();
-      await messageManager.showFinalScreen(ctx, telegramId, 'error', '❌ Описание проблемы отсутствует. Начните заново.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'error', t(lang, 'dispute.reason_missing'), keyboard);
       await deleteDisputeSession(telegramId);
       return;
     }
 
     // Show loading (silent edit - user stays on same screen)
-    await messageManager.updateScreen(ctx, telegramId, 'dispute_loading', '⏳ *Создаём спор...*', {});
+    await messageManager.updateScreen(ctx, telegramId, 'dispute_loading', t(lang, 'common.creating_dispute'), {});
 
     // Create dispute - use fileUrl (falls back to fileId if URL failed)
     const dispute = await disputeService.openDispute(
@@ -422,35 +366,31 @@ const finalizeDisputeHandler = async (ctx) => {
     const deal = await dealService.getDealById(session.dealId);
 
     // Show success to initiator (final screen)
-    const successText = `✅ *Спор открыт*
+    const successText = t(lang, 'dispute.opened', {
+      dealId: session.dealId,
+      productName: deal.productName,
+      mediaCount: session.media.length
+    });
 
-🆔 Сделка: \`${session.dealId}\`
-📦 ${deal.productName}
-
-📎 Прикреплено файлов: ${session.media.length}
-
-Арбитр получил уведомление и рассмотрит вашу жалобу в ближайшее время.
-
-Вы получите уведомление о решении.`;
-
-    const successKeyboard = mainMenuButton();
+    const successKeyboard = mainMenuButton(lang);
     await messageManager.showFinalScreen(ctx, telegramId, 'dispute_opened', successText, successKeyboard);
 
     // Notify the other party
     const otherPartyId = deal.buyerId === telegramId ? deal.sellerId : deal.buyerId;
-    const role = deal.buyerId === telegramId ? 'Покупатель' : 'Продавец';
 
-    const otherText = `⚠️ *Открыт спор*
+    // Load counterparty language
+    const counterpartyUser = await User.findOne({ telegramId: otherPartyId }).select('languageCode').lean();
+    const counterpartyLang = counterpartyUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${session.dealId}\`
-📦 ${deal.productName}
+    const role = deal.buyerId === telegramId ? t(counterpartyLang, 'role.buyer') : t(counterpartyLang, 'role.seller');
 
-${role} открыл спор по данной сделке.
-Арбитр рассмотрит жалобу и вынесет решение.
+    const otherText = t(counterpartyLang, 'dispute.notify_other', {
+      dealId: session.dealId,
+      productName: deal.productName,
+      role
+    });
 
-Вы можете предоставить свои доказательства, обратившись в поддержку.`;
-
-    const otherKeyboard = disputeOpenedKeyboard(session.dealId);
+    const otherKeyboard = disputeOpenedKeyboard(session.dealId, counterpartyLang);
     await messageManager.showNotification(ctx, otherPartyId, otherText, otherKeyboard);
 
     // Alert admin about new dispute
@@ -461,8 +401,9 @@ ${role} открыл спор по данной сделке.
     console.error('Error finalizing dispute:', error);
     await deleteDisputeSession(ctx.from.id);
 
-    const keyboard = mainMenuButton();
-    await messageManager.showFinalScreen(ctx, ctx.from.id, 'error', `❌ Ошибка при создании спора: ${error.message}`, keyboard);
+    const lang = ctx.state?.lang || 'ru';
+    const keyboard = mainMenuButton(lang);
+    await messageManager.showFinalScreen(ctx, ctx.from.id, 'error', t(lang, 'dispute.error', { message: error.message }), keyboard);
   }
 };
 

@@ -11,6 +11,7 @@ const {
 } = require('../../keyboards/templates');
 const { getTemplateSession, setTemplateSession, clearTemplateSession } = require('./session');
 const { showTemplateDetails } = require('./list');
+const { t } = require('../../../locales');
 
 /**
  * Start editing a field
@@ -18,6 +19,7 @@ const { showTemplateDetails } = require('./list');
 async function startEditField(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const parts = ctx.callbackQuery.data.split(':');
   const templateId = parts[2];
@@ -25,7 +27,7 @@ async function startEditField(ctx) {
 
   const template = await DealTemplate.findOne({ _id: templateId, telegramId });
   if (!template) {
-    await ctx.answerCbQuery('❌ Шаблон не найден', { show_alert: true });
+    await ctx.answerCbQuery(t(lang, 'templates.not_found'), { show_alert: true });
     return;
   }
 
@@ -35,48 +37,23 @@ async function startEditField(ctx) {
     originalValue: template[field]
   });
 
-  const fieldLabels = {
-    name: 'Название',
-    amount: 'Сумма',
-    description: 'Описание',
-    deadline: 'Срок'
-  };
-
   if (field === 'deadline') {
-    const text = `⏰ *Изменить срок*
+    const text = t(lang, 'templates.edit_deadline_prompt', {
+      name: template.name,
+      currentDeadline: t(lang, 'templates.deadline_format', { hours: template.deadlineHours })
+    });
 
-📑 Шаблон: *${template.name}*
-Текущий срок: *${formatDeadlineHours(template.deadlineHours)}*
-
-Выберите новый срок выполнения:`;
-
-    await messageManager.sendNewMessage(ctx, telegramId, text, templateDeadlineEditKeyboard(templateId));
+    await messageManager.sendNewMessage(ctx, telegramId, text, templateDeadlineEditKeyboard(templateId, lang));
     return;
   }
 
   const prompts = {
-    name: `✏️ *Изменить название*
-
-📑 Шаблон: *${template.name}*
-
-Введите новое название:
-_(от 2 до 50 символов)_`,
-    amount: `💰 *Изменить сумму*
-
-📑 Шаблон: *${template.name}*
-Текущая сумма: *${template.amount} ${template.asset}*
-
-Введите новую сумму:
-_(минимум 50 USDT)_`,
-    description: `📝 *Изменить описание*
-
-📑 Шаблон: *${template.name}*
-
-Введите новое описание:
-_(от 20 до 5000 символов)_`
+    name: t(lang, 'templates.edit_name_prompt', { name: template.name }),
+    amount: t(lang, 'templates.edit_amount_prompt', { name: template.name, amount: template.amount, asset: template.asset }),
+    description: t(lang, 'templates.edit_description_prompt', { name: template.name })
   };
 
-  await messageManager.sendNewMessage(ctx, telegramId, prompts[field], templateEditCancelKeyboard(templateId));
+  await messageManager.sendNewMessage(ctx, telegramId, prompts[field], templateEditCancelKeyboard(templateId, lang));
 }
 
 /**
@@ -85,6 +62,7 @@ _(от 20 до 5000 символов)_`
 async function handleEditInput(ctx) {
   const telegramId = ctx.from.id;
   const text = ctx.message.text.trim();
+  const lang = ctx.state?.lang || 'ru';
 
   await messageManager.deleteUserMessage(ctx);
 
@@ -103,27 +81,25 @@ async function handleEditInput(ctx) {
   switch (field) {
     case 'name':
       if (text.length < 2 || text.length > 50) {
-        error = 'Название должно быть от 2 до 50 символов.';
+        error = t(lang, 'templates.edit_name_error');
       }
       break;
     case 'amount':
       value = parseFloat(text.replace(',', '.'));
       if (isNaN(value) || value < 50) {
-        error = 'Минимальная сумма: 50 USDT.';
+        error = t(lang, 'templates.edit_amount_error');
       }
       break;
     case 'description':
       if (text.length < 20 || text.length > 5000) {
-        error = 'Описание должно быть от 20 до 5000 символов.';
+        error = t(lang, 'templates.edit_description_error');
       }
       break;
   }
 
   if (error) {
-    const errorText = `❌ ${error}
-
-Попробуйте ещё раз:`;
-    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateEditCancelKeyboard(session.templateId));
+    const errorText = `${error}\n\n${t(lang, 'templates.edit_error_retry')}`;
+    await messageManager.sendNewMessage(ctx, telegramId, errorText, templateEditCancelKeyboard(session.templateId, lang));
     return true;
   }
 
@@ -135,13 +111,8 @@ async function handleEditInput(ctx) {
   const templateId = session.templateId;
   await clearTemplateSession(telegramId);
 
-  const fieldLabels = {
-    name: 'Название',
-    amount: 'Сумма',
-    description: 'Описание'
-  };
-
-  const successText = `✅ *${fieldLabels[field]} изменено!*`;
+  const fieldLabel = t(lang, `templates.field_label_${field}`);
+  const successText = t(lang, 'templates.field_changed', { fieldLabel });
   await messageManager.sendNewMessage(ctx, telegramId, successText, { inline_keyboard: [] });
 
   // Return to template details after 1.5 seconds
@@ -162,6 +133,7 @@ async function handleEditInput(ctx) {
 async function handleEditDeadline(ctx) {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
+  const lang = ctx.state?.lang || 'ru';
 
   const session = await getTemplateSession(telegramId);
   if (!session || session.action !== 'edit_deadline') return;
@@ -175,7 +147,7 @@ async function handleEditDeadline(ctx) {
   const templateId = session.templateId;
   await clearTemplateSession(telegramId);
 
-  await messageManager.sendNewMessage(ctx, telegramId, '✅ *Срок изменён!*', { inline_keyboard: [] });
+  await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'templates.deadline_changed'), { inline_keyboard: [] });
 
   setTimeout(async () => {
     try {
@@ -184,19 +156,6 @@ async function handleEditDeadline(ctx) {
       console.error('Error showing template details after deadline edit:', e);
     }
   }, 1500);
-}
-
-/**
- * Format deadline hours to readable text
- */
-function formatDeadlineHours(hours) {
-  if (hours === 24) return '24 часа';
-  if (hours === 48) return '48 часов';
-  if (hours < 24) return `${hours} часов`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return '1 день';
-  if (days < 5) return `${days} дня`;
-  return `${days} дней`;
 }
 
 module.exports = {

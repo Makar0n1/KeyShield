@@ -4,6 +4,8 @@
  */
 
 const messageManager = require('../bot/utils/messageManager');
+const User = require('../models/User');
+const { t, formatDate } = require('../locales');
 
 class NotificationService {
   constructor() {
@@ -58,21 +60,29 @@ class NotificationService {
    * @param {string} dealId - Deal ID
    */
   async notifyDisputeCancelled(buyerId, sellerId, dealId) {
-    const message = `⚠️ *Спор отменен администратором*
+    const buyerUserDoc = await User.findOne({ telegramId: buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+    const sellerUserDoc = await User.findOne({ telegramId: sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-Сделка: \`${dealId}\`
+    const buyerMessage = t(buyerLang, 'notification.dispute_cancelled', { dealId });
+    const sellerMessage = t(sellerLang, 'notification.dispute_cancelled', { dealId });
 
-Спор был отменен. Вы можете продолжить работу по сделке или открыть новый спор при необходимости.`;
-
-    const keyboard = {
+    const buyerKeyboard = {
       inline_keyboard: [
-        [{ text: '📋 Детали сделки', callback_data: `view_deal_${dealId}` }],
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(buyerLang, 'btn.deal_details'), callback_data: `view_deal_${dealId}` }],
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+    const sellerKeyboard = {
+      inline_keyboard: [
+        [{ text: t(sellerLang, 'btn.deal_details'), callback_data: `view_deal_${dealId}` }],
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
-    await this.sendNotification(buyerId, message, keyboard);
-    await this.sendNotification(sellerId, message, keyboard);
+    await this.sendNotification(buyerId, buyerMessage, buyerKeyboard);
+    await this.sendNotification(sellerId, sellerMessage, sellerKeyboard);
   }
 
   /**
@@ -80,16 +90,8 @@ class NotificationService {
    * @param {Date} date - Date to format
    * @returns {string} Formatted date string
    */
-  formatDeadline(date) {
-    const options = {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Europe/Moscow'
-    };
-    return new Date(date).toLocaleString('ru-RU', options);
+  formatDeadline(date, lang = 'ru') {
+    return formatDate(lang, new Date(date));
   }
 
   /**
@@ -102,27 +104,42 @@ class NotificationService {
    * @param {boolean} isNewDeadline - Whether deadline was updated
    */
   async notifyDisputeCancelledWithDeadline(buyerId, sellerId, dealId, productName, deadline, isNewDeadline) {
-    const deadlineText = this.formatDeadline(deadline);
-    const deadlineLabel = isNewDeadline ? 'Новый дедлайн' : 'Дедлайн';
+    const buyerUserDoc = await User.findOne({ telegramId: buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+    const sellerUserDoc = await User.findOne({ telegramId: sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
 
-    const message = `✅ *Спор отменен по соглашению сторон*
+    const buyerDeadlineLabel = isNewDeadline ? t(buyerLang, 'notification.new_deadline') : t(buyerLang, 'notification.deadline_label');
+    const sellerDeadlineLabel = isNewDeadline ? t(sellerLang, 'notification.new_deadline') : t(sellerLang, 'notification.deadline_label');
 
-🆔 Сделка: \`${dealId}\`
-📦 ${productName}
+    const buyerMessage = t(buyerLang, 'notification.dispute_cancelled_agreement', {
+      dealId,
+      productName,
+      deadlineLabel: buyerDeadlineLabel,
+      deadlineText: formatDate(buyerLang, deadline)
+    });
+    const sellerMessage = t(sellerLang, 'notification.dispute_cancelled_agreement', {
+      dealId,
+      productName,
+      deadlineLabel: sellerDeadlineLabel,
+      deadlineText: formatDate(sellerLang, deadline)
+    });
 
-${deadlineLabel}: *${deadlineText}*
-
-Сделка продолжается. Выполняйте свои обязательства вовремя!`;
-
-    const keyboard = {
+    const buyerKeyboard = {
       inline_keyboard: [
-        [{ text: '📋 Детали сделки', callback_data: `view_deal_${dealId}` }],
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(buyerLang, 'btn.deal_details'), callback_data: `view_deal_${dealId}` }],
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+    const sellerKeyboard = {
+      inline_keyboard: [
+        [{ text: t(sellerLang, 'btn.deal_details'), callback_data: `view_deal_${dealId}` }],
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
-    await this.sendNotification(buyerId, message, keyboard);
-    await this.sendNotification(sellerId, message, keyboard);
+    await this.sendNotification(buyerId, buyerMessage, buyerKeyboard);
+    await this.sendNotification(sellerId, sellerMessage, sellerKeyboard);
     console.log(`📤 Dispute cancelled notifications sent to buyer ${buyerId} and seller ${sellerId}`);
   }
 
@@ -140,49 +157,41 @@ ${deadlineLabel}: *${deadlineText}*
       return;
     }
 
-    // Create mock ctx for messageManager
     const ctx = { telegram: this.bot.telegram };
 
-    // Final keyboard (no back button - dispute resolution is final)
-    const finalKeyboard = {
+    const buyerUserDoc = await User.findOne({ telegramId: buyerId }).select('languageCode').lean();
+    const buyerLang = buyerUserDoc?.languageCode || 'ru';
+    const sellerUserDoc = await User.findOne({ telegramId: sellerId }).select('languageCode').lean();
+    const sellerLang = sellerUserDoc?.languageCode || 'ru';
+
+    const buyerFinalKeyboard = {
       inline_keyboard: [
-        [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        [{ text: t(buyerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
+      ]
+    };
+    const sellerFinalKeyboard = {
+      inline_keyboard: [
+        [{ text: t(sellerLang, 'btn.main_menu'), callback_data: 'main_menu' }]
       ]
     };
 
     const buyerMessage = decision === 'refund_buyer'
-      ? `✅ *Спор решен в вашу пользу*
-
-Сделка: \`${dealId}\`
-
-Администратор решил спор в вашу пользу. Средства будут возвращены на ваш кошелек.`
-      : `❌ *Спор решен в пользу продавца*
-
-Сделка: \`${dealId}\`
-
-Администратор решил спор в пользу продавца. Средства будут переведены продавцу.`;
+      ? t(buyerLang, 'notification.dispute_resolved_winner', { dealId })
+      : t(buyerLang, 'notification.dispute_resolved_loser_buyer', { dealId });
 
     const sellerMessage = decision === 'release_seller'
-      ? `✅ *Спор решен в вашу пользу*
-
-Сделка: \`${dealId}\`
-
-Администратор решил спор в вашу пользу. Средства будут переведены на ваш кошелек.`
-      : `❌ *Спор решен в пользу покупателя*
-
-Сделка: \`${dealId}\`
-
-Администратор решил спор в пользу покупателя. Средства будут возвращены покупателю.`;
+      ? t(sellerLang, 'notification.dispute_resolved_winner_seller', { dealId })
+      : t(sellerLang, 'notification.dispute_resolved_loser_seller', { dealId });
 
     try {
-      await messageManager.showFinalScreen(ctx, buyerId, 'dispute_resolved', buyerMessage, finalKeyboard);
+      await messageManager.showFinalScreen(ctx, buyerId, 'dispute_resolved', buyerMessage, buyerFinalKeyboard);
       console.log(`📤 Dispute resolution sent to buyer ${buyerId}`);
     } catch (error) {
       console.error(`❌ Failed to notify buyer ${buyerId}:`, error.message);
     }
 
     try {
-      await messageManager.showFinalScreen(ctx, sellerId, 'dispute_resolved', sellerMessage, finalKeyboard);
+      await messageManager.showFinalScreen(ctx, sellerId, 'dispute_resolved', sellerMessage, sellerFinalKeyboard);
       console.log(`📤 Dispute resolution sent to seller ${sellerId}`);
     } catch (error) {
       console.error(`❌ Failed to notify seller ${sellerId}:`, error.message);

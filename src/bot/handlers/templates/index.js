@@ -16,9 +16,7 @@ const {
 // List & View
 const {
   showTemplatesList,
-  showTemplateDetails,
-  formatDeadline,
-  formatCommission
+  showTemplateDetails
 } = require('./list');
 
 // Create
@@ -67,8 +65,6 @@ module.exports = {
   // List & View
   showTemplatesList,
   showTemplateDetails,
-  formatDeadline,
-  formatCommission,
 
   // Create
   startCreateTemplate,

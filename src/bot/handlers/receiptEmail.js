@@ -16,6 +16,7 @@ const messageManager = require('../utils/messageManager');
 const { mainMenuButton } = require('../keyboards/main');
 const { Markup } = require('telegraf');
 const { showRatingScreen } = require('./ratingHandler');
+const { t } = require('../../locales');
 
 /**
  * Check if user has active receipt session
@@ -65,6 +66,8 @@ async function createReceiptSession(telegramId, dealId, transactionData, finalMe
  * @param {Object|null} ratingData - Data for rating step { counterpartyId, counterpartyRole, counterpartyUsername }
  */
 async function showReceiptQuestion(ctx, telegramId, deal, transactionData, finalMessage, ratingData = null) {
+  const lang = ctx.state?.lang || 'ru';
+
   // Initialize email service if not already
   emailService.init();
 
@@ -73,7 +76,7 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
     if (ratingData) {
       await showRatingScreen(ctx, telegramId, deal, ratingData.counterpartyId, ratingData.counterpartyRole, ratingData.counterpartyUsername, finalMessage);
     } else {
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       await messageManager.sendNewMessage(ctx, telegramId, finalMessage, keyboard);
     }
     return;
@@ -88,29 +91,24 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
 
   if (savedEmail) {
     // User has saved email - ask if they want to send to it
-    const text = `📧 *Отправить чек на email?*
-
-Отправить чек на сохранённую почту?
-📮 \`${savedEmail}\``;
+    const text = t(lang, 'receipt.ask_saved', { email: savedEmail });
 
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('✅ Да', `receipt_send_saved:${deal.dealId}`),
-        Markup.button.callback('❌ Нет', `receipt_no:${deal.dealId}`)
+        Markup.button.callback(t(lang, 'btn.yes'), `receipt_send_saved:${deal.dealId}`),
+        Markup.button.callback(t(lang, 'btn.no'), `receipt_no:${deal.dealId}`)
       ]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
   } else {
     // No saved email - ask if user wants receipt
-    const text = `📧 *Отправить чек на email?*
-
-Хотите получить чек о транзакции на вашу электронную почту?`;
+    const text = t(lang, 'receipt.ask_new');
 
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('✅ Да', `receipt_yes:${deal.dealId}`),
-        Markup.button.callback('❌ Нет', `receipt_no:${deal.dealId}`)
+        Markup.button.callback(t(lang, 'btn.yes'), `receipt_yes:${deal.dealId}`),
+        Markup.button.callback(t(lang, 'btn.no'), `receipt_no:${deal.dealId}`)
       ]
     ]);
 
@@ -122,6 +120,7 @@ async function showReceiptQuestion(ctx, telegramId, deal, transactionData, final
  * Helper: Proceed to rating or show final message
  */
 async function proceedAfterReceipt(ctx, telegramId, session, deal, messagePrefix = '') {
+  const lang = ctx.state?.lang || 'ru';
   const fullMessage = messagePrefix ? `${messagePrefix}\n\n${session.finalMessage}` : session.finalMessage;
 
   if (session.ratingData) {
@@ -137,7 +136,7 @@ async function proceedAfterReceipt(ctx, telegramId, session, deal, messagePrefix
     );
   } else {
     // No rating needed - show final message directly
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     await messageManager.sendNewMessage(ctx, telegramId, fullMessage, keyboard);
   }
 }
@@ -149,18 +148,17 @@ async function handleReceiptSendSaved(ctx) {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     const session = await Session.getSession(telegramId, 'receipt_email');
     if (!session || !session.savedEmail) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.session_expired'), keyboard);
       return;
     }
 
     // Show sending message
-    const sendingText = `📧 *Отправка чека...*
-
-Отправляем чек на: ${session.savedEmail}`;
+    const sendingText = t(lang, 'receipt.sending', { email: session.savedEmail });
 
     await messageManager.sendNewMessage(ctx, telegramId, sendingText, { inline_keyboard: [] });
 
@@ -168,8 +166,8 @@ async function handleReceiptSendSaved(ctx) {
     const deal = await Deal.findOne({ dealId: session.dealId });
     if (!deal) {
       await clearReceiptSession(telegramId);
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '❌ Сделка не найдена.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.deal_not_found'), keyboard);
       return;
     }
 
@@ -186,10 +184,10 @@ async function handleReceiptSendSaved(ctx) {
 
     // Proceed to rating or final message
     if (sent) {
-      const prefix = `✅ *Чек отправлен!*\n\n📧 Email: ${session.savedEmail}`;
+      const prefix = t(lang, 'receipt.sent', { email: session.savedEmail });
       await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
     } else {
-      const prefix = `⚠️ *Не удалось отправить чек*\n\nВозникла ошибка при отправке.`;
+      const prefix = t(lang, 'receipt.send_error');
       await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
     }
   } catch (error) {
@@ -204,11 +202,12 @@ async function handleReceiptYes(ctx) {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     const session = await Session.getSession(telegramId, 'receipt_email');
     if (!session) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.session_expired'), keyboard);
       return;
     }
 
@@ -216,12 +215,10 @@ async function handleReceiptYes(ctx) {
     session.step = 'waiting_email';
     await Session.setSession(telegramId, 'receipt_email', session, 1);
 
-    const text = `📧 *Введите ваш email*
-
-Отправьте адрес электронной почты, на который хотите получить чек:`;
+    const text = t(lang, 'receipt.enter_email');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `receipt_cancel:${session.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `receipt_cancel:${session.dealId}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -237,11 +234,12 @@ async function handleReceiptNo(ctx) {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     const session = await Session.getSession(telegramId, 'receipt_email');
     if (!session) {
-      const keyboard = mainMenuButton();
-      await messageManager.sendNewMessage(ctx, telegramId, '⚠️ Сессия истекла. Возвращаемся в главное меню.', keyboard);
+      const keyboard = mainMenuButton(lang);
+      await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.session_expired'), keyboard);
       return;
     }
 
@@ -275,6 +273,7 @@ async function handleReceiptCancel(ctx) {
 async function handleEmailInput(ctx) {
   const telegramId = ctx.from.id;
   const email = ctx.message.text.trim();
+  const lang = ctx.state?.lang || 'ru';
 
   // Delete user message (email should not stay in chat)
   await messageManager.deleteUserMessage(ctx);
@@ -286,12 +285,10 @@ async function handleEmailInput(ctx) {
 
   // Validate email
   if (!emailService.constructor.isValidEmail(email)) {
-    const text = `❌ *Неверный формат email*
-
-Пожалуйста, введите корректный адрес электронной почты:`;
+    const text = t(lang, 'receipt.invalid_email');
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.callback('❌ Отмена', `receipt_cancel:${session.dealId}`)]
+      [Markup.button.callback(t(lang, 'btn.cancel'), `receipt_cancel:${session.dealId}`)]
     ]);
 
     await messageManager.sendNewMessage(ctx, telegramId, text, keyboard);
@@ -299,9 +296,7 @@ async function handleEmailInput(ctx) {
   }
 
   // Show sending message
-  const sendingText = `📧 *Отправка чека...*
-
-Отправляем чек на: ${email}`;
+  const sendingText = t(lang, 'receipt.sending', { email });
 
   await messageManager.sendNewMessage(ctx, telegramId, sendingText, { inline_keyboard: [] });
 
@@ -309,8 +304,8 @@ async function handleEmailInput(ctx) {
   const deal = await Deal.findOne({ dealId: session.dealId });
   if (!deal) {
     await clearReceiptSession(telegramId);
-    const keyboard = mainMenuButton();
-    await messageManager.sendNewMessage(ctx, telegramId, '❌ Сделка не найдена.', keyboard);
+    const keyboard = mainMenuButton(lang);
+    await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'common.deal_not_found'), keyboard);
     return true;
   }
 
@@ -331,25 +326,21 @@ async function handleEmailInput(ctx) {
   if (sent) {
     // If there's rating to show, proceed to rating with success prefix
     if (ratingData) {
-      const prefix = `✅ *Чек отправлен!*\n\n📧 Email: ${email}`;
+      const prefix = t(lang, 'receipt.sent', { email });
       await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
     } else {
       // No rating - show save email option
-      const successText = `✅ *Чек отправлен!*
-
-📧 Email: ${email}
-
-${finalMessage}`;
+      const successText = `${t(lang, 'receipt.sent', { email })}\n\n${finalMessage}`;
 
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('💾 Сохранить почту', `save_email:${encodeURIComponent(email)}`)],
-        [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+        [Markup.button.callback(t(lang, 'btn.save_email'), `save_email:${encodeURIComponent(email)}`)],
+        [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
       ]);
 
       await messageManager.sendNewMessage(ctx, telegramId, successText, keyboard);
     }
   } else {
-    const prefix = `⚠️ *Не удалось отправить чек*\n\nВозникла ошибка при отправке.`;
+    const prefix = t(lang, 'receipt.send_error');
     await proceedAfterReceipt(ctx, telegramId, { ratingData, finalMessage }, deal, prefix);
   }
 
@@ -363,6 +354,7 @@ async function handleSaveEmail(ctx) {
   try {
     await ctx.answerCbQuery();
     const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
 
     // Extract email from callback data
     const data = ctx.callbackQuery.data;
@@ -379,19 +371,15 @@ async function handleSaveEmail(ctx) {
     );
 
     // Show confirmation
-    const text = `✅ *Почта сохранена!*
-
-📧 ${email}
-
-Теперь чеки будут автоматически предлагаться на эту почту.`;
+    const text = t(lang, 'receipt.email_saved', { email });
 
     await messageManager.sendNewMessage(ctx, telegramId, text, { inline_keyboard: [] });
 
     // After 2 seconds, return to main menu
     setTimeout(async () => {
       try {
-        const keyboard = mainMenuButton();
-        await messageManager.sendNewMessage(ctx, telegramId, '🏠 *Главное меню*\n\nВыберите действие:', keyboard);
+        const keyboard = mainMenuButton(lang);
+        await messageManager.sendNewMessage(ctx, telegramId, t(lang, 'welcome.main_menu_short'), keyboard);
       } catch (e) {
         // Message might have been changed
       }
@@ -412,6 +400,8 @@ async function handleSaveEmail(ctx) {
  * @param {Object|null} ratingData - Data for rating step { counterpartyId, counterpartyRole, counterpartyUsername }
  */
 async function sendReceiptNotification(ctx, telegramId, deal, transactionData, notificationText, ratingData = null) {
+  const lang = ctx.state?.lang || 'ru';
+
   // Initialize email service
   emailService.init();
 
@@ -420,7 +410,7 @@ async function sendReceiptNotification(ctx, telegramId, deal, transactionData, n
     if (ratingData) {
       await showRatingScreen(ctx, telegramId, deal, ratingData.counterpartyId, ratingData.counterpartyRole, ratingData.counterpartyUsername, notificationText);
     } else {
-      const keyboard = mainMenuButton();
+      const keyboard = mainMenuButton(lang);
       await messageManager.showNotification(ctx, telegramId, notificationText, keyboard);
     }
     return;
@@ -434,15 +424,12 @@ async function sendReceiptNotification(ctx, telegramId, deal, transactionData, n
     // User has saved email - create session for receipt flow
     await createReceiptSession(telegramId, deal.dealId, transactionData, notificationText, savedEmail, ratingData);
 
-    const text = `📧 *Отправить чек на email?*
-
-Отправить чек на сохранённую почту?
-📮 \`${savedEmail}\``;
+    const text = t(lang, 'receipt.ask_saved', { email: savedEmail });
 
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('✅ Да', `receipt_send_saved:${deal.dealId}`),
-        Markup.button.callback('❌ Нет', `receipt_no:${deal.dealId}`)
+        Markup.button.callback(t(lang, 'btn.yes'), `receipt_send_saved:${deal.dealId}`),
+        Markup.button.callback(t(lang, 'btn.no'), `receipt_no:${deal.dealId}`)
       ]
     ]);
 
@@ -451,14 +438,12 @@ async function sendReceiptNotification(ctx, telegramId, deal, transactionData, n
     // No saved email - ask if user wants receipt
     await createReceiptSession(telegramId, deal.dealId, transactionData, notificationText, null, ratingData);
 
-    const text = `📧 *Отправить чек на email?*
-
-Хотите получить чек о транзакции на вашу электронную почту?`;
+    const text = t(lang, 'receipt.ask_new');
 
     const keyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('✅ Да', `receipt_yes:${deal.dealId}`),
-        Markup.button.callback('❌ Нет', `receipt_no:${deal.dealId}`)
+        Markup.button.callback(t(lang, 'btn.yes'), `receipt_yes:${deal.dealId}`),
+        Markup.button.callback(t(lang, 'btn.no'), `receipt_no:${deal.dealId}`)
       ]
     ]);
 

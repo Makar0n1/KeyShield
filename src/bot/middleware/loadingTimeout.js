@@ -12,13 +12,10 @@
  */
 
 const User = require('../../models/User');
+const { t } = require('../../locales');
 
-// Loading message text
-const LOADING_TEXT = `⏳ *Идёт загрузка...*
-
-Повышена нагрузка сервиса, пожалуйста, оставайтесь с нами и немного подождите.
-
-Мы обязательно обработаем ваш запрос! 🙏`;
+// Loading message text (fallback for when lang is unavailable)
+const LOADING_TEXT = t('ru', 'common.loading_high_load');
 
 // Timeout before showing loading message (ms)
 const LOADING_TIMEOUT = 2000;
@@ -94,12 +91,15 @@ async function showLoadingMessage(ctx, messageId) {
   const chatId = ctx.from?.id;
   if (!chatId) return;
 
+  const lang = ctx.state?.lang || 'ru';
+  const loadingText = t(lang, 'common.loading_high_load');
+
   try {
     await ctx.telegram.editMessageText(
       chatId,
       messageId,
       null,
-      LOADING_TEXT,
+      loadingText,
       { parse_mode: 'Markdown' }
     );
   } catch (error) {
