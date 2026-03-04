@@ -10,6 +10,7 @@ interface TagFormData {
   slug: string
   description: string
   color: string
+  language: 'ru' | 'en' | 'uk'
 }
 
 const initialFormData: TagFormData = {
@@ -17,6 +18,7 @@ const initialFormData: TagFormData = {
   slug: '',
   description: '',
   color: '#6366f1',
+  language: 'ru',
 }
 
 const colorOptions = [
@@ -61,6 +63,7 @@ export function BlogTagsPage() {
         slug: tag.slug,
         description: tag.description || '',
         color: tag.color || '#6366f1',
+        language: (tag.language as 'ru' | 'en' | 'uk') || 'ru',
       })
     } else {
       setEditingTag(null)
@@ -97,6 +100,7 @@ export function BlogTagsPage() {
         slug: formData.slug || slugify(formData.name),
         description: formData.description,
         color: formData.color,
+        language: formData.language,
       }
 
       if (editingTag) {
@@ -200,6 +204,21 @@ export function BlogTagsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Язык
+                </label>
+                <select
+                  value={formData.language}
+                  onChange={(e) => setFormData({ ...formData, language: e.target.value as 'ru' | 'en' | 'uk' })}
+                  className="w-full bg-dark-lighter border border-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary"
+                >
+                  <option value="ru">🇷🇺 Русский</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="uk">🇺🇦 Українська</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Цвет
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -292,6 +311,7 @@ export function BlogTagsPage() {
                 <tr className="border-b border-border">
                   <th className="text-left p-4 text-sm font-medium text-muted">Тег</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Slug</th>
+                  <th className="text-left p-4 text-sm font-medium text-muted">Язык</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Статей</th>
                   <th className="text-left p-4 text-sm font-medium text-muted">Создан</th>
                 </tr>
@@ -310,6 +330,9 @@ export function BlogTagsPage() {
                     </td>
                     <td className="p-4">
                       <span className="font-mono text-sm text-muted">{tag.slug}</span>
+                    </td>
+                    <td className="p-4 text-muted text-sm">
+                      {tag.language === 'en' ? '🇬🇧' : tag.language === 'uk' ? '🇺🇦' : '🇷🇺'}
                     </td>
                     <td className="p-4 text-muted">{tag.postsCount || 0}</td>
                     <td className="p-4 text-sm text-muted">

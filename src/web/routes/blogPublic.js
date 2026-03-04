@@ -387,7 +387,9 @@ router.get('/categories/:slug', async (req, res) => {
 // GET /api/blog/tags - list all tags
 router.get('/tags', async (req, res) => {
   try {
-    const tags = await BlogTag.getAll();
+    const { lang } = req.query;
+    const language = ['ru', 'en', 'uk'].includes(lang) ? lang : null;
+    const tags = await BlogTag.getAll(language);
     res.json({ success: true, tags });
   } catch (error) {
     console.error('Error fetching tags:', error);
@@ -398,8 +400,9 @@ router.get('/tags', async (req, res) => {
 // GET /api/blog/tags/popular - get popular tags
 router.get('/tags/popular', async (req, res) => {
   try {
-    const { limit = 20 } = req.query;
-    const tags = await BlogTag.getPopular(parseInt(limit));
+    const { limit = 20, lang } = req.query;
+    const language = ['ru', 'en', 'uk'].includes(lang) ? lang : null;
+    const tags = await BlogTag.getPopular(parseInt(limit), language);
     res.json({ success: true, tags });
   } catch (error) {
     console.error('Error fetching popular tags:', error);
@@ -463,7 +466,7 @@ router.get('/sidebar', async (req, res) => {
 
     const [categories, tags, recentPosts] = await Promise.all([
       BlogCategory.getWithPostsCount(language),
-      BlogTag.getPopular(15),
+      BlogTag.getPopular(15, language),
       BlogPost.getRecent(5, language)
     ]);
 

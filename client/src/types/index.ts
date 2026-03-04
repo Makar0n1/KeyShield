@@ -54,6 +54,7 @@ export interface BlogTag {
   slug: string
   description?: string
   color?: string
+  language?: 'ru' | 'en' | 'uk'
   seoTitle?: string
   seoDescription?: string
   postsCount?: number

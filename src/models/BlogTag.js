@@ -53,6 +53,14 @@ const blogTagSchema = new mongoose.Schema({
     default: ''
   },
 
+  // Язык тега
+  language: {
+    type: String,
+    enum: ['ru', 'en', 'uk'],
+    default: 'ru',
+    index: true
+  },
+
   // Денормализованный счётчик постов
   postsCount: {
     type: Number,
@@ -102,16 +110,19 @@ blogTagSchema.methods.updatePostsCount = async function() {
 };
 
 // Статический метод для получения популярных тегов
-blogTagSchema.statics.getPopular = async function(limit = 20) {
-  return this.find({ postsCount: { $gt: 0 } })
+blogTagSchema.statics.getPopular = async function(limit = 20, language = null) {
+  const query = { postsCount: { $gt: 0 } };
+  if (language) query.language = language;
+  return this.find(query)
     .sort({ postsCount: -1 })
     .limit(limit)
     .lean();
 };
 
 // Статический метод для получения всех тегов
-blogTagSchema.statics.getAll = async function() {
-  return this.find().sort({ name: 1 }).lean();
+blogTagSchema.statics.getAll = async function(language = null) {
+  const query = language ? { language } : {};
+  return this.find(query).sort({ name: 1 }).lean();
 };
 
 const BlogTag = mongoose.model('BlogTag', blogTagSchema);

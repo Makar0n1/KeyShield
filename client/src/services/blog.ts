@@ -58,7 +58,7 @@ export const blogService = {
   },
 
   getTags: async (): Promise<BlogTag[]> => {
-    const { data } = await api.get('/blog/tags')
+    const { data } = await api.get('/blog/tags', { params: { lang: i18n.language } })
     return data.tags || []
   },
 
