@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow } from 'date-fns'
-import { ru, enUS, uk } from 'date-fns/locale'
+import { ru, enUS, uk, type Locale } from 'date-fns/locale'
 import i18n from '../locales/i18n'
 
 const localeMap: Record<string, Locale> = { ru, en: enUS, uk }
