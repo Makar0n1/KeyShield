@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Eye, ThumbsUp, MessageCircle, Clock } from 'lucide-react'
+import { LangLink as Link } from '@/components/ui/LangLink'
 import { useTranslation } from 'react-i18next'
 import type { BlogPost } from '@/types'
 import { formatDateShort, formatNumber, stripHtml } from '@/utils/format'

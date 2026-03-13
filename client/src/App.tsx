@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PublicLayout, AdminLayout } from '@/components/layout'
 import { PartnerLayout } from '@/layouts/PartnerLayout'
+import { LangLayout } from '@/layouts/LangLayout'
 import { PartnerAuthProvider, usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { ScrollToTop, ScrollToTopButton } from '@/components/ui'
 import { useMetaPixel } from '@/hooks'
@@ -95,21 +96,26 @@ function App() {
         <ScrollToTop />
         <ScrollToTopButton />
         <Routes>
-          {/* Public Routes with Header/Footer */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/offer" element={<OfferPage />} />
+          {/* Root redirect → server handles geo redirect, this is a client-side fallback */}
+          <Route path="/" element={<Navigate to="/ru" replace />} />
 
-            {/* Blog routes */}
-            <Route path="/blog" element={<BlogListPage />} />
-            <Route path="/blog/:slug" element={<BlogPostPage />} />
-            <Route path="/category/:slug" element={<CategoryPage />} />
-            <Route path="/tag/:slug" element={<TagPage />} />
+          {/* Localized public routes */}
+          <Route path="/:lang" element={<LangLayout />}>
+            <Route element={<PublicLayout />}>
+              <Route index element={<HomePage />} />
+              <Route path="terms" element={<TermsPage />} />
+              <Route path="privacy" element={<PrivacyPage />} />
+              <Route path="offer" element={<OfferPage />} />
 
-            {/* 404 */}
-            <Route path="*" element={<NotFoundPage />} />
+              {/* Blog routes */}
+              <Route path="blog" element={<BlogListPage />} />
+              <Route path="blog/:slug" element={<BlogPostPage />} />
+              <Route path="category/:slug" element={<CategoryPage />} />
+              <Route path="tag/:slug" element={<TagPage />} />
+
+              {/* 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
           </Route>
 
           {/* Deal Guard Landing (standalone, no PublicLayout) */}

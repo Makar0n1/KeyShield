@@ -21,6 +21,16 @@ import multer from 'multer';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// geoip-lite for geo language detection (optional, install: npm install geoip-lite)
+let geoip = null;
+try {
+  const mod = await import('geoip-lite');
+  geoip = mod.default ?? mod;
+  console.log('🌍 geoip-lite loaded for geo language detection');
+} catch {
+  console.warn('⚠️  geoip-lite not installed — geo redirect uses Accept-Language fallback. Run: npm install geoip-lite');
+}
+
 // Dynamic imports for CommonJS modules from parent directory
 const connectDB = (await import('../src/config/database.js')).default;
 const notificationService = (await import('../src/services/notificationService.js')).default;
@@ -422,61 +432,72 @@ app.get('/sitemap.xml', async (req, res) => {
       ? new Date(posts[0].updatedAt).toISOString().split('T')[0]
       : today;
 
+    // Languages for localized URLs
+    const SITEMAP_LANGS = ['ru', 'en', 'uk'];
+
     // Static pages with lastmod
     const staticPages = [
-      { loc: '/', priority: '1.0', changefreq: 'weekly', lastmod: today },
+      { loc: '', priority: '1.0', changefreq: 'weekly', lastmod: today },
       { loc: '/blog', priority: '0.9', changefreq: 'weekly', lastmod: latestPostDate },
       { loc: '/offer', priority: '0.3', changefreq: 'monthly', lastmod: '2024-01-01' },
       { loc: '/terms', priority: '0.3', changefreq: 'monthly', lastmod: '2024-01-01' },
       { loc: '/privacy', priority: '0.3', changefreq: 'monthly', lastmod: '2024-01-01' }
     ];
 
-    for (const page of staticPages) {
-      xml += '  <url>\n';
-      xml += `    <loc>${SITE_URL}${page.loc}</loc>\n`;
-      xml += `    <lastmod>${page.lastmod}</lastmod>\n`;
-      xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
-      xml += `    <priority>${page.priority}</priority>\n`;
-      xml += '  </url>\n';
+    for (const lang of SITEMAP_LANGS) {
+      for (const page of staticPages) {
+        xml += '  <url>\n';
+        xml += `    <loc>${SITE_URL}/${lang}${page.loc}</loc>\n`;
+        xml += `    <lastmod>${page.lastmod}</lastmod>\n`;
+        xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
+        xml += `    <priority>${page.priority}</priority>\n`;
+        xml += '  </url>\n';
+      }
     }
 
-    // Blog posts
-    for (const post of posts) {
-      const postLastmod = post.updatedAt || post.publishedAt
-        ? new Date(post.updatedAt || post.publishedAt).toISOString().split('T')[0]
-        : today;
-      xml += '  <url>\n';
-      xml += `    <loc>${SITE_URL}/blog/${post.slug}</loc>\n`;
-      xml += `    <lastmod>${postLastmod}</lastmod>\n`;
-      xml += '    <changefreq>weekly</changefreq>\n';
-      xml += '    <priority>0.8</priority>\n';
-      xml += '  </url>\n';
+    // Blog posts (for each language)
+    for (const lang of SITEMAP_LANGS) {
+      for (const post of posts) {
+        const postLastmod = post.updatedAt || post.publishedAt
+          ? new Date(post.updatedAt || post.publishedAt).toISOString().split('T')[0]
+          : today;
+        xml += '  <url>\n';
+        xml += `    <loc>${SITE_URL}/${lang}/blog/${post.slug}</loc>\n`;
+        xml += `    <lastmod>${postLastmod}</lastmod>\n`;
+        xml += '    <changefreq>weekly</changefreq>\n';
+        xml += '    <priority>0.8</priority>\n';
+        xml += '  </url>\n';
+      }
     }
 
-    // Categories
-    for (const cat of categories) {
-      const catLastmod = cat.updatedAt
-        ? new Date(cat.updatedAt).toISOString().split('T')[0]
-        : today;
-      xml += '  <url>\n';
-      xml += `    <loc>${SITE_URL}/category/${cat.slug}</loc>\n`;
-      xml += `    <lastmod>${catLastmod}</lastmod>\n`;
-      xml += '    <changefreq>weekly</changefreq>\n';
-      xml += '    <priority>0.6</priority>\n';
-      xml += '  </url>\n';
+    // Categories (for each language)
+    for (const lang of SITEMAP_LANGS) {
+      for (const cat of categories) {
+        const catLastmod = cat.updatedAt
+          ? new Date(cat.updatedAt).toISOString().split('T')[0]
+          : today;
+        xml += '  <url>\n';
+        xml += `    <loc>${SITE_URL}/${lang}/category/${cat.slug}</loc>\n`;
+        xml += `    <lastmod>${catLastmod}</lastmod>\n`;
+        xml += '    <changefreq>weekly</changefreq>\n';
+        xml += '    <priority>0.6</priority>\n';
+        xml += '  </url>\n';
+      }
     }
 
-    // Tags
-    for (const tag of tags) {
-      const tagLastmod = tag.updatedAt
-        ? new Date(tag.updatedAt).toISOString().split('T')[0]
-        : today;
-      xml += '  <url>\n';
-      xml += `    <loc>${SITE_URL}/tag/${tag.slug}</loc>\n`;
-      xml += `    <lastmod>${tagLastmod}</lastmod>\n`;
-      xml += '    <changefreq>weekly</changefreq>\n';
-      xml += '    <priority>0.5</priority>\n';
-      xml += '  </url>\n';
+    // Tags (for each language)
+    for (const lang of SITEMAP_LANGS) {
+      for (const tag of tags) {
+        const tagLastmod = tag.updatedAt
+          ? new Date(tag.updatedAt).toISOString().split('T')[0]
+          : today;
+        xml += '  <url>\n';
+        xml += `    <loc>${SITE_URL}/${lang}/tag/${tag.slug}</loc>\n`;
+        xml += `    <lastmod>${tagLastmod}</lastmod>\n`;
+        xml += '    <changefreq>weekly</changefreq>\n';
+        xml += '    <priority>0.5</priority>\n';
+        xml += '  </url>\n';
+      }
     }
 
     xml += '</urlset>';
@@ -2097,6 +2118,61 @@ app.use((err, req, res, next) => {
   if (!res.headersSent) {
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ============ GEO LANGUAGE REDIRECT ============
+
+const LANG_PREFIXES = ['ru', 'en', 'uk'];
+// Paths that must not be redirected
+const SKIP_PATH_PREFIXES = ['/api', '/admin', '/partner', '/uploads', '/health', '/sitemap', '/robots', '/_vite', '/@'];
+
+// Country → language mapping
+const GEO_LANG = { RU: 'ru', BY: 'ru', KZ: 'ru', UA: 'uk' };
+
+// Cache geo lookups by IP to avoid repeated calls
+const geoLangCache = new Map();
+
+function detectLangByIp(ip) {
+  if (geoLangCache.has(ip)) return geoLangCache.get(ip);
+  let lang = 'en';
+  if (geoip) {
+    const geo = geoip.lookup(ip);
+    lang = (geo && GEO_LANG[geo.country]) || 'en';
+  } else {
+    // Accept-Language fallback: ru, uk → map to lang; everything else → en
+    // (used only when geoip-lite is not installed)
+    lang = 'en';
+  }
+  if (geoLangCache.size > 20000) {
+    geoLangCache.delete(geoLangCache.keys().next().value);
+  }
+  geoLangCache.set(ip, lang);
+  return lang;
+}
+
+app.use((req, res, next) => {
+  // Skip non-GET requests
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+  const path = req.path;
+
+  // Skip paths that should never be redirected
+  if (SKIP_PATH_PREFIXES.some(p => path.startsWith(p))) return next();
+
+  // Already has a valid lang prefix → no redirect needed
+  if (LANG_PREFIXES.some(lang => path === `/${lang}` || path.startsWith(`/${lang}/`))) return next();
+
+  // In dev, skip geo redirect (Vite handles HMR paths etc.)
+  if (isDev) return next();
+
+  // Get client IP (behind reverse proxy)
+  const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+  const lang = detectLangByIp(ip);
+
+  // Redirect to localized path
+  const target = path === '/' ? `/${lang}` : `/${lang}${path}`;
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  return res.redirect(302, target + qs);
 });
 
 // ============ STATIC FILES & VITE ============

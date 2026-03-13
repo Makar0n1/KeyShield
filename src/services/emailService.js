@@ -10,6 +10,7 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { t, getLocale } = require('../locales');
 
 class EmailService {
   constructor() {
@@ -83,7 +84,7 @@ class EmailService {
    * @param {Object} user - User object with telegramId and username
    * @returns {Promise<{buffer: Buffer, filename: string}>}
    */
-  async generatePdfReceipt(deal, user) {
+  async generatePdfReceipt(deal, user, lang = 'ru') {
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
@@ -112,14 +113,16 @@ class EmailService {
         const telegramId = user?.telegramId;
         const statementNumber = this.generateStatementNumber(deal, telegramId);
         const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
-        const receiptDate = completedAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) + ' (МСК)';
+        const locale = getLocale(lang);
+        const tzLabel = t(lang, 'pdf.timezone');
+        const receiptDate = completedAt.toLocaleString(locale, { timeZone: 'Europe/Moscow' }) + ` ${tzLabel}`;
 
         const statusNames = {
-          completed: 'Успешно завершена',
-          resolved: 'Решена арбитром',
-          expired: 'Истекла (авто-возврат)',
-          cancelled: 'Отменена',
-          refunded: 'Возврат'
+          completed: t(lang, 'pdf.status_completed'),
+          resolved: t(lang, 'pdf.status_resolved'),
+          expired: t(lang, 'pdf.status_expired'),
+          cancelled: t(lang, 'pdf.status_cancelled'),
+          refunded: t(lang, 'pdf.status_refunded'),
         };
         const statusColors = {
           completed: '#10b981',
@@ -134,30 +137,30 @@ class EmailService {
 
         doc.moveDown(4);
         doc.fontSize(42).fillColor('#6366f1').text('KeyShield', { align: 'center' });
-        doc.fontSize(14).fillColor('#64748b').text('Безопасный криптовалютный эскроу на TRON', { align: 'center' });
+        doc.fontSize(14).fillColor('#64748b').text(t(lang, 'pdf.subtitle'), { align: 'center' });
 
         doc.moveDown(4);
 
         doc.rect(150, doc.y, 295, 80).fillAndStroke('#f8fafc', '#e2e8f0');
         doc.moveDown(0.5);
-        doc.fontSize(12).fillColor('#64748b').text('ВЫПИСКА', { align: 'center' });
+        doc.fontSize(12).fillColor('#64748b').text(t(lang, 'pdf.statement'), { align: 'center' });
         doc.fontSize(28).fillColor('#1e293b').text(`№${statementNumber}`, { align: 'center' });
 
         doc.moveDown(4);
 
-        doc.fontSize(11).fillColor('#64748b').text('Тип документа:', { align: 'center' });
-        doc.fontSize(14).fillColor('#1e293b').text('Выписка по сделке', { align: 'center' });
+        doc.fontSize(11).fillColor('#64748b').text(t(lang, 'pdf.doc_type'), { align: 'center' });
+        doc.fontSize(14).fillColor('#1e293b').text(t(lang, 'pdf.deal_statement'), { align: 'center' });
 
         doc.moveDown(1);
-        doc.fontSize(11).fillColor('#64748b').text('Сделка:', { align: 'center' });
+        doc.fontSize(11).fillColor('#64748b').text(t(lang, 'pdf.deal_label'), { align: 'center' });
         doc.fontSize(14).fillColor('#6366f1').text(deal.dealId, { align: 'center' });
 
         doc.moveDown(1);
-        doc.fontSize(11).fillColor('#64748b').text('Подготовлено для:', { align: 'center' });
-        doc.fontSize(14).fillColor('#1e293b').text(`@${user?.username || 'Неизвестно'} (ID: ${telegramId})`, { align: 'center' });
+        doc.fontSize(11).fillColor('#64748b').text(t(lang, 'pdf.prepared_for'), { align: 'center' });
+        doc.fontSize(14).fillColor('#1e293b').text(`@${user?.username || t(lang, 'pdf.na')} (ID: ${telegramId})`, { align: 'center' });
 
         doc.moveDown(1);
-        doc.fontSize(11).fillColor('#64748b').text('Дата формирования:', { align: 'center' });
+        doc.fontSize(11).fillColor('#64748b').text(t(lang, 'pdf.date_generated'), { align: 'center' });
         doc.fontSize(12).fillColor('#1e293b').text(receiptDate, { align: 'center' });
 
         doc.fontSize(9).fillColor('#94a3b8').text('https://keyshield.me', 50, 750, { align: 'center', link: 'https://keyshield.me' });
@@ -167,7 +170,7 @@ class EmailService {
         doc.addPage();
 
         doc.rect(0, 0, 595, 40).fill('#6366f1');
-        doc.fontSize(14).fillColor('#ffffff').text(`Выписка №${statementNumber}`, 50, 12);
+        doc.fontSize(14).fillColor('#ffffff').text(`${t(lang, 'pdf.statement')} №${statementNumber}`, 50, 12);
         doc.fontSize(10).fillColor('#c7d2fe').text(deal.dealId, 450, 14);
 
         doc.moveDown(3);
@@ -181,79 +184,80 @@ class EmailService {
           return yPos + 30;
         };
 
+        const na = t(lang, 'pdf.na');
         const drawRow = (label, value, y) => {
           doc.fontSize(10).fillColor('#64748b').text(label, 60, y);
-          doc.fontSize(10).fillColor('#1e293b').text(String(value || 'Н/Д'), 200, y);
+          doc.fontSize(10).fillColor('#1e293b').text(String(value || na), 200, y);
           return y + 18;
         };
 
         let y = 110;
 
         // Basic Info
-        y = drawSection('Основная информация', y);
-        y = drawRow('ID сделки:', deal.dealId, y);
+        y = drawSection(t(lang, 'pdf.section_basic'), y);
+        y = drawRow(t(lang, 'pdf.field_deal_id'), deal.dealId, y);
         const desc = deal.description || '';
-        y = drawRow('Описание:', desc.substring(0, 60) + (desc.length > 60 ? '...' : ''), y);
+        y = drawRow(t(lang, 'pdf.field_description'), desc.substring(0, 60) + (desc.length > 60 ? '...' : ''), y);
         y += 10;
 
         // Participants
-        y = drawSection('Участники', y);
-        const userRole = deal.buyerId === telegramId ? 'Покупатель' : 'Продавец';
-        y = drawRow('Ваша роль:', userRole, y);
-        y = drawRow('Инициатор:', deal.creatorRole === 'buyer' ? 'Покупатель' : 'Продавец', y);
+        y = drawSection(t(lang, 'pdf.section_participants'), y);
+        const userRole = deal.buyerId === telegramId ? t(lang, 'pdf.role_buyer') : t(lang, 'pdf.role_seller');
+        y = drawRow(t(lang, 'pdf.field_role'), userRole, y);
+        y = drawRow(t(lang, 'pdf.field_initiator'), deal.creatorRole === 'buyer' ? t(lang, 'pdf.role_buyer') : t(lang, 'pdf.role_seller'), y);
         y += 10;
 
         // Financial
-        y = drawSection('Финансы', y);
-        y = drawRow('Сумма сделки:', `${deal.amount} ${deal.asset}`, y);
-        y = drawRow('Комиссия:', `${deal.commission} ${deal.asset}`, y);
-        const commTypes = { buyer: 'Покупатель', seller: 'Продавец', split: 'Пополам 50/50' };
-        y = drawRow('Комиссию платит:', commTypes[deal.commissionType], y);
+        y = drawSection(t(lang, 'pdf.section_financial'), y);
+        y = drawRow(t(lang, 'pdf.field_amount'), `${deal.amount} ${deal.asset}`, y);
+        y = drawRow(t(lang, 'pdf.field_commission'), `${deal.commission} ${deal.asset}`, y);
+        const commTypes = { buyer: t(lang, 'pdf.role_buyer'), seller: t(lang, 'pdf.role_seller'), split: t(lang, 'pdf.comm_split') };
+        y = drawRow(t(lang, 'pdf.field_comm_payer'), commTypes[deal.commissionType], y);
 
         let depositAmt = deal.amount;
         if (deal.commissionType === 'buyer') depositAmt += deal.commission;
         else if (deal.commissionType === 'split') depositAmt += deal.commission / 2;
-        y = drawRow('Сумма депозита:', `${depositAmt.toFixed(2)} ${deal.asset}`, y);
+        y = drawRow(t(lang, 'pdf.field_deposit_amount'), `${depositAmt.toFixed(2)} ${deal.asset}`, y);
 
         let sellerAmt = deal.amount;
         if (deal.commissionType === 'seller') sellerAmt -= deal.commission;
         else if (deal.commissionType === 'split') sellerAmt -= deal.commission / 2;
-        y = drawRow('Выплата продавцу:', `${sellerAmt.toFixed(2)} ${deal.asset}`, y);
+        y = drawRow(t(lang, 'pdf.field_seller_payout'), `${sellerAmt.toFixed(2)} ${deal.asset}`, y);
         y += 10;
 
         // Wallets
-        y = drawSection('Кошельки', y);
-        y = drawRow('Multisig:', deal.multisigAddress || 'Н/Д', y);
-        y = drawRow('Покупатель:', deal.buyerAddress || 'Н/Д', y);
-        y = drawRow('Продавец:', deal.sellerAddress || 'Н/Д', y);
+        y = drawSection(t(lang, 'pdf.section_wallets'), y);
+        y = drawRow(t(lang, 'pdf.field_multisig'), deal.multisigAddress || na, y);
+        y = drawRow(t(lang, 'pdf.field_buyer_wallet'), deal.buyerAddress || na, y);
+        y = drawRow(t(lang, 'pdf.field_seller_wallet'), deal.sellerAddress || na, y);
         y += 10;
 
         // Blockchain
         if (deal.depositTxHash || deal.payoutTxHash) {
-          y = drawSection('Блокчейн', y);
+          y = drawSection(t(lang, 'pdf.section_blockchain'), y);
           if (deal.depositTxHash) {
-            y = drawRow('TX депозита:', deal.depositTxHash.substring(0, 40) + '...', y);
+            y = drawRow(t(lang, 'pdf.field_deposit_tx'), deal.depositTxHash.substring(0, 40) + '...', y);
           }
           if (deal.payoutTxHash) {
-            y = drawRow('TX выплаты:', deal.payoutTxHash.substring(0, 40) + '...', y);
+            y = drawRow(t(lang, 'pdf.field_payout_tx'), deal.payoutTxHash.substring(0, 40) + '...', y);
           }
           y += 10;
         }
 
         // Timeline
-        y = drawSection('Хронология', y);
-        const createdDate = new Date(deal.createdAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
-        y = drawRow('Создана:', createdDate + ' (МСК)', y);
+        y = drawSection(t(lang, 'pdf.section_timeline'), y);
+        const createdDate = new Date(deal.createdAt).toLocaleString(locale, { timeZone: 'Europe/Moscow' });
+        y = drawRow(t(lang, 'pdf.field_created'), createdDate + ` ${tzLabel}`, y);
         if (deal.completedAt) {
-          const completedDate = new Date(deal.completedAt).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
-          y = drawRow('Завершена:', completedDate + ' (МСК)', y);
+          const completedDate = new Date(deal.completedAt).toLocaleString(locale, { timeZone: 'Europe/Moscow' });
+          y = drawRow(t(lang, 'pdf.field_completed'), completedDate + ` ${tzLabel}`, y);
         }
 
         // Footer
         const footerY = 780;
         if (y < footerY) {
           doc.fontSize(9).fillColor('#94a3b8').text(
-            'Документ сформирован автоматически системой KeyShield.',
+            t(lang, 'pdf.footer_auto'),
             50, footerY, { align: 'center', width: 495 }
           );
         }
@@ -273,7 +277,7 @@ class EmailService {
    * @param {Object} user - User object (required for PDF generation)
    * @returns {Promise<boolean>}
    */
-  async sendReceipt(to, deal, transaction, user = null) {
+  async sendReceipt(to, deal, transaction, user = null, lang = 'ru') {
     if (!this.isEnabled()) {
       console.log('📧 Email service not enabled, skipping receipt');
       return false;
@@ -286,11 +290,11 @@ class EmailService {
 
       let subject;
       if (isRefund) {
-        subject = `KeyShield - Чек возврата по сделке ${deal.dealId}`;
+        subject = t(lang, 'pdf.subject_refund', { dealId: deal.dealId });
       } else if (isPurchase) {
-        subject = `KeyShield - Чек о покупке по сделке ${deal.dealId}`;
+        subject = t(lang, 'pdf.subject_purchase', { dealId: deal.dealId });
       } else {
-        subject = `KeyShield - Чек по сделке ${deal.dealId}`;
+        subject = t(lang, 'pdf.subject_deal', { dealId: deal.dealId });
       }
 
       // Generate PDF attachment (same format as admin export)
@@ -298,7 +302,7 @@ class EmailService {
       let statementNumber = null;
       if (user) {
         try {
-          const pdfResult = await this.generatePdfReceipt(deal, user);
+          const pdfResult = await this.generatePdfReceipt(deal, user, lang);
           attachments = [{
             filename: pdfResult.filename,
             content: pdfResult.buffer,
@@ -310,8 +314,8 @@ class EmailService {
         }
       }
 
-      const html = this.generateReceiptHTML(deal, transaction, statementNumber);
-      const text = this.generateReceiptText(deal, transaction);
+      const html = this.generateReceiptHTML(deal, transaction, statementNumber, lang);
+      const text = this.generateReceiptText(deal, transaction, lang);
 
       await this.transporter.sendMail({
         from: `"KeyShield" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
@@ -333,14 +337,15 @@ class EmailService {
   /**
    * Generate HTML receipt (matching admin PDF style)
    */
-  generateReceiptHTML(deal, transaction, statementNumber = null) {
+  generateReceiptHTML(deal, transaction, statementNumber = null, lang = 'ru') {
     const { type, amount, txHash, toAddress } = transaction;
     const isRefund = type === 'refund';
     const isPurchase = type === 'purchase';
 
     // Use deal completion date
     const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
-    const date = completedAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+    const locale = getLocale(lang);
+    const date = completedAt.toLocaleString(locale, { timeZone: 'Europe/Moscow' });
 
     // Use provided statementNumber or generate one
     if (!statementNumber) {
@@ -349,22 +354,22 @@ class EmailService {
       statementNumber = `${dateStr}-${random}`;
     }
 
-    // Determine status text and colors (matching admin PDF)
+    // Determine status text and colors
     let typeText, statusText, amountLabel, statusColor;
     if (isRefund) {
-      typeText = 'ЧЕК ВОЗВРАТА';
-      statusText = 'Возврат выполнен';
-      amountLabel = 'Сумма возврата';
+      typeText = t(lang, 'pdf.email_type_refund');
+      statusText = t(lang, 'pdf.email_status_refund');
+      amountLabel = t(lang, 'pdf.email_amount_refund');
       statusColor = '#f59e0b';
     } else if (isPurchase) {
-      typeText = 'ЧЕК О ПОКУПКЕ';
-      statusText = 'Покупка завершена';
-      amountLabel = 'Сумма покупки';
+      typeText = t(lang, 'pdf.email_type_purchase');
+      statusText = t(lang, 'pdf.email_status_purchase');
+      amountLabel = t(lang, 'pdf.email_amount_purchase');
       statusColor = '#3b82f6';
     } else {
-      typeText = 'ЧЕК О ВЫПЛАТЕ';
-      statusText = 'Выплата получена';
-      amountLabel = 'Сумма выплаты';
+      typeText = t(lang, 'pdf.email_type_payout');
+      statusText = t(lang, 'pdf.email_status_payout');
+      amountLabel = t(lang, 'pdf.email_amount_payout');
       statusColor = '#10b981';
     }
 
@@ -384,7 +389,7 @@ class EmailService {
     <!-- Header -->
     <div style="padding: 30px; text-align: center;">
       <h1 style="margin: 0; font-size: 32px; color: #6366f1; font-weight: 600;">KeyShield</h1>
-      <p style="margin: 8px 0 0; color: #64748b; font-size: 14px;">Безопасные сделки с криптовалютой</p>
+      <p style="margin: 8px 0 0; color: #64748b; font-size: 14px;">${t(lang, 'pdf.email_subtitle')}</p>
     </div>
 
     <!-- Statement box -->
@@ -407,24 +412,24 @@ class EmailService {
     <!-- Deal info section -->
     <div style="margin: 0 30px 20px;">
       <div style="background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0;">
-        <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">ИНФОРМАЦИЯ О СДЕЛКЕ</p>
+        <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">${t(lang, 'pdf.email_section_deal')}</p>
       </div>
       <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; padding: 15px;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 8px 0; color: #64748b; font-size: 13px;">ID сделки</td>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px;">${t(lang, 'pdf.email_field_deal_id')}</td>
             <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; font-weight: 500;">${deal.dealId}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Товар/услуга</td>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">${t(lang, 'pdf.email_field_product')}</td>
             <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${deal.productName}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Сумма сделки</td>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">${t(lang, 'pdf.email_field_amount')}</td>
             <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${deal.amount.toFixed(2)} ${deal.asset}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Комиссия сервиса</td>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">${t(lang, 'pdf.email_field_commission')}</td>
             <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${deal.commission.toFixed(2)} ${deal.asset}</td>
           </tr>
         </table>
@@ -434,16 +439,16 @@ class EmailService {
     <!-- Transaction section -->
     <div style="margin: 0 30px 20px;">
       <div style="background: #f1f5f9; padding: 10px 15px; border-radius: 6px 6px 0 0;">
-        <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">ТРАНЗАКЦИЯ</p>
+        <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">${t(lang, 'pdf.email_section_tx')}</p>
       </div>
       <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; padding: 15px;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 8px 0; color: #64748b; font-size: 13px;">Адрес получателя</td>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px;">${t(lang, 'pdf.email_field_recipient')}</td>
             <td style="padding: 8px 0; color: #1e293b; font-size: 11px; text-align: right; word-break: break-all;">${toAddress}</td>
           </tr>
           <tr>
-            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">Дата</td>
+            <td style="padding: 8px 0; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9;">${t(lang, 'pdf.email_field_date')}</td>
             <td style="padding: 8px 0; color: #1e293b; font-size: 13px; text-align: right; border-top: 1px solid #f1f5f9;">${date}</td>
           </tr>
         </table>
@@ -453,22 +458,22 @@ class EmailService {
     <!-- TX Link -->
     <div style="margin: 0 30px 25px; text-align: center;">
       <a href="https://tronscan.org/#/transaction/${txHash}" style="display: inline-block; padding: 12px 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; color: #6366f1; text-decoration: none; font-size: 13px;">
-        Проверить транзакцию на TronScan
+        ${t(lang, 'pdf.email_tronscan_link')}
       </a>
     </div>
 
     <!-- PDF notice -->
     <div style="margin: 0 30px 20px; padding: 15px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; text-align: center;">
-      <p style="margin: 0; color: #1e40af; font-size: 13px;">PDF-выписка прикреплена к этому письму</p>
+      <p style="margin: 0; color: #1e40af; font-size: 13px;">${t(lang, 'pdf.email_pdf_notice')}</p>
     </div>
 
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">Документ сформирован автоматически системой KeyShield</p>
+      <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">${t(lang, 'pdf.email_footer_auto')}</p>
       <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">
-        Вопросы: <a href="mailto:support@keyshield.me" style="color: #6366f1; text-decoration: none;">support@keyshield.me</a>
+        ${t(lang, 'pdf.email_footer_support')} <a href="mailto:support@keyshield.me" style="color: #6366f1; text-decoration: none;">support@keyshield.me</a>
       </p>
-      <p style="margin: 0; color: #94a3b8; font-size: 11px;">${new Date().getFullYear()} KeyShield. Все права защищены.</p>
+      <p style="margin: 0; color: #94a3b8; font-size: 11px;">${new Date().getFullYear()} KeyShield. ${t(lang, 'pdf.email_rights')}</p>
     </div>
 
     <!-- Bottom accent bar -->
@@ -482,27 +487,28 @@ class EmailService {
   /**
    * Generate plain text receipt (fallback)
    */
-  generateReceiptText(deal, transaction) {
+  generateReceiptText(deal, transaction, lang = 'ru') {
     const { type, amount, txHash, toAddress } = transaction;
     const isRefund = type === 'refund';
     const isPurchase = type === 'purchase';
 
     const completedAt = deal.completedAt ? new Date(deal.completedAt) : new Date(deal.createdAt);
-    const date = completedAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+    const locale = getLocale(lang);
+    const date = completedAt.toLocaleString(locale, { timeZone: 'Europe/Moscow' });
 
     let title, statusText, amountLabel;
     if (isRefund) {
-      title = 'Чек возврата';
-      statusText = 'Возврат выполнен';
-      amountLabel = 'Сумма возврата';
+      title = t(lang, 'pdf.text_title_refund');
+      statusText = t(lang, 'pdf.text_status_refund');
+      amountLabel = t(lang, 'pdf.text_amount_refund');
     } else if (isPurchase) {
-      title = 'Чек о покупке';
-      statusText = 'Покупка завершена';
-      amountLabel = 'Сумма покупки';
+      title = t(lang, 'pdf.text_title_purchase');
+      statusText = t(lang, 'pdf.text_status_purchase');
+      amountLabel = t(lang, 'pdf.text_amount_purchase');
     } else {
-      title = 'Чек по сделке';
-      statusText = 'Сделка завершена';
-      amountLabel = 'Сумма выплаты';
+      title = t(lang, 'pdf.text_title_deal');
+      statusText = t(lang, 'pdf.text_status_deal');
+      amountLabel = t(lang, 'pdf.text_amount_payout');
     }
 
     return `
@@ -512,17 +518,17 @@ ${statusText}
 
 ${amountLabel}: ${amount.toFixed(2)} ${deal.asset}
 
-Детали:
-- ID сделки: ${deal.dealId}
-- Товар/услуга: ${deal.productName}
-- Комиссия сервиса: ${deal.commission.toFixed(2)} ${deal.asset}
-- Адрес получателя: ${toAddress}
-- Дата: ${date}
+${t(lang, 'pdf.text_details')}
+- ${t(lang, 'pdf.text_field_deal_id')}: ${deal.dealId}
+- ${t(lang, 'pdf.text_field_product')}: ${deal.productName}
+- ${t(lang, 'pdf.text_field_commission')}: ${deal.commission.toFixed(2)} ${deal.asset}
+- ${t(lang, 'pdf.text_field_recipient')}: ${toAddress}
+- ${t(lang, 'pdf.text_field_date')}: ${date}
 
-Транзакция: https://tronscan.org/#/transaction/${txHash}
+Tx: https://tronscan.org/#/transaction/${txHash}
 
 ---
-KeyShield - Безопасные сделки с криптовалютой
+${t(lang, 'pdf.text_footer')}
 support@keyshield.me
     `.trim();
   }

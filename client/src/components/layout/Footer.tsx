@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { LangLink } from '@/components/ui/LangLink'
 import { blogService } from '@/services/blog'
 import type { BlogPost } from '@/types'
 
@@ -50,9 +50,9 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.documents.map((link) => (
                 <li key={link.href}>
-                  <Link to={link.href} className="text-muted hover:text-white text-sm transition-colors">
+                  <LangLink to={link.href} className="text-muted hover:text-white text-sm transition-colors">
                     {t(link.key)}
-                  </Link>
+                  </LangLink>
                 </li>
               ))}
             </ul>
@@ -84,20 +84,18 @@ export function Footer() {
               <ul className="space-y-3">
                 {recentPosts.map((post) => (
                   <li key={post._id}>
-                    <Link
+                    <LangLink
                       to={`/blog/${post.slug}`}
                       className="group flex items-start gap-2.5 text-muted hover:text-white text-sm transition-colors"
                     >
                       {post.coverImage && (
                         <div className="w-10 h-10 rounded shrink-0 relative overflow-hidden bg-dark">
-                          {/* Blurred background */}
                           <img
                             src={post.coverImage}
                             alt=""
                             aria-hidden="true"
                             className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
                           />
-                          {/* Main image */}
                           <img
                             src={post.coverImage}
                             alt=""
@@ -106,14 +104,14 @@ export function Footer() {
                         </div>
                       )}
                       <span className="line-clamp-2 leading-snug pt-0.5">{post.title}</span>
-                    </Link>
+                    </LangLink>
                   </li>
                 ))}
               </ul>
             ) : (
-              <Link to="/blog" className="text-muted hover:text-white text-sm transition-colors">
+              <LangLink to="/blog" className="text-muted hover:text-white text-sm transition-colors">
                 {t('footer.all_posts')}
-              </Link>
+              </LangLink>
             )}
           </div>
         </div>

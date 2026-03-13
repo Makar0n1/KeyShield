@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { LangLink as Link } from '@/components/ui/LangLink'
+import { useLangPath } from '@/hooks/useLang'
 import { Search, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { BlogCategory, BlogTag, BlogPost } from '@/types'
@@ -90,6 +92,7 @@ export function BlogSidebar({
   const [showResults, setShowResults] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const langPath = useLangPath()
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -145,14 +148,14 @@ export function BlogSidebar({
   const handleResultClick = (slug: string) => {
     setShowResults(false)
     setSearchQuery('')
-    navigate(`/blog/${slug}`)
+    navigate(langPath(`/blog/${slug}`))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
       setShowResults(false)
-      navigate(`/blog?q=${encodeURIComponent(searchQuery.trim())}`)
+      navigate(langPath(`/blog?q=${encodeURIComponent(searchQuery.trim())}`))
     }
   }
 
@@ -247,7 +250,7 @@ export function BlogSidebar({
                 type="button"
                 onClick={() => {
                   setShowResults(false)
-                  navigate(`/blog?q=${encodeURIComponent(searchQuery.trim())}`)
+                  navigate(langPath(`/blog?q=${encodeURIComponent(searchQuery.trim())}`))
                 }}
                 className="w-full p-3 text-center text-sm text-primary hover:bg-dark-light transition-colors border-t border-border"
               >

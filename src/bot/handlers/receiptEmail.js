@@ -175,7 +175,7 @@ async function handleReceiptSendSaved(ctx) {
     const user = await User.findOne({ telegramId }).select('username telegramId firstName');
 
     // Send receipt
-    const sent = await emailService.sendReceipt(session.savedEmail, deal, session.transactionData, user);
+    const sent = await emailService.sendReceipt(session.savedEmail, deal, session.transactionData, user, lang);
 
     // Clear session before proceeding
     const ratingData = session.ratingData;
@@ -313,7 +313,7 @@ async function handleEmailInput(ctx) {
   const user = await User.findOne({ telegramId }).select('username telegramId firstName');
 
   // Send receipt
-  const sent = await emailService.sendReceipt(email, deal, session.transactionData, user);
+  const sent = await emailService.sendReceipt(email, deal, session.transactionData, user, lang);
 
   // Save data before clearing session
   const ratingData = session.ratingData;

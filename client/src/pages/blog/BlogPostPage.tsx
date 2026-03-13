@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { LangLink as Link } from '@/components/ui/LangLink'
 import { ChevronRight, Eye, ThumbsUp, ThumbsDown, Clock, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'

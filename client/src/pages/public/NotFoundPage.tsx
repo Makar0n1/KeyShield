@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { LangLink as Link } from '@/components/ui/LangLink'
 import { Button } from '@/components/ui/button'
 import { Home, MessageCircle } from 'lucide-react'
 

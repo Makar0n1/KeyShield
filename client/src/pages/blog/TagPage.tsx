@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { LangLink as Link } from '@/components/ui/LangLink'
 import { ChevronRight, Tag } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { blogService } from '@/services/blog'
