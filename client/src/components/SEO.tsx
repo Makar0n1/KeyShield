@@ -80,7 +80,7 @@ export function SEO({
 }: SEOProps) {
   const lang = useLang()
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Безопасный Escrow для криптосделок`
-  const fullUrl = url ? `${SITE_URL}${url}` : SITE_URL
+  const fullUrl = url ? `${SITE_URL}/${lang}${url}` : `${SITE_URL}/${lang}`
   const fullImage = image?.startsWith('http') ? image : `${SITE_URL}${image}`
 
   useEffect(() => {
