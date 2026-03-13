@@ -1,4 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
+import { LangLink as Link } from '@/components/ui/LangLink'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/utils/cn'
 
 interface DocumentLayoutProps {
@@ -7,14 +9,15 @@ interface DocumentLayoutProps {
   children: React.ReactNode
 }
 
-const documentTabs = [
-  { href: '/terms', label: 'Условия использования' },
-  { href: '/privacy', label: 'Политика конфиденциальности' },
-  { href: '/offer', label: 'Публичная оферта' },
-]
-
 export function DocumentLayout({ title, date, children }: DocumentLayoutProps) {
   const location = useLocation()
+  const { t } = useTranslation()
+
+  const documentTabs = [
+    { href: '/terms', label: t('footer.terms') },
+    { href: '/privacy', label: t('footer.privacy') },
+    { href: '/offer', label: t('footer.offer') },
+  ]
 
   return (
     <section className="py-12">
@@ -27,7 +30,7 @@ export function DocumentLayout({ title, date, children }: DocumentLayoutProps) {
               to={tab.href}
               className={cn(
                 'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                location.pathname === tab.href
+                location.pathname.endsWith(tab.href)
                   ? 'bg-primary text-white'
                   : 'text-muted hover:text-white hover:bg-dark-light'
               )}
@@ -39,7 +42,7 @@ export function DocumentLayout({ title, date, children }: DocumentLayoutProps) {
 
         {/* Document Header */}
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{title}</h1>
-        <p className="text-muted mb-8">Дата вступления в силу: {date}</p>
+        <p className="text-muted mb-8">{t('docs.effective_date')}: {date}</p>
 
         {/* Document Content */}
         <div className="prose prose-invert max-w-none">
@@ -48,7 +51,7 @@ export function DocumentLayout({ title, date, children }: DocumentLayoutProps) {
 
         {/* Document Footer */}
         <p className="text-muted mt-12 pt-8 border-t border-border text-sm">
-          Последнее обновление: {date}
+          {t('docs.last_updated')}: {date}
         </p>
       </div>
     </section>

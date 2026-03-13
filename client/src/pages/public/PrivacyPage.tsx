@@ -1,6 +1,6 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
 export function PrivacyPage() {
   const { t } = useTranslation()
@@ -22,263 +22,165 @@ export function PrivacyPage() {
         schema={schema}
       />
       <DocumentLayout title={t('privacy.title')} date={t('privacy.date')}>
-      <Section title="1. Общие положения">
-        <Paragraph>
-          1.1. Настоящая Политика конфиденциальности (далее - "Политика") описывает, как KeyShield
-          (далее - "Сервис", "мы") собирает, использует, хранит и защищает личную информацию
-          пользователей (далее - "Пользователь", "вы").
-        </Paragraph>
-        <Paragraph>
-          1.2. Используя Сервис, вы соглашаетесь с условиями настоящей Политики конфиденциальности.
-        </Paragraph>
-        <Paragraph>
-          1.3. Если вы не согласны с какими-либо положениями настоящей Политики, пожалуйста,
-          не используйте Сервис.
-        </Paragraph>
+      <Section title={t('privacy.s1_title')}>
+        <Paragraph>{t('privacy.s1_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s1_p2')}</Paragraph>
+        <Paragraph>{t('privacy.s1_p3')}</Paragraph>
       </Section>
 
-      <Section title="2. Какую информацию мы собираем">
-        <Paragraph>2.1. <strong>Информация от Telegram:</strong></Paragraph>
-        <List
-          items={[
-            'Telegram ID (уникальный идентификатор)',
-            'Имя пользователя (username)',
-            'Имя и фамилия (если указаны в профиле)',
-          ]}
-        />
-
-        <Paragraph>2.2. <strong>Информация о сделках:</strong></Paragraph>
-        <List
-          items={[
-            'Адреса криптовалютных кошельков',
-            'Суммы транзакций',
-            'Описание сделок',
-            'История статусов сделок',
-            'Переписка в рамках сделки',
-          ]}
-        />
-
-        <Paragraph>2.3. <strong>Технические данные:</strong></Paragraph>
-        <List
-          items={[
-            'Время взаимодействия с ботом',
-            'Команды, отправленные боту',
-            'Данные о блокчейн-транзакциях (публичные данные)',
-          ]}
-        />
-
-        <Paragraph>2.4. <strong>Информация при спорах:</strong></Paragraph>
-        <List
-          items={[
-            'Причина спора',
-            'Доказательства (скриншоты, файлы, сообщения)',
-            'Решения арбитра',
-          ]}
-        />
-      </Section>
-
-      <Section title="3. Как мы используем вашу информацию">
-        <Paragraph>3.1. Мы используем собранную информацию для:</Paragraph>
-        <List
-          items={[
-            'Предоставления услуг безопасного эскроу-сервиса',
-            'Создания и управления multisig-кошельками',
-            'Обработки транзакций и выплат',
-            'Разрешения споров между пользователями',
-            'Предотвращения мошенничества и злоупотреблений',
-            'Улучшения качества Сервиса',
-            'Соблюдения применимого законодательства',
-          ]}
-        />
-
-        <Paragraph>3.2. Мы НЕ используем вашу информацию для:</Paragraph>
-        <List
-          items={[
-            'Продажи третьим лицам',
-            'Маркетинговых рассылок без вашего согласия',
-            'Передачи рекламодателям',
-            'Целей, не связанных с функционированием Сервиса',
-          ]}
-        />
-      </Section>
-
-      <Section title="4. Хранение информации">
-        <Paragraph>4.1. <strong>Сроки хранения:</strong></Paragraph>
-        <List
-          items={[
-            'Информация о профиле: пока вы используете Сервис',
-            'История сделок: 3 года после завершения сделки',
-            'Информация о спорах: 5 лет после разрешения спора',
-            'Технические логи: 1 год',
-          ]}
-        />
-
-        <Paragraph>4.2. <strong>Безопасность хранения:</strong></Paragraph>
-        <List
-          items={[
-            'Приватные ключи пользователей (покупателя и продавца) выдаются им и НЕ ХРАНЯТСЯ на наших серверах',
-            'Ключ арбитра хранится в зашифрованном виде',
-            'Доступ к базе данных защищен паролями и шифрованием',
-            'Применяются современные стандарты безопасности',
-            'Регулярное резервное копирование данных',
-          ]}
-        />
-      </Section>
-
-      <Section title="5. Передача информации третьим лицам">
-        <Paragraph>5.1. Мы можем передавать вашу информацию только в следующих случаях:</Paragraph>
-        <List
-          items={[
-            'По требованию закона: По запросу правоохранительных органов, судов или государственных учреждений',
-            'Защита прав: Для защиты наших законных прав, безопасности пользователей или предотвращения мошенничества',
-            'С вашего согласия: В других случаях только с вашего явного согласия',
-          ]}
-        />
+      <Section title={t('privacy.s2_title')}>
         <Paragraph>
-          5.2. Мы НЕ продаем и не передаем вашу личную информацию третьим лицам в коммерческих целях.
+          <Trans i18nKey="privacy.s2_p1" components={{ strong: <strong /> }} />
         </Paragraph>
-      </Section>
+        <List items={[t('privacy.s2_l1'), t('privacy.s2_l2'), t('privacy.s2_l3')]} />
 
-      <Section title="6. Публичная информация блокчейна">
         <Paragraph>
-          6.1. Обратите внимание, что транзакции в блокчейне TRON являются публичными и доступны любому пользователю.
+          <Trans i18nKey="privacy.s2_p2" components={{ strong: <strong /> }} />
         </Paragraph>
-        <Paragraph>6.2. Следующая информация является публичной в блокчейне:</Paragraph>
         <List
           items={[
-            'Адреса кошельков',
-            'Суммы транзакций',
-            'Даты и время транзакций',
-            'Хеши транзакций',
-          ]}
-        />
-        <Paragraph>
-          6.3. Сервис не может контролировать или удалить информацию, записанную в блокчейн.
-        </Paragraph>
-      </Section>
-
-      <Section title="7. Ваши права">
-        <Paragraph>7.1. Вы имеете право:</Paragraph>
-        <List
-          items={[
-            'Доступ к данным: Запросить копию всех данных, которые мы храним о вас',
-            'Исправление данных: Исправить неточную или неполную информацию',
-            'Удаление данных: Запросить удаление ваших данных (с ограничениями)',
-            'Ограничение обработки: Ограничить использование ваших данных в определенных случаях',
-            'Переносимость данных: Получить ваши данные в структурированном формате',
-          ]}
-        />
-
-        <Paragraph>7.2. <strong>Ограничения права на удаление:</strong></Paragraph>
-        <List
-          items={[
-            'Мы не можем удалить данные о завершенных сделках до истечения срока хранения',
-            'Информация, необходимая для разрешения споров, сохраняется до их завершения',
-            'Данные, требуемые законом, сохраняются в течение установленного законом срока',
-            'Информация в блокчейне не может быть удалена',
+            t('privacy.s2_l4'), t('privacy.s2_l5'), t('privacy.s2_l6'),
+            t('privacy.s2_l7'), t('privacy.s2_l8'),
           ]}
         />
 
         <Paragraph>
-          7.3. Для реализации ваших прав обращайтесь: @keyshield_support или amroids@tutamail.com
+          <Trans i18nKey="privacy.s2_p3" components={{ strong: <strong /> }} />
         </Paragraph>
-      </Section>
+        <List items={[t('privacy.s2_l9'), t('privacy.s2_l10'), t('privacy.s2_l11')]} />
 
-      <Section title="8. Cookies и отслеживание">
-        <Paragraph>8.1. Наш веб-сайт использует минимальное количество технологий отслеживания.</Paragraph>
-        <Paragraph>8.2. Мы используем localStorage для хранения информации о входе в админ-панель.</Paragraph>
-        <Paragraph>8.3. Мы НЕ используем cookies для рекламы или аналитики третьих лиц.</Paragraph>
-      </Section>
-
-      <Section title="9. Безопасность детей">
-        <Paragraph>9.1. Сервис не предназначен для лиц младше 18 лет.</Paragraph>
-        <Paragraph>9.2. Мы сознательно не собираем информацию от лиц младше 18 лет.</Paragraph>
         <Paragraph>
-          9.3. Если вам стало известно, что несовершеннолетний использует Сервис, свяжитесь с нами: @keyshield_support
+          <Trans i18nKey="privacy.s2_p4" components={{ strong: <strong /> }} />
         </Paragraph>
+        <List items={[t('privacy.s2_l12'), t('privacy.s2_l13'), t('privacy.s2_l14')]} />
       </Section>
 
-      <Section title="10. Международные переводы данных">
-        <Paragraph>10.1. Ваши данные могут обрабатываться на серверах, расположенных в разных странах.</Paragraph>
-        <Paragraph>
-          10.2. Мы принимаем меры для обеспечения адекватного уровня защиты данных независимо от их местоположения.
-        </Paragraph>
-        <Paragraph>10.3. Используя Сервис, вы соглашаетесь на такую передачу данных.</Paragraph>
-      </Section>
-
-      <Section title="11. Меры безопасности">
-        <Paragraph>11.1. Мы применяем следующие меры безопасности:</Paragraph>
+      <Section title={t('privacy.s3_title')}>
+        <Paragraph>{t('privacy.s3_p1')}</Paragraph>
         <List
           items={[
-            'Шифрование приватных ключей в базе данных',
-            'Защита паролем доступа к административным функциям',
-            'Регулярное обновление программного обеспечения',
-            'Мониторинг подозрительной активности',
-            'Ограничение доступа к данным для персонала',
-            'Регулярные проверки безопасности системы',
+            t('privacy.s3_l1'), t('privacy.s3_l2'), t('privacy.s3_l3'),
+            t('privacy.s3_l4'), t('privacy.s3_l5'), t('privacy.s3_l6'), t('privacy.s3_l7'),
           ]}
         />
-        <Paragraph>
-          11.2. Однако помните, что ни один метод передачи данных через интернет не является на 100% безопасным.
-        </Paragraph>
+
+        <Paragraph>{t('privacy.s3_p2')}</Paragraph>
+        <List
+          items={[t('privacy.s3_l8'), t('privacy.s3_l9'), t('privacy.s3_l10'), t('privacy.s3_l11')]}
+        />
       </Section>
 
-      <Section title="12. Утечки данных">
-        <Paragraph>12.1. В случае утечки персональных данных мы обязуемся:</Paragraph>
+      <Section title={t('privacy.s4_title')}>
+        <Paragraph>
+          <Trans i18nKey="privacy.s4_p1" components={{ strong: <strong /> }} />
+        </Paragraph>
+        <List
+          items={[t('privacy.s4_l1'), t('privacy.s4_l2'), t('privacy.s4_l3'), t('privacy.s4_l4')]}
+        />
+
+        <Paragraph>
+          <Trans i18nKey="privacy.s4_p2" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Немедленно предпринять меры по устранению нарушения',
-            'Уведомить пострадавших пользователей в течение 72 часов',
-            'Сообщить в соответствующие органы (если требуется законом)',
-            'Предоставить рекомендации по защите ваших данных',
+            t('privacy.s4_l5'), t('privacy.s4_l6'), t('privacy.s4_l7'),
+            t('privacy.s4_l8'), t('privacy.s4_l9'),
           ]}
         />
       </Section>
 
-      <Section title="13. Изменения в Политике конфиденциальности">
-        <Paragraph>13.1. Мы оставляем за собой право изменять настоящую Политику в любое время.</Paragraph>
-        <Paragraph>13.2. О существенных изменениях мы уведомим через бота или на веб-сайте.</Paragraph>
-        <Paragraph>13.3. Дата последнего обновления указывается в начале документа.</Paragraph>
-        <Paragraph>
-          13.4. Продолжая использовать Сервис после изменений, вы соглашаетесь с новой редакцией Политики.
-        </Paragraph>
+      <Section title={t('privacy.s5_title')}>
+        <Paragraph>{t('privacy.s5_p1')}</Paragraph>
+        <List items={[t('privacy.s5_l1'), t('privacy.s5_l2'), t('privacy.s5_l3')]} />
+        <Paragraph>{t('privacy.s5_p2')}</Paragraph>
       </Section>
 
-      <Section title="14. Автоматизированная обработка и профилирование">
-        <Paragraph>14.1. Мы используем автоматизированную обработку данных для:</Paragraph>
+      <Section title={t('privacy.s6_title')}>
+        <Paragraph>{t('privacy.s6_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s6_p2')}</Paragraph>
+        <List
+          items={[t('privacy.s6_l1'), t('privacy.s6_l2'), t('privacy.s6_l3'), t('privacy.s6_l4')]}
+        />
+        <Paragraph>{t('privacy.s6_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s7_title')}>
+        <Paragraph>{t('privacy.s7_p1')}</Paragraph>
         <List
           items={[
-            'Обнаружения депозитов в блокчейне',
-            'Автоматической смены статусов сделок',
-            'Применения системы банов (3 проигрыша подряд)',
+            t('privacy.s7_l1'), t('privacy.s7_l2'), t('privacy.s7_l3'),
+            t('privacy.s7_l4'), t('privacy.s7_l5'),
           ]}
         />
+
         <Paragraph>
-          14.2. Решения, значительно влияющие на ваши права (бан, разрешение спора), могут быть обжалованы у администратора.
+          <Trans i18nKey="privacy.s7_p2" components={{ strong: <strong /> }} />
         </Paragraph>
+        <List
+          items={[t('privacy.s7_l6'), t('privacy.s7_l7'), t('privacy.s7_l8'), t('privacy.s7_l9')]}
+        />
+
+        <Paragraph>{t('privacy.s7_p3')}</Paragraph>
       </Section>
 
-      <Section title="15. Контактная информация">
-        <Paragraph>Если у вас есть вопросы о настоящей Политике конфиденциальности, свяжитесь с нами:</Paragraph>
+      <Section title={t('privacy.s8_title')}>
+        <Paragraph>{t('privacy.s8_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s8_p2')}</Paragraph>
+        <Paragraph>{t('privacy.s8_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s9_title')}>
+        <Paragraph>{t('privacy.s9_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s9_p2')}</Paragraph>
+        <Paragraph>{t('privacy.s9_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s10_title')}>
+        <Paragraph>{t('privacy.s10_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s10_p2')}</Paragraph>
+        <Paragraph>{t('privacy.s10_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s11_title')}>
+        <Paragraph>{t('privacy.s11_p1')}</Paragraph>
         <List
           items={[
-            'Telegram: @keyshield_support',
-            'Email: amroids@tutamail.com',
+            t('privacy.s11_l1'), t('privacy.s11_l2'), t('privacy.s11_l3'),
+            t('privacy.s11_l4'), t('privacy.s11_l5'), t('privacy.s11_l6'),
           ]}
+        />
+        <Paragraph>{t('privacy.s11_p2')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s12_title')}>
+        <Paragraph>{t('privacy.s12_p1')}</Paragraph>
+        <List
+          items={[t('privacy.s12_l1'), t('privacy.s12_l2'), t('privacy.s12_l3'), t('privacy.s12_l4')]}
         />
       </Section>
 
-      <Section title="16. Соответствие законодательству">
-        <Paragraph>
-          16.1. Настоящая Политика разработана с учетом общих принципов защиты персональных данных.
-        </Paragraph>
-        <Paragraph>
-          16.2. В зависимости от вашей юрисдикции могут применяться дополнительные права и обязательства.
-        </Paragraph>
-        <Paragraph>
-          16.3. При несоответствии положений Политики применимому законодательству вашей страны,
-          применяются нормы этого законодательства.
-        </Paragraph>
+      <Section title={t('privacy.s13_title')}>
+        <Paragraph>{t('privacy.s13_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s13_p2')}</Paragraph>
+        <Paragraph>{t('privacy.s13_p3')}</Paragraph>
+        <Paragraph>{t('privacy.s13_p4')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s14_title')}>
+        <Paragraph>{t('privacy.s14_p1')}</Paragraph>
+        <List items={[t('privacy.s14_l1'), t('privacy.s14_l2'), t('privacy.s14_l3')]} />
+        <Paragraph>{t('privacy.s14_p2')}</Paragraph>
+      </Section>
+
+      <Section title={t('privacy.s15_title')}>
+        <Paragraph>{t('privacy.s15_p1')}</Paragraph>
+        <List items={[t('privacy.s15_l1'), t('privacy.s15_l2')]} />
+      </Section>
+
+      <Section title={t('privacy.s16_title')}>
+        <Paragraph>{t('privacy.s16_p1')}</Paragraph>
+        <Paragraph>{t('privacy.s16_p2')}</Paragraph>
+        <Paragraph>{t('privacy.s16_p3')}</Paragraph>
       </Section>
     </DocumentLayout>
     </>

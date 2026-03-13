@@ -1,6 +1,6 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   COMMISSION_TIER_1_MAX,
   COMMISSION_TIER_1_FIXED,
@@ -24,6 +24,16 @@ export function TermsPage() {
     dateModified: '2025-12-04',
   }
 
+  const commissionParams = {
+    tier1Max: COMMISSION_TIER_1_MAX,
+    tier1Fixed: COMMISSION_TIER_1_FIXED,
+    tier2Rate: (COMMISSION_TIER_2_RATE * 100).toFixed(1),
+    tier2Max: COMMISSION_TIER_2_MAX,
+    tier3Rate: (COMMISSION_TIER_3_RATE * 100).toFixed(0),
+    tier3Max: COMMISSION_TIER_3_MAX,
+    tier4Rate: (COMMISSION_TIER_4_RATE * 100).toFixed(1),
+  }
+
   return (
     <>
       <SEO
@@ -33,332 +43,161 @@ export function TermsPage() {
         schema={schema}
       />
       <DocumentLayout title={t('terms.title')} date={t('terms.date')}>
-      <Section title="1. Общие положения">
+      <Section title={t('terms.s1_title')}>
+        <Paragraph>{t('terms.s1_p1')}</Paragraph>
+        <Paragraph>{t('terms.s1_p2')}</Paragraph>
+        <Paragraph>{t('terms.s1_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('terms.s2_title')}>
+        <Paragraph>{t('terms.s2_p1')}</Paragraph>
+        <Paragraph>{t('terms.s2_p2')}</Paragraph>
+        <List items={[t('terms.s2_l1'), t('terms.s2_l2'), t('terms.s2_l3'), t('terms.s2_l4')]} />
+        <Paragraph>{t('terms.s2_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('terms.s3_title')}>
+        <Paragraph>{t('terms.s3_p1')}</Paragraph>
+        <Paragraph>{t('terms.s3_p2')}</Paragraph>
+        <List items={[t('terms.s3_l1'), t('terms.s3_l2'), t('terms.s3_l3'), t('terms.s3_l4')]} />
+        <Paragraph>{t('terms.s3_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('terms.s4_title')}>
+        <Paragraph>{t('terms.s4_p1')}</Paragraph>
+        <Paragraph>{t('terms.s4_p2')}</Paragraph>
+        <List items={[t('terms.s4_l1'), t('terms.s4_l2'), t('terms.s4_l3')]} />
         <Paragraph>
-          1.1. Настоящие Условия использования (далее - "Условия") регулируют отношения между
-          Сервисом KeyShield (далее - "Сервис", "мы") и пользователями (далее - "Пользователь", "вы")
-          при использовании платформы безопасных криптовалютных транзакций.
+          <Trans i18nKey="terms.s4_p3" components={{ strong: <strong /> }} />
         </Paragraph>
+        <Paragraph>{t('terms.s4_p4')}</Paragraph>
+        <List items={[t('terms.s4_l4'), t('terms.s4_l5'), t('terms.s4_l6')]} />
+        <Paragraph>{t('terms.s4_p5', { minAmount: MIN_DEAL_AMOUNT })}</Paragraph>
+        <Paragraph>{t('terms.s4_p6')}</Paragraph>
+        <Paragraph>{t('terms.s4_p7')}</Paragraph>
+      </Section>
+
+      <Section title={t('terms.s5_title')}>
+        <Paragraph>{t('terms.s5_p1')}</Paragraph>
+        <Paragraph>{t('terms.s5_p2')}</Paragraph>
+        <Paragraph>{t('terms.s5_p3')}</Paragraph>
+        <List items={[t('terms.s5_l1'), t('terms.s5_l2')]} />
+        <Paragraph>{t('terms.s5_p4')}</Paragraph>
+        <Paragraph>{t('terms.s5_p5')}</Paragraph>
+      </Section>
+
+      <Section title={t('terms.s6_title')}>
+        <Paragraph>{t('terms.s6_p1')}</Paragraph>
+        <List
+          items={[
+            t('terms.s6_l1', commissionParams),
+            t('terms.s6_l2', commissionParams),
+            t('terms.s6_l3', commissionParams),
+            t('terms.s6_l4', commissionParams),
+          ]}
+        />
+        <Paragraph>{t('terms.s6_p2')}</Paragraph>
+        <List items={[t('terms.s6_l5'), t('terms.s6_l6'), t('terms.s6_l7'), t('terms.s6_l8')]} />
+        <Paragraph>{t('terms.s6_p3')}</Paragraph>
+        <Paragraph>{t('terms.s6_p4')}</Paragraph>
+        <List items={[t('terms.s6_l9'), t('terms.s6_l10'), t('terms.s6_l11')]} />
+        <Paragraph>{t('terms.s6_p5')}</Paragraph>
         <Paragraph>
-          1.2. Используя Сервис, вы подтверждаете, что прочитали, поняли и согласны соблюдать
-          настоящие Условия.
-        </Paragraph>
-        <Paragraph>
-          1.3. Мы оставляем за собой право изменять настоящие Условия в любое время. Ваше
-          продолжение использования Сервиса после внесения изменений означает ваше согласие
-          с новыми условиями.
+          <Trans i18nKey="terms.s6_p6" components={{ strong: <strong /> }} />
         </Paragraph>
       </Section>
 
-      <Section title="2. Описание сервиса">
-        <Paragraph>
-          2.1. KeyShield предоставляет технологическую платформу для безопасного проведения
-          криптовалютных транзакций между пользователями с использованием технологии multisig
-          (множественной подписи) на блокчейне TRON.
-        </Paragraph>
-        <Paragraph>2.2. Сервис НЕ является:</Paragraph>
-        <List
-          items={[
-            'Финансовой организацией или платежной системой',
-            'Банком или кредитной организацией',
-            'Брокером или биржей криптовалют',
-            'Кастодиальным сервисом хранения средств',
-          ]}
-        />
-        <Paragraph>
-          2.3. Сервис создает технические условия для безопасного обмена активами между
-          пользователями путем автоматического создания multisig-кошельков и управления ключами.
-        </Paragraph>
+      <Section title={t('terms.s7_title')}>
+        <Paragraph>{t('terms.s7_p1')}</Paragraph>
+        <List items={[t('terms.s7_l1'), t('terms.s7_l2'), t('terms.s7_l3')]} />
+        <Paragraph>{t('terms.s7_p2')}</Paragraph>
+        <List items={[t('terms.s7_l4'), t('terms.s7_l5'), t('terms.s7_l6')]} />
+        <Paragraph>{t('terms.s7_p3')}</Paragraph>
+        <Paragraph>{t('terms.s7_p4')}</Paragraph>
+        <Paragraph>{t('terms.s7_p5')}</Paragraph>
+        <Paragraph>{t('terms.s7_p6')}</Paragraph>
       </Section>
 
-      <Section title="3. Регистрация и использование">
-        <Paragraph>
-          3.1. Для использования Сервиса необходимо запустить Telegram-бота KeyShield командой /start.
-        </Paragraph>
-        <Paragraph>3.2. Пользователь подтверждает, что:</Paragraph>
+      <Section title={t('terms.s8_title')}>
+        <Paragraph>{t('terms.s8_p1')}</Paragraph>
         <List
           items={[
-            'Достиг совершеннолетия в своей юрисдикции',
-            'Обладает полной дееспособностью',
-            'Использование криптовалют законно в его юрисдикции',
-            'Не нарушает какие-либо применимые законы',
+            t('terms.s8_l1', { banStreak: AUTO_BAN_LOSS_STREAK }),
+            t('terms.s8_l2'),
+            t('terms.s8_l3'),
           ]}
         />
-        <Paragraph>
-          3.3. Сервис не проводит KYC/AML процедуры. Пользователь самостоятельно несет
-          ответственность за соответствие законодательству своей страны.
-        </Paragraph>
+        <Paragraph>{t('terms.s8_p2')}</Paragraph>
+        <List items={[t('terms.s8_l4'), t('terms.s8_l5'), t('terms.s8_l6')]} />
+        <Paragraph>{t('terms.s8_p3')}</Paragraph>
       </Section>
 
-      <Section title="4. Создание и выполнение сделок">
-        <Paragraph>
-          4.1. Любой пользователь может создать сделку, выбрав свою роль (покупатель или продавец).
-        </Paragraph>
-        <Paragraph>
-          4.2. При создании сделки автоматически генерируется multisig-кошелек с тремя ключами:
-        </Paragraph>
+      <Section title={t('terms.s9_title')}>
+        <Paragraph>{t('terms.s9_p1')}</Paragraph>
+        <Paragraph>{t('terms.s9_p2')}</Paragraph>
         <List
           items={[
-            'Ключ покупателя — выдаётся покупателю',
-            'Ключ продавца — выдаётся продавцу',
-            'Ключ арбитра — хранится у Сервиса',
+            t('terms.s9_l1'), t('terms.s9_l2'), t('terms.s9_l3'), t('terms.s9_l4'),
+            t('terms.s9_l5'), t('terms.s9_l6'), t('terms.s9_l7'), t('terms.s9_l8'),
           ]}
         />
-        <Paragraph>
-          4.3. <strong>ВАЖНО:</strong> Каждый участник получает свой приватный ключ через бота.
-          Ключ отображается один раз и автоматически удаляется через 60 секунд.
-          Пользователь ОБЯЗАН сохранить ключ — он потребуется для подписи транзакций.
-        </Paragraph>
-        <Paragraph>4.4. Для любой транзакции требуется 2 из 3 подписей. Это означает, что:</Paragraph>
-        <List
-          items={[
-            'Сервис не может в одиночку перемещать средства',
-            'Покупатель и продавец могут завершить сделку без участия Сервиса',
-            'При споре требуется участие арбитра',
-          ]}
-        />
-        <Paragraph>4.5. Минимальная сумма сделки: {MIN_DEAL_AMOUNT} USDT.</Paragraph>
-        <Paragraph>4.6. У каждого пользователя может быть только одна активная сделка одновременно.</Paragraph>
-        <Paragraph>4.7. Обе стороны должны быть зарегистрированы в боте (отправили /start).</Paragraph>
+        <Paragraph>{t('terms.s9_p3')}</Paragraph>
+        <Paragraph>{t('terms.s9_p4')}</Paragraph>
       </Section>
 
-      <Section title="5. Депозиты и выплаты">
+      <Section title={t('terms.s10_title')}>
+        <Paragraph>{t('terms.s10_p1')}</Paragraph>
         <Paragraph>
-          5.1. После создания сделки покупатель обязан внести депозит на multisig-адрес в течение 24 часов.
+          <Trans i18nKey="terms.s10_p2" components={{ strong: <strong /> }} />
         </Paragraph>
         <Paragraph>
-          5.2. Депозит должен быть внесен ТОЧНОЙ суммой. Излишек пойдет на баланс Сервиса.
+          <Trans i18nKey="terms.s10_p3" components={{ strong: <strong /> }} />
         </Paragraph>
-        <Paragraph>
-          5.3. Депозит является НЕОБРАТИМЫМ после подтверждения в блокчейне. Возврат возможен только:
-        </Paragraph>
+        <Paragraph>{t('terms.s10_p4')}</Paragraph>
         <List
           items={[
-            'По обоюдному согласию сторон',
-            'По решению арбитра в случае спора',
+            t('terms.s10_l1'), t('terms.s10_l2'), t('terms.s10_l3'),
+            t('terms.s10_l4'), t('terms.s10_l5'),
           ]}
         />
         <Paragraph>
-          5.4. После внесения депозита средства замораживаются на multisig-кошельке до завершения сделки.
+          <Trans i18nKey="terms.s10_p5" components={{ strong: <strong /> }} />
         </Paragraph>
-        <Paragraph>
-          5.5. Система автоматически обнаруживает депозиты в течение 1-3 минут после подтверждения в блокчейне TRON.
-        </Paragraph>
+        <Paragraph>{t('terms.s10_p6')}</Paragraph>
       </Section>
 
-      <Section title="6. Комиссии">
-        <Paragraph>
-          6.1. Сервис взимает комиссию за предоставление технологической платформы и арбитраж:
-        </Paragraph>
+      <Section title={t('terms.s11_title')}>
+        <Paragraph>{t('terms.s11_p1')}</Paragraph>
         <List
           items={[
-            `Для сделок до ${COMMISSION_TIER_1_MAX} USDT: фиксированная комиссия ${COMMISSION_TIER_1_FIXED} USDT`,
-            `Для сделок от ${COMMISSION_TIER_1_MAX} USDT: ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}% от суммы сделки`,
-            `Для сделок от ${COMMISSION_TIER_2_MAX} USDT: ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от суммы сделки`,
-            `Для сделок от ${COMMISSION_TIER_3_MAX} USDT: ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от суммы сделки`
+            t('terms.s11_l1'), t('terms.s11_l2'), t('terms.s11_l3'),
+            t('terms.s11_l4'), t('terms.s11_l5'), t('terms.s11_l6'),
           ]}
         />
-        <Paragraph>6.2. Комиссия включает:</Paragraph>
-        <List
-          items={[
-            'Активацию multisig-кошелька (~16.1 TRX / ~4.5 USD)',
-            'Комиссии сети TRON за транзакции (~2-3 USDT)',
-            'Услуги арбитража при спорах',
-            'Техническую поддержку',
-          ]}
-        />
-        <Paragraph>
-          6.3. Комиссия удерживается Сервисом при выплате средств продавцу.
-        </Paragraph>
-        <Paragraph>6.4. Кто платит комиссию, определяется сторонами при создании сделки:</Paragraph>
-        <List
-          items={[
-            'Покупатель платит всю комиссию',
-            'Продавец платит всю комиссию',
-            '50/50 - каждая сторона платит половину',
-          ]}
-        />
-        <Paragraph>
-          6.5. Комиссия НЕ ВОЗВРАЩАЕТСЯ даже при отмене сделки или возврате средств покупателю.
-        </Paragraph>
-        <Paragraph>
-          6.6. <strong>Автоматический возврат при истечении срока:</strong> Если срок сделки истёк
-          и в течение 12 часов не предпринято никаких действий (подтверждение работы или открытие спора),
-          средства автоматически возвращаются покупателю. <strong>Комиссия сервиса удерживается в полном
-          объёме</strong> независимо от изначальных договорённостей о её распределении.
-        </Paragraph>
+        <Paragraph>{t('terms.s11_p2')}</Paragraph>
+        <List items={[t('terms.s11_l7'), t('terms.s11_l8'), t('terms.s11_l9')]} />
       </Section>
 
-      <Section title="7. Споры и арбитраж">
-        <Paragraph>7.1. Любая сторона может открыть спор, если:</Paragraph>
-        <List
-          items={[
-            'Продавец не выполнил работу в срок',
-            'Покупатель не принимает выполненную работу',
-            'Стороны не могут прийти к соглашению',
-          ]}
-        />
-        <Paragraph>7.2. При открытии спора стороны должны предоставить доказательства:</Paragraph>
-        <List
-          items={[
-            'Скриншоты переписки',
-            'Файлы выполненной работы',
-            'Любые другие релевантные материалы',
-          ]}
-        />
-        <Paragraph>
-          7.3. Арбитр рассматривает спор в течение 1-3 дней и принимает окончательное решение.
-        </Paragraph>
-        <Paragraph>7.4. Решение арбитра является ОКОНЧАТЕЛЬНЫМ и обжалованию не подлежит.</Paragraph>
-        <Paragraph>
-          7.5. После решения арбитра средства автоматически переводятся выигравшей стороне (за вычетом комиссии).
-        </Paragraph>
-        <Paragraph>
-          7.6. Арбитр принимает решение исключительно на основе предоставленных доказательств и условий сделки.
-        </Paragraph>
+      <Section title={t('terms.s12_title')}>
+        <Paragraph>{t('terms.s12_p1')}</Paragraph>
+        <Paragraph>{t('terms.s12_p2')}</Paragraph>
+        <Paragraph>{t('terms.s12_p3')}</Paragraph>
       </Section>
 
-      <Section title="8. Система банов">
-        <Paragraph>
-          8.1. Сервис применяет автоматическую систему банов для защиты добросовестных пользователей:
-        </Paragraph>
-        <List
-          items={[
-            `${AUTO_BAN_LOSS_STREAK} проигрыша в спорах подряд = автоматический бан`,
-            'Выигрыш 1 спора сбрасывает счетчик',
-            'Администратор может забанить вручную за нарушения',
-          ]}
-        />
-        <Paragraph>8.2. Забаненный пользователь:</Paragraph>
-        <List
-          items={[
-            'Не может создавать новые сделки',
-            'Не может быть исполнителем в сделках',
-            'Текущие активные сделки завершаются в штатном режиме',
-          ]}
-        />
-        <Paragraph>8.3. Обжалование бана: @keyshield_support в Telegram</Paragraph>
+      <Section title={t('terms.s13_title')}>
+        <Paragraph>{t('terms.s13_p1')}</Paragraph>
+        <List items={[t('terms.s13_l1'), t('terms.s13_l2')]} />
       </Section>
 
-      <Section title="9. Ограничения ответственности">
-        <Paragraph>9.1. Сервис предоставляется "КАК ЕСТЬ" без каких-либо гарантий.</Paragraph>
-        <Paragraph>9.2. Мы НЕ НЕСЕМ ОТВЕТСТВЕННОСТЬ за:</Paragraph>
-        <List
-          items={[
-            'Потерю средств из-за ошибок пользователя (неправильный адрес, неверная сумма)',
-            'Сбои в работе блокчейна TRON',
-            'Изменения комиссий сети TRON',
-            'Форс-мажорные обстоятельства',
-            'Действия третьих лиц (хакеры, мошенники)',
-            'Потерю приватных ключей пользователей',
-            'Несоответствие работы ожиданиям покупателя',
-            'Невыполнение работы продавцом',
-          ]}
-        />
-        <Paragraph>
-          9.3. Максимальная ответственность Сервиса ограничена суммой комиссии, уплаченной по конкретной сделке.
-        </Paragraph>
-        <Paragraph>
-          9.4. Сервис не несет ответственности за налоговые последствия использования платформы.
-          Пользователь самостоятельно обязан соблюдать налоговое законодательство.
-        </Paragraph>
+      <Section title={t('terms.s14_title')}>
+        <Paragraph>{t('terms.s14_p1')}</Paragraph>
+        <Paragraph>{t('terms.s14_p2')}</Paragraph>
       </Section>
 
-      <Section title="10. Безопасность и хранение ключей">
-        <Paragraph>
-          10.1. Мы применяем современные технологии для защиты multisig-кошельков.
-        </Paragraph>
-        <Paragraph>
-          10.2. <strong>Приватные ключи пользователей:</strong> Ключи покупателя и продавца выдаются
-          им напрямую через бота и НЕ ХРАНЯТСЯ на серверах Сервиса. После выдачи ключ удаляется
-          из системы.
-        </Paragraph>
-        <Paragraph>
-          10.3. <strong>Ключ арбитра:</strong> Хранится в зашифрованном виде в защищенной базе данных
-          и используется только при разрешении споров.
-        </Paragraph>
-        <Paragraph>10.4. Пользователь несет ответственность за:</Paragraph>
-        <List
-          items={[
-            'Безопасное хранение своего приватного ключа',
-            'Сохранение ключа сразу после получения (автоудаление через 60 сек)',
-            'Безопасность своего Telegram аккаунта',
-            'Конфиденциальность своих адресов кошельков',
-            'Проверку адресов перед отправкой средств',
-          ]}
-        />
-        <Paragraph>
-          10.5. <strong>ВАЖНО:</strong> При потере приватного ключа пользователь теряет возможность
-          подписывать транзакции. Восстановление ключа НЕВОЗМОЖНО. Обратитесь в поддержку для
-          решения ситуации через арбитраж.
-        </Paragraph>
-        <Paragraph>
-          10.6. НИКОГДА не сообщайте свои приватные ключи третьим лицам, включая поддержку Сервиса.
-        </Paragraph>
-      </Section>
-
-      <Section title="11. Запрещенная деятельность">
-        <Paragraph>11.1. ЗАПРЕЩАЕТСЯ использовать Сервис для:</Paragraph>
-        <List
-          items={[
-            'Отмывания денег',
-            'Финансирования терроризма',
-            'Мошенничества',
-            'Продажи запрещенных товаров или услуг',
-            'Нарушения прав интеллектуальной собственности',
-            'Любой незаконной деятельности',
-          ]}
-        />
-        <Paragraph>11.2. При обнаружении нарушений Сервис может:</Paragraph>
-        <List
-          items={[
-            'Заблокировать аккаунт',
-            'Заморозить средства',
-            'Передать информацию правоохранительным органам',
-          ]}
-        />
-      </Section>
-
-      <Section title="12. Прекращение использования">
-        <Paragraph>12.1. Вы можете прекратить использование Сервиса в любое время.</Paragraph>
-        <Paragraph>
-          12.2. Сервис может прекратить предоставление услуг в любое время с уведомлением за 30 дней.
-        </Paragraph>
-        <Paragraph>
-          12.3. Все активные сделки на момент прекращения работы Сервиса будут завершены в штатном режиме.
-        </Paragraph>
-      </Section>
-
-      <Section title="13. Контактная информация">
-        <Paragraph>Для связи с администрацией Сервиса:</Paragraph>
-        <List
-          items={[
-            'Telegram: @keyshield_support',
-            'Email: support@keyshield.me',
-          ]}
-        />
-      </Section>
-
-      <Section title="14. Применимое право">
-        <Paragraph>
-          14.1. Настоящие Условия регулируются законодательством, применимым к decentralized технологиям.
-        </Paragraph>
-        <Paragraph>
-          14.2. Все споры решаются путем переговоров. При невозможности достижения соглашения -
-          в соответствии с процедурой арбитража Сервиса.
-        </Paragraph>
-      </Section>
-
-      <Section title="15. Заключительные положения">
-        <Paragraph>
-          15.1. Если какое-либо положение настоящих Условий признано недействительным, остальные положения сохраняют силу.
-        </Paragraph>
-        <Paragraph>
-          15.2. Бездействие Сервиса в случае нарушения Условий не означает отказ от права требовать их соблюдения в будущем.
-        </Paragraph>
-        <Paragraph>
-          15.3. Используя Сервис, вы подтверждаете, что прочитали и поняли настоящие Условия использования и согласны их соблюдать.
-        </Paragraph>
+      <Section title={t('terms.s15_title')}>
+        <Paragraph>{t('terms.s15_p1')}</Paragraph>
+        <Paragraph>{t('terms.s15_p2')}</Paragraph>
+        <Paragraph>{t('terms.s15_p3')}</Paragraph>
       </Section>
     </DocumentLayout>
     </>

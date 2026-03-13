@@ -1,6 +1,6 @@
 import { DocumentLayout, Section, Paragraph, List } from '@/components/shared/DocumentLayout'
 import { SEO } from '@/components/SEO'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   COMMISSION_TIER_1_MAX,
   COMMISSION_TIER_1_FIXED,
@@ -23,6 +23,16 @@ export function OfferPage() {
     dateModified: '2025-12-04',
   }
 
+  const commissionParams = {
+    tier1Max: COMMISSION_TIER_1_MAX,
+    tier1Fixed: COMMISSION_TIER_1_FIXED,
+    tier2Rate: (COMMISSION_TIER_2_RATE * 100).toFixed(1),
+    tier2Max: COMMISSION_TIER_2_MAX,
+    tier3Rate: (COMMISSION_TIER_3_RATE * 100).toFixed(0),
+    tier3Max: COMMISSION_TIER_3_MAX,
+    tier4Rate: (COMMISSION_TIER_4_RATE * 100).toFixed(1),
+  }
+
   return (
     <>
       <SEO
@@ -32,347 +42,239 @@ export function OfferPage() {
         schema={schema}
       />
       <DocumentLayout title={t('offer.title')} date={t('offer.date')}>
-      <Section title="1. Общие положения">
+      <Section title={t('offer.s1_title')}>
+        <Paragraph>{t('offer.s1_p1')}</Paragraph>
+        <Paragraph>{t('offer.s1_p2')}</Paragraph>
         <Paragraph>
-          1.1. Настоящая публичная оферта (далее - "Оферта") является официальным предложением
-          KeyShield (далее - "Исполнитель", "Сервис") заключить договор на оказание услуг
-          (далее - "Договор") на изложенных ниже условиях.
+          <Trans i18nKey="offer.s1_p3" components={{ strong: <strong /> }} />
         </Paragraph>
-        <Paragraph>
-          1.2. В соответствии со ст. 437 Гражданского кодекса РФ и аналогичными нормами применимого
-          законодательства, данный документ является публичной офертой.
-        </Paragraph>
-        <Paragraph>
-          1.3. <strong>Акцептом</strong> (принятием условий) настоящей Оферты является:
-        </Paragraph>
-        <List
-          items={[
-            'Отправка команды /start боту KeyShield в Telegram',
-            'Создание первой сделки через Сервис',
-            'Любое использование функционала Сервиса',
-          ]}
-        />
-        <Paragraph>
-          1.4. Пользователь (далее - "Заказчик"), осуществивший акцепт, считается заключившим
-          с Исполнителем Договор на условиях настоящей Оферты.
-        </Paragraph>
+        <List items={[t('offer.s1_l1'), t('offer.s1_l2'), t('offer.s1_l3')]} />
+        <Paragraph>{t('offer.s1_p4')}</Paragraph>
       </Section>
 
-      <Section title="2. Предмет договора">
+      <Section title={t('offer.s2_title')}>
+        <Paragraph>{t('offer.s2_p1')}</Paragraph>
         <Paragraph>
-          2.1. Исполнитель обязуется оказать Заказчику услуги по предоставлению технологической
-          платформы для безопасного проведения криптовалютных транзакций с использованием технологии
-          multisig (далее - "Услуги"), а Заказчик обязуется принять и оплатить эти Услуги.
+          <Trans i18nKey="offer.s2_p2" components={{ strong: <strong /> }} />
         </Paragraph>
-        <Paragraph>2.2. <strong>Услуги включают:</strong></Paragraph>
         <List
           items={[
-            'Автоматическое создание multisig-кошельков (2-of-3) для каждой сделки',
-            'Выдача приватных ключей участникам сделки для подписи транзакций',
-            'Хранение и управление приватным ключом арбитра',
-            'Мониторинг депозитов в блокчейне TRON',
-            'Автоматическая смена статусов сделок',
-            'Предоставление интерфейса управления сделками через Telegram-бота',
-            'Услуги арбитража при возникновении споров',
-            'Техническая поддержка пользователей',
+            t('offer.s2_l1'), t('offer.s2_l2'), t('offer.s2_l3'), t('offer.s2_l4'),
+            t('offer.s2_l5'), t('offer.s2_l6'), t('offer.s2_l7'), t('offer.s2_l8'),
           ]}
         />
-        <Paragraph>2.3. <strong>Услуги НЕ включают:</strong></Paragraph>
+        <Paragraph>
+          <Trans i18nKey="offer.s2_p3" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Хранение криптовалюты (кастодиальные услуги)',
-            'Обмен криптовалют',
-            'Финансовые консультации',
-            'Юридические консультации',
-            'Гарантии выполнения сделки контрагентом',
+            t('offer.s2_l9'), t('offer.s2_l10'), t('offer.s2_l11'),
+            t('offer.s2_l12'), t('offer.s2_l13'),
           ]}
         />
       </Section>
 
-      <Section title="3. Стоимость услуг и порядок оплаты">
-        <Paragraph>3.1. <strong>Комиссия Сервиса:</strong></Paragraph>
+      <Section title={t('offer.s3_title')}>
+        <Paragraph>
+          <Trans i18nKey="offer.s3_p1" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            `Для сделок до ${COMMISSION_TIER_1_MAX} USDT: фиксированная комиссия ${COMMISSION_TIER_1_FIXED} USDT`,
-            `Для сделок от ${COMMISSION_TIER_1_MAX} USDT: ${(COMMISSION_TIER_2_RATE * 100).toFixed(1)}% от суммы сделки`,
-            `Для сделок от ${COMMISSION_TIER_2_MAX} USDT: ${(COMMISSION_TIER_3_RATE * 100).toFixed(0)}% от суммы сделки`,
-            `Для сделок от ${COMMISSION_TIER_3_MAX} USDT: ${(COMMISSION_TIER_4_RATE * 100).toFixed(1)}% от суммы сделки`
-          ]}
-        />
-        <Paragraph>3.2. <strong>Комиссия включает:</strong></Paragraph>
-        <List
-          items={[
-            'Активацию multisig-кошелька (~16.1 TRX / ~4.5 USD)',
-            'Комиссии сети TRON за все транзакции по сделке (~2-3 USDT)',
-            'Услуги арбитража при возникновении споров',
-            'Техническую поддержку',
-            'Поддержку инфраструктуры Сервиса',
-          ]}
-        />
-        <Paragraph>3.3. <strong>Распределение комиссии определяется сторонами сделки:</strong></Paragraph>
-        <List
-          items={[
-            'Покупатель платит всю комиссию',
-            'Продавец платит всю комиссию',
-            '50/50 - каждая сторона платит половину',
-          ]}
-        />
-        <Paragraph>3.4. Комиссия удерживается автоматически при выплате средств продавцу.</Paragraph>
-        <Paragraph>3.5. Комиссия <strong>НЕ ВОЗВРАЩАЕТСЯ</strong> в случае:</Paragraph>
-        <List
-          items={[
-            'Отмены сделки сторонами',
-            'Возврата средств покупателю по решению арбитра',
-            'Отказа продавца от выполнения работы после внесения депозита',
-            'Автоматического возврата при истечении срока сделки + 12 часов льготного периода',
+            t('offer.s3_l1', commissionParams),
+            t('offer.s3_l2', commissionParams),
+            t('offer.s3_l3', commissionParams),
+            t('offer.s3_l4', commissionParams),
           ]}
         />
         <Paragraph>
-          3.6. <strong>При автоматическом возврате по истечении срока</strong> комиссия взимается
-          в полном объёме с суммы депозита независимо от договорённостей сторон о распределении комиссии.
+          <Trans i18nKey="offer.s3_p2" components={{ strong: <strong /> }} />
         </Paragraph>
+        <List
+          items={[
+            t('offer.s3_l5'), t('offer.s3_l6'), t('offer.s3_l7'),
+            t('offer.s3_l8'), t('offer.s3_l9'),
+          ]}
+        />
         <Paragraph>
-          3.7. Исполнитель вправе изменить размер комиссии в одностороннем порядке, уведомив об этом
-          не менее чем за 7 дней. Новая комиссия применяется только к новым сделкам.
+          <Trans i18nKey="offer.s3_p3" components={{ strong: <strong /> }} />
         </Paragraph>
+        <List items={[t('offer.s3_l10'), t('offer.s3_l11'), t('offer.s3_l12')]} />
+        <Paragraph>{t('offer.s3_p4')}</Paragraph>
+        <Paragraph>
+          <Trans i18nKey="offer.s3_p5" components={{ strong: <strong /> }} />
+        </Paragraph>
+        <List
+          items={[t('offer.s3_l13'), t('offer.s3_l14'), t('offer.s3_l15'), t('offer.s3_l16')]}
+        />
+        <Paragraph>
+          <Trans i18nKey="offer.s3_p6" components={{ strong: <strong /> }} />
+        </Paragraph>
+        <Paragraph>{t('offer.s3_p7')}</Paragraph>
       </Section>
 
-      <Section title="4. Порядок оказания услуг">
-        <Paragraph>4.1. <strong>Создание сделки:</strong></Paragraph>
+      <Section title={t('offer.s4_title')}>
+        <Paragraph>
+          <Trans i18nKey="offer.s4_p1" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Заказчик создает сделку через бота, указывая роль (покупатель/продавец), описание, сумму и условия',
-            'Сервис автоматически генерирует multisig-кошелек',
-            'Каждый участник получает свой приватный ключ (отображается 60 сек, затем удаляется)',
-            'ВАЖНО: Пользователь обязан сохранить ключ — он потребуется для подписи транзакций',
-            'Заказчик получает реквизиты сделки для передачи контрагенту',
+            t('offer.s4_l1'), t('offer.s4_l2'), t('offer.s4_l3'),
+            t('offer.s4_l4'), t('offer.s4_l5'),
           ]}
         />
-        <Paragraph>4.2. <strong>Выполнение сделки:</strong></Paragraph>
+        <Paragraph>
+          <Trans i18nKey="offer.s4_p2" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Покупатель вносит депозит на multisig-адрес в течение 24 часов',
-            'После подтверждения депозита средства замораживаются',
-            'Продавец выполняет работу / отправляет товар в установленный срок',
-            'Покупатель подтверждает выполнение',
-            'Средства автоматически переводятся продавцу (за вычетом комиссии)',
+            t('offer.s4_l6'), t('offer.s4_l7'), t('offer.s4_l8'),
+            t('offer.s4_l9'), t('offer.s4_l10'),
           ]}
         />
-        <Paragraph>4.3. <strong>Истечение срока сделки:</strong></Paragraph>
+        <Paragraph>
+          <Trans i18nKey="offer.s4_p3" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'При истечении срока выполнения обе стороны получают уведомление',
-            'Предоставляется 12-часовой льготный период для принятия решения',
-            'В течение льготного периода стороны могут подтвердить выполнение или открыть спор',
-            'Если в течение 12 часов не предпринято никаких действий — автоматический возврат средств покупателю',
-            'Комиссия сервиса удерживается в любом случае независимо от того, кто должен был её оплачивать',
-            'Автоматический возврат с удержанием комиссии является штрафной санкцией за несоблюдение условий сделки',
+            t('offer.s4_l11'), t('offer.s4_l12'), t('offer.s4_l13'),
+            t('offer.s4_l14'), t('offer.s4_l15'), t('offer.s4_l16'),
           ]}
         />
-        <Paragraph>4.4. <strong>Минимальные требования:</strong></Paragraph>
+        <Paragraph>
+          <Trans i18nKey="offer.s4_p4" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            `Минимальная сумма сделки: ${MIN_DEAL_AMOUNT} USDT`,
-            'Обе стороны должны быть зарегистрированы в боте',
-            'Одна активная сделка на пользователя одновременно',
+            t('offer.s4_l17', { minAmount: MIN_DEAL_AMOUNT }),
+            t('offer.s4_l18'),
+            t('offer.s4_l19'),
           ]}
         />
       </Section>
 
-      <Section title="5. Права и обязанности Исполнителя">
-        <Paragraph>5.1. <strong>Исполнитель обязуется:</strong></Paragraph>
+      <Section title={t('offer.s5_title')}>
+        <Paragraph>
+          <Trans i18nKey="offer.s5_p1" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Обеспечивать работоспособность Сервиса 24/7 (за исключением технического обслуживания)',
-            'Хранить приватные ключи арбитра в безопасности',
-            'Оперативно реагировать на технические проблемы',
-            'Объективно рассматривать споры между пользователями',
-            'Не разглашать конфиденциальную информацию пользователей',
+            t('offer.s5_l1'), t('offer.s5_l2'), t('offer.s5_l3'),
+            t('offer.s5_l4'), t('offer.s5_l5'),
           ]}
         />
-        <Paragraph>5.2. <strong>Исполнитель имеет право:</strong></Paragraph>
+        <Paragraph>
+          <Trans i18nKey="offer.s5_p2" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Изменять комиссии с уведомлением',
-            'Приостанавливать работу Сервиса для технического обслуживания',
-            'Блокировать пользователей, нарушающих правила',
-            'Отказать в оказании услуг без объяснения причин',
-            'Привлекать третьих лиц для оказания услуг',
-          ]}
-        />
-      </Section>
-
-      <Section title="6. Права и обязанности Заказчика">
-        <Paragraph>6.1. <strong>Заказчик обязуется:</strong></Paragraph>
-        <List
-          items={[
-            'Соблюдать условия настоящей Оферты',
-            'Оплачивать комиссию Сервиса',
-            'Предоставлять достоверную информацию',
-            'Не использовать Сервис в незаконных целях',
-            'Самостоятельно решать налоговые вопросы',
-          ]}
-        />
-        <Paragraph>6.2. <strong>Заказчик имеет право:</strong></Paragraph>
-        <List
-          items={[
-            'Пользоваться всеми функциями Сервиса',
-            'Обращаться в поддержку по техническим вопросам',
-            'Инициировать споры при наличии оснований',
-            'Получать информацию о своих сделках',
-            'Прекратить использование Сервиса в любое время',
+            t('offer.s5_l6'), t('offer.s5_l7'), t('offer.s5_l8'),
+            t('offer.s5_l9'), t('offer.s5_l10'),
           ]}
         />
       </Section>
 
-      <Section title="7. Споры и арбитраж">
-        <Paragraph>7.1. При возникновении спора между сторонами сделки, арбитром выступает Исполнитель.</Paragraph>
-        <Paragraph>7.2. <strong>Порядок рассмотрения спора:</strong></Paragraph>
+      <Section title={t('offer.s6_title')}>
+        <Paragraph>
+          <Trans i18nKey="offer.s6_p1" components={{ strong: <strong /> }} />
+        </Paragraph>
         <List
           items={[
-            'Любая сторона может открыть спор через бота',
-            'Стороны предоставляют доказательства',
-            'Арбитр рассматривает материалы в течение 1-3 рабочих дней',
-            'Арбитр выносит решение',
-            'Решение арбитра является окончательным',
-          ]}
-        />
-        <Paragraph>7.3. Арбитр принимает решение на основе:</Paragraph>
-        <List
-          items={[
-            'Условий сделки',
-            'Предоставленных доказательств',
-            'Принципов добросовестности и разумности',
+            t('offer.s6_l1'), t('offer.s6_l2'), t('offer.s6_l3'),
+            t('offer.s6_l4'), t('offer.s6_l5'),
           ]}
         />
         <Paragraph>
-          7.4. Комиссия сервиса удерживается независимо от исхода спора.
+          <Trans i18nKey="offer.s6_p2" components={{ strong: <strong /> }} />
         </Paragraph>
-      </Section>
-
-      <Section title="8. Ответственность сторон">
-        <Paragraph>8.1. <strong>Исполнитель НЕ несет ответственность:</strong></Paragraph>
         <List
           items={[
-            'За действия/бездействие контрагентов Заказчика',
-            'За качество товаров/услуг, являющихся предметом сделки',
-            'За убытки, вызванные сбоями в блокчейне TRON',
-            'За убытки, вызванные действиями третьих лиц',
-            'За упущенную выгоду',
-            'За налоговые последствия для Заказчика',
-          ]}
-        />
-        <Paragraph>
-          8.2. Максимальная ответственность Исполнителя ограничена суммой уплаченной комиссии
-          по конкретной сделке.
-        </Paragraph>
-        <Paragraph>
-          8.3. Заказчик несет ответственность за все действия, совершенные с использованием его аккаунта Telegram.
-        </Paragraph>
-      </Section>
-
-      <Section title="9. Форс-мажор">
-        <Paragraph>9.1. Стороны освобождаются от ответственности за неисполнение обязательств при наступлении:</Paragraph>
-        <List
-          items={[
-            'Стихийных бедствий',
-            'Военных действий',
-            'Действий государственных органов',
-            'Сбоев в работе блокчейна TRON',
-            'Хакерских атак',
-            'Других обстоятельств непреодолимой силы',
-          ]}
-        />
-        <Paragraph>
-          9.2. При форс-мажоре сроки исполнения обязательств продлеваются на период действия обстоятельств.
-        </Paragraph>
-      </Section>
-
-      <Section title="10. Конфиденциальность">
-        <Paragraph>
-          10.1. Условия обработки персональных данных регулируются Политикой конфиденциальности,
-          доступной по адресу /privacy.
-        </Paragraph>
-        <Paragraph>
-          10.2. Исполнитель обязуется не раскрывать информацию о сделках третьим лицам,
-          за исключением случаев, предусмотренных законом.
-        </Paragraph>
-      </Section>
-
-      <Section title="11. Интеллектуальная собственность">
-        <Paragraph>
-          11.1. Все права на программное обеспечение, дизайн и контент Сервиса принадлежат Исполнителю.
-        </Paragraph>
-        <Paragraph>
-          11.2. Заказчику предоставляется неисключительная лицензия на использование Сервиса
-          в соответствии с его функциональным назначением.
-        </Paragraph>
-      </Section>
-
-      <Section title="12. Изменение и расторжение">
-        <Paragraph>
-          12.1. Исполнитель вправе изменить условия настоящей Оферты в одностороннем порядке.
-        </Paragraph>
-        <Paragraph>
-          12.2. Изменения вступают в силу через 7 дней после публикации, если не указано иное.
-        </Paragraph>
-        <Paragraph>
-          12.3. Продолжение использования Сервиса после изменений означает согласие с ними.
-        </Paragraph>
-        <Paragraph>
-          12.4. Любая из сторон может расторгнуть Договор, уведомив другую сторону.
-        </Paragraph>
-        <Paragraph>
-          12.5. При расторжении все активные сделки завершаются в штатном режиме.
-        </Paragraph>
-      </Section>
-
-      <Section title="13. Применимое право">
-        <Paragraph>
-          13.1. Настоящая Оферта регулируется нормами международного частного права,
-          применимыми к децентрализованным технологиям.
-        </Paragraph>
-        <Paragraph>
-          13.2. Все споры решаются путем переговоров. При невозможности достижения соглашения —
-          в соответствии с процедурой арбитража Сервиса.
-        </Paragraph>
-      </Section>
-
-      <Section title="14. Заключительные положения">
-        <Paragraph>
-          14.1. Настоящая Оферта вступает в силу с момента ее публикации и действует бессрочно.
-        </Paragraph>
-        <Paragraph>
-          14.2. Недействительность отдельных положений не влечет недействительности Оферты в целом.
-        </Paragraph>
-        <Paragraph>
-          14.3. Все приложения к настоящей Оферте (Условия использования, Политика конфиденциальности)
-          являются ее неотъемлемой частью.
-        </Paragraph>
-      </Section>
-
-      <Section title="15. Реквизиты Исполнителя">
-        <Paragraph>Контактные данные:</Paragraph>
-        <List
-          items={[
-            'Telegram: @keyshield_support',
-            'Email: support@keyshield.me',
-            'Telegram-бот: @keyshield_bot',
+            t('offer.s6_l6'), t('offer.s6_l7'), t('offer.s6_l8'),
+            t('offer.s6_l9'), t('offer.s6_l10'),
           ]}
         />
       </Section>
 
-      <Section title="16. Подтверждение акцепта">
+      <Section title={t('offer.s7_title')}>
+        <Paragraph>{t('offer.s7_p1')}</Paragraph>
         <Paragraph>
-          Отправляя команду /start боту KeyShield или используя любую функцию Сервиса, вы подтверждаете, что:
+          <Trans i18nKey="offer.s7_p2" components={{ strong: <strong /> }} />
         </Paragraph>
         <List
           items={[
-            'Прочитали и поняли все условия настоящей Оферты',
-            'Согласны с условиями оплаты и комиссиями',
-            'Понимаете риски, связанные с криптовалютными транзакциями',
-            'Достигли совершеннолетия в вашей юрисдикции',
-            'Использование криптовалют законно в вашей стране',
+            t('offer.s7_l1'), t('offer.s7_l2'), t('offer.s7_l3'),
+            t('offer.s7_l4'), t('offer.s7_l5'),
+          ]}
+        />
+        <Paragraph>{t('offer.s7_p3')}</Paragraph>
+        <List items={[t('offer.s7_l6'), t('offer.s7_l7'), t('offer.s7_l8')]} />
+        <Paragraph>{t('offer.s7_p4')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s8_title')}>
+        <Paragraph>
+          <Trans i18nKey="offer.s8_p1" components={{ strong: <strong /> }} />
+        </Paragraph>
+        <List
+          items={[
+            t('offer.s8_l1'), t('offer.s8_l2'), t('offer.s8_l3'),
+            t('offer.s8_l4'), t('offer.s8_l5'), t('offer.s8_l6'),
+          ]}
+        />
+        <Paragraph>{t('offer.s8_p2')}</Paragraph>
+        <Paragraph>{t('offer.s8_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s9_title')}>
+        <Paragraph>{t('offer.s9_p1')}</Paragraph>
+        <List
+          items={[
+            t('offer.s9_l1'), t('offer.s9_l2'), t('offer.s9_l3'),
+            t('offer.s9_l4'), t('offer.s9_l5'), t('offer.s9_l6'),
+          ]}
+        />
+        <Paragraph>{t('offer.s9_p2')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s10_title')}>
+        <Paragraph>{t('offer.s10_p1')}</Paragraph>
+        <Paragraph>{t('offer.s10_p2')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s11_title')}>
+        <Paragraph>{t('offer.s11_p1')}</Paragraph>
+        <Paragraph>{t('offer.s11_p2')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s12_title')}>
+        <Paragraph>{t('offer.s12_p1')}</Paragraph>
+        <Paragraph>{t('offer.s12_p2')}</Paragraph>
+        <Paragraph>{t('offer.s12_p3')}</Paragraph>
+        <Paragraph>{t('offer.s12_p4')}</Paragraph>
+        <Paragraph>{t('offer.s12_p5')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s13_title')}>
+        <Paragraph>{t('offer.s13_p1')}</Paragraph>
+        <Paragraph>{t('offer.s13_p2')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s14_title')}>
+        <Paragraph>{t('offer.s14_p1')}</Paragraph>
+        <Paragraph>{t('offer.s14_p2')}</Paragraph>
+        <Paragraph>{t('offer.s14_p3')}</Paragraph>
+      </Section>
+
+      <Section title={t('offer.s15_title')}>
+        <Paragraph>{t('offer.s15_p1')}</Paragraph>
+        <List items={[t('offer.s15_l1'), t('offer.s15_l2'), t('offer.s15_l3')]} />
+      </Section>
+
+      <Section title={t('offer.s16_title')}>
+        <Paragraph>{t('offer.s16_p1')}</Paragraph>
+        <List
+          items={[
+            t('offer.s16_l1'), t('offer.s16_l2'), t('offer.s16_l3'),
+            t('offer.s16_l4'), t('offer.s16_l5'),
           ]}
         />
       </Section>
