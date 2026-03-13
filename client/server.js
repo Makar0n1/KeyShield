@@ -410,14 +410,14 @@ app.get('/sitemap.xml', async (req, res) => {
         : `https://${process.env.WEB_DOMAIN}`)
       : 'https://keyshield.me';
 
-    // Fetch all published posts, categories, and tags
+    // Fetch all published posts, categories, and tags (with language field)
     const [posts, categories, tags] = await Promise.all([
       BlogPost.find({ status: 'published' })
-        .select('slug updatedAt publishedAt')
+        .select('slug updatedAt publishedAt language')
         .sort({ publishedAt: -1 })
         .lean(),
-      BlogCategory.find().select('slug updatedAt').lean(),
-      BlogTag.find().select('slug updatedAt').lean()
+      BlogCategory.find().select('slug updatedAt language').lean(),
+      BlogTag.find().select('slug updatedAt language').lean()
     ]);
 
     // Build XML
@@ -455,49 +455,46 @@ app.get('/sitemap.xml', async (req, res) => {
       }
     }
 
-    // Blog posts (for each language)
-    for (const lang of SITEMAP_LANGS) {
-      for (const post of posts) {
-        const postLastmod = post.updatedAt || post.publishedAt
-          ? new Date(post.updatedAt || post.publishedAt).toISOString().split('T')[0]
-          : today;
-        xml += '  <url>\n';
-        xml += `    <loc>${SITE_URL}/${lang}/blog/${post.slug}</loc>\n`;
-        xml += `    <lastmod>${postLastmod}</lastmod>\n`;
-        xml += '    <changefreq>weekly</changefreq>\n';
-        xml += '    <priority>0.8</priority>\n';
-        xml += '  </url>\n';
-      }
+    // Blog posts — each post only under its own language
+    for (const post of posts) {
+      const lang = post.language || 'ru'; // Legacy posts without language field are Russian
+      const postLastmod = post.updatedAt || post.publishedAt
+        ? new Date(post.updatedAt || post.publishedAt).toISOString().split('T')[0]
+        : today;
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}/${lang}/blog/${post.slug}</loc>\n`;
+      xml += `    <lastmod>${postLastmod}</lastmod>\n`;
+      xml += '    <changefreq>weekly</changefreq>\n';
+      xml += '    <priority>0.8</priority>\n';
+      xml += '  </url>\n';
     }
 
-    // Categories (for each language)
-    for (const lang of SITEMAP_LANGS) {
-      for (const cat of categories) {
-        const catLastmod = cat.updatedAt
-          ? new Date(cat.updatedAt).toISOString().split('T')[0]
-          : today;
-        xml += '  <url>\n';
-        xml += `    <loc>${SITE_URL}/${lang}/category/${cat.slug}</loc>\n`;
-        xml += `    <lastmod>${catLastmod}</lastmod>\n`;
-        xml += '    <changefreq>weekly</changefreq>\n';
-        xml += '    <priority>0.6</priority>\n';
-        xml += '  </url>\n';
-      }
+    // Categories — each category only under its own language
+    for (const cat of categories) {
+      const lang = cat.language || 'ru';
+      const catLastmod = cat.updatedAt
+        ? new Date(cat.updatedAt).toISOString().split('T')[0]
+        : today;
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}/${lang}/category/${cat.slug}</loc>\n`;
+      xml += `    <lastmod>${catLastmod}</lastmod>\n`;
+      xml += '    <changefreq>weekly</changefreq>\n';
+      xml += '    <priority>0.6</priority>\n';
+      xml += '  </url>\n';
     }
 
-    // Tags (for each language)
-    for (const lang of SITEMAP_LANGS) {
-      for (const tag of tags) {
-        const tagLastmod = tag.updatedAt
-          ? new Date(tag.updatedAt).toISOString().split('T')[0]
-          : today;
-        xml += '  <url>\n';
-        xml += `    <loc>${SITE_URL}/${lang}/tag/${tag.slug}</loc>\n`;
-        xml += `    <lastmod>${tagLastmod}</lastmod>\n`;
-        xml += '    <changefreq>weekly</changefreq>\n';
-        xml += '    <priority>0.5</priority>\n';
-        xml += '  </url>\n';
-      }
+    // Tags — each tag only under its own language
+    for (const tag of tags) {
+      const lang = tag.language || 'ru';
+      const tagLastmod = tag.updatedAt
+        ? new Date(tag.updatedAt).toISOString().split('T')[0]
+        : today;
+      xml += '  <url>\n';
+      xml += `    <loc>${SITE_URL}/${lang}/tag/${tag.slug}</loc>\n`;
+      xml += `    <lastmod>${tagLastmod}</lastmod>\n`;
+      xml += '    <changefreq>weekly</changefreq>\n';
+      xml += '    <priority>0.5</priority>\n';
+      xml += '  </url>\n';
     }
 
     xml += '</urlset>';

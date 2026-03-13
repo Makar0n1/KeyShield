@@ -1,4 +1,11 @@
 import { useEffect } from 'react'
+import { useLang } from '@/hooks/useLang'
+
+const OG_LOCALE_MAP: Record<string, string> = {
+  ru: 'ru_RU',
+  en: 'en_US',
+  uk: 'uk_UA',
+}
 
 interface SEOProps {
   title?: string
@@ -71,6 +78,7 @@ export function SEO({
   noindex = false,
   schema,
 }: SEOProps) {
+  const lang = useLang()
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Безопасный Escrow для криптосделок`
   const fullUrl = url ? `${SITE_URL}${url}` : SITE_URL
   const fullImage = image?.startsWith('http') ? image : `${SITE_URL}${image}`
@@ -100,7 +108,7 @@ export function SEO({
     setMetaTag('og:url', fullUrl, true)
     setMetaTag('og:type', type, true)
     setMetaTag('og:site_name', SITE_NAME, true)
-    setMetaTag('og:locale', 'ru_RU', true)
+    setMetaTag('og:locale', OG_LOCALE_MAP[lang] || 'ru_RU', true)
 
     // Article specific
     if (type === 'article') {
