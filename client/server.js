@@ -2124,7 +2124,9 @@ app.use((err, req, res, next) => {
 
 const LANG_PREFIXES = ['ru', 'en', 'uk'];
 // Paths that must not be redirected
-const SKIP_PATH_PREFIXES = ['/api', '/admin', '/partner', '/uploads', '/health', '/sitemap', '/robots', '/_vite', '/@'];
+const SKIP_PATH_PREFIXES = ['/api', '/admin', '/partner', '/uploads', '/assets', '/health', '/sitemap', '/robots', '/_vite', '/@'];
+// Also skip any path that looks like a file (has extension)
+const FILE_EXT_RE = /\.\w{2,10}$/;
 
 // Country → language mapping
 const GEO_LANG = { RU: 'ru', BY: 'ru', KZ: 'ru', UA: 'uk' };
@@ -2156,8 +2158,11 @@ app.use((req, res, next) => {
 
   const path = req.path;
 
-  // Skip paths that should never be redirected
+  // Skip paths that should never be redirected (static assets, API, admin, etc.)
   if (SKIP_PATH_PREFIXES.some(p => path.startsWith(p))) return next();
+
+  // Skip file requests (e.g. favicon.ico, manifest.json, *.js, *.css)
+  if (FILE_EXT_RE.test(path)) return next();
 
   // Already has a valid lang prefix → no redirect needed
   if (LANG_PREFIXES.some(lang => path === `/${lang}` || path.startsWith(`/${lang}/`))) return next();
