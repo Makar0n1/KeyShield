@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { LangLink as Link } from '@/components/ui/LangLink'
 import { ChevronRight, Eye, ThumbsUp, ThumbsDown, Clock, Calendar } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useLang } from '@/hooks/useLang'
 import { blogService } from '@/services/blog'
 import { getVisitorId } from '@/utils/visitor'
 import { formatDate, formatNumber } from '@/utils/format'
@@ -122,6 +123,8 @@ const getScrollKey = (slug: string) => `blog-scroll-${slug}`
 export function BlogPostPage() {
   const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
+  const lang = useLang()
+  const navigate = useNavigate()
   const [post, setPost] = useState<BlogPost | null>(null)
   const [comments, setComments] = useState<BlogComment[]>([])
   const [sidebar, setSidebar] = useState<BlogSidebarData>({
@@ -177,6 +180,14 @@ export function BlogPostPage() {
 
     fetchData()
   }, [slug, fetchComments, t])
+
+  // Redirect to correct language if post language doesn't match URL lang
+  // e.g. /en/blog/russian-slug → /ru/blog/russian-slug
+  useEffect(() => {
+    if (post && post.language && post.language !== lang) {
+      navigate(`/${post.language}/blog/${post.slug}`, { replace: true })
+    }
+  }, [post, lang, navigate])
 
   // Restore scroll position after content loads with smooth scroll
   useEffect(() => {

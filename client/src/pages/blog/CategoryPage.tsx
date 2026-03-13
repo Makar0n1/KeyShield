@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { LangLink as Link } from '@/components/ui/LangLink'
 import { ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useLang } from '@/hooks/useLang'
 import { blogService } from '@/services/blog'
 import { BlogSidebar, PostCard } from '@/components/blog'
 import { SEO } from '@/components/SEO'
@@ -116,6 +117,8 @@ function HeroSection({ category, postsCount }: { category: BlogCategory; postsCo
 export function CategoryPage() {
   const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
+  const lang = useLang()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1')
 
@@ -155,6 +158,13 @@ export function CategoryPage() {
 
     fetchData()
   }, [slug, page, t])
+
+  // Redirect to correct language if category language doesn't match URL lang
+  useEffect(() => {
+    if (category && category.language && category.language !== lang) {
+      navigate(`/${category.language}/category/${category.slug}`, { replace: true })
+    }
+  }, [category, lang, navigate])
 
   const handlePageChange = (newPage: number) => {
     setSearchParams({ page: String(newPage) })

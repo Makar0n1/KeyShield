@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { LangLink as Link } from '@/components/ui/LangLink'
 import { ChevronRight, Tag } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useLang } from '@/hooks/useLang'
 import { blogService } from '@/services/blog'
 import { BlogSidebar, PostCard } from '@/components/blog'
 import { SEO } from '@/components/SEO'
@@ -14,6 +15,8 @@ import type { BlogPost, BlogTag, BlogSidebarData } from '@/types'
 export function TagPage() {
   const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
+  const lang = useLang()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1')
 
@@ -53,6 +56,13 @@ export function TagPage() {
 
     fetchData()
   }, [slug, page, t])
+
+  // Redirect to correct language if tag language doesn't match URL lang
+  useEffect(() => {
+    if (tag && tag.language && tag.language !== lang) {
+      navigate(`/${tag.language}/tag/${tag.slug}`, { replace: true })
+    }
+  }, [tag, lang, navigate])
 
   const handlePageChange = (newPage: number) => {
     setSearchParams({ page: String(newPage) })
