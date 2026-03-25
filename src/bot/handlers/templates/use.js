@@ -15,6 +15,11 @@ const { getTemplateSession, setTemplateSession, clearTemplateSession } = require
 const { Markup } = require('telegraf');
 const { t } = require('../../../locales');
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 // Lazy require to avoid circular dependency
 let _showTemplatesList = null;
 let _finalizeDealCreation = null;
@@ -193,7 +198,7 @@ async function handleCounterpartyInput(ctx) {
   });
 
   if (!counterparty) {
-    const errorText = t(lang, 'templates.use_user_not_found', { username });
+    const errorText = t(lang, 'templates.use_user_not_found', { username: escapeMarkdown(username) });
     await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
@@ -208,7 +213,7 @@ async function handleCounterpartyInput(ctx) {
     const count = await dealService.countActiveDeals(counterparty.telegramId);
     const { MAX_ACTIVE_DEALS_PER_USER } = require('../../../config/constants');
     const errorText = t(lang, 'templates.use_counterparty_limit', {
-      username,
+      username: escapeMarkdown(username),
       count,
       max: MAX_ACTIVE_DEALS_PER_USER
     });
@@ -246,7 +251,7 @@ async function handleCounterpartyInput(ctx) {
 
   if (savedWallets.length > 0) {
     const walletText = t(lang, 'templates.use_counterparty_found_wallet', {
-      username: counterparty.username,
+      username: escapeMarkdown(counterparty.username),
       rating: counterpartyRating,
       walletPurpose
     });
@@ -254,7 +259,7 @@ async function handleCounterpartyInput(ctx) {
     await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true, lang));
   } else {
     const walletText = t(lang, 'templates.use_counterparty_found_input', {
-      username: counterparty.username,
+      username: escapeMarkdown(counterparty.username),
       rating: counterpartyRating,
       walletPurpose
     });
@@ -462,12 +467,6 @@ async function createInviteDealFromTemplate(ctx, session) {
     } else if (deal.commissionType === 'split') {
       depositAmount = deal.amount + (commission / 2);
     }
-
-    // Escape markdown helper
-    const escapeMarkdown = (text) => {
-      if (!text) return '';
-      return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
-    };
 
     // Generate invite link
     const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';

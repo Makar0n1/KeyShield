@@ -18,6 +18,11 @@ const { mainMenuButton } = require('../keyboards/main');
 const { Markup } = require('telegraf');
 const { t } = require('../../locales');
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 /**
  * Check if user has active rating session
  */
@@ -106,7 +111,7 @@ async function showRatingScreen(ctx, telegramId, deal, counterpartyId, counterpa
     roleLabel,
     dealId: deal.dealId,
     counterpartyRole: counterpartyRoleDisplay,
-    counterpartyUsername
+    counterpartyUsername: escapeMarkdown(counterpartyUsername)
   });
 
   const keyboard = getRatingKeyboard(0, deal.dealId, lang);
@@ -143,7 +148,7 @@ async function handleRatingSelect(ctx) {
       roleLabel,
       dealId: session.dealId,
       counterpartyRole: counterpartyRoleDisplay,
-      counterpartyUsername: session.counterpartyUsername,
+      counterpartyUsername: escapeMarkdown(session.counterpartyUsername),
       stars: '⭐'.repeat(rating),
       emptyStars: '☆'.repeat(5 - rating)
     });
@@ -186,7 +191,7 @@ async function handleRatingConfirm(ctx) {
     // Show final message with thank you
     const thankYouText = t(lang, 'rating.thank_you', {
       stars: '⭐'.repeat(session.selectedRating),
-      username: session.counterpartyUsername,
+      username: escapeMarkdown(session.counterpartyUsername),
       finalMessage: session.finalMessage
     });
 

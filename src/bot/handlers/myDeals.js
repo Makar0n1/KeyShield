@@ -16,6 +16,11 @@ const { createKeyValidationSession } = require('./keyValidation');
 const Deal = require('../../models/Deal');
 const { t, formatDate } = require('../../locales');
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 // ============================================
 // STATUS HELPERS
 // ============================================
@@ -217,7 +222,7 @@ const showDealDetails = async (ctx, dealId) => {
     } else {
       const counterparty = await User.findOne({ telegramId: counterpartyId });
       const counterpartyUsername = counterparty?.username || `ID: ${counterpartyId}`;
-      text += t(lang, 'myDeals.counterparty_label', { role: t(lang, 'role.' + counterpartyRole) }) + ` @${counterpartyUsername}\n\n`;
+      text += t(lang, 'myDeals.counterparty_label', { role: t(lang, 'role.' + counterpartyRole) }) + ` @${escapeMarkdown(counterpartyUsername)}\n\n`;
     }
 
     text += `${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}\n`;

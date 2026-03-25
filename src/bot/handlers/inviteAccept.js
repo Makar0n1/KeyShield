@@ -17,6 +17,11 @@ const messageManager = require('../utils/messageManager');
 const dealService = require('../../services/dealService');
 const adminAlertService = require('../../services/adminAlertService');
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 /**
  * Handle accept_invite button press
  * User wants to accept the deal - need to ask for their wallet
@@ -114,16 +119,11 @@ const handleDeclineInvite = async (ctx) => {
 
       // Get declining user info
       const decliningUser = await User.findOne({ telegramId });
-      const decliningUsername = decliningUser?.username ? `@${decliningUser.username}` : t(lang, 'common.user');
+      const decliningUsername = decliningUser?.username ? `@${escapeMarkdown(decliningUser.username)}` : t(lang, 'common.user');
 
       // Notify creator
       const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
       if (creatorId && creatorId !== 0) {
-        const escapeMarkdown = (text) => {
-          if (!text) return '';
-          return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
-        };
-
         // Load creator's language
         const creatorUser = await User.findOne({ telegramId: creatorId }).select('languageCode').lean();
         const creatorLang = creatorUser?.languageCode || 'ru';
@@ -240,11 +240,6 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
     }
 
     // Escape markdown helper
-    const escapeMarkdown = (text) => {
-      if (!text) return '';
-      return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
-    };
-
     // Show success to counterparty (person who accepted)
     const shortWallet = walletAddress.slice(0, 8) + '...' + walletAddress.slice(-6);
 
@@ -312,7 +307,7 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
     // ========== NOTIFY CREATOR ==========
     const creatorId = updatedDeal.creatorRole === 'buyer' ? updatedDeal.buyerId : updatedDeal.sellerId;
     const counterpartyUser = await User.findOne({ telegramId });
-    const counterpartyUsername = counterpartyUser?.username ? `@${counterpartyUser.username}` : t(lang, 'common.counterparty');
+    const counterpartyUsername = counterpartyUser?.username ? `@${escapeMarkdown(counterpartyUser.username)}` : t(lang, 'common.counterparty');
 
     // Load creator's language
     const creatorUserDoc = await User.findOne({ telegramId: creatorId }).select('languageCode').lean();
