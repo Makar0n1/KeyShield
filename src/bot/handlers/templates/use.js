@@ -493,7 +493,7 @@ async function createInviteDealFromTemplate(ctx, session) {
     const roleKeyLabel = session.data.creatorRole === 'buyer' ? t(lang, 'createDeal.private_key_buyer') : t(lang, 'createDeal.private_key_seller');
     const keyText = `${t(lang, 'createDeal.private_key_title')}
 
-🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId })}
+🆔 \`${deal.dealId}\`
 
 ${roleKeyLabel}
 \`${creatorPrivateKey}\`

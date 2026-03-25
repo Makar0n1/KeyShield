@@ -260,7 +260,7 @@ async function processSellerWalletNew(ctx, telegramId, deal, walletAddress, lang
     await messageManager.showFinalScreen(ctx, telegramId, 'wallet_saved', sellerText, sellerKeyboard);
 
     // ========== SHOW PRIVATE KEY (separate message below with button) ==========
-    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_seller')}\n\`${sellerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_seller_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
+    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 \`${deal.dealId}\`\n\n${t(lang, 'createDeal.private_key_seller')}\n\`${sellerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_seller_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
       [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
@@ -491,7 +491,7 @@ async function processBuyerWalletNew(ctx, telegramId, deal, walletAddress, lang)
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
     // ========== STEP 7: Show private key (separate message) ==========
-    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
+    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 \`${deal.dealId}\`\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
       [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
@@ -876,7 +876,7 @@ const handleWalletContinue = async (ctx) => {
     await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
     // Show private key (separate message)
-    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
+    const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 \`${deal.dealId}\`\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const keyKeyboard = Markup.inlineKeyboard([
       [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
@@ -1038,7 +1038,7 @@ async function processSellerWalletSaved(ctx, telegramId, deal, address, lang) {
   await messageManager.showFinalScreen(ctx, telegramId, 'wallet_saved', sellerText, sellerKeyboard);
 
   // Show private key
-  const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_seller')}\n\`${sellerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_seller_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
+  const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 \`${deal.dealId}\`\n\n${t(lang, 'createDeal.private_key_seller')}\n\`${sellerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_seller_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
   const keyKeyboard = Markup.inlineKeyboard([
     [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]
@@ -1141,7 +1141,7 @@ async function processBuyerWalletSaved(ctx, telegramId, deal, address, lang) {
   await messageManager.showFinalScreen(ctx, telegramId, 'deposit_instructions', buyerDepositText, buyerKeyboard);
 
   // Show private key
-  const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId }).replace('📋 ', '').replace(' *', '').replace('*', '')}\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
+  const keyText = `${t(lang, 'createDeal.private_key_title')}\n\n🆔 \`${deal.dealId}\`\n\n${t(lang, 'createDeal.private_key_buyer')}\n\`${buyerPrivateKey}\`\n\n${t(lang, 'createDeal.private_key_warning')}\n${t(lang, 'createDeal.private_key_buyer_warning')}\n\n${t(lang, 'createDeal.private_key_autodelete')}`;
 
   const keyKeyboard = Markup.inlineKeyboard([
     [Markup.button.callback(t(lang, 'btn.key_saved'), `key_saved:${deal.dealId}`)]

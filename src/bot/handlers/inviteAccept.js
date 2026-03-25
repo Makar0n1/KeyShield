@@ -276,7 +276,7 @@ const handleInviteWalletInput = async (ctx, walletAddress) => {
     const roleLabel = userRole === 'buyer' ? t(lang, 'createDeal.private_key_buyer') : t(lang, 'createDeal.private_key_seller');
     const keyText = `${t(lang, 'createDeal.private_key_title')}
 
-🆔 ${t(lang, 'myDeals.deal_label', { dealId: updatedDeal.dealId })}
+🆔 \`${updatedDeal.dealId}\`
 
 ${roleLabel}
 \`${counterpartyPrivateKey}\`

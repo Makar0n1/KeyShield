@@ -932,9 +932,9 @@ const finalizeDealCreation = async (ctx, sessionData, creatorUsername) => {
 🆔 ID: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
 
-💰 ${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
-📊 ${t(lang, 'myDeals.commission_label')} ${commission} ${deal.asset}
-💸 ${t(lang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}
+${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
+${t(lang, 'myDeals.commission_label')} ${commission} ${deal.asset}
+${t(lang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}
 
 ${t(lang, 'createDeal.waiting_seller_wallet')}
 
@@ -946,7 +946,7 @@ ${t(lang, 'createDeal.seller_notified')}`;
     // ========== SHOW PRIVATE KEY (separate message below with button) ==========
     const keyText = `${t(lang, 'createDeal.private_key_title')}
 
-🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId })}
+🆔 \`${deal.dealId}\`
 
 ${t(lang, 'createDeal.private_key_buyer')}
 \`${creatorPrivateKey}\`
@@ -981,13 +981,13 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const sellerText = `${t(counterpartyLang, 'createDeal.new_deal_notification')}
 
-🆔 ID: \`${deal.dealId}\`
+🆔 \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
 
 📝 ${escapeMarkdown(deal.description.substring(0, 200))}${deal.description.length > 200 ? '...' : ''}
 
-💰 ${t(counterpartyLang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
-💸 ${t(counterpartyLang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}
+${t(counterpartyLang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
+${t(counterpartyLang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}
 👤 ${t(counterpartyLang, 'role.buyer')}: \`@${creatorUsername}\`
 📊 ${creatorRatingDisplay}
 
@@ -1002,8 +1002,8 @@ ${t(counterpartyLang, 'createDeal.provide_wallet_prompt')}`;
 🆔 ID: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
 
-💰 ${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
-💸 ${t(lang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}
+${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
+${t(lang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}
 
 ${t(lang, 'createDeal.waiting_buyer_wallet')}
 
@@ -1015,7 +1015,7 @@ ${t(lang, 'createDeal.buyer_notified')}`;
     // ========== SHOW PRIVATE KEY (separate message below with button) ==========
     const keyText = `${t(lang, 'createDeal.private_key_title')}
 
-🆔 ${t(lang, 'myDeals.deal_label', { dealId: deal.dealId })}
+🆔 \`${deal.dealId}\`
 
 ${t(lang, 'createDeal.private_key_seller')}
 \`${creatorPrivateKey}\`
@@ -1050,13 +1050,13 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
 
     const buyerText = `${t(counterpartyLang, 'createDeal.new_deal_notification')}
 
-🆔 ID: \`${deal.dealId}\`
+🆔 \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
 
 📝 ${escapeMarkdown(deal.description.substring(0, 200))}${deal.description.length > 200 ? '...' : ''}
 
-💰 ${t(counterpartyLang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
-💸 ${t(counterpartyLang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}
+${t(counterpartyLang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
+${t(counterpartyLang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}
 👤 ${t(counterpartyLang, 'role.seller')}: \`@${creatorUsername}\`
 📊 ${creatorRatingDisplay}
 
@@ -1841,8 +1841,8 @@ const handleInviteKeySaved = async (ctx) => {
 🆔 ID: \`${deal.dealId}\`
 📦 ${escapeMarkdown(deal.productName)}
 
-💰 ${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
-${deal.creatorRole === 'buyer' ? `💸 ${t(lang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}` : `💸 ${t(lang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}`}
+${t(lang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
+${deal.creatorRole === 'buyer' ? `${t(lang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}` : `${t(lang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}`}
 
 ${t(lang, 'createDeal.waiting_counterparty', { counterpartyLabel })}
 
