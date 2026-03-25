@@ -73,7 +73,7 @@ async function showMyData(ctx) {
     const walletsCount = wallets.length;
 
     // Get rating display
-    const ratingDisplay = user.getRatingDisplay ? user.getRatingDisplay() :
+    const ratingDisplay = user.getRatingDisplay ? user.getRatingDisplay(lang) :
       (user.ratingsCount > 0 ? `⭐ ${user.averageRating} (${user.ratingsCount})` : t(lang, 'common.no_reviews'));
 
     // Build display text

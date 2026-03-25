@@ -239,7 +239,7 @@ async function handleCounterpartyInput(ctx) {
   await setTemplateSession(telegramId, session);
 
   // Get counterparty rating
-  const counterpartyRating = await User.getRatingDisplayById(counterparty.telegramId);
+  const counterpartyRating = await User.getRatingDisplayById(counterparty.telegramId, lang);
 
   // Check if user has saved wallets
   const creator = await User.findOne({ telegramId }).select('wallets');

@@ -853,6 +853,33 @@ module.exports = {
   },
 
   // ============================================
+  // ABANDONED DEAL MONITOR
+  // ============================================
+  abandoned: {
+    title: '⏰ *Виникли складнощі?*',
+    stopped_at: ({ step }) => `Ви зупинилися на кроці: *${step}*`,
+    help_text: 'Якщо у вас виникли питання:\n• Напишіть у підтримку: @keyshield\\_support\n• Інструкція на сайті: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)',
+    continue_or_menu: 'Продовжити створення угоди або повернутися до головного меню?',
+    btn_continue: '▶️ Продовжити',
+    btn_main_menu: '🏠 Головне меню',
+    steps: {
+      role_selection: 'вибір ролі',
+      counterparty_username: 'введення контрагента',
+      product_name: 'назва товару',
+      description: 'опис',
+      asset_selection: 'вибір активу',
+      amount: 'введення суми',
+      commission_selection: 'вибір комісії',
+      deadline_selection: 'вибір строку',
+      creator_wallet: 'введення гаманця',
+      wallet_balance_warning: 'попередження про баланс',
+      wallet_name_input: 'назва гаманця',
+      save_wallet_prompt: 'збереження гаманця',
+      confirmation: 'підтвердження',
+    },
+  },
+
+  // ============================================
   // DEAL SERVICE
   // ============================================
   dealService: {

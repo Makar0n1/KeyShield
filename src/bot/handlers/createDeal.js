@@ -382,7 +382,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
   await setCreateDealSession(telegramId, session);
 
   // Get rating display for counterparty
-  const ratingDisplay = counterparty.getRatingDisplay ? counterparty.getRatingDisplay() :
+  const ratingDisplay = counterparty.getRatingDisplay ? counterparty.getRatingDisplay(lang) :
     (counterparty.ratingsCount > 0 ? `⭐ ${counterparty.averageRating} (${counterparty.ratingsCount})` : t(lang, 'common.no_reviews'));
 
   const successText = t(lang, 'createDeal.step3_username_found', {
@@ -905,8 +905,7 @@ const finalizeDealCreation = async (ctx, sessionData, creatorUsername) => {
   const result = await dealService.createDeal(sessionData);
   const { deal, wallet, creatorPrivateKey } = result;
 
-  // Get creator's rating for notification to counterparty
-  const creatorRatingDisplay = await User.getRatingDisplayById(deal.creatorId);
+  // Get creator's rating for notification to counterparty (lang resolved later per counterparty)
 
   // Calculate amounts
   const commission = deal.commission;
@@ -978,6 +977,7 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
     // Notify seller (use counterparty's language)
     const counterpartyUser = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
     const counterpartyLang = counterpartyUser?.languageCode || 'ru';
+    const creatorRatingDisplay = await User.getRatingDisplayById(deal.creatorId, counterpartyLang);
 
     const sellerText = `${t(counterpartyLang, 'createDeal.new_deal_notification')}
 
@@ -1046,6 +1046,7 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
     // Notify buyer (use counterparty's language)
     const counterpartyUser = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
     const counterpartyLang = counterpartyUser?.languageCode || 'ru';
+    const creatorRatingDisplay = await User.getRatingDisplayById(deal.creatorId, counterpartyLang);
 
     const buyerText = `${t(counterpartyLang, 'createDeal.new_deal_notification')}
 

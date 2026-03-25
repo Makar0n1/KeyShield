@@ -851,6 +851,33 @@ module.exports = {
   },
 
   // ============================================
+  // ABANDONED DEAL MONITOR
+  // ============================================
+  abandoned: {
+    title: '⏰ *Having trouble?*',
+    stopped_at: ({ step }) => `You stopped at step: *${step}*`,
+    help_text: 'If you have questions:\n• Contact support: @keyshield\\_support\n• Instructions on the website: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)',
+    continue_or_menu: 'Continue creating the deal or return to the main menu?',
+    btn_continue: '▶️ Continue',
+    btn_main_menu: '🏠 Main menu',
+    steps: {
+      role_selection: 'role selection',
+      counterparty_username: 'entering counterparty',
+      product_name: 'product name',
+      description: 'description',
+      asset_selection: 'asset selection',
+      amount: 'entering amount',
+      commission_selection: 'commission selection',
+      deadline_selection: 'deadline selection',
+      creator_wallet: 'entering wallet',
+      wallet_balance_warning: 'balance warning',
+      wallet_name_input: 'wallet name',
+      save_wallet_prompt: 'saving wallet',
+      confirmation: 'confirmation',
+    },
+  },
+
+  // ============================================
   // DEAL SERVICE
   // ============================================
   dealService: {

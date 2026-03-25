@@ -338,10 +338,10 @@ class SessionTimeoutMonitor {
     }
 
     // Get rating display
-    let ratingDisplay = 'Нет отзывов';
-    if (user.ratingsCount > 0) {
-      ratingDisplay = `⭐ ${user.averageRating} (${user.ratingsCount})`;
-    }
+    const User = require('../models/User');
+    const ratingDisplay = user.ratingsCount > 0
+      ? `⭐ ${user.averageRating} (${user.ratingsCount})`
+      : 'Нет отзывов';
 
     const text = `⏰ _Время ожидания ввода истекло._
 

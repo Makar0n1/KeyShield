@@ -13,25 +13,9 @@ const User = require('../models/User');
 const ServiceStatus = require('../models/ServiceStatus');
 const messageManager = require('../bot/utils/messageManager');
 const { Markup } = require('telegraf');
+const { t } = require('../locales');
 
 const SERVICE_NAME = 'AbandonedDealMonitor';
-
-// Step labels for display
-const STEP_LABELS = {
-  'role_selection': 'выбор роли',
-  'counterparty_username': 'ввод контрагента',
-  'product_name': 'название товара',
-  'description': 'описание',
-  'asset_selection': 'выбор актива',
-  'amount': 'ввод суммы',
-  'commission_selection': 'выбор комиссии',
-  'deadline_selection': 'выбор срока',
-  'creator_wallet': 'ввод кошелька',
-  'wallet_balance_warning': 'предупреждение о балансе',
-  'wallet_name_input': 'название кошелька',
-  'save_wallet_prompt': 'сохранение кошелька',
-  'confirmation': 'подтверждение'
-};
 
 class AbandonedDealMonitor {
   constructor() {
@@ -221,22 +205,19 @@ class AbandonedDealMonitor {
     try {
       const data = session.data || {};
       const step = data.step || 'role_selection';
-      const stepLabel = STEP_LABELS[step] || step;
 
-      const text = `⏰ *Возникли сложности?*
+      // Get user language
+      const userDoc = await User.findOne({ telegramId }).select('languageCode').lean();
+      const lang = userDoc?.languageCode || 'ru';
 
-Вы остановились на шаге: *${stepLabel}*
+      const stepLabel = t(lang, `abandoned.steps.${step}`) || step;
 
-Если у вас возникли вопросы:
-• Напишите в поддержку: @keyshield\\_support
-• Инструкция на сайте: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)
-
-Продолжить создание сделки или вернуться в главное меню?`;
+      const text = `${t(lang, 'abandoned.title')}\n\n${t(lang, 'abandoned.stopped_at', { step: stepLabel })}\n\n${t(lang, 'abandoned.help_text')}\n\n${t(lang, 'abandoned.continue_or_menu')}`;
 
       const keyboard = Markup.inlineKeyboard([
         [
-          Markup.button.callback('▶️ Продолжить', 'abandoned_continue'),
-          Markup.button.callback('🏠 Главное меню', 'abandoned_main_menu')
+          Markup.button.callback(t(lang, 'abandoned.btn_continue'), 'abandoned_continue'),
+          Markup.button.callback(t(lang, 'abandoned.btn_main_menu'), 'abandoned_main_menu')
         ]
       ]);
 

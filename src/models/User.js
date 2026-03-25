@@ -454,48 +454,33 @@ userSchema.methods.addRating = async function(fromUserId, dealId, rating, role) 
 
 /**
  * Get rating display string
+ * @param {string} lang - language code ('ru', 'en', 'uk')
  * @returns {string} - e.g., "⭐ 4.5 (12 отзывов)" or "Нет отзывов"
  */
-userSchema.methods.getRatingDisplay = function() {
+userSchema.methods.getRatingDisplay = function(lang = 'ru') {
+  const { t } = require('../locales');
   if (this.ratingsCount === 0) {
-    return 'Нет отзывов';
+    return t(lang, 'common.no_reviews');
   }
-
-  // Pluralize Russian word for reviews
   const count = this.ratingsCount;
-  let word;
-  if (count % 10 === 1 && count % 100 !== 11) {
-    word = 'отзыв';
-  } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-    word = 'отзыва';
-  } else {
-    word = 'отзывов';
-  }
-
+  const word = t(lang, 'plural.reviews', { count });
   return `⭐ ${this.averageRating} (${count} ${word})`;
 };
 
 /**
  * Static method to get rating display for a user by telegramId
  * @param {number} telegramId
+ * @param {string} lang - language code ('ru', 'en', 'uk')
  * @returns {string}
  */
-userSchema.statics.getRatingDisplayById = async function(telegramId) {
+userSchema.statics.getRatingDisplayById = async function(telegramId, lang = 'ru') {
+  const { t } = require('../locales');
   const user = await this.findOne({ telegramId }).select('averageRating ratingsCount').lean();
   if (!user || user.ratingsCount === 0) {
-    return 'Нет отзывов';
+    return t(lang, 'common.no_reviews');
   }
-
   const count = user.ratingsCount;
-  let word;
-  if (count % 10 === 1 && count % 100 !== 11) {
-    word = 'отзыв';
-  } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-    word = 'отзыва';
-  } else {
-    word = 'отзывов';
-  }
-
+  const word = t(lang, 'plural.reviews', { count });
   return `⭐ ${user.averageRating} (${count} ${word})`;
 };
 
