@@ -718,15 +718,15 @@ const showDealConfirmation = async (ctx, telegramId, data) => {
 
   const text = `${t(lang, 'createDeal.confirm_title')}
 
-📦 *${t(lang, 'myDeals.product_label')}* ${escapeMarkdown(data.productName)}
+${t(lang, 'myDeals.product_label')} ${escapeMarkdown(data.productName)}
 
-📝 *${t(lang, 'myDeals.description_label')}*
+${t(lang, 'myDeals.description_label')}
 ${escapeMarkdown(data.description.substring(0, 200))}${data.description.length > 200 ? '...' : ''}
 
-👤 *${counterpartyLabel}:* \`@${counterpartyUsername}\`
-💰 *${t(lang, 'myDeals.amount_label')}* ${data.amount} ${data.asset}
-💸 *${t(lang, 'myDeals.commission_label')}* ${commissionText}
-⏰ *${t(lang, 'myDeals.deadline_label')}* ${deadlineText}
+${t(lang, 'myDeals.counterparty_label', { role: counterpartyLabel })} \`@${counterpartyUsername}\`
+${t(lang, 'myDeals.amount_label')} ${data.amount} ${data.asset}
+${t(lang, 'myDeals.commission_label')} ${commissionText}
+${t(lang, 'myDeals.deadline_label')} ${deadlineText}
 
 ${t(lang, 'createDeal.confirm_check')}`;
 
@@ -1660,17 +1660,17 @@ async function showConfirmationScreen(ctx, telegramId, session) {
 
   const text = `${t(lang, 'createDeal.confirm_title')}
 
-*${t(lang, 'myDeals.your_role')}* ${creatorRole === 'buyer' ? t(lang, 'role.buyer_icon') : t(lang, 'role.seller_icon')}
-*${t(lang, 'common.counterparty')}:* \`@${counterpartyUsername}\`
+${t(lang, 'myDeals.your_role')} ${creatorRole === 'buyer' ? t(lang, 'role.buyer_icon') : t(lang, 'role.seller_icon')}
+${t(lang, 'myDeals.counterparty_label', { role: t(lang, 'role.' + (creatorRole === 'buyer' ? 'seller' : 'buyer')) })} \`@${counterpartyUsername}\`
 
-*${t(lang, 'myDeals.product_label')}* ${escapeMarkdown(data.productName)}
-${data.description ? `*${t(lang, 'myDeals.description_label')}* ${escapeMarkdown(data.description)}\n` : ''}
-*${t(lang, 'myDeals.amount_label')}* ${data.amount} ${data.asset}
-*${t(lang, 'myDeals.commission_label')}* ${commission} ${data.asset}
+${t(lang, 'myDeals.product_label')} ${escapeMarkdown(data.productName)}
+${data.description ? `${t(lang, 'myDeals.description_label')} ${escapeMarkdown(data.description)}\n` : ''}
+${t(lang, 'myDeals.amount_label')} ${data.amount} ${data.asset}
+${t(lang, 'myDeals.commission_label')} ${commission} ${data.asset}
 _${commissionNote}_
 
-*${t(lang, 'myDeals.deadline_label')}* ${deadlineText}
-*${t(lang, 'myDeals.escrow_address')}* \`${shortWallet}\`
+${t(lang, 'myDeals.deadline_label')} ${deadlineText}
+${t(lang, 'myDeals.escrow_address')} \`${shortWallet}\`
 
 ${t(lang, 'createDeal.confirm_check')}`;
 
@@ -1714,17 +1714,17 @@ async function showInviteConfirmationScreen(ctx, telegramId, session) {
 
   const text = `${t(lang, 'createDeal.confirm_title')}
 
-*${t(lang, 'myDeals.your_role')}* ${creatorRole === 'buyer' ? t(lang, 'role.buyer_icon') : t(lang, 'role.seller_icon')}
-*${t(lang, 'common.counterparty')}:* ${t(lang, 'createDeal.confirm_invite_counterparty')}
+${t(lang, 'myDeals.your_role')} ${creatorRole === 'buyer' ? t(lang, 'role.buyer_icon') : t(lang, 'role.seller_icon')}
+${t(lang, 'myDeals.counterparty_label', { role: t(lang, 'role.' + (creatorRole === 'buyer' ? 'seller' : 'buyer')) })} ${t(lang, 'createDeal.confirm_invite_counterparty')}
 
-*${t(lang, 'myDeals.product_label')}* ${escapeMarkdown(data.productName)}
-${data.description ? `*${t(lang, 'myDeals.description_label')}* ${escapeMarkdown(data.description)}\n` : ''}
-*${t(lang, 'myDeals.amount_label')}* ${data.amount} ${data.asset}
-*${t(lang, 'myDeals.commission_label')}* ${commission} ${data.asset}
+${t(lang, 'myDeals.product_label')} ${escapeMarkdown(data.productName)}
+${data.description ? `${t(lang, 'myDeals.description_label')} ${escapeMarkdown(data.description)}\n` : ''}
+${t(lang, 'myDeals.amount_label')} ${data.amount} ${data.asset}
+${t(lang, 'myDeals.commission_label')} ${commission} ${data.asset}
 _${commissionNote}_
 
-*${t(lang, 'myDeals.deadline_label')}* ${deadlineText}
-*${t(lang, 'myDeals.escrow_address')}* \`${shortWallet}\`
+${t(lang, 'myDeals.deadline_label')} ${deadlineText}
+${t(lang, 'myDeals.escrow_address')} \`${shortWallet}\`
 
 ${t(lang, 'createDeal.confirm_invite_note', { counterpartyLabel })}
 
