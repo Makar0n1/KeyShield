@@ -312,7 +312,7 @@ module.exports = {
 
     step3_username: ({ counterpartyLabel }) => `📝 *Create Deal*\n\n*Step 3 of 10: Specify the ${counterpartyLabel}*\n\nEnter the Telegram username in @username format\n\n⚠️ The other participant must have already started the bot!`,
 
-    step3_username_found: ({ counterpartyLabel, username, ratingDisplay }) => `📝 *Create Deal*\n\n✅ *${counterpartyLabel}:* @${username}\n📊 *Rating:* ${ratingDisplay}\n\n*Step 3 of 9: Product name*\n\nEnter a brief name for the product or service.\n(5 to 200 characters)\n\nExample: "Logo design"`,
+    step3_username_found: ({ counterpartyLabel, username, ratingDisplay }) => `📝 *Create Deal*\n\n✅ *${counterpartyLabel}:* \`@${username}\`\n📊 *Rating:* ${ratingDisplay}\n\n*Step 3 of 9: Product name*\n\nEnter a brief name for the product or service.\n(5 to 200 characters)\n\nExample: "Logo design"`,
 
     step3_product: '📝 *Create Deal*\n\n*Step 3 of 10: Product name*\n\nEnter a brief name for the product or service.\n(5 to 200 characters)\n\nExample: "Logo design"',
 
@@ -334,9 +334,9 @@ module.exports = {
 
     // Errors
     error_self_deal: '❌ *Error*\n\nYou cannot create a deal with yourself!\n\nEnter a different @username:',
-    error_user_not_found: ({ username }) => `❌ *User not found*\n\nUser @${username} has not started the bot yet.\nAsk them to send /start to the bot.\n\nEnter a different @username:`,
+    error_user_not_found: ({ username }) => `❌ *User not found*\n\nUser \`@${username}\` has not started the bot yet.\nAsk them to send /start to the bot.\n\nEnter a different @username:`,
     error_user_blocked: '❌ *User is blocked*\n\nThis user cannot participate in deals.\n\nEnter a different @username:',
-    error_counterparty_limit: ({ username, count, max }) => `⚠️ *User has reached deal limit*\n\n@${username} already has ${count} active deals (maximum ${max}).\n\nEnter a different @username:`,
+    error_counterparty_limit: ({ username, count, max }) => `⚠️ *User has reached deal limit*\n\n\`@${username}\` already has ${count} active deals (maximum ${max}).\n\nEnter a different @username:`,
     error_name_length: ({ length }) => `❌ *Error*\n\nThe name must be between 5 and 200 characters.\nCurrent length: ${length} characters.\n\nEnter a name:`,
     error_desc_length: ({ length }) => `❌ *Error*\n\nThe description must be between 20 and 5000 characters.\nCurrent length: ${length} characters.\n\nEnter a description:`,
     error_amount: '❌ *Error*\n\nInvalid amount. Minimum: 50 USDT.\n\nEnter an amount:',
@@ -388,7 +388,7 @@ module.exports = {
     // Back navigation hints
     previously_selected: ({ value }) => `✏️ _Previously selected: ${value}_`,
     previously_entered: ({ value }) => `📝 _Previously entered: ${value}_\n\nEnter a new value or press the button below:`,
-    previously_entered_username: ({ username }) => `📝 _Previously entered: @${username}_\n\nEnter a new username or press the button below:`,
+    previously_entered_username: ({ username }) => `📝 _Previously entered:_ \`@${username}\`\n\nEnter a new username or press the button below:`,
     previously_entered_name: ({ name }) => `📝 _Previously entered: "${name}"_\n\nEnter a new name or press the button below:`,
     previously_entered_desc: ({ desc }) => `📝 _Previously entered: "${desc}"_\n\nEnter a new description or press the button below:`,
     previously_entered_amount: ({ amount, asset }) => `📝 _Previously entered: ${amount} ${asset}_\n\nEnter a new amount or press the button below:`,
@@ -706,14 +706,14 @@ module.exports = {
   // RATING
   // ============================================
   rating: {
-    ask: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername }) => `⭐ *Rate the ${roleLabel}*\n\n🆔 Deal: \`${dealId}\`\n👤 ${counterpartyRole}: @${counterpartyUsername}\n\nHow was the deal? Rate the counterparty:\n\n_Choose from 1 to 5 stars_`,
-    updated: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername, stars, emptyStars }) => `⭐ *Rate the ${roleLabel}*\n\n🆔 Deal: \`${dealId}\`\n👤 ${counterpartyRole}: @${counterpartyUsername}\n\nHow was the deal? Rate the counterparty:\n\nYour rating: ${stars}${emptyStars}`,
+    ask: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername }) => `⭐ *Rate the ${roleLabel}*\n\n🆔 Deal: \`${dealId}\`\n👤 ${counterpartyRole}: \`@${counterpartyUsername}\`\n\nHow was the deal? Rate the counterparty:\n\n_Choose from 1 to 5 stars_`,
+    updated: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername, stars, emptyStars }) => `⭐ *Rate the ${roleLabel}*\n\n🆔 Deal: \`${dealId}\`\n👤 ${counterpartyRole}: \`@${counterpartyUsername}\`\n\nHow was the deal? Rate the counterparty:\n\nYour rating: ${stars}${emptyStars}`,
     star_count: ({ rating }) => {
       if (rating === 1) return '1 star';
       return `${rating} stars`;
     },
     saved: '✅ Rating saved',
-    thank_you: ({ stars, username, finalMessage }) => `✅ *Thank you for your rating!*\n\nYou gave ${stars} to @${username}\n\n${finalMessage}`,
+    thank_you: ({ stars, username, finalMessage }) => `✅ *Thank you for your rating!*\n\nYou gave ${stars} to \`@${username}\`\n\n${finalMessage}`,
     rating_display: ({ average, count, word }) => `⭐ ${average} (${count} ${word})`,
   },
 
@@ -757,14 +757,14 @@ module.exports = {
     use_enter_username: ({ templateName, counterpartyLabel }) => `🚀 *Quick Deal from Template*\n\n📑 ${templateName}\n\nEnter @username of the ${counterpartyLabel}:`,
     use_select_wallet: ({ templateName, walletPurpose }) => `🚀 *Quick Deal from Template*\n\n📑 ${templateName}\n\n💳 *Select a wallet ${walletPurpose}:*\n\nOr enter a new TRON wallet address.`,
     use_enter_wallet: ({ templateName, walletPurpose }) => `🚀 *Quick Deal from Template*\n\n📑 ${templateName}\n\n💳 *Enter TRON wallet address ${walletPurpose}:*\n\n_(address starts with T, 34 characters)_`,
-    use_counterparty_found_wallet: ({ username, rating, walletPurpose }) => `✅ *Counterparty:* @${username}\n📊 *Rating:* ${rating}\n\n💳 *Select a wallet ${walletPurpose}:*\n\nOr enter a new TRON wallet address.`,
-    use_counterparty_found_input: ({ username, rating, walletPurpose }) => `✅ *Counterparty:* @${username}\n📊 *Rating:* ${rating}\n\n💳 *Enter TRON wallet address ${walletPurpose}:*\n\n_(address starts with T, 34 characters)_`,
+    use_counterparty_found_wallet: ({ username, rating, walletPurpose }) => `✅ *Counterparty:* \`@${username}\`\n📊 *Rating:* ${rating}\n\n💳 *Select a wallet ${walletPurpose}:*\n\nOr enter a new TRON wallet address.`,
+    use_counterparty_found_input: ({ username, rating, walletPurpose }) => `✅ *Counterparty:* \`@${username}\`\n📊 *Rating:* ${rating}\n\n💳 *Enter TRON wallet address ${walletPurpose}:*\n\n_(address starts with T, 34 characters)_`,
 
     // Use template errors
     use_self_deal: '❌ *You cannot create a deal with yourself!*\n\nEnter a different @username:',
-    use_user_not_found: ({ username }) => `❌ *User @${username} not found*\n\nMake sure they have already started the bot.\nEnter a different @username:`,
+    use_user_not_found: ({ username }) => `❌ *User \`@${username}\` not found*\n\nMake sure they have already started the bot.\nEnter a different @username:`,
     use_user_blocked: '❌ *User is blocked*\n\nEnter a different @username:',
-    use_counterparty_limit: ({ username, count, max }) => `⚠️ *@${username} has reached deal limit*\n\nThey already have ${count} active deals (maximum ${max}).\n\nEnter a different @username:`,
+    use_counterparty_limit: ({ username, count, max }) => `⚠️ *\`@${username}\` has reached deal limit*\n\nThey already have ${count} active deals (maximum ${max}).\n\nEnter a different @username:`,
     use_deals_limit: ({ count, max }) => `⚠️ *Deal limit reached*\n\nYou already have ${count} active deals (maximum ${max}).\n\nComplete one of your current deals before creating a new one.`,
     use_username_required: '⚠️ *Username required*\n\nTo create deals, set a public username in your Telegram settings.',
     use_error: ({ message }) => `❌ *Error creating deal*\n\n${message || 'Please try later.'}`,
@@ -794,6 +794,7 @@ module.exports = {
 
     // Formatting helpers
     deadline_format: ({ hours }) => {
+      if (!hours || isNaN(hours)) return 'Not set';
       if (hours === 24) return '24 hours';
       if (hours === 48) return '48 hours';
       if (hours < 24) return `${hours} hours`;
@@ -802,9 +803,10 @@ module.exports = {
       return `${days} days`;
     },
     commission_format: ({ type, commission, asset }) => {
-      if (type === 'buyer') return `Buyer pays (${commission} ${asset})`;
-      if (type === 'seller') return `Seller pays (${commission} ${asset})`;
-      return `50/50 (${(commission / 2).toFixed(2)} ${asset} each)`;
+      if (commission == null || isNaN(commission)) return 'Not set';
+      if (type === 'buyer') return `Buyer pays (${commission} ${asset || 'USDT'})`;
+      if (type === 'seller') return `Seller pays (${commission} ${asset || 'USDT'})`;
+      return `50/50 (${(commission / 2).toFixed(2)} ${asset || 'USDT'} each)`;
     },
 
     // List item

@@ -345,7 +345,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
   const counterpartyLabel = creatorRole === 'buyer' ? t(lang, 'role.seller') : t(lang, 'role.buyer');
 
   if (!counterparty) {
-    const errorText = t(lang, 'createDeal.error_user_not_found', { username: escapeMarkdown(username) });
+    const errorText = t(lang, 'createDeal.error_user_not_found', { username });
     const keyboard = backButton(lang);
     await messageManager.updateScreen(ctx, telegramId, 'create_deal_username', errorText, keyboard);
     return;
@@ -361,7 +361,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
   if (!(await dealService.canCreateNewDeal(counterparty.telegramId))) {
     const count = await dealService.countActiveDeals(counterparty.telegramId);
     const { MAX_ACTIVE_DEALS_PER_USER } = require('../../config/constants');
-    const errorText = t(lang, 'createDeal.error_counterparty_limit', { username: escapeMarkdown(username), count, max: MAX_ACTIVE_DEALS_PER_USER });
+    const errorText = t(lang, 'createDeal.error_counterparty_limit', { username, count, max: MAX_ACTIVE_DEALS_PER_USER });
     const keyboard = backButton(lang);
     await messageManager.updateScreen(ctx, telegramId, 'create_deal_username', errorText, keyboard);
     return;
@@ -387,7 +387,7 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
 
   const successText = t(lang, 'createDeal.step3_username_found', {
     counterpartyLabel,
-    username: escapeMarkdown(counterparty.username),
+    username: counterparty.username,
     ratingDisplay
   });
 
@@ -723,7 +723,7 @@ const showDealConfirmation = async (ctx, telegramId, data) => {
 📝 *${t(lang, 'myDeals.description_label')}*
 ${escapeMarkdown(data.description.substring(0, 200))}${data.description.length > 200 ? '...' : ''}
 
-👤 *${counterpartyLabel}:* @${escapeMarkdown(counterpartyUsername)}
+👤 *${counterpartyLabel}:* \`@${counterpartyUsername}\`
 💰 *${t(lang, 'myDeals.amount_label')}* ${data.amount} ${data.asset}
 💸 *${t(lang, 'myDeals.commission_label')}* ${commissionText}
 ⏰ *${t(lang, 'myDeals.deadline_label')}* ${deadlineText}
@@ -988,7 +988,7 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
 
 💰 ${t(counterpartyLang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
 💸 ${t(counterpartyLang, 'myDeals.you_receive')} ${sellerPayout} ${deal.asset}
-👤 ${t(counterpartyLang, 'role.buyer')}: @${escapeMarkdown(creatorUsername)}
+👤 ${t(counterpartyLang, 'role.buyer')}: \`@${creatorUsername}\`
 📊 ${creatorRatingDisplay}
 
 ${t(counterpartyLang, 'createDeal.provide_wallet_prompt')}`;
@@ -1056,7 +1056,7 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
 
 💰 ${t(counterpartyLang, 'myDeals.amount_label')} ${deal.amount} ${deal.asset}
 💸 ${t(counterpartyLang, 'myDeals.you_pay')} ${depositAmount} ${deal.asset}
-👤 ${t(counterpartyLang, 'role.seller')}: @${escapeMarkdown(creatorUsername)}
+👤 ${t(counterpartyLang, 'role.seller')}: \`@${creatorUsername}\`
 📊 ${creatorRatingDisplay}
 
 ${t(counterpartyLang, 'createDeal.provide_wallet_prompt')}`;
@@ -1235,7 +1235,7 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
       text = t(lang, 'createDeal.step3_username', { counterpartyLabel: counterpartyLabel1 });
 
       if (savedUsername) {
-        text += `\n\n${t(lang, 'createDeal.previously_entered_username', { username: escapeMarkdown(savedUsername) })}`;
+        text += `\n\n${t(lang, 'createDeal.previously_entered_username', { username: savedUsername })}`;
         keyboard = keepPreviousValueKeyboard('counterparty_username', `@${savedUsername}`, lang);
       } else {
         keyboard = backButton(lang);
@@ -1252,7 +1252,7 @@ const showDealCreationScreen = async (ctx, telegramId, session, step) => {
       } else {
         text = t(lang, 'createDeal.step3_username_found', {
           counterpartyLabel: counterpartyLabel2,
-          username: escapeMarkdown(counterpartyUsername),
+          username: counterpartyUsername,
           ratingDisplay: ''
         });
       }
@@ -1660,7 +1660,7 @@ async function showConfirmationScreen(ctx, telegramId, session) {
   const text = `${t(lang, 'createDeal.confirm_title')}
 
 *${t(lang, 'myDeals.your_role')}* ${creatorRole === 'buyer' ? t(lang, 'role.buyer_icon') : t(lang, 'role.seller_icon')}
-*${t(lang, 'common.counterparty')}:* @${escapeMarkdown(counterpartyUsername)}
+*${t(lang, 'common.counterparty')}:* \`@${counterpartyUsername}\`
 
 *${t(lang, 'myDeals.product_label')}* ${escapeMarkdown(data.productName)}
 ${data.description ? `*${t(lang, 'myDeals.description_label')}* ${escapeMarkdown(data.description)}\n` : ''}

@@ -295,8 +295,8 @@ async function showReferralsList(ctx, page = 0) {
       for (const ref of referrals) {
         // Escape username/firstName to prevent Markdown parsing errors
         const safeName = ref.username
-          ? `@${escapeMarkdown(ref.username)}`
-          : (escapeMarkdown(ref.firstName) || `ID: ${ref.telegramId}`);
+          ? `\`@${ref.username}\``
+          : (ref.firstName || `ID: ${ref.telegramId}`);
         const dealsCompleted = ref.stats?.dealsCompleted || 0;
         const earned = earningsMap.get(ref.telegramId) || 0;
         const date = formatDate(lang, ref.createdAt, { hour: undefined, minute: undefined, second: undefined });
@@ -349,8 +349,8 @@ async function showReferralHistory(ctx, page = 0) {
         const date = formatDate(lang, tx.createdAt, { hour: undefined, minute: undefined, second: undefined });
         const referee = await User.findOne({ telegramId: tx.refereeId }).select('username firstName').lean();
         const refName = referee?.username
-          ? `@${escapeMarkdown(referee.username)}`
-          : (escapeMarkdown(referee?.firstName) || t(lang, 'common.user'));
+          ? `\`@${referee.username}\``
+          : (referee?.firstName || t(lang, 'common.user'));
 
         text += `💰 *+${tx.bonusAmount.toFixed(2)} USDT*\n`;
         text += `   ${refName} • ${t(lang, 'referral.deal_label')} ${tx.dealId}\n`;

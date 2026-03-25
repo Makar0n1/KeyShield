@@ -14,10 +14,6 @@ const {
   MIN_DEAL_AMOUNT
 } = require('../../config/constants');
 
-function escapeMarkdown(text) {
-  if (!text) return '';
-  return text.replace(/([_*`\[\]])/g, '\\$1');
-}
 
 // Language selection screen (trilingual — language unknown at this point)
 const LANGUAGE_SELECT_TEXT =
@@ -365,7 +361,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
 
     // Get creator info
     const creator = await User.findOne({ telegramId: creatorId });
-    const creatorUsername = creator?.username ? `@${escapeMarkdown(creator.username)}` : t(lang, 'common.unknown_user');
+    const creatorUsername = creator?.username ? `\`@${creator.username}\`` : t(lang, 'common.unknown_user');
 
     // Get creator rating using proper User model fields
     let creatorRatingDisplay = t(lang, 'common.new_user_rating');

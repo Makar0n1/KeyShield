@@ -198,7 +198,7 @@ async function handleCounterpartyInput(ctx) {
   });
 
   if (!counterparty) {
-    const errorText = t(lang, 'templates.use_user_not_found', { username: escapeMarkdown(username) });
+    const errorText = t(lang, 'templates.use_user_not_found', { username });
     await messageManager.sendNewMessage(ctx, telegramId, errorText, templateUseKeyboard(session.templateId, lang));
     return true;
   }
@@ -213,7 +213,7 @@ async function handleCounterpartyInput(ctx) {
     const count = await dealService.countActiveDeals(counterparty.telegramId);
     const { MAX_ACTIVE_DEALS_PER_USER } = require('../../../config/constants');
     const errorText = t(lang, 'templates.use_counterparty_limit', {
-      username: escapeMarkdown(username),
+      username,
       count,
       max: MAX_ACTIVE_DEALS_PER_USER
     });
@@ -251,7 +251,7 @@ async function handleCounterpartyInput(ctx) {
 
   if (savedWallets.length > 0) {
     const walletText = t(lang, 'templates.use_counterparty_found_wallet', {
-      username: escapeMarkdown(counterparty.username),
+      username: counterparty.username,
       rating: counterpartyRating,
       walletPurpose
     });
@@ -259,7 +259,7 @@ async function handleCounterpartyInput(ctx) {
     await messageManager.sendNewMessage(ctx, telegramId, walletText, walletSelectionKeyboard(savedWallets, true, lang));
   } else {
     const walletText = t(lang, 'templates.use_counterparty_found_input', {
-      username: escapeMarkdown(counterparty.username),
+      username: counterparty.username,
       rating: counterpartyRating,
       walletPurpose
     });

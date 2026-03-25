@@ -77,7 +77,7 @@ class AdminAlertService {
   async alertNewUser(user) {
     this.dailyStats.newUsers++;
 
-    const username = user.username ? '@' + this.escapeMarkdown(user.username) : 'не указан';
+    const username = user.username ? '`@' + user.username + '`' : 'не указан';
     const platform = user.platformCode ? this.escapeMarkdown(user.platformCode) : null;
 
     const text = `👤 *Новый пользователь!*
@@ -595,7 +595,7 @@ ${await this.formatOperationsStatus()}
    * Alert about new referral withdrawal request
    */
   async alertReferralWithdrawal(withdrawal, user) {
-    const username = user?.username ? '@' + this.escapeMarkdown(user.username) : `ID: ${withdrawal.userId}`;
+    const username = user?.username ? '`@' + user.username + '`' : `ID: ${withdrawal.userId}`;
     const shortAddr = withdrawal.walletAddress.slice(0, 8) + '...' + withdrawal.walletAddress.slice(-6);
 
     const text = `💸 *Заявка на вывод рефералки*

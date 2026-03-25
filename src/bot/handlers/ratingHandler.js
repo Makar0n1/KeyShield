@@ -111,7 +111,7 @@ async function showRatingScreen(ctx, telegramId, deal, counterpartyId, counterpa
     roleLabel,
     dealId: deal.dealId,
     counterpartyRole: counterpartyRoleDisplay,
-    counterpartyUsername: escapeMarkdown(counterpartyUsername)
+    counterpartyUsername
   });
 
   const keyboard = getRatingKeyboard(0, deal.dealId, lang);
@@ -148,7 +148,7 @@ async function handleRatingSelect(ctx) {
       roleLabel,
       dealId: session.dealId,
       counterpartyRole: counterpartyRoleDisplay,
-      counterpartyUsername: escapeMarkdown(session.counterpartyUsername),
+      counterpartyUsername: session.counterpartyUsername,
       stars: '⭐'.repeat(rating),
       emptyStars: '☆'.repeat(5 - rating)
     });
@@ -191,7 +191,7 @@ async function handleRatingConfirm(ctx) {
     // Show final message with thank you
     const thankYouText = t(lang, 'rating.thank_you', {
       stars: '⭐'.repeat(session.selectedRating),
-      username: escapeMarkdown(session.counterpartyUsername),
+      username: session.counterpartyUsername,
       finalMessage: session.finalMessage
     });
 

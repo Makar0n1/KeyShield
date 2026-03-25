@@ -119,7 +119,7 @@ const handleDeclineInvite = async (ctx) => {
 
       // Get declining user info
       const decliningUser = await User.findOne({ telegramId });
-      const decliningUsername = decliningUser?.username ? `@${escapeMarkdown(decliningUser.username)}` : t(lang, 'common.user');
+      const decliningUsername = decliningUser?.username ? `\`@${decliningUser.username}\`` : t(lang, 'common.user');
 
       // Notify creator
       const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
@@ -307,7 +307,7 @@ ${t(lang, 'createDeal.private_key_autodelete')}`;
     // ========== NOTIFY CREATOR ==========
     const creatorId = updatedDeal.creatorRole === 'buyer' ? updatedDeal.buyerId : updatedDeal.sellerId;
     const counterpartyUser = await User.findOne({ telegramId });
-    const counterpartyUsername = counterpartyUser?.username ? `@${escapeMarkdown(counterpartyUser.username)}` : t(lang, 'common.counterparty');
+    const counterpartyUsername = counterpartyUser?.username ? `\`@${counterpartyUser.username}\`` : t(lang, 'common.counterparty');
 
     // Load creator's language
     const creatorUserDoc = await User.findOne({ telegramId: creatorId }).select('languageCode').lean();

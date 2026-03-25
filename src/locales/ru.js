@@ -312,7 +312,7 @@ module.exports = {
 
     step3_username: ({ counterpartyLabel }) => `📝 *Создание сделки*\n\n*Шаг 3 из 10: Укажите ${counterpartyLabel}*\n\nВведите Telegram username в формате @username\n\n⚠️ Второй участник должен уже запустить бота!`,
 
-    step3_username_found: ({ counterpartyLabel, username, ratingDisplay }) => `📝 *Создание сделки*\n\n✅ *${counterpartyLabel}:* @${username}\n📊 *Рейтинг:* ${ratingDisplay}\n\n*Шаг 3 из 9: Название*\n\nВведите краткое название товара или услуги.\n(от 5 до 200 символов)\n\nПример: "Разработка логотипа"`,
+    step3_username_found: ({ counterpartyLabel, username, ratingDisplay }) => `📝 *Создание сделки*\n\n✅ *${counterpartyLabel}:* \`@${username}\`\n📊 *Рейтинг:* ${ratingDisplay}\n\n*Шаг 3 из 9: Название*\n\nВведите краткое название товара или услуги.\n(от 5 до 200 символов)\n\nПример: "Разработка логотипа"`,
 
     step3_product: '📝 *Создание сделки*\n\n*Шаг 3 из 10: Название*\n\nВведите краткое название товара или услуги.\n(от 5 до 200 символов)\n\nПример: "Разработка логотипа"',
 
@@ -334,9 +334,9 @@ module.exports = {
 
     // Errors
     error_self_deal: '❌ *Ошибка*\n\nВы не можете создать сделку с самим собой!\n\nВведите другой @username:',
-    error_user_not_found: ({ username }) => `❌ *Пользователь не найден*\n\nПользователь @${username} ещё не запустил бота.\nПопросите его отправить /start боту.\n\nВведите другой @username:`,
+    error_user_not_found: ({ username }) => `❌ *Пользователь не найден*\n\nПользователь \`@${username}\` ещё не запустил бота.\nПопросите его отправить /start боту.\n\nВведите другой @username:`,
     error_user_blocked: '❌ *Пользователь заблокирован*\n\nЭтот пользователь не может участвовать в сделках.\n\nВведите другой @username:',
-    error_counterparty_limit: ({ username, count, max }) => `⚠️ *У пользователя достигнут лимит сделок*\n\nУ @${username} уже ${count} активных сделок (максимум ${max}).\n\nВведите другой @username:`,
+    error_counterparty_limit: ({ username, count, max }) => `⚠️ *У пользователя достигнут лимит сделок*\n\nУ \`@${username}\` уже ${count} активных сделок (максимум ${max}).\n\nВведите другой @username:`,
     error_name_length: ({ length }) => `❌ *Ошибка*\n\nНазвание должно быть от 5 до 200 символов.\nСейчас: ${length} символов.\n\nВведите название:`,
     error_desc_length: ({ length }) => `❌ *Ошибка*\n\nОписание должно быть от 20 до 5000 символов.\nСейчас: ${length} символов.\n\nВведите описание:`,
     error_amount: '❌ *Ошибка*\n\nНеверная сумма. Минимум: 50 USDT.\n\nВведите сумму:',
@@ -388,7 +388,7 @@ module.exports = {
     // Back navigation hints
     previously_selected: ({ value }) => `✏️ _Ранее выбрано: ${value}_`,
     previously_entered: ({ value }) => `📝 _Введено ранее: ${value}_\n\nВведите новое значение или нажмите кнопку ниже:`,
-    previously_entered_username: ({ username }) => `📝 _Введено ранее: @${username}_\n\nВведите новый username или нажмите кнопку ниже:`,
+    previously_entered_username: ({ username }) => `📝 _Введено ранее:_ \`@${username}\`\n\nВведите новый username или нажмите кнопку ниже:`,
     previously_entered_name: ({ name }) => `📝 _Введено ранее: "${name}"_\n\nВведите новое название или нажмите кнопку ниже:`,
     previously_entered_desc: ({ desc }) => `📝 _Введено ранее: "${desc}"_\n\nВведите новое описание или нажмите кнопку ниже:`,
     previously_entered_amount: ({ amount, asset }) => `📝 _Введено ранее: ${amount} ${asset}_\n\nВведите новую сумму или нажмите кнопку ниже:`,
@@ -706,15 +706,15 @@ module.exports = {
   // RATING
   // ============================================
   rating: {
-    ask: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername }) => `⭐ *Оцените ${roleLabel}*\n\n🆔 Сделка: \`${dealId}\`\n👤 ${counterpartyRole}: @${counterpartyUsername}\n\nКак прошла сделка? Оцените контрагента:\n\n_Выберите от 1 до 5 звёзд_`,
-    updated: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername, stars, emptyStars }) => `⭐ *Оцените ${roleLabel}*\n\n🆔 Сделка: \`${dealId}\`\n👤 ${counterpartyRole}: @${counterpartyUsername}\n\nКак прошла сделка? Оцените контрагента:\n\nВаша оценка: ${stars}${emptyStars}`,
+    ask: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername }) => `⭐ *Оцените ${roleLabel}*\n\n🆔 Сделка: \`${dealId}\`\n👤 ${counterpartyRole}: \`@${counterpartyUsername}\`\n\nКак прошла сделка? Оцените контрагента:\n\n_Выберите от 1 до 5 звёзд_`,
+    updated: ({ roleLabel, dealId, counterpartyRole, counterpartyUsername, stars, emptyStars }) => `⭐ *Оцените ${roleLabel}*\n\n🆔 Сделка: \`${dealId}\`\n👤 ${counterpartyRole}: \`@${counterpartyUsername}\`\n\nКак прошла сделка? Оцените контрагента:\n\nВаша оценка: ${stars}${emptyStars}`,
     star_count: ({ rating }) => {
       if (rating === 1) return '1 звезда';
       if (rating < 5) return `${rating} звезды`;
       return `${rating} звёзд`;
     },
     saved: '✅ Оценка сохранена',
-    thank_you: ({ stars, username, finalMessage }) => `✅ *Спасибо за оценку!*\n\nВы поставили ${stars} @${username}\n\n${finalMessage}`,
+    thank_you: ({ stars, username, finalMessage }) => `✅ *Спасибо за оценку!*\n\nВы поставили ${stars} \`@${username}\`\n\n${finalMessage}`,
     rating_display: ({ average, count, word }) => `⭐ ${average} (${count} ${word})`,
   },
 
@@ -758,14 +758,14 @@ module.exports = {
     use_enter_username: ({ templateName, counterpartyLabel }) => `🚀 *Быстрая сделка по шаблону*\n\n📑 ${templateName}\n\nВведите @username ${counterpartyLabel}:`,
     use_select_wallet: ({ templateName, walletPurpose }) => `🚀 *Быстрая сделка по шаблону*\n\n📑 ${templateName}\n\n💳 *Выберите кошелёк ${walletPurpose}:*\n\nИли введите новый адрес TRON-кошелька.`,
     use_enter_wallet: ({ templateName, walletPurpose }) => `🚀 *Быстрая сделка по шаблону*\n\n📑 ${templateName}\n\n💳 *Введите адрес TRON-кошелька ${walletPurpose}:*\n\n_(адрес начинается с T, 34 символа)_`,
-    use_counterparty_found_wallet: ({ username, rating, walletPurpose }) => `✅ *Контрагент:* @${username}\n📊 *Рейтинг:* ${rating}\n\n💳 *Выберите кошелёк ${walletPurpose}:*\n\nИли введите новый адрес TRON-кошелька.`,
-    use_counterparty_found_input: ({ username, rating, walletPurpose }) => `✅ *Контрагент:* @${username}\n📊 *Рейтинг:* ${rating}\n\n💳 *Введите адрес TRON-кошелька ${walletPurpose}:*\n\n_(адрес начинается с T, 34 символа)_`,
+    use_counterparty_found_wallet: ({ username, rating, walletPurpose }) => `✅ *Контрагент:* \`@${username}\`\n📊 *Рейтинг:* ${rating}\n\n💳 *Выберите кошелёк ${walletPurpose}:*\n\nИли введите новый адрес TRON-кошелька.`,
+    use_counterparty_found_input: ({ username, rating, walletPurpose }) => `✅ *Контрагент:* \`@${username}\`\n📊 *Рейтинг:* ${rating}\n\n💳 *Введите адрес TRON-кошелька ${walletPurpose}:*\n\n_(адрес начинается с T, 34 символа)_`,
 
     // Use template errors
     use_self_deal: '❌ *Вы не можете создать сделку с самим собой!*\n\nВведите другой @username:',
-    use_user_not_found: ({ username }) => `❌ *Пользователь @${username} не найден*\n\nУбедитесь, что он уже запустил бота.\nВведите другой @username:`,
+    use_user_not_found: ({ username }) => `❌ *Пользователь \`@${username}\` не найден*\n\nУбедитесь, что он уже запустил бота.\nВведите другой @username:`,
     use_user_blocked: '❌ *Пользователь заблокирован*\n\nВведите другой @username:',
-    use_counterparty_limit: ({ username, count, max }) => `⚠️ *У @${username} достигнут лимит сделок*\n\nУ него уже ${count} активных сделок (максимум ${max}).\n\nВведите другой @username:`,
+    use_counterparty_limit: ({ username, count, max }) => `⚠️ *У \`@${username}\` достигнут лимит сделок*\n\nУ него уже ${count} активных сделок (максимум ${max}).\n\nВведите другой @username:`,
     use_deals_limit: ({ count, max }) => `⚠️ *Достигнут лимит сделок*\n\nУ вас уже ${count} активных сделок (максимум ${max}).\n\nЗавершите одну из текущих сделок перед созданием новой.`,
     use_username_required: '⚠️ *Необходим username*\n\nДля создания сделок установите публичный username в настройках Telegram.',
     use_error: ({ message }) => `❌ *Ошибка при создании сделки*\n\n${message || 'Попробуйте позже.'}`,
@@ -795,6 +795,7 @@ module.exports = {
 
     // Formatting helpers
     deadline_format: ({ hours }) => {
+      if (!hours || isNaN(hours)) return 'Не указан';
       if (hours === 24) return '24 часа';
       if (hours === 48) return '48 часов';
       if (hours < 24) return `${hours} часов`;
@@ -804,9 +805,10 @@ module.exports = {
       return `${days} дней`;
     },
     commission_format: ({ type, commission, asset }) => {
-      if (type === 'buyer') return `Платит покупатель (${commission} ${asset})`;
-      if (type === 'seller') return `Платит продавец (${commission} ${asset})`;
-      return `50/50 (по ${(commission / 2).toFixed(2)} ${asset})`;
+      if (commission == null || isNaN(commission)) return 'Не указана';
+      if (type === 'buyer') return `Платит покупатель (${commission} ${asset || 'USDT'})`;
+      if (type === 'seller') return `Платит продавец (${commission} ${asset || 'USDT'})`;
+      return `50/50 (по ${(commission / 2).toFixed(2)} ${asset || 'USDT'})`;
     },
 
     // List item
