@@ -794,7 +794,7 @@ module.exports = {
     deleted: ({ name }) => `✅ *Шаблон «${name}» видалено*`,
 
     // Formatting helpers
-    deadline_format: (hours) => {
+    deadline_format: ({ hours }) => {
       if (hours === 24) return '24 години';
       if (hours === 48) return '48 годин';
       if (hours < 24) return `${hours} годин`;
@@ -803,7 +803,7 @@ module.exports = {
       if (days < 5) return `${days} дні`;
       return `${days} днів`;
     },
-    commission_format: (type, commission, asset) => {
+    commission_format: ({ type, commission, asset }) => {
       if (type === 'buyer') return `Платить покупець (${commission} ${asset})`;
       if (type === 'seller') return `Платить продавець (${commission} ${asset})`;
       return `50/50 (по ${(commission / 2).toFixed(2)} ${asset})`;

@@ -793,7 +793,7 @@ module.exports = {
     deleted: ({ name }) => `✅ *Template "${name}" deleted*`,
 
     // Formatting helpers
-    deadline_format: (hours) => {
+    deadline_format: ({ hours }) => {
       if (hours === 24) return '24 hours';
       if (hours === 48) return '48 hours';
       if (hours < 24) return `${hours} hours`;
@@ -801,7 +801,7 @@ module.exports = {
       if (days === 1) return '1 day';
       return `${days} days`;
     },
-    commission_format: (type, commission, asset) => {
+    commission_format: ({ type, commission, asset }) => {
       if (type === 'buyer') return `Buyer pays (${commission} ${asset})`;
       if (type === 'seller') return `Seller pays (${commission} ${asset})`;
       return `50/50 (${(commission / 2).toFixed(2)} ${asset} each)`;
