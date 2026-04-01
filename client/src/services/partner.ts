@@ -22,6 +22,7 @@ export interface PartnerDashboardData {
   stats: PartnerStats
   recentDeals: Deal[]
   recentUsers: User[]
+  referralLink?: string
 }
 
 export const partnerService = {

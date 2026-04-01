@@ -12,6 +12,9 @@ import {
   TrendingUp,
   ArrowRight,
   Activity,
+  Link2,
+  Copy,
+  CheckCircle2,
 } from 'lucide-react'
 
 const statusLabels: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
@@ -34,6 +37,16 @@ export function PartnerDashboardPage() {
   const { platform } = usePartnerAuth()
   const [data, setData] = useState<PartnerDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
+
+  const referralLink = data?.referralLink || ''
+
+  const copyLink = () => {
+    if (!referralLink) return
+    navigator.clipboard.writeText(referralLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     partnerService
@@ -207,10 +220,39 @@ export function PartnerDashboardPage() {
         </Card>
       </div>
 
+      {/* Referral Link */}
+      {referralLink && (
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Link2 className="text-primary" size={20} />
+            <h2 className="text-lg font-semibold text-white">Ваша реферальная ссылка</h2>
+          </div>
+          <p className="text-sm text-muted mb-3">
+            Отправьте эту ссылку пользователям — они автоматически привяжутся к вашей платформе
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-dark rounded-lg px-4 py-3 font-mono text-sm text-white break-all select-all border border-border">
+              {referralLink}
+            </div>
+            <button
+              onClick={copyLink}
+              className={`shrink-0 p-3 rounded-lg transition-colors ${
+                copied
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-primary/20 text-primary hover:bg-primary/30'
+              }`}
+              title="Скопировать ссылку"
+            >
+              {copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Partner Info */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Информация о партнёрстве</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <div className="p-4 bg-dark rounded-lg">
             <p className="text-sm text-muted mb-1">Код партнёра</p>
             <p className="font-mono text-lg font-bold text-primary">{platform?.code}</p>
@@ -221,7 +263,7 @@ export function PartnerDashboardPage() {
           </div>
           <div className="p-4 bg-dark rounded-lg">
             <p className="text-sm text-muted mb-1">Telegram канал</p>
-            <p className="text-lg font-bold text-white">
+            <p className="text-lg font-bold text-white truncate">
               {platform?.telegramChannel || 'Не указан'}
             </p>
           </div>
