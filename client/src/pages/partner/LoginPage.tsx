@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { SEO } from '@/components/SEO'
-import { Card, Button, Input } from '@/components/ui'
-import { Shield, Eye, EyeOff } from 'lucide-react'
+import { Input } from '@/components/ui'
+import { Eye, EyeOff } from 'lucide-react'
 
 export function PartnerLoginPage() {
   const navigate = useNavigate()
@@ -35,85 +35,80 @@ export function PartnerLoginPage() {
 
   return (
     <>
-      <SEO title="Вход в кабинет партнёра" noindex={true} />
+      <SEO title="Partner — KeyShield" noindex={true} />
       <div className="min-h-screen bg-dark flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/20 text-primary mb-4">
-            <Shield size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Кабинет партнёра</h1>
-          <p className="text-muted mt-2">Войдите в свой аккаунт</p>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Логин
-            </label>
-            <Input
-              type="text"
-              value={formData.login}
-              onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-              placeholder="Введите логин"
-              autoComplete="username"
-            />
+        <div className="w-full max-w-xs">
+          {/* Header */}
+          <div className="mb-10 text-center">
+            <h1 className="text-2xl font-extralight text-white tracking-tight mb-1">KeyShield</h1>
+            <p className="text-xs uppercase tracking-widest text-gray-500">Partner</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Пароль
-            </label>
-            <div className="relative">
+          {/* Error */}
+          {error && (
+            <p className="text-sm text-red-400 text-center mb-5">{error}</p>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-2">
+                Логин
+              </label>
               <Input
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Введите пароль"
-                className="pr-10"
-                autoComplete="current-password"
+                type="text"
+                value={formData.login}
+                onChange={(e) => setFormData({ ...formData, login: e.target.value })}
+                placeholder="Введите логин"
+                autoComplete="username"
+                autoFocus
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
             </div>
-          </div>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                Вход...
-              </span>
-            ) : (
-              'Войти'
-            )}
-          </Button>
-        </form>
+            <div>
+              <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-2">
+                Пароль
+              </label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Введите пароль"
+                  className="pr-10"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
 
-        {/* Footer */}
-        <p className="mt-6 text-center text-sm text-muted">
-          Для получения доступа свяжитесь с администрацией
-        </p>
-      </Card>
-    </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-white text-black text-sm font-medium rounded-full hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full" />
+                  Вход
+                </span>
+              ) : (
+                'Войти'
+              )}
+            </button>
+          </form>
+
+          <p className="mt-8 text-center text-[11px] text-gray-600">
+            Для получения доступа свяжитесь с администрацией
+          </p>
+        </div>
+      </div>
     </>
   )
 }

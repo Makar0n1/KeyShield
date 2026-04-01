@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { partnerService } from '@/services/partner'
 import type { Deal } from '@/types'
-import { Card, Input } from '@/components/ui'
+import { Input } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
 import { formatDate, formatNumber } from '@/utils/format'
-import { FileText, Search, Filter } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 const statusFilters = [
   { value: '', label: 'Все' },
@@ -17,12 +17,12 @@ const statusFilters = [
 
 const statusLabels: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
   created: { label: 'Создана', variant: 'secondary' },
-  waiting_for_seller_wallet: { label: 'Ожидание кошелька', variant: 'warning' },
-  waiting_for_buyer_wallet: { label: 'Ожидание кошелька', variant: 'warning' },
-  waiting_for_deposit: { label: 'Ожидание депозита', variant: 'warning' },
-  locked: { label: 'Заблокирована', variant: 'warning' },
+  waiting_for_seller_wallet: { label: 'Ожидание', variant: 'warning' },
+  waiting_for_buyer_wallet: { label: 'Ожидание', variant: 'warning' },
+  waiting_for_deposit: { label: 'Депозит', variant: 'warning' },
+  locked: { label: 'Locked', variant: 'warning' },
   in_progress: { label: 'В работе', variant: 'success' },
-  work_submitted: { label: 'Работа сдана', variant: 'success' },
+  work_submitted: { label: 'Сдано', variant: 'success' },
   completed: { label: 'Завершена', variant: 'success' },
   dispute: { label: 'Спор', variant: 'destructive' },
   resolved: { label: 'Решена', variant: 'secondary' },
@@ -40,15 +40,10 @@ export function PartnerDealsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const fetchDeals = () => {
+  const fetchDeals = useCallback(() => {
     setLoading(true)
     partnerService
-      .getDeals({
-        page,
-        limit: 20,
-        status: status || undefined,
-        search: search || undefined,
-      })
+      .getDeals({ page, limit: 20, status: status || undefined, search: search || undefined })
       .then((data) => {
         setDeals(data.deals || [])
         setTotal(data.total || 0)
@@ -56,124 +51,111 @@ export function PartnerDealsPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }
+  }, [page, status, search])
+
+  useEffect(() => { fetchDeals() }, [fetchDeals])
 
   useEffect(() => {
-    fetchDeals()
-  }, [page, status])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1)
-      fetchDeals()
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [search])
+    if (page !== 1) setPage(1)
+  }, [search, status])
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Сделки</h1>
-          <p className="text-muted">Всего: {total}</p>
-        </div>
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-xl font-medium text-white">Сделки</h1>
+        <p className="text-sm text-gray-500">Всего: {total}</p>
       </div>
 
-      {/* Filters */}
-      <Card className="p-4 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={18} />
+      {/* Search + filters */}
+      <div className="mb-6 space-y-3">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
           <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по ID сделки, названию..."
-            className="pl-10"
+            placeholder="Поиск..."
+            className="pl-9 text-sm"
           />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter size={18} className="text-muted" />
+        <div className="flex gap-1.5 flex-wrap">
           {statusFilters.map((filter) => (
             <button
               key={filter.value}
-              onClick={() => {
-                setStatus(filter.value)
-                setPage(1)
-              }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              onClick={() => { setStatus(filter.value); setPage(1) }}
+              className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
                 status === filter.value
-                  ? 'bg-primary text-white'
-                  : 'bg-dark-lighter text-gray-300 hover:bg-dark-light'
+                  ? 'bg-white text-black'
+                  : 'text-gray-400 hover:text-white border border-white/[0.08] hover:border-white/[0.15]'
               }`}
             >
               {filter.label}
             </button>
           ))}
         </div>
-      </Card>
+      </div>
 
-      {/* Deals List */}
-      <Card>
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      {/* Deals */}
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+        </div>
+      ) : deals.length === 0 ? (
+        <p className="text-sm text-gray-600 py-12">Сделки не найдены</p>
+      ) : (
+        <>
+          {/* Desktop */}
+          <div className="hidden sm:block divide-y divide-white/[0.06]">
+            {deals.map((deal) => {
+              const statusInfo = statusLabels[deal.status] || { label: deal.status, variant: 'secondary' as const }
+              return (
+                <div key={deal._id} className="flex items-center py-3.5 gap-4">
+                  <div className="w-24 shrink-0">
+                    <span className="font-mono text-xs text-gray-400">{deal.dealId}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate">{deal.productName}</p>
+                    <p className="text-xs text-gray-600 truncate">{deal.description}</p>
+                  </div>
+                  <div className="text-right shrink-0 w-28">
+                    <p className="text-sm tabular-nums text-white">{formatNumber(deal.amount)} {deal.asset}</p>
+                    <p className="text-[11px] text-gray-600">ком. {formatNumber(deal.commission)}</p>
+                  </div>
+                  <div className="w-24 shrink-0 text-right">
+                    <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                  </div>
+                  <div className="w-20 shrink-0 text-right">
+                    <span className="text-xs text-gray-600">{formatDate(deal.createdAt)}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        ) : deals.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText size={48} className="mx-auto text-muted mb-4" />
-            <p className="text-muted">Сделки не найдены</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-4 text-sm font-medium text-muted">ID</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted">Товар/Услуга</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted">Сумма</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted">Статус</th>
-                  <th className="text-left p-4 text-sm font-medium text-muted">Дата</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deals.map((deal) => {
-                  const statusInfo = statusLabels[deal.status] || {
-                    label: deal.status,
-                    variant: 'secondary' as const,
-                  }
-                  return (
-                    <tr key={deal._id} className="border-b border-border hover:bg-dark-lighter/50">
-                      <td className="p-4 font-mono text-primary">{deal.dealId}</td>
-                      <td className="p-4">
-                        <p className="font-medium text-white">{deal.productName}</p>
-                        <p className="text-sm text-muted line-clamp-1">{deal.description}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="font-medium text-white">
-                          {formatNumber(deal.amount)} {deal.asset}
-                        </p>
-                        <p className="text-sm text-muted">
-                          Комиссия: {formatNumber(deal.commission)} {deal.asset}
-                        </p>
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-                      </td>
-                      <td className="p-4 text-muted">{formatDate(deal.createdAt)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
 
-      {/* Pagination */}
+          {/* Mobile */}
+          <div className="sm:hidden divide-y divide-white/[0.06]">
+            {deals.map((deal) => {
+              const statusInfo = statusLabels[deal.status] || { label: deal.status, variant: 'secondary' as const }
+              return (
+                <div key={deal._id} className="py-3.5">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-white truncate mr-2">{deal.productName}</span>
+                    <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span className="font-mono">{deal.dealId}</span>
+                    <span className="tabular-nums">{formatNumber(deal.amount)} {deal.asset}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
       {totalPages > 1 && (
-        <div className="flex justify-center">
+        <div className="flex justify-center mt-6">
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}

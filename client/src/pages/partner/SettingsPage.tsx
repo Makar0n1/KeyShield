@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { partnerService } from '@/services/partner'
-import { Card, Button, Input } from '@/components/ui'
-import { Settings, Key, Eye, EyeOff, Check } from 'lucide-react'
+import { Button, Input } from '@/components/ui'
+import { Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export function PartnerSettingsPage() {
   const { platform } = usePartnerAuth()
@@ -29,12 +29,10 @@ export function PartnerSettingsPage() {
       setError('Заполните все поля')
       return
     }
-
     if (passwords.new.length < 6) {
-      setError('Новый пароль должен быть не менее 6 символов')
+      setError('Минимум 6 символов')
       return
     }
-
     if (passwords.new !== passwords.confirm) {
       setError('Пароли не совпадают')
       return
@@ -57,179 +55,115 @@ export function PartnerSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Настройки</h1>
-        <p className="text-muted">Управление аккаунтом партнёра</p>
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-xl font-medium text-white">Настройки</h1>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Profile Info */}
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Settings size={20} />
-            Информация
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-muted mb-1">Название</label>
-              <p className="text-white font-medium">{platform?.name}</p>
-            </div>
-            <div>
-              <label className="block text-sm text-muted mb-1">Код партнёра</label>
-              <p className="font-mono text-primary font-medium">{platform?.code}</p>
-            </div>
-            <div>
-              <label className="block text-sm text-muted mb-1">Логин</label>
-              <p className="text-white">{platform?.login}</p>
-            </div>
-            <div>
-              <label className="block text-sm text-muted mb-1">Комиссия</label>
-              <p className="text-white">{platform?.commissionPercent || 0}%</p>
-            </div>
-            <div>
-              <label className="block text-sm text-muted mb-1">Telegram канал</label>
-              <p className="text-white">{platform?.telegramChannel || 'Не указан'}</p>
-            </div>
-            <div>
-              <label className="block text-sm text-muted mb-1">Статус</label>
-              <p className={platform?.isActive ? 'text-green-400' : 'text-red-400'}>
-                {platform?.isActive ? 'Активен' : 'Неактивен'}
-              </p>
-            </div>
+      {/* Profile info */}
+      <div className="mb-10">
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">Аккаунт</h2>
+        <div className="divide-y divide-white/[0.06]">
+          <div className="flex items-center justify-between py-3.5">
+            <span className="text-sm text-gray-400">Название</span>
+            <span className="text-sm text-white">{platform?.name}</span>
           </div>
-        </Card>
-
-        {/* Change Password */}
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Key size={20} />
-            Смена пароля
-          </h2>
-
-          {success && (
-            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2">
-              <Check className="text-green-400" size={18} />
-              <p className="text-green-400 text-sm">Пароль успешно изменён</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Текущий пароль
-              </label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.current ? 'text' : 'password'}
-                  value={passwords.current}
-                  onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                  placeholder="Введите текущий пароль"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => togglePassword('current')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
-                >
-                  {showPasswords.current ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Новый пароль
-              </label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.new ? 'text' : 'password'}
-                  value={passwords.new}
-                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                  placeholder="Введите новый пароль"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => togglePassword('new')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
-                >
-                  {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Подтверждение пароля
-              </label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.confirm ? 'text' : 'password'}
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                  placeholder="Повторите новый пароль"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => togglePassword('confirm')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
-                >
-                  {showPasswords.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                  Сохранение...
-                </span>
-              ) : (
-                'Сменить пароль'
-              )}
-            </Button>
-          </form>
-        </Card>
+          <div className="flex items-center justify-between py-3.5">
+            <span className="text-sm text-gray-400">Код</span>
+            <span className="text-sm text-primary font-mono">{platform?.code}</span>
+          </div>
+          <div className="flex items-center justify-between py-3.5">
+            <span className="text-sm text-gray-400">Логин</span>
+            <span className="text-sm text-white">{platform?.login}</span>
+          </div>
+          <div className="flex items-center justify-between py-3.5">
+            <span className="text-sm text-gray-400">Комиссия</span>
+            <span className="text-sm text-white">{platform?.commissionPercent || 0}%</span>
+          </div>
+          <div className="flex items-center justify-between py-3.5">
+            <span className="text-sm text-gray-400">Telegram канал</span>
+            <span className="text-sm text-white">{platform?.telegramChannel || '—'}</span>
+          </div>
+          <div className="flex items-center justify-between py-3.5">
+            <span className="text-sm text-gray-400">Статус</span>
+            <span className={`text-sm ${platform?.isActive ? 'text-green-400' : 'text-red-400'}`}>
+              {platform?.isActive ? 'Активен' : 'Неактивен'}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Statistics Summary */}
+      {/* Stats */}
       {platform?.stats && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Статистика</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-4 bg-dark rounded-lg text-center">
-              <p className="text-2xl font-bold text-white">{platform.stats.totalUsers}</p>
-              <p className="text-sm text-muted">Пользователей</p>
+        <div className="mb-10">
+          <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">Статистика</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-4">
+            <div>
+              <p className="text-2xl font-light text-white">{platform.stats.totalUsers}</p>
+              <p className="text-xs text-gray-500">Пользователей</p>
             </div>
-            <div className="p-4 bg-dark rounded-lg text-center">
-              <p className="text-2xl font-bold text-white">{platform.stats.totalDeals}</p>
-              <p className="text-sm text-muted">Сделок</p>
+            <div>
+              <p className="text-2xl font-light text-white">{platform.stats.totalDeals}</p>
+              <p className="text-xs text-gray-500">Сделок</p>
             </div>
-            <div className="p-4 bg-dark rounded-lg text-center">
-              <p className="text-2xl font-bold text-white">
-                {platform.stats.totalVolume.toLocaleString()}
-              </p>
-              <p className="text-sm text-muted">Оборот (USDT)</p>
+            <div>
+              <p className="text-2xl font-light text-white">{platform.stats.totalVolume?.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Оборот (USDT)</p>
             </div>
-            <div className="p-4 bg-dark rounded-lg text-center">
-              <p className="text-2xl font-bold text-primary">
-                {platform.stats.totalCommission.toLocaleString()}
-              </p>
-              <p className="text-sm text-muted">Комиссия (USDT)</p>
+            <div>
+              <p className="text-2xl font-light text-primary">{platform.stats.totalCommission?.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Комиссия (USDT)</p>
             </div>
           </div>
-        </Card>
+        </div>
       )}
+
+      {/* Change password */}
+      <div className="border-t border-white/[0.06] pt-8">
+        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-5">Смена пароля</h2>
+
+        {success && (
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 size={14} className="text-green-400" />
+            <p className="text-sm text-green-400">Пароль изменён</p>
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle size={14} className="text-red-400" />
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+          {(['current', 'new', 'confirm'] as const).map((field) => (
+            <div key={field}>
+              <label className="block text-xs text-gray-500 mb-1.5">
+                {field === 'current' ? 'Текущий пароль' : field === 'new' ? 'Новый пароль' : 'Подтверждение'}
+              </label>
+              <div className="relative">
+                <Input
+                  type={showPasswords[field] ? 'text' : 'password'}
+                  value={passwords[field]}
+                  onChange={(e) => setPasswords({ ...passwords, [field]: e.target.value })}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => togglePassword(field)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                >
+                  {showPasswords[field] ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <Button type="submit" disabled={loading} className="px-6">
+            {loading ? 'Сохранение...' : 'Сменить пароль'}
+          </Button>
+        </form>
+      </div>
     </div>
   )
 }

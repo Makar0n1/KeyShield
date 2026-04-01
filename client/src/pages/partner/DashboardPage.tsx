@@ -2,29 +2,18 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { partnerService, type PartnerDashboardData } from '@/services/partner'
-import { Card } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { formatNumber, formatDate } from '@/utils/format'
-import {
-  Users,
-  FileText,
-  DollarSign,
-  TrendingUp,
-  ArrowRight,
-  Activity,
-  Link2,
-  Copy,
-  CheckCircle2,
-} from 'lucide-react'
+import { ArrowRight, Copy, CheckCircle2, ExternalLink } from 'lucide-react'
 
 const statusLabels: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
   created: { label: 'Создана', variant: 'secondary' },
-  waiting_for_seller_wallet: { label: 'Ожидание кошелька', variant: 'warning' },
-  waiting_for_buyer_wallet: { label: 'Ожидание кошелька', variant: 'warning' },
-  waiting_for_deposit: { label: 'Ожидание депозита', variant: 'warning' },
-  locked: { label: 'Заблокирована', variant: 'warning' },
+  waiting_for_seller_wallet: { label: 'Ожидание', variant: 'warning' },
+  waiting_for_buyer_wallet: { label: 'Ожидание', variant: 'warning' },
+  waiting_for_deposit: { label: 'Депозит', variant: 'warning' },
+  locked: { label: 'Locked', variant: 'warning' },
   in_progress: { label: 'В работе', variant: 'success' },
-  work_submitted: { label: 'Работа сдана', variant: 'success' },
+  work_submitted: { label: 'Сдано', variant: 'success' },
   completed: { label: 'Завершена', variant: 'success' },
   dispute: { label: 'Спор', variant: 'destructive' },
   resolved: { label: 'Решена', variant: 'secondary' },
@@ -59,7 +48,7 @@ export function PartnerDashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -73,102 +62,86 @@ export function PartnerDashboardPage() {
     totalCommission: 0,
   }
 
-  const statCards = [
-    {
-      title: 'Пользователи',
-      value: formatNumber(stats.totalUsers),
-      icon: Users,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-400/10',
-    },
-    {
-      title: 'Всего сделок',
-      value: formatNumber(stats.totalDeals),
-      icon: FileText,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-400/10',
-    },
-    {
-      title: 'Активные сделки',
-      value: formatNumber(stats.activeDeals),
-      icon: Activity,
-      color: 'text-green-400',
-      bgColor: 'bg-green-400/10',
-    },
-    {
-      title: 'Оборот (USDT)',
-      value: formatNumber(stats.totalVolume),
-      icon: DollarSign,
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-400/10',
-    },
-    {
-      title: 'Комиссия (USDT)',
-      value: formatNumber(stats.totalCommission),
-      icon: TrendingUp,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-  ]
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Дашборд</h1>
-        <p className="text-muted">
-          Добро пожаловать, {platform?.name || 'Партнёр'}!
-        </p>
+    <div className="max-w-4xl mx-auto">
+      {/* Hero — big numbers */}
+      <div className="mb-8 sm:mb-10">
+        <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Общий оборот</p>
+        <h1 className="text-4xl sm:text-5xl font-extralight text-white tracking-tight">
+          {formatNumber(stats.totalVolume)}
+          <span className="text-lg sm:text-xl text-gray-500 ml-2 font-normal">USDT</span>
+        </h1>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="p-4">
+      {/* Metric row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 sm:gap-x-10 gap-y-6 mb-10">
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Пользователи</p>
+          <p className="text-2xl font-light text-white">{formatNumber(stats.totalUsers)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Сделки</p>
+          <p className="text-2xl font-light text-white">
+            {formatNumber(stats.totalDeals)}
+            {stats.activeDeals > 0 && (
+              <span className="text-sm text-green-400 ml-1.5 font-normal">{stats.activeDeals} акт.</span>
+            )}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Комиссия</p>
+          <p className="text-2xl font-light text-white">{formatNumber(stats.totalCommission)}<span className="text-sm text-gray-500 ml-1">$</span></p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Ваша доля</p>
+          <p className="text-2xl font-light text-primary">{platform?.commissionPercent || 0}%</p>
+        </div>
+      </div>
+
+      {/* Referral link */}
+      {referralLink && (
+        <div className="mb-10">
+          <div className="border-t border-white/[0.06] pt-6">
+            <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Реферальная ссылка</p>
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={stat.color} size={20} />
-              </div>
-              <div>
-                <p className="text-sm text-muted">{stat.title}</p>
-                <p className="text-xl font-bold text-white">{stat.value}</p>
-              </div>
+              <p className="font-mono text-sm text-gray-300 break-all flex-1 select-all">{referralLink}</p>
+              <button
+                onClick={copyLink}
+                className="shrink-0 text-gray-500 hover:text-white transition-colors"
+                title="Скопировать"
+              >
+                {copied ? <CheckCircle2 size={18} className="text-green-400" /> : <Copy size={18} />}
+              </button>
             </div>
-          </Card>
-        ))}
-      </div>
+            <p className="text-xs text-gray-600 mt-2">Пользователи по этой ссылке автоматически привяжутся к вашей платформе</p>
+          </div>
+        </div>
+      )}
 
-      {/* Recent activity */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recent Deals */}
-        <Card className="p-6">
+      {/* Recent activity — two columns */}
+      <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+
+        {/* Deals */}
+        <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Последние сделки</h2>
-            <Link
-              to="/partner/deals"
-              className="text-sm text-primary hover:text-primary-light flex items-center gap-1"
-            >
-              Все сделки <ArrowRight size={14} />
+            <h2 className="text-[11px] uppercase tracking-widest text-gray-500">Последние сделки</h2>
+            <Link to="/partner/deals" className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+              Все <ArrowRight size={12} />
             </Link>
           </div>
 
           {data?.recentDeals && data.recentDeals.length > 0 ? (
-            <div className="space-y-3">
-              {data.recentDeals.slice(0, 5).map((deal) => {
+            <div className="divide-y divide-white/[0.06]">
+              {data.recentDeals.slice(0, 6).map((deal) => {
                 const statusInfo = statusLabels[deal.status] || { label: deal.status, variant: 'secondary' as const }
                 return (
-                  <div
-                    key={deal._id}
-                    className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                  >
-                    <div>
-                      <p className="font-medium text-white">{deal.productName}</p>
-                      <p className="text-sm text-muted">{deal.dealId}</p>
+                  <div key={deal._id} className="flex items-center justify-between py-3 first:pt-0">
+                    <div className="min-w-0 mr-3">
+                      <p className="text-sm text-white truncate">{deal.productName}</p>
+                      <p className="text-xs text-gray-600 font-mono">{deal.dealId}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-white">
-                        {formatNumber(deal.amount)} {deal.asset}
-                      </p>
+                    <div className="text-right shrink-0 flex items-center gap-2.5">
+                      <span className="text-sm tabular-nums text-gray-300">{formatNumber(deal.amount)}</span>
                       <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                     </div>
                   </div>
@@ -176,99 +149,47 @@ export function PartnerDashboardPage() {
               })}
             </div>
           ) : (
-            <p className="text-center text-muted py-8">Нет сделок</p>
+            <p className="text-sm text-gray-600 py-6">Нет сделок</p>
           )}
-        </Card>
+        </div>
 
-        {/* Recent Users */}
-        <Card className="p-6">
+        {/* Users */}
+        <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Новые пользователи</h2>
-            <Link
-              to="/partner/users"
-              className="text-sm text-primary hover:text-primary-light flex items-center gap-1"
-            >
-              Все пользователи <ArrowRight size={14} />
+            <h2 className="text-[11px] uppercase tracking-widest text-gray-500">Новые пользователи</h2>
+            <Link to="/partner/users" className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+              Все <ArrowRight size={12} />
             </Link>
           </div>
 
           {data?.recentUsers && data.recentUsers.length > 0 ? (
-            <div className="space-y-3">
-              {data.recentUsers.slice(0, 5).map((user) => (
-                <div
-                  key={user._id}
-                  className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-bold">
+            <div className="divide-y divide-white/[0.06]">
+              {data.recentUsers.slice(0, 6).map((user) => (
+                <div key={user._id} className="flex items-center justify-between py-3 first:pt-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-white/[0.06] text-gray-400 flex items-center justify-center text-xs font-medium shrink-0">
                       {user.username?.charAt(0).toUpperCase() || user.firstName?.charAt(0).toUpperCase() || '?'}
                     </div>
-                    <div>
-                      <p className="font-medium text-white">
-                        {user.username ? `@${user.username}` : user.firstName || `ID: ${user.telegramId}`}
-                      </p>
-                      <p className="text-sm text-muted">{formatDate(user.createdAt)}</p>
-                    </div>
+                    <p className="text-sm text-white truncate">
+                      {user.username ? `@${user.username}` : user.firstName || `${user.telegramId}`}
+                    </p>
                   </div>
-                  {user.blacklisted && <Badge variant="destructive">Заблокирован</Badge>}
+                  <span className="text-xs text-gray-600 shrink-0 ml-3">{formatDate(user.createdAt)}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-center text-muted py-8">Нет пользователей</p>
+            <p className="text-sm text-gray-600 py-6">Нет пользователей</p>
           )}
-        </Card>
+        </div>
       </div>
 
-      {/* Referral Link */}
-      {referralLink && (
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Link2 className="text-primary" size={20} />
-            <h2 className="text-lg font-semibold text-white">Ваша реферальная ссылка</h2>
-          </div>
-          <p className="text-sm text-muted mb-3">
-            Отправьте эту ссылку пользователям — они автоматически привяжутся к вашей платформе
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 bg-dark rounded-lg px-4 py-3 font-mono text-sm text-white break-all select-all border border-border">
-              {referralLink}
-            </div>
-            <button
-              onClick={copyLink}
-              className={`shrink-0 p-3 rounded-lg transition-colors ${
-                copied
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-primary/20 text-primary hover:bg-primary/30'
-              }`}
-              title="Скопировать ссылку"
-            >
-              {copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {/* Partner Info */}
-      <Card className="p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Информация о партнёрстве</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          <div className="p-4 bg-dark rounded-lg">
-            <p className="text-sm text-muted mb-1">Код партнёра</p>
-            <p className="font-mono text-lg font-bold text-primary">{platform?.code}</p>
-          </div>
-          <div className="p-4 bg-dark rounded-lg">
-            <p className="text-sm text-muted mb-1">Ваша комиссия</p>
-            <p className="text-lg font-bold text-white">{platform?.commissionPercent || 0}%</p>
-          </div>
-          <div className="p-4 bg-dark rounded-lg">
-            <p className="text-sm text-muted mb-1">Telegram канал</p>
-            <p className="text-lg font-bold text-white truncate">
-              {platform?.telegramChannel || 'Не указан'}
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* Footer info */}
+      <div className="border-t border-white/[0.06] mt-10 pt-6 flex flex-wrap gap-x-8 gap-y-2 text-xs text-gray-600">
+        <span>Код: <span className="text-gray-400 font-mono">{platform?.code}</span></span>
+        <span>Канал: <span className="text-gray-400">{platform?.telegramChannel || '—'}</span></span>
+        <span>Комиссия: <span className="text-gray-400">{platform?.commissionPercent}%</span></span>
+      </div>
     </div>
   )
 }

@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react'
 import { usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { partnerService } from '@/services/partner'
-import { Card, Button, Input } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/utils/format'
 import {
-  Wallet,
   Send,
-  DollarSign,
   Clock,
   ExternalLink,
   AlertCircle,
   CheckCircle2,
   Copy,
+  ArrowUpRight,
 } from 'lucide-react'
 
 const statusConfig: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
@@ -32,6 +31,7 @@ export function PartnerWithdrawalsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [copied, setCopied] = useState(false)
+  const [showForm, setShowForm] = useState(false)
 
   const [amount, setAmount] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
@@ -52,9 +52,7 @@ export function PartnerWithdrawalsPage() {
     }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,23 +61,24 @@ export function PartnerWithdrawalsPage() {
 
     const numAmount = parseFloat(amount)
     if (!numAmount || numAmount < 10) {
-      setError('Минимальная сумма вывода: 10 USDT')
+      setError('Минимальная сумма: 10 USDT')
       return
     }
     if (numAmount > availableBalance) {
-      setError('Сумма превышает доступный баланс')
+      setError('Превышает доступный баланс')
       return
     }
     if (!walletAddress || !walletAddress.startsWith('T') || walletAddress.length !== 34) {
-      setError('Введите корректный адрес кошелька TRC-20')
+      setError('Некорректный адрес TRC-20')
       return
     }
 
     setSubmitting(true)
     try {
       const result = await partnerService.requestWithdrawal(numAmount, walletAddress)
-      setSuccess(`Заявка ${result.withdrawal.withdrawalId} создана! Ожидайте обработки.`)
+      setSuccess(`Заявка ${result.withdrawal.withdrawalId} создана`)
       setAmount('')
+      setShowForm(false)
       fetchData()
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Ошибка при создании заявки')
@@ -96,150 +95,111 @@ export function PartnerWithdrawalsPage() {
 
   const hasPending = withdrawals.some(w => w.status === 'pending' || w.status === 'processing')
   const pendingWithdrawal = withdrawals.find(w => w.status === 'pending' || w.status === 'processing')
+  const totalWithdrawn = platform?.stats?.withdrawnTotal || 0
+  const totalEarned = platform?.stats?.platformEarnings || 0
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white">Вывод средств</h1>
-        <p className="text-sm text-muted">Партнёрская комиссия: {platform?.commissionPercent || 0}% от чистой прибыли</p>
+    <div className="max-w-4xl mx-auto">
+      {/* Balance hero */}
+      <div className="mb-8 sm:mb-10">
+        <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Доступно к выводу</p>
+        <h1 className="text-4xl sm:text-5xl font-extralight tracking-tight">
+          <span className={availableBalance >= 10 ? 'text-green-400' : 'text-white'}>{availableBalance.toFixed(2)}</span>
+          <span className="text-lg sm:text-xl text-gray-500 ml-2 font-normal">USDT</span>
+        </h1>
       </div>
 
-      {/* Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
-              <Wallet className="text-primary" size={20} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted">Всего заработано</p>
-              <p className="text-lg sm:text-2xl font-bold text-white truncate">
-                {(platform?.stats?.platformEarnings || 0).toFixed(2)}
-                <span className="text-sm font-normal text-muted ml-1">USDT</span>
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-green-500/10 shrink-0">
-              <Send className="text-green-400" size={20} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted">Выведено</p>
-              <p className="text-lg sm:text-2xl font-bold text-white truncate">
-                {(platform?.stats?.withdrawnTotal || 0).toFixed(2)}
-                <span className="text-sm font-normal text-muted ml-1">USDT</span>
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-yellow-500/10 shrink-0">
-              <DollarSign className="text-yellow-400" size={20} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted">Доступно к выводу</p>
-              <p className="text-lg sm:text-2xl font-bold text-green-400 truncate">
-                {availableBalance.toFixed(2)}
-                <span className="text-sm font-normal text-green-400/60 ml-1">USDT</span>
-              </p>
-            </div>
-          </div>
-        </Card>
+      {/* Earnings row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4 mb-8">
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Заработано</p>
+          <p className="text-xl font-light text-white">{totalEarned.toFixed(2)}<span className="text-sm text-gray-500 ml-1">$</span></p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Выведено</p>
+          <p className="text-xl font-light text-white">{totalWithdrawn.toFixed(2)}<span className="text-sm text-gray-500 ml-1">$</span></p>
+        </div>
+        <div className="hidden sm:block">
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Комиссия</p>
+          <p className="text-xl font-light text-primary">{platform?.commissionPercent || 0}%</p>
+        </div>
       </div>
 
-      {/* Active Pending Withdrawal */}
+      {/* Pending withdrawal notice */}
       {hasPending && pendingWithdrawal && (
-        <Card className="p-4 sm:p-6 border-yellow-500/20">
+        <div className="border-t border-white/[0.06] pt-5 mb-8">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-yellow-500/10 shrink-0 mt-0.5">
-              <Clock className="text-yellow-400" size={18} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-yellow-400 mb-1">Активная заявка</p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
-                <span className="text-white font-mono">{pendingWithdrawal.withdrawalId}</span>
-                <span className="text-muted">{pendingWithdrawal.amount.toFixed(2)} USDT</span>
-                <Badge variant={statusConfig[pendingWithdrawal.status]?.variant || 'warning'}>
-                  {statusConfig[pendingWithdrawal.status]?.label || pendingWithdrawal.status}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted mt-2">Дождитесь обработки текущей заявки перед созданием новой</p>
+            <Clock size={16} className="text-yellow-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm text-white">Активная заявка <span className="font-mono text-gray-400">{pendingWithdrawal.withdrawalId}</span></p>
+              <p className="text-xs text-gray-500 mt-0.5">{pendingWithdrawal.amount.toFixed(2)} USDT — ожидайте обработки</p>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* Withdrawal Form */}
-      {!hasPending && availableBalance >= 10 && (
-        <Card className="p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Send size={18} />
+      {/* Withdraw action */}
+      {!hasPending && availableBalance >= 10 && !showForm && (
+        <div className="mb-8">
+          <button
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black text-sm font-medium rounded-full hover:bg-gray-200 transition-colors"
+          >
+            <ArrowUpRight size={16} />
             Запросить вывод
-          </h2>
+          </button>
+        </div>
+      )}
 
+      {/* Withdraw form */}
+      {showForm && (
+        <div className="border-t border-white/[0.06] pt-6 mb-8">
           {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2">
-              <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle size={14} className="text-red-400 shrink-0" />
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
-
           {success && (
-            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-2">
-              <CheckCircle2 size={16} className="text-green-400 shrink-0 mt-0.5" />
-              <p className="text-green-400 text-sm">{success}</p>
+            <div className="flex items-center gap-2 mb-4">
+              <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+              <p className="text-sm text-green-400">{success}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Сумма (USDT)
-              </label>
+              <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-2">Сумма</label>
               <div className="flex gap-2">
-                <div className="flex-1">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="10"
-                    max={availableBalance}
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Минимум 10"
-                  />
-                </div>
-                <Button
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="10"
+                  max={availableBalance}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="10.00"
+                />
+                <button
                   type="button"
-                  variant="secondary"
                   onClick={() => setAmount(availableBalance.toFixed(2))}
-                  className="shrink-0 px-4"
+                  className="shrink-0 px-3 py-2 text-xs uppercase tracking-wider text-gray-400 hover:text-white border border-white/[0.08] rounded-lg transition-colors"
                 >
-                  MAX
-                </Button>
+                  Max
+                </button>
               </div>
-              <p className="text-xs text-muted mt-1">
-                Доступно: {availableBalance.toFixed(2)} USDT
-              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Кошелёк TRC-20
-              </label>
+              <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-2">Кошелёк TRC-20</label>
               <Input
                 type="text"
                 value={walletAddress}
@@ -249,194 +209,110 @@ export function PartnerWithdrawalsPage() {
               {savedWallet && walletAddress !== savedWallet && (
                 <button
                   type="button"
-                  className="text-xs text-primary mt-2 hover:underline flex items-center gap-1"
+                  className="text-xs text-gray-500 mt-1.5 hover:text-white transition-colors"
                   onClick={() => setWalletAddress(savedWallet)}
                 >
-                  <Wallet size={12} />
-                  Использовать сохранённый: {savedWallet.slice(0, 8)}...{savedWallet.slice(-4)}
+                  Сохранённый: {savedWallet.slice(0, 8)}...{savedWallet.slice(-4)}
                 </button>
               )}
             </div>
 
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                  Отправка...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <Send size={16} />
-                  Запросить вывод
-                </span>
-              )}
-            </Button>
+            <div className="flex items-center gap-3 pt-1">
+              <Button type="submit" disabled={submitting} className="px-6">
+                {submitting ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
+                    Отправка
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Send size={14} />
+                    Отправить
+                  </span>
+                )}
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setShowForm(false); setError('') }}
+                className="text-sm text-gray-500 hover:text-white transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
 
-            <p className="text-xs text-muted text-center">
-              Выплаты обрабатываются в течение 24-48 часов
-            </p>
+            <p className="text-xs text-gray-600">Обработка: 24-48 часов</p>
           </form>
-        </Card>
+        </div>
       )}
 
-      {/* Not enough balance */}
+      {/* Not enough */}
       {availableBalance < 10 && !hasPending && (
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-dark-lighter shrink-0 mt-0.5">
-              <Wallet className="text-muted" size={18} />
-            </div>
-            <div>
-              <p className="text-white font-medium mb-1">Недостаточно средств</p>
-              <p className="text-sm text-muted">
-                Минимальная сумма для вывода: <span className="text-white">10 USDT</span>.
-                Осталось накопить: <span className="text-yellow-400">{(10 - availableBalance).toFixed(2)} USDT</span>
-              </p>
-            </div>
-          </div>
-        </Card>
+        <div className="mb-8 text-sm text-gray-500">
+          Минимум для вывода: 10 USDT. Осталось накопить: <span className="text-gray-300">{(10 - availableBalance).toFixed(2)} USDT</span>
+        </div>
       )}
 
-      {/* Withdrawal History */}
+      {/* History */}
       {withdrawals.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-3 sm:mb-4">История выводов</h2>
+        <div className="border-t border-white/[0.06] pt-6">
+          <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">История выводов</h2>
 
-          {/* Desktop table */}
-          <Card className="overflow-hidden hidden sm:block">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-4 text-sm font-medium text-muted">ID</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted">Дата</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted">Сумма</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted">Кошелёк</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted">Статус</th>
-                    <th className="text-right p-4 text-sm font-medium text-muted">TX</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {withdrawals.map((w) => {
-                    const config = statusConfig[w.status] || statusConfig.pending
-                    return (
-                      <tr key={w._id} className="border-b border-border hover:bg-dark-lighter/50">
-                        <td className="p-4 font-mono text-sm text-primary">{w.withdrawalId}</td>
-                        <td className="p-4 text-sm text-gray-300">{formatDate(w.createdAt)}</td>
-                        <td className="p-4 text-sm font-medium text-white">{w.amount.toFixed(2)} USDT</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-sm text-gray-400">
-                              {w.walletAddress.slice(0, 6)}...{w.walletAddress.slice(-4)}
-                            </span>
-                            <button
-                              onClick={() => copyWallet(w.walletAddress)}
-                              className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-                            >
-                              <Copy size={13} />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge variant={config.variant}>{config.label}</Badge>
-                        </td>
-                        <td className="p-4 text-right">
-                          {w.txHash ? (
-                            <a
-                              href={`https://tronscan.org/#/transaction/${w.txHash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline inline-flex items-center gap-1 text-sm"
-                            >
-                              <ExternalLink size={14} />
-                              <span className="font-mono">{w.txHash.slice(0, 8)}...</span>
-                            </a>
-                          ) : w.status === 'rejected' && w.adminNotes ? (
-                            <span className="text-xs text-red-400">{w.adminNotes}</span>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          {/* Mobile cards */}
-          <div className="space-y-3 sm:hidden">
+          <div className="divide-y divide-white/[0.06]">
             {withdrawals.map((w) => {
               const config = statusConfig[w.status] || statusConfig.pending
               return (
-                <Card key={w._id} className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-mono text-sm text-primary">{w.withdrawalId}</span>
-                    <Badge variant={config.variant}>{config.label}</Badge>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted">Сумма</span>
-                      <span className="text-sm font-medium text-white">{w.amount.toFixed(2)} USDT</span>
+                <div key={w._id} className="py-3.5 first:pt-0 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-mono text-xs text-gray-400">{w.withdrawalId}</span>
+                      <Badge variant={config.variant}>{config.label}</Badge>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted">Дата</span>
-                      <span className="text-sm text-gray-300">{formatDate(w.createdAt)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted">Кошелёк</span>
+                    <div className="flex items-center gap-3 text-xs text-gray-600">
+                      <span>{formatDate(w.createdAt)}</span>
                       <button
                         onClick={() => copyWallet(w.walletAddress)}
-                        className="text-sm font-mono text-gray-400 hover:text-white flex items-center gap-1"
+                        className="font-mono hover:text-gray-300 transition-colors flex items-center gap-1"
                       >
                         {w.walletAddress.slice(0, 6)}...{w.walletAddress.slice(-4)}
-                        <Copy size={12} />
+                        <Copy size={10} />
                       </button>
                     </div>
-
-                    {w.txHash && (
-                      <div className="pt-2 border-t border-border/50">
-                        <a
-                          href={`https://tronscan.org/#/transaction/${w.txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline flex items-center gap-1.5 text-sm"
-                        >
-                          <ExternalLink size={14} />
-                          Транзакция: {w.txHash.slice(0, 10)}...
-                        </a>
-                      </div>
-                    )}
-
                     {w.status === 'rejected' && w.adminNotes && (
-                      <div className="pt-2 border-t border-border/50">
-                        <p className="text-xs text-red-400">Причина: {w.adminNotes}</p>
-                      </div>
+                      <p className="text-xs text-red-400/70 mt-1">{w.adminNotes}</p>
                     )}
                   </div>
-                </Card>
+
+                  <div className="text-right shrink-0">
+                    <p className="text-sm tabular-nums text-white">{w.amount.toFixed(2)} <span className="text-gray-500 text-xs">USDT</span></p>
+                    {w.txHash && (
+                      <a
+                        href={`https://tronscan.org/#/transaction/${w.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5 mt-0.5"
+                      >
+                        TX <ExternalLink size={9} />
+                      </a>
+                    )}
+                  </div>
+                </div>
               )
             })}
           </div>
         </div>
       )}
 
-      {/* Empty state */}
       {withdrawals.length === 0 && (
-        <Card className="p-8 sm:p-12 text-center">
-          <Wallet className="mx-auto text-muted mb-3" size={40} />
-          <p className="text-white font-medium mb-1">Нет выводов</p>
-          <p className="text-sm text-muted">История выводов будет отображаться здесь</p>
-        </Card>
+        <div className="border-t border-white/[0.06] pt-6 text-sm text-gray-600">
+          Нет выводов
+        </div>
       )}
 
       {/* Copied toast */}
       {copied && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-dark-lighter border border-border rounded-lg text-sm text-white shadow-lg z-50 flex items-center gap-2">
-          <CheckCircle2 size={14} className="text-green-400" />
-          Адрес скопирован
+        <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full text-xs text-white z-50 flex items-center gap-1.5">
+          <CheckCircle2 size={12} className="text-green-400" />
+          Скопировано
         </div>
       )}
     </div>
