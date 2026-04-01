@@ -28,12 +28,12 @@ export const partnerService = {
   // ========== Auth ==========
 
   login: async (login: string, password: string): Promise<{ token: string; platform: Platform }> => {
-    const { data } = await api.post('/partner/login', { login, password })
+    const { data } = await api.post('/partner/api/login', { login, password })
     return data
   },
 
   verifyToken: async (): Promise<{ valid: boolean; platform: Platform }> => {
-    const { data } = await api.get('/partner/verify')
+    const { data } = await api.get('/partner/api/verify')
     return data
   },
 
@@ -44,7 +44,7 @@ export const partnerService = {
   // ========== Dashboard ==========
 
   getDashboard: async (): Promise<PartnerDashboardData> => {
-    const { data } = await api.get('/partner/dashboard')
+    const { data } = await api.get('/partner/api/dashboard')
     return data
   },
 
@@ -52,7 +52,7 @@ export const partnerService = {
     startDate?: string
     endDate?: string
   }): Promise<PartnerStats> => {
-    const { data } = await api.get('/partner/stats', { params })
+    const { data } = await api.get('/partner/api/stats', { params })
     return data.stats
   },
 
@@ -63,7 +63,7 @@ export const partnerService = {
     limit?: number
     search?: string
   }): Promise<{ users: User[]; total: number; totalPages: number }> => {
-    const { data } = await api.get('/partner/users', { params })
+    const { data } = await api.get('/partner/api/users', { params })
     return data
   },
 
@@ -75,24 +75,24 @@ export const partnerService = {
     limit?: number
     search?: string
   }): Promise<{ deals: Deal[]; total: number; totalPages: number }> => {
-    const { data } = await api.get('/partner/deals', { params })
+    const { data } = await api.get('/partner/api/deals', { params })
     return data
   },
 
   getDeal: async (dealId: string): Promise<Deal> => {
-    const { data } = await api.get(`/partner/deals/${dealId}`)
+    const { data } = await api.get(`/partner/api/deals/${dealId}`)
     return data.deal
   },
 
   // ========== Profile ==========
 
   getProfile: async (): Promise<Platform> => {
-    const { data } = await api.get('/partner/profile')
+    const { data } = await api.get('/partner/api/profile')
     return data.platform
   },
 
   updatePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await api.post('/partner/password', { currentPassword, newPassword })
+    await api.post('/partner/api/password', { currentPassword, newPassword })
   },
 
   // ========== Withdrawals ==========

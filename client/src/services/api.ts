@@ -11,7 +11,11 @@ const api = axios.create({
 // Request interceptor - add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('adminToken')
+    // Use partner token for partner routes, admin token for everything else
+    const isPartnerRoute = config.url?.startsWith('/partner/')
+    const token = isPartnerRoute
+      ? localStorage.getItem('partner_token')
+      : localStorage.getItem('adminToken')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

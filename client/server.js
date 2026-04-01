@@ -603,8 +603,9 @@ app.use('/api/admin/blog', adminAuth, blogAdminRoutes);
 // Referrals admin routes
 app.use('/api/referrals', adminAuth, referralsRoutes);
 
-// Partner routes
+// Partner routes (both direct and via /api prefix for SPA)
 app.use('/partner', partnerRoutes);
+app.use('/api/partner', partnerRoutes);
 
 // Admin stats
 app.get('/api/admin/stats', adminAuth, async (req, res) => {

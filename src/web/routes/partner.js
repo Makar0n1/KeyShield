@@ -12,9 +12,10 @@ const BOT_USERNAME = process.env.BOT_USERNAME || 'KeyShieldBot';
 // Middleware для проверки JWT токена партнера
 const authenticatePartner = async (req, res, next) => {
   const token = req.cookies.partnerToken || req.headers.authorization?.replace('Bearer ', '');
+  const isApi = req.path.startsWith('/api/') || req.headers.accept?.includes('application/json');
 
   if (!token) {
-    return res.redirect('/partner/login');
+    return isApi ? res.status(401).json({ error: 'Unauthorized' }) : res.redirect('/partner/login');
   }
 
   try {
@@ -23,16 +24,116 @@ const authenticatePartner = async (req, res, next) => {
 
     if (!platform || !platform.isActive) {
       res.clearCookie('partnerToken');
-      return res.redirect('/partner/login');
+      return isApi ? res.status(401).json({ error: 'Unauthorized' }) : res.redirect('/partner/login');
     }
 
     req.platform = platform;
     next();
   } catch (error) {
     res.clearCookie('partnerToken');
-    return res.redirect('/partner/login');
+    return isApi ? res.status(401).json({ error: 'Unauthorized' }) : res.redirect('/partner/login');
   }
 };
+
+// ============ JSON API for SPA ============
+
+// API: Login (JSON)
+router.post('/api/login', async (req, res) => {
+  try {
+    const { login, password } = req.body;
+
+    const platform = await Platform.findOne({ login, isActive: true });
+    if (!platform) {
+      return res.status(401).json({ error: 'Неверный логин или пароль' });
+    }
+
+    const isValid = await platform.checkPassword(password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Неверный логин или пароль' });
+    }
+
+    platform.lastLoginAt = new Date();
+    platform.addLog('login', { ip: req.ip });
+    await platform.save();
+
+    const token = jwt.sign(
+      { platformId: platform._id, code: platform.code },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, platform: platform.toObject() });
+  } catch (error) {
+    console.error('Partner API login error:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// API: Verify token
+router.get('/api/verify', authenticatePartner, async (req, res) => {
+  res.json({ valid: true, platform: req.platform.toObject() });
+});
+
+// API: Get dashboard data
+router.get('/api/dashboard', authenticatePartner, async (req, res) => {
+  try {
+    const platform = req.platform;
+    await platform.updateStats();
+
+    const recentDeals = await Deal.find({ platformId: platform._id })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    const recentUsers = await User.find({ platformId: platform._id })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('telegramId username firstName createdAt')
+      .lean();
+
+    res.json({
+      platform: platform.toObject(),
+      stats: platform.stats,
+      recentDeals,
+      recentUsers,
+      referralLink: platform.getReferralLink(BOT_USERNAME)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get profile
+router.get('/api/profile', authenticatePartner, async (req, res) => {
+  res.json({ platform: req.platform.toObject() });
+});
+
+// API: Change password
+router.post('/api/password', authenticatePartner, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const platform = req.platform;
+
+    const isValid = await platform.checkPassword(currentPassword);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Неверный текущий пароль' });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
+    }
+
+    platform.passwordHash = newPassword;
+    platform.addLog('password_change', { ip: req.ip });
+    await platform.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ SSR Pages (legacy) ============
 
 // Страница логина
 router.get('/login', (req, res) => {
@@ -40,7 +141,7 @@ router.get('/login', (req, res) => {
   res.send(getLoginPage(error));
 });
 
-// Обработка логина
+// Обработка логина (SSR form)
 router.post('/login', async (req, res) => {
   try {
     const { login, password } = req.body;
@@ -55,12 +156,10 @@ router.post('/login', async (req, res) => {
       return res.redirect('/partner/login?error=invalid');
     }
 
-    // Update last login
     platform.lastLoginAt = new Date();
     platform.addLog('login', { ip: req.ip });
     await platform.save();
 
-    // Generate JWT
     const token = jwt.sign(
       { platformId: platform._id, code: platform.code },
       JWT_SECRET,
@@ -69,7 +168,7 @@ router.post('/login', async (req, res) => {
 
     res.cookie('partnerToken', token, {
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.redirect('/partner/dashboard');
