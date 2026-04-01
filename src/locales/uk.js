@@ -986,6 +986,33 @@ module.exports = {
   },
 
   // ============================================
+  // SESSION TIMEOUT MONITOR
+  // ============================================
+  timeout: {
+    input_expired: '⏰ _Час очікування введення минув._',
+    deal_completed: '✅ Угоду завершено!',
+
+    // Wallet timeout
+    wallet_title: '⏰ *Час на введення гаманця минув*',
+    wallet_hint: 'Ви можете повернутися та ввести гаманець пізніше.',
+
+    // Dispute timeout
+    dispute_title: '⏰ *Час на оформлення спору минув*',
+    dispute_hint: 'Якщо проблема не вирішена, ви можете відкрити спір пізніше.',
+
+    // Referral timeout
+    referral_address_expired: '⏰ _Час на введення адреси минув._',
+
+    // My data timeout
+    my_data_expired: '⏰ _Час очікування введення минув._',
+
+    // Templates timeout
+    templates_expired: '⏰ _Час очікування введення минув._',
+    templates_empty_hint: 'Шаблони дозволяють створювати угоди в 2 кліки!',
+    templates_select_hint: '_Оберіть шаблон для використання:_',
+  },
+
+  // ============================================
   // PLURALIZATION HELPERS
   // ============================================
   plural: {

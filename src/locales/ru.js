@@ -986,6 +986,33 @@ module.exports = {
   },
 
   // ============================================
+  // SESSION TIMEOUT MONITOR
+  // ============================================
+  timeout: {
+    input_expired: '⏰ _Время ожидания ввода истекло._',
+    deal_completed: '✅ Сделка завершена!',
+
+    // Wallet timeout
+    wallet_title: '⏰ *Время на ввод кошелька истекло*',
+    wallet_hint: 'Вы можете вернуться и ввести кошелёк позже.',
+
+    // Dispute timeout
+    dispute_title: '⏰ *Время на оформление спора истекло*',
+    dispute_hint: 'Если проблема не решена, вы можете открыть спор позже.',
+
+    // Referral timeout
+    referral_address_expired: '⏰ _Время на ввод адреса истекло._',
+
+    // My data timeout
+    my_data_expired: '⏰ _Время ожидания ввода истекло._',
+
+    // Templates timeout
+    templates_expired: '⏰ _Время ожидания ввода истекло._',
+    templates_empty_hint: 'Шаблоны позволяют создавать сделки в 2 клика!',
+    templates_select_hint: '_Выберите шаблон для использования:_',
+  },
+
+  // ============================================
   // PLURALIZATION HELPERS
   // ============================================
   plural: {

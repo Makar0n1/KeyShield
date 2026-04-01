@@ -219,11 +219,13 @@ export function AdminPlatformsPage() {
                 <Input
                   type="number"
                   value={formData.commissionPercent}
-                  onChange={(e) => setFormData({ ...formData, commissionPercent: parseInt(e.target.value) })}
-                  min={0}
-                  max={100}
+                  onChange={(e) => setFormData({ ...formData, commissionPercent: parseInt(e.target.value) || 10 })}
+                  min={10}
+                  max={40}
+                  step={1}
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">От 10% до 40%</p>
               </div>
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="secondary" onClick={handleCloseForm} className="flex-1">

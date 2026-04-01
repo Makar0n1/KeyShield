@@ -16,8 +16,8 @@ const Session = require('../models/Session');
 const User = require('../models/User');
 const Deal = require('../models/Deal');
 const ServiceStatus = require('../models/ServiceStatus');
-const messageManager = require('../bot/utils/messageManager');
 const { Markup } = require('telegraf');
+const { t } = require('../locales');
 
 const SERVICE_NAME = 'SessionTimeoutMonitor';
 
@@ -241,14 +241,15 @@ class SessionTimeoutMonitor {
 
     // No rating - show final message
     const { mainMenuButton } = require('../bot/keyboards/main');
+    const lang = await this.getUserLang(telegramId);
 
-    const finalText = data.finalMessage || '✅ Сделка завершена!';
+    const finalText = data.finalMessage || t(lang, 'timeout.deal_completed');
 
     try {
       await this.botInstance.telegram.deleteMessage(telegramId, user.mainMessageId);
     } catch (e) { /* message already deleted */ }
 
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     const newMsg = await this.botInstance.telegram.sendMessage(telegramId, finalText, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
@@ -280,15 +281,16 @@ class SessionTimeoutMonitor {
     if (!user || !user.mainMessageId) return false;
 
     const { mainMenuButton } = require('../bot/keyboards/main');
+    const lang = await this.getUserLang(telegramId);
 
     // Show final message (no extra text about timeout - just the final message)
-    const finalText = data.finalMessage || '✅ Сделка завершена!';
+    const finalText = data.finalMessage || t(lang, 'timeout.deal_completed');
 
     try {
       await this.botInstance.telegram.deleteMessage(telegramId, user.mainMessageId);
     } catch (e) { /* message already deleted */ }
 
-    const keyboard = mainMenuButton();
+    const keyboard = mainMenuButton(lang);
     const newMsg = await this.botInstance.telegram.sendMessage(telegramId, finalText, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
@@ -314,55 +316,46 @@ class SessionTimeoutMonitor {
     // Delete session
     await Session.deleteSession(telegramId, 'my_data');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId email wallets averageRating ratingsCount').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId email wallets averageRating ratingsCount languageCode').lean();
     if (!user || !user.mainMessageId) return false;
 
     const { myDataMenuKeyboard } = require('../bot/keyboards/main');
+    const lang = user.languageCode || 'ru';
 
     // Build My Data screen
     const wallets = user.wallets || [];
     const email = user.email;
 
-    let emailDisplay = '_Не указан_';
+    let emailDisplay = '_—_';
     if (email) {
       emailDisplay = `\`${email}\``;
     }
 
-    let walletsDisplay = '_Нет сохранённых кошельков_';
+    let walletsDisplay = t(lang, 'myData.no_wallets');
     if (wallets.length > 0) {
       walletsDisplay = wallets.map((w, i) => {
-        const name = w.name || `Кошелёк ${i + 1}`;
+        const name = w.name || `#${i + 1}`;
         const shortAddr = w.address.slice(0, 6) + '...' + w.address.slice(-4);
         return `• ${name}: \`${shortAddr}\``;
       }).join('\n');
     }
 
     // Get rating display
-    const User = require('../models/User');
-    const ratingDisplay = user.ratingsCount > 0
-      ? `⭐ ${user.averageRating} (${user.ratingsCount})`
-      : 'Нет отзывов';
+    const UserModel = require('../models/User');
+    const ratingDisplay = await UserModel.getRatingDisplayById(telegramId, lang);
 
-    const text = `⏰ _Время ожидания ввода истекло._
-
-👤 *Мои данные*
-
-⭐ *Ваш рейтинг:*
-${ratingDisplay}
-
-📧 *Email для чеков:*
-${emailDisplay}
-
-💳 *Сохранённые кошельки (${wallets.length}/5):*
-${walletsDisplay}
-
-_Выберите раздел для редактирования:_`;
+    const text = `${t(lang, 'timeout.my_data_expired')}\n\n${t(lang, 'myData.title', {
+      ratingDisplay,
+      emailDisplay,
+      walletsCount: wallets.length,
+      walletsDisplay
+    })}`;
 
     try {
       await this.botInstance.telegram.deleteMessage(telegramId, user.mainMessageId);
     } catch (e) { /* message already deleted */ }
 
-    const keyboard = myDataMenuKeyboard(!!email, wallets.length);
+    const keyboard = myDataMenuKeyboard(!!email, wallets.length, lang);
     const newMsg = await this.botInstance.telegram.sendMessage(telegramId, text, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
@@ -399,20 +392,16 @@ _Выберите раздел для редактирования:_`;
     // Try to find the deal to show details
     const dealId = data.dealId || user.pendingDealId;
 
+    const lang = await this.getUserLang(telegramId);
+
     if (dealId) {
       const deal = await Deal.findOne({ dealId });
       if (deal) {
-        // Show timeout message with option to return to deal
-        const text = `⏰ *Время на ввод кошелька истекло*
-
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-Вы можете вернуться и ввести кошелёк позже.`;
+        const text = `${t(lang, 'timeout.wallet_title')}\n\n🆔 \`${dealId}\`\n📦 ${deal.productName}\n\n${t(lang, 'timeout.wallet_hint')}`;
 
         const keyboard = Markup.inlineKeyboard([
-          [Markup.button.callback('📋 К сделке', `deal:${dealId}`)],
-          [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+          [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+          [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
         ]);
 
         try {
@@ -456,19 +445,16 @@ _Выберите раздел для редактирования:_`;
 
     const dealId = data.dealId;
 
+    const lang = await this.getUserLang(telegramId);
+
     if (dealId) {
       const deal = await Deal.findOne({ dealId });
       if (deal) {
-        const text = `⏰ *Время на оформление спора истекло*
-
-🆔 Сделка: \`${dealId}\`
-📦 ${deal.productName}
-
-Если проблема не решена, вы можете открыть спор позже.`;
+        const text = `${t(lang, 'timeout.dispute_title')}\n\n🆔 \`${dealId}\`\n📦 ${deal.productName}\n\n${t(lang, 'timeout.dispute_hint')}`;
 
         const keyboard = Markup.inlineKeyboard([
-          [Markup.button.callback('📋 К сделке', `deal:${dealId}`)],
-          [Markup.button.callback('🏠 Главное меню', 'main_menu')]
+          [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
+          [Markup.button.callback(t(lang, 'btn.main_menu'), 'main_menu')]
         ]);
 
         try {
@@ -506,11 +492,12 @@ _Выберите раздел для редактирования:_`;
     await Session.deleteSession(telegramId, 'referral');
 
     const user = await User.findOne({ telegramId })
-      .select('mainMessageId referralBalance referralTotalEarned referralWithdrawnTotal referralStats referralCode')
+      .select('mainMessageId referralBalance referralTotalEarned referralWithdrawnTotal referralStats referralCode languageCode')
       .lean();
 
     if (!user || !user.mainMessageId) return false;
 
+    const lang = user.languageCode || 'ru';
     const balance = user.referralBalance || 0;
     const totalEarned = user.referralTotalEarned || 0;
     const withdrawn = user.referralWithdrawnTotal || 0;
@@ -520,38 +507,30 @@ _Выберите раздел для редактирования:_`;
     const canWithdraw = balance >= 10;
     const hasBalance = balance > 0;
 
-    const text = `⏰ _Время на ввод адреса истекло._
-
-🎁 *Реферальная программа*
-
-Приглашай друзей и получай *10%* от комиссии сервиса с каждой их сделки!
-
-━━━━━━━━━━━━━━━━━━━━━━
-💰 *Баланс:* ${balance.toFixed(2)} USDT
-📊 *Всего заработано:* ${totalEarned.toFixed(2)} USDT
-💸 *Выведено:* ${withdrawn.toFixed(2)} USDT
-━━━━━━━━━━━━━━━━━━━━━━
-👥 *Приглашено:* ${totalInvited}
-✅ *Активных:* ${activeReferrals}
-━━━━━━━━━━━━━━━━━━━━━━
-
-_Минимальная сумма для вывода: 10 USDT_`;
+    const text = `${t(lang, 'timeout.referral_address_expired')}\n\n${t(lang, 'referral.main', {
+      balance: balance.toFixed(2),
+      totalEarned: totalEarned.toFixed(2),
+      withdrawn: withdrawn.toFixed(2),
+      totalInvited,
+      activeReferrals,
+      withdrawalStatus: ''
+    })}`;
 
     // Build keyboard
     const buttons = [];
-    buttons.push([Markup.button.callback('🔗 Моя ссылка', 'referral:link')]);
-    buttons.push([Markup.button.callback('👥 Мои рефералы', 'referral:list')]);
-    buttons.push([Markup.button.callback('📊 История начислений', 'referral:history')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.my_link'), 'referral:link')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.my_referrals'), 'referral:list')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.accrual_history'), 'referral:history')]);
 
     if (hasBalance) {
       if (canWithdraw) {
-        buttons.push([Markup.button.callback('💸 Вывести баланс', 'referral:withdraw')]);
+        buttons.push([Markup.button.callback(t(lang, 'btn.withdraw_balance'), 'referral:withdraw')]);
       } else {
-        buttons.push([Markup.button.callback('💸 Вывести (мин. 10$)', 'referral:withdraw_info')]);
+        buttons.push([Markup.button.callback(t(lang, 'btn.withdraw_min'), 'referral:withdraw_info')]);
       }
     }
 
-    buttons.push([Markup.button.callback('⬅️ Назад', 'main_menu')]);
+    buttons.push([Markup.button.callback(t(lang, 'btn.back'), 'main_menu')]);
 
     const keyboard = Markup.inlineKeyboard(buttons);
 
@@ -581,14 +560,13 @@ _Минимальная сумма для вывода: 10 USDT_`;
    * Handle deal_template timeout - return to templates list
    */
   async handleDealTemplateTimeout(telegramId, session) {
-    const data = session.data || {};
-
     // Delete session
     await Session.deleteSession(telegramId, 'deal_template');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId languageCode').lean();
     if (!user || !user.mainMessageId) return false;
 
+    const lang = user.languageCode || 'ru';
     const DealTemplate = require('../models/DealTemplate');
     const { templatesListKeyboard, templatesEmptyKeyboard } = require('../bot/keyboards/templates');
 
@@ -600,19 +578,11 @@ _Минимальная сумма для вывода: 10 USDT_`;
     let keyboard;
 
     if (templates.length === 0) {
-      text = `⏰ _Время ожидания ввода истекло._
+      text = `${t(lang, 'timeout.templates_expired')}\n\n${t(lang, 'templates.empty')}`;
 
-📑 *Мои шаблоны*
-
-_У вас пока нет сохранённых шаблонов._
-
-Шаблоны позволяют создавать сделки в 2 клика!`;
-
-      keyboard = templatesEmptyKeyboard();
+      keyboard = templatesEmptyKeyboard(lang);
     } else {
-      text = `⏰ _Время ожидания ввода истекло._
-
-📑 *Мои шаблоны* (${templates.length}/5)\n\n`;
+      text = `${t(lang, 'timeout.templates_expired')}\n\n${t(lang, 'templates.title_count', { count: templates.length })}\n\n`;
 
       templates.forEach((tpl, i) => {
         const roleIcon = tpl.creatorRole === 'buyer' ? '💵' : '🛠';
@@ -620,9 +590,9 @@ _У вас пока нет сохранённых шаблонов._
         text += `   ${tpl.productName} • ${tpl.amount} ${tpl.asset}\n\n`;
       });
 
-      text += `_Выберите шаблон для использования:_`;
+      text += t(lang, 'timeout.templates_select_hint');
 
-      keyboard = templatesListKeyboard(templates, canCreate);
+      keyboard = templatesListKeyboard(templates, canCreate, lang);
     }
 
     try {
@@ -648,14 +618,23 @@ _У вас пока нет сохранённых шаблонов._
   }
 
   /**
+   * Get user language
+   */
+  async getUserLang(telegramId) {
+    const user = await User.findOne({ telegramId }).select('languageCode').lean();
+    return user?.languageCode || 'ru';
+  }
+
+  /**
    * Show main menu as fallback
    */
   async showMainMenu(telegramId, mainMessageId) {
-    const { MAIN_MENU_TEXT } = require('../bot/handlers/start');
+    const { getMainMenuText } = require('../bot/handlers/start');
     const { mainMenuKeyboard } = require('../bot/keyboards/main');
+    const lang = await this.getUserLang(telegramId);
 
-    const text = MAIN_MENU_TEXT;
-    const keyboard = mainMenuKeyboard();
+    const text = getMainMenuText(lang);
+    const keyboard = mainMenuKeyboard(lang);
 
     try {
       await this.botInstance.telegram.deleteMessage(telegramId, mainMessageId);

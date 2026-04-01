@@ -44,7 +44,9 @@ const platformSchema = new mongoose.Schema({
   // Процент комиссии платформы от чистой прибыли
   commissionPercent: {
     type: Number,
-    default: 10
+    default: 10,
+    min: 10,
+    max: 40
   },
 
   // Статус платформы

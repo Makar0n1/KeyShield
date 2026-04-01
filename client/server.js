@@ -1134,6 +1134,11 @@ app.post('/api/admin/platforms', adminAuth, async (req, res) => {
   try {
     const { name, telegramChannel, login, password, commissionPercent = 10 } = req.body;
 
+    const percent = Number(commissionPercent);
+    if (isNaN(percent) || percent < 10 || percent > 40) {
+      return res.status(400).json({ error: 'commissionPercent must be between 10 and 40' });
+    }
+
     let code;
     let isUnique = false;
     while (!isUnique) {
@@ -1148,7 +1153,7 @@ app.post('/api/admin/platforms', adminAuth, async (req, res) => {
       telegramChannel,
       login,
       passwordHash: password,
-      commissionPercent
+      commissionPercent: percent
     });
 
     await platform.save();
@@ -1168,7 +1173,13 @@ app.put('/api/admin/platforms/:id', adminAuth, async (req, res) => {
     if (telegramChannel) platform.telegramChannel = telegramChannel;
     if (login) platform.login = login;
     if (password) platform.passwordHash = password;
-    if (commissionPercent !== undefined) platform.commissionPercent = commissionPercent;
+    if (commissionPercent !== undefined) {
+      const percent = Number(commissionPercent);
+      if (isNaN(percent) || percent < 10 || percent > 40) {
+        return res.status(400).json({ error: 'commissionPercent must be between 10 and 40' });
+      }
+      platform.commissionPercent = percent;
+    }
 
     await platform.save();
     res.json({ platform });

@@ -984,6 +984,33 @@ module.exports = {
   },
 
   // ============================================
+  // SESSION TIMEOUT MONITOR
+  // ============================================
+  timeout: {
+    input_expired: '⏰ _Input time expired._',
+    deal_completed: '✅ Deal completed!',
+
+    // Wallet timeout
+    wallet_title: '⏰ *Wallet input time expired*',
+    wallet_hint: 'You can go back and enter your wallet later.',
+
+    // Dispute timeout
+    dispute_title: '⏰ *Dispute submission time expired*',
+    dispute_hint: 'If the issue is not resolved, you can open a dispute later.',
+
+    // Referral timeout
+    referral_address_expired: '⏰ _Address input time expired._',
+
+    // My data timeout
+    my_data_expired: '⏰ _Input time expired._',
+
+    // Templates timeout
+    templates_expired: '⏰ _Input time expired._',
+    templates_empty_hint: 'Templates let you create deals in 2 clicks!',
+    templates_select_hint: '_Select a template to use:_',
+  },
+
+  // ============================================
   // PLURALIZATION HELPERS
   // ============================================
   plural: {
