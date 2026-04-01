@@ -305,7 +305,9 @@ export interface Platform {
     totalTrxSpentUsdt?: number
     netProfit?: number
     platformEarnings?: number
+    withdrawnTotal?: number
   }
+  walletAddress?: string | null
   createdAt: string
   updatedAt?: string
 }
