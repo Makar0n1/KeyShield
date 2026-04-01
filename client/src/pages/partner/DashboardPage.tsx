@@ -4,7 +4,7 @@ import { usePartnerAuth } from '@/contexts/PartnerAuthContext'
 import { partnerService, type PartnerDashboardData } from '@/services/partner'
 import { Badge } from '@/components/ui/badge'
 import { formatNumber, formatDate } from '@/utils/format'
-import { ArrowRight, Copy, CheckCircle2, ExternalLink } from 'lucide-react'
+import { ArrowRight, Copy, CheckCircle2 } from 'lucide-react'
 
 const statusLabels: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
   created: { label: 'Создана', variant: 'secondary' },
