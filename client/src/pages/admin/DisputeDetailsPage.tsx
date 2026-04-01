@@ -247,17 +247,11 @@ export function AdminDisputeDetailsPage() {
                   <dt className="text-muted text-sm">Решение</dt>
                   <dd className="text-white">
                     В пользу{' '}
-                    <Badge variant={dispute.winner === 'buyer' ? 'success' : 'primary'}>
-                      {dispute.winner === 'buyer' ? 'покупателя' : 'продавца'}
+                    <Badge variant={dispute.decision === 'refund_buyer' ? 'success' : 'primary'}>
+                      {dispute.decision === 'refund_buyer' ? 'покупателя' : 'продавца'}
                     </Badge>
                   </dd>
                 </div>
-                {dispute.decision && (
-                  <div>
-                    <dt className="text-muted text-sm">Обоснование</dt>
-                    <dd className="text-gray-300">{dispute.decision}</dd>
-                  </div>
-                )}
                 {dispute.resolvedAt && (
                   <div>
                     <dt className="text-muted text-sm">Дата решения</dt>

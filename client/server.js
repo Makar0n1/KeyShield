@@ -37,6 +37,7 @@ const notificationService = (await import('../src/services/notificationService.j
 const blogNotificationService = (await import('../src/services/blogNotificationService.js')).default;
 const broadcastService = (await import('../src/services/broadcastService.js')).default;
 const priceService = (await import('../src/services/priceService.js')).default;
+const disputeService = (await import('../src/services/disputeService.js')).default;
 
 // Models
 const Deal = (await import('../src/models/Deal.js')).default;
@@ -71,6 +72,7 @@ const webBot = new Telegraf(process.env.BOT_TOKEN);
 notificationService.setBotInstance(webBot);
 blogNotificationService.setBotInstance(webBot);
 broadcastService.setBotInstance(webBot);
+disputeService.setBotInstance(webBot);
 
 // ============ MULTER CONFIG FOR UPLOADS ============
 
@@ -1037,20 +1039,27 @@ app.post('/api/admin/disputes/:id/resolve', adminAuth, async (req, res) => {
     const { winner, reason } = req.body;
     const dispute = await Dispute.findById(req.params.id).populate('dealId');
     if (!dispute) return res.status(404).json({ error: 'Dispute not found' });
+    if (!dispute.dealId) return res.status(404).json({ error: 'Deal not found' });
 
-    dispute.status = 'resolved';
-    dispute.decision = reason;
-    dispute.winner = winner;
-    dispute.resolvedAt = new Date();
-    await dispute.save();
+    const decision = winner === 'buyer' ? 'refund_buyer' : 'release_seller';
+    const dealId = dispute.dealId.dealId; // e.g. 'DL-000034'
 
-    if (dispute.dealId) {
-      dispute.dealId.status = 'resolved';
-      await dispute.dealId.save();
+    // Add arbiter's reason as a comment before resolving
+    if (reason) {
+      dispute.comments.push({
+        userId: 0,
+        text: `[Решение арбитра] ${reason}`,
+        createdAt: new Date()
+      });
+      await dispute.save();
     }
 
-    res.json({ success: true });
+    // Use disputeService for full flow: notifications, key validation, stats, ban check
+    const result = await disputeService.resolveDispute(dealId, decision, 0);
+
+    res.json({ success: true, result });
   } catch (error) {
+    console.error('Dispute resolve error:', error);
     res.status(500).json({ error: error.message });
   }
 });
