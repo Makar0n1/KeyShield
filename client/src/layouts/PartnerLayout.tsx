@@ -12,12 +12,14 @@ import {
   X,
   Shield,
   ChevronDown,
+  Wallet,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Дашборд', href: '/partner', icon: LayoutDashboard },
   { name: 'Пользователи', href: '/partner/users', icon: Users },
   { name: 'Сделки', href: '/partner/deals', icon: FileText },
+  { name: 'Вывод средств', href: '/partner/withdrawals', icon: Wallet },
   { name: 'Настройки', href: '/partner/settings', icon: Settings },
 ]
 

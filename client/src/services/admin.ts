@@ -308,6 +308,36 @@ export const adminService = {
     return data.stats
   },
 
+  // ========== Partner Withdrawals ==========
+
+  getPartnerWithdrawals: async (params?: {
+    status?: string
+  }): Promise<any[]> => {
+    const { data } = await api.get('/admin/partner-withdrawals', { params })
+    return data
+  },
+
+  getPartnerWithdrawalsPendingCount: async (): Promise<number> => {
+    const { data } = await api.get('/admin/partner-withdrawals/pending-count')
+    return data.count
+  },
+
+  completePartnerWithdrawal: async (
+    id: string,
+    txHash: string
+  ): Promise<ApiResponse> => {
+    const { data } = await api.post(`/admin/partner-withdrawals/${id}/complete`, { txHash })
+    return data
+  },
+
+  rejectPartnerWithdrawal: async (
+    id: string,
+    reason: string
+  ): Promise<ApiResponse> => {
+    const { data } = await api.post(`/admin/partner-withdrawals/${id}/reject`, { reason })
+    return data
+  },
+
   // ========== Broadcasts ==========
 
   getBroadcasts: async (params?: {

@@ -307,10 +307,16 @@ class DealService {
     const buyerAddress = creatorRole === 'buyer' ? creatorAddress : null;
     const sellerAddress = creatorRole === 'seller' ? creatorAddress : null;
 
-    // Get platform info from creator
+    // Get platform info from creator (counterparty platform set on accept)
     const creator = await User.findOne({ telegramId: creatorId });
-    const platformId = creator?.platformId || null;
-    const platformCode = creator?.platformCode || null;
+    const creatorPlatformId = creator?.platformId || null;
+    const creatorPlatformCode = creator?.platformCode || null;
+
+    // Set platform by role
+    const buyerPlatformId = creatorRole === 'buyer' ? creatorPlatformId : null;
+    const sellerPlatformId = creatorRole === 'seller' ? creatorPlatformId : null;
+    const platformId = creatorPlatformId;
+    const platformCode = creatorPlatformCode;
 
     // Create deal record (without multisig - will be created when counterparty accepts)
     const deal = new Deal({
@@ -320,6 +326,8 @@ class DealService {
       sellerId,
       platformId,
       platformCode,
+      buyerPlatformId,
+      sellerPlatformId,
       productName,
       description,
       asset,
@@ -472,15 +480,38 @@ class DealService {
 
     await wallet.save();
 
-    // Handle platform chain reaction
+    // Set counterparty's platform on the deal (no chain reaction — attribution on completion)
     const creator = await User.findOne({ telegramId: creatorId });
-    if (creator?.platformId && !counterparty.platformId) {
-      counterparty.platformId = creator.platformId;
-      counterparty.platformCode = creator.platformCode;
+    if (counterparty.platformId) {
+      const counterpartyRole = deal.creatorRole === 'buyer' ? 'seller' : 'buyer';
+      if (counterpartyRole === 'buyer') {
+        deal.buyerPlatformId = counterparty.platformId;
+      } else {
+        deal.sellerPlatformId = counterparty.platformId;
+      }
+      // Update legacy platformId if not set
+      if (!deal.platformId) {
+        deal.platformId = counterparty.platformId;
+        deal.platformCode = counterparty.platformCode;
+      }
+      await deal.save();
+    }
+
+    // Auto-referral: invite link creator becomes referrer of counterparty
+    if (!counterparty.referredBy && creator && creator.telegramId !== counterpartyId) {
+      // Ensure creator has a referral code
+      if (!creator.referralCode) {
+        await creator.generateReferralCode();
+        await creator.save();
+      }
+      counterparty.referredBy = creator.telegramId;
       await counterparty.save();
-      await Platform.findByIdAndUpdate(creator.platformId, {
-        $inc: { 'stats.totalUsers': 1 }
+
+      // Update creator's referral stats
+      await User.updateOne({ telegramId: creator.telegramId }, {
+        $inc: { 'referralStats.totalInvited': 1 }
       });
+      console.log(`🔗 Auto-referral: ${counterpartyId} became referral of ${creator.telegramId} via invite link`);
     }
 
     // Log acceptance
@@ -632,51 +663,20 @@ class DealService {
       initialStatus = buyerAddress ? 'waiting_for_deposit' : 'waiting_for_buyer_wallet';
     }
 
-    // Get platform info - check BOTH participants
-    // PRIORITY: Buyer's platform wins (buyer brings money to the service)
-    // Chain reaction: non-partner user becomes partner-referred when dealing with partner user
+    // Get platform info from BOTH participants
+    // No chain reaction at creation — attribution happens on deal completion
     const [buyer, seller] = await Promise.all([
       User.findOne({ telegramId: buyerId }),
       User.findOne({ telegramId: sellerId })
     ]);
 
-    let platformId = null;
-    let platformCode = null;
+    // Store both platforms — each partner gets commission independently
+    const buyerPlatformId = buyer?.platformId || null;
+    const sellerPlatformId = seller?.platformId || null;
 
-    // Buyer's platform has priority (buyer deposits money)
-    if (buyer?.platformId) {
-      platformId = buyer.platformId;
-      platformCode = buyer.platformCode;
-
-      // Chain reaction: link seller to buyer's platform if seller has no platform
-      if (seller && !seller.platformId) {
-        const Platform = require('../models/Platform');
-        seller.platformId = buyer.platformId;
-        seller.platformCode = buyer.platformCode;
-        await seller.save();
-        await Platform.findByIdAndUpdate(buyer.platformId, {
-          $inc: { 'stats.totalUsers': 1 }
-        });
-        console.log(`🔗 Chain reaction: User ${sellerId} linked to platform ${buyer.platformCode} via deal with ${buyerId}`);
-      }
-      // If both have different platforms - buyer wins, no chain reaction needed
-    } else if (seller?.platformId) {
-      // Buyer has no platform, use seller's
-      platformId = seller.platformId;
-      platformCode = seller.platformCode;
-
-      // Chain reaction: link buyer to seller's platform
-      if (buyer && !buyer.platformId) {
-        const Platform = require('../models/Platform');
-        buyer.platformId = seller.platformId;
-        buyer.platformCode = seller.platformCode;
-        await buyer.save();
-        await Platform.findByIdAndUpdate(seller.platformId, {
-          $inc: { 'stats.totalUsers': 1 }
-        });
-        console.log(`🔗 Chain reaction: User ${buyerId} linked to platform ${seller.platformCode} via deal with ${sellerId}`);
-      }
-    }
+    // Legacy field: use buyer's platform as primary (for backwards compat)
+    const platformId = buyerPlatformId || sellerPlatformId || null;
+    const platformCode = buyer?.platformCode || seller?.platformCode || null;
 
     // Create deal record
     const deal = new Deal({
@@ -686,6 +686,8 @@ class DealService {
       sellerId,
       platformId,
       platformCode,
+      buyerPlatformId,
+      sellerPlatformId,
       productName,
       description,
       asset,

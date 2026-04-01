@@ -59,6 +59,7 @@ import {
   AdminTransactionsPage,
   AdminIpCheckPage,
   AdminReferralsPage,
+  AdminPartnerWithdrawalsPage,
   AdminBroadcastsPage,
 } from '@/pages/admin'
 import {
@@ -76,6 +77,7 @@ import {
   PartnerUsersPage,
   PartnerDealsPage,
   PartnerSettingsPage,
+  PartnerWithdrawalsPage,
 } from '@/pages/partner'
 
 // Create a React Query client
@@ -135,6 +137,7 @@ function App() {
             <Route path="disputes/:id" element={<AdminDisputeDetailsPage />} />
             <Route path="platforms" element={<AdminPlatformsPage />} />
             <Route path="referrals" element={<AdminReferralsPage />} />
+            <Route path="partner-withdrawals" element={<AdminPartnerWithdrawalsPage />} />
             <Route path="broadcasts" element={<AdminBroadcastsPage />} />
             <Route path="exports" element={<AdminExportsPage />} />
             <Route path="transactions" element={<AdminTransactionsPage />} />
@@ -175,6 +178,7 @@ function App() {
             <Route index element={<PartnerDashboardPage />} />
             <Route path="users" element={<PartnerUsersPage />} />
             <Route path="deals" element={<PartnerDealsPage />} />
+            <Route path="withdrawals" element={<PartnerWithdrawalsPage />} />
             <Route path="settings" element={<PartnerSettingsPage />} />
           </Route>
         </Routes>

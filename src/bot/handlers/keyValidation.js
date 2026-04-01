@@ -148,6 +148,49 @@ async function creditSingleReferralBonus(referrerId, refereeId, deal, serviceCom
   }
 }
 
+// ============================================
+// PLATFORM CHAIN REACTION (on deal completion)
+// ============================================
+
+/**
+ * Link counterparty to partner's platform on successful deal completion.
+ * Only links users who don't already have a platformId.
+ * @param {Object} deal - Completed deal
+ */
+async function handlePlatformChainReaction(deal) {
+  try {
+    const Platform = require('../../models/Platform');
+    const [buyer, seller] = await Promise.all([
+      User.findOne({ telegramId: deal.buyerId }),
+      User.findOne({ telegramId: deal.sellerId })
+    ]);
+
+    // If buyer has platform and seller doesn't — link seller
+    if (buyer?.platformId && seller && !seller.platformId) {
+      seller.platformId = buyer.platformId;
+      seller.platformCode = buyer.platformCode;
+      await seller.save();
+      await Platform.findByIdAndUpdate(buyer.platformId, {
+        $inc: { 'stats.totalUsers': 1 }
+      });
+      console.log(`🔗 Chain reaction (completion): User ${deal.sellerId} linked to platform ${buyer.platformCode}`);
+    }
+
+    // If seller has platform and buyer doesn't — link buyer
+    if (seller?.platformId && buyer && !buyer.platformId) {
+      buyer.platformId = seller.platformId;
+      buyer.platformCode = seller.platformCode;
+      await buyer.save();
+      await Platform.findByIdAndUpdate(seller.platformId, {
+        $inc: { 'stats.totalUsers': 1 }
+      });
+      console.log(`🔗 Chain reaction (completion): User ${deal.buyerId} linked to platform ${seller.platformCode}`);
+    }
+  } catch (error) {
+    console.error('❌ Error in platform chain reaction:', error);
+  }
+}
+
 /**
  * Check if user has active key validation session
  */
@@ -608,6 +651,9 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // Credit referral bonuses (10% of commission to each participant's referrer)
     await creditReferralBonuses(deal, commission);
 
+    // Chain reaction: link counterparty to partner on successful completion
+    await handlePlatformChainReaction(deal);
+
     // Track successful payout for health monitoring
     try {
       await ServiceStatus.trackSuccess('payout_completed', {
@@ -941,6 +987,9 @@ async function processBuyerRefund(ctx, deal) {
     // Credit referral bonuses (10% of commission to each participant's referrer)
     await creditReferralBonuses(deal, commission);
 
+    // Chain reaction: link counterparty to partner on successful completion
+    await handlePlatformChainReaction(deal);
+
     // Track successful refund for health monitoring
     try {
       await ServiceStatus.trackSuccess('payout_completed', {
@@ -1256,6 +1305,9 @@ async function processDisputePayout(ctx, deal, winnerRole) {
 
     // Credit referral bonuses (10% of commission to each participant's referrer)
     await creditReferralBonuses(deal, commission);
+
+    // Chain reaction: link counterparty to partner on successful completion
+    await handlePlatformChainReaction(deal);
 
     // Track successful dispute payout for health monitoring
     try {

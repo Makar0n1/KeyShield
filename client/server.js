@@ -1000,6 +1000,73 @@ app.post('/api/admin/users/:telegramId/unban', adminAuth, async (req, res) => {
   }
 });
 
+// Partner Withdrawals API
+const PlatformWithdrawal = (await import('../src/models/PlatformWithdrawal.js')).default;
+
+app.get('/api/admin/partner-withdrawals', adminAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const query = {};
+    if (status) query.status = status;
+
+    const withdrawals = await PlatformWithdrawal.find(query)
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json(withdrawals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/partner-withdrawals/pending-count', adminAuth, async (req, res) => {
+  try {
+    const count = await PlatformWithdrawal.getPendingCount();
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/partner-withdrawals/:id/complete', adminAuth, async (req, res) => {
+  try {
+    const { txHash } = req.body;
+    const withdrawal = await PlatformWithdrawal.findById(req.params.id);
+    if (!withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
+
+    withdrawal.status = 'completed';
+    withdrawal.txHash = txHash || null;
+    withdrawal.completedAt = new Date();
+    await withdrawal.save();
+
+    // Update platform withdrawnTotal
+    await Platform.findByIdAndUpdate(withdrawal.platformId, {
+      $inc: { 'stats.withdrawnTotal': withdrawal.amount }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/partner-withdrawals/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const withdrawal = await PlatformWithdrawal.findById(req.params.id);
+    if (!withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
+
+    withdrawal.status = 'rejected';
+    withdrawal.adminNotes = reason || null;
+    await withdrawal.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Disputes API
 app.get('/api/admin/disputes', adminAuth, async (req, res) => {
   try {

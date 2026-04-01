@@ -70,7 +70,15 @@ const platformSchema = new mongoose.Schema({
     totalTrxSpent: { type: Number, default: 0 },      // Потрачено TRX на активацию
     totalTrxSpentUsdt: { type: Number, default: 0 },  // То же в USDT
     netProfit: { type: Number, default: 0 },          // Чистая прибыль
-    platformEarnings: { type: Number, default: 0 }    // Заработок платформы (10% от прибыли)
+    platformEarnings: { type: Number, default: 0 },   // Заработок платформы (10% от прибыли)
+    withdrawnTotal: { type: Number, default: 0 }       // Сколько уже выведено
+  },
+
+  // Кошелёк для выплат
+  walletAddress: {
+    type: String,
+    default: null,
+    trim: true
   },
 
   // Логи активности
@@ -128,9 +136,17 @@ platformSchema.methods.updateStats = async function() {
   // Подсчёт пользователей
   this.stats.totalUsers = await User.countDocuments({ platformId: this._id });
 
-  // Подсчёт сделок
+  // Подсчёт сделок — ищем где платформа в любом из полей
+  const platformMatch = {
+    $or: [
+      { platformId: this._id },
+      { buyerPlatformId: this._id },
+      { sellerPlatformId: this._id }
+    ]
+  };
+
   const dealStats = await Deal.aggregate([
-    { $match: { platformId: this._id } },
+    { $match: platformMatch },
     {
       $group: {
         _id: '$status',
@@ -156,14 +172,11 @@ platformSchema.methods.updateStats = async function() {
     switch (stat._id) {
       case 'completed':
         this.stats.completedDeals = stat.count;
-        // Partner commission from completed deals
         this.stats.totalCommission += stat.commission || 0;
         break;
       case 'resolved':
-        // Partner commission from resolved deals too
         this.stats.totalCommission += stat.commission || 0;
         break;
-      // NOTE: 'expired' deals do NOT count for partner commission!
       case 'cancelled':
         this.stats.cancelledDeals = stat.count;
         break;
@@ -177,24 +190,22 @@ platformSchema.methods.updateStats = async function() {
     }
   }
 
-  // Расчёт расходов на TRX (подсчитываем сделки где был создан кошелёк)
+  // Расчёт расходов на TRX
   const trxDeals = await Deal.countDocuments({
-    platformId: this._id,
-    'escrowWallet.address': { $exists: true }
+    ...platformMatch,
+    multisigAddress: { $ne: null }
   });
 
-  // Fixed TRX cost per deal (activation + transfers)
   const TRX_PER_DEAL = 16.1;
   this.stats.totalTrxSpent = trxDeals * TRX_PER_DEAL;
 
-  // Get current TRX price from CoinGecko
   const TRX_TO_USDT = await priceService.getTrxPrice();
   this.stats.totalTrxSpentUsdt = this.stats.totalTrxSpent * TRX_TO_USDT;
 
   // Чистая прибыль
   this.stats.netProfit = this.stats.totalCommission - this.stats.totalTrxSpentUsdt;
 
-  // Заработок платформы (10% от чистой прибыли)
+  // Заработок платформы
   this.stats.platformEarnings = Math.max(0, this.stats.netProfit * (this.commissionPercent / 100));
 
   await this.save();

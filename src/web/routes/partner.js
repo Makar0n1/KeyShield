@@ -228,6 +228,113 @@ router.get('/api/logs', authenticatePartner, async (req, res) => {
   }
 });
 
+// ============ Withdrawals ============
+
+const PlatformWithdrawal = require('../../models/PlatformWithdrawal');
+
+// API: Request withdrawal
+router.post('/api/withdrawal/request', authenticatePartner, async (req, res) => {
+  try {
+    const platform = req.platform;
+    const { amount, walletAddress } = req.body;
+
+    // Refresh stats
+    await platform.updateStats();
+
+    const availableBalance = Math.max(0, platform.stats.platformEarnings - (platform.stats.withdrawnTotal || 0));
+
+    if (!amount || amount < 10) {
+      return res.status(400).json({ success: false, error: 'Минимальная сумма вывода: 10 USDT' });
+    }
+
+    if (amount > availableBalance) {
+      return res.status(400).json({ success: false, error: 'Недостаточно средств' });
+    }
+
+    if (!walletAddress || !walletAddress.startsWith('T') || walletAddress.length !== 34) {
+      return res.status(400).json({ success: false, error: 'Неверный адрес кошелька TRC-20' });
+    }
+
+    // Check for existing pending withdrawal
+    const existing = await PlatformWithdrawal.getPlatformPendingWithdrawal(platform._id);
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: `У вас уже есть активная заявка ${existing.withdrawalId}`
+      });
+    }
+
+    const withdrawal = new PlatformWithdrawal({
+      platformId: platform._id,
+      platformName: platform.name,
+      amount,
+      walletAddress
+    });
+    await withdrawal.save();
+
+    // Save wallet address to platform
+    if (!platform.walletAddress) {
+      platform.walletAddress = walletAddress;
+      await platform.save();
+    }
+
+    platform.addLog('withdrawal_request', {
+      withdrawalId: withdrawal.withdrawalId,
+      amount,
+      walletAddress
+    });
+    await platform.save();
+
+    res.json({ success: true, withdrawal });
+  } catch (error) {
+    console.error('Partner withdrawal request error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API: Get withdrawal history
+router.get('/api/withdrawals', authenticatePartner, async (req, res) => {
+  try {
+    const platform = req.platform;
+    const withdrawals = await PlatformWithdrawal.find({ platformId: platform._id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    // Refresh stats for available balance
+    await platform.updateStats();
+    const availableBalance = Math.max(0, platform.stats.platformEarnings - (platform.stats.withdrawnTotal || 0));
+
+    res.json({
+      success: true,
+      withdrawals,
+      availableBalance,
+      walletAddress: platform.walletAddress || null
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API: Update wallet address
+router.post('/api/wallet', authenticatePartner, async (req, res) => {
+  try {
+    const platform = req.platform;
+    const { walletAddress } = req.body;
+
+    if (!walletAddress || !walletAddress.startsWith('T') || walletAddress.length !== 34) {
+      return res.status(400).json({ success: false, error: 'Неверный адрес кошелька TRC-20' });
+    }
+
+    platform.walletAddress = walletAddress;
+    platform.addLog('wallet_updated', { walletAddress });
+    await platform.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============ HTML Templates ============
 
 function getLoginPage(error) {

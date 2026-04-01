@@ -23,16 +23,26 @@ const dealSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  // Партнерская платформа (наследуется от создателя сделки)
+  // Партнерские платформы (обе стороны могут быть от разных партнёров)
   platformId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Platform',
     default: null,
     index: true
   },
-  // Код платформы для быстрого доступа
   platformCode: {
     type: String,
+    default: null
+  },
+  // Второй партнёр (если покупатель и продавец от разных партнёров)
+  buyerPlatformId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Platform',
+    default: null
+  },
+  sellerPlatformId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Platform',
     default: null
   },
   productName: {

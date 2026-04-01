@@ -94,4 +94,24 @@ export const partnerService = {
   updatePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
     await api.post('/partner/password', { currentPassword, newPassword })
   },
+
+  // ========== Withdrawals ==========
+
+  getWithdrawals: async (): Promise<{
+    withdrawals: any[]
+    availableBalance: number
+    walletAddress: string | null
+  }> => {
+    const { data } = await api.get('/partner/api/withdrawals')
+    return data
+  },
+
+  requestWithdrawal: async (amount: number, walletAddress: string): Promise<any> => {
+    const { data } = await api.post('/partner/api/withdrawal/request', { amount, walletAddress })
+    return data
+  },
+
+  updateWallet: async (walletAddress: string): Promise<void> => {
+    await api.post('/partner/api/wallet', { walletAddress })
+  },
 }
