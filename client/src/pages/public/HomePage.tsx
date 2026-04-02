@@ -35,7 +35,16 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
     return () => obs.disconnect()
   }, [])
 
-  return <div ref={ref} data-animate className={`transition-all duration-700 ${v ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${className}`}>{children}</div>
+  return (
+    <div
+      ref={ref}
+      data-animate
+      className={`transition-all duration-700 ${className}`}
+      style={{ opacity: v ? 1 : 0, transform: v ? 'none' : 'translateY(24px)' }}
+    >
+      {children}
+    </div>
+  )
 }
 
 // Section label

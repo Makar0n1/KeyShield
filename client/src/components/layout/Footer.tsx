@@ -21,7 +21,7 @@ export function Footer() {
 
           {/* Product */}
           <div>
-            <p className="text-[11px] uppercase tracking-widest text-white/20 mb-3">Product</p>
+            <p className="text-[11px] uppercase tracking-widest text-white/20 mb-3">{t('footer.product')}</p>
             <ul className="space-y-2.5">
               <li><LangLink to="/#features" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('header.features')}</LangLink></li>
               <li><LangLink to="/#how-it-works" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('header.how_it_works')}</LangLink></li>
