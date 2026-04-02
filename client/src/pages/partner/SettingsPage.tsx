@@ -21,7 +21,6 @@ export function PartnerSettingsPage() {
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' })
   const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false })
   const [pwLoading, setPwLoading] = useState(false)
-  const [pwSuccess, setPwSuccess] = useState(false)
   const [pwError, setPwError] = useState('')
 
   // Wallet
@@ -54,7 +53,6 @@ export function PartnerSettingsPage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setPwError('')
-    setPwSuccess(false)
 
     if (!passwords.current || !passwords.new || !passwords.confirm) { setPwError('Заполните все поля'); return }
     if (passwords.new.length < 6) { setPwError('Минимум 6 символов'); return }
@@ -63,7 +61,6 @@ export function PartnerSettingsPage() {
     setPwLoading(true)
     try {
       await partnerService.updatePassword(passwords.current, passwords.new)
-      setPwSuccess(true)
       setPasswords({ current: '', new: '', confirm: '' })
       showToast('success', 'Пароль успешно изменён')
     } catch (err: any) {
