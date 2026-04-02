@@ -38,7 +38,7 @@ export function ScrollToTopButton({ threshold = 400 }: ScrollToTopButtonProps) {
   return (
     <button
       onClick={scrollToTop}
-      className="fixed bottom-6 right-6 z-50 p-3 bg-primary hover:bg-primary-dark text-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-dark"
+      className="fixed bottom-20 lg:bottom-6 right-4 lg:right-6 z-30 p-3 bg-primary hover:bg-primary-dark text-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-dark"
       aria-label="Scroll to top"
     >
       <ArrowUp size={20} />

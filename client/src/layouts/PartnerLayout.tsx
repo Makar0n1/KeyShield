@@ -65,18 +65,10 @@ export function PartnerLayout() {
                 end={item.href === '/partner'}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors"
                 style={({ isActive }) => ({
-                  background: isActive ? 'var(--p-chrome-active)' : 'transparent',
-                  color: isActive ? '#ffffff' : 'var(--p-chrome-text)',
+                  background: isActive ? 'var(--p-chrome-hover)' : 'transparent',
+                  color: isActive ? 'var(--p-btn-accent)' : 'var(--p-chrome-text)',
                   fontWeight: isActive ? 500 : 400,
                 })}
-                onMouseEnter={(e) => {
-                  if (!e.currentTarget.classList.contains('active'))
-                    e.currentTarget.style.background = 'var(--p-chrome-hover)'
-                }}
-                onMouseLeave={(e) => {
-                  const isActive = e.currentTarget.getAttribute('aria-current') === 'page'
-                  if (!isActive) e.currentTarget.style.background = 'transparent'
-                }}
               >
                 <item.icon size={18} />
                 {item.name}

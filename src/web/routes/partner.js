@@ -313,14 +313,39 @@ router.get('/api/withdrawals', authenticatePartner, async (req, res) => {
   }
 });
 
-// API: Update wallet address
+// API: Update wallet address with blockchain validation
+const blockchainService = require('../../services/blockchain');
+
 router.post('/api/wallet', authenticatePartner, async (req, res) => {
   try {
     const platform = req.platform;
-    const { walletAddress } = req.body;
+    const { walletAddress, password } = req.body;
+
+    // Require password confirmation
+    if (!password) {
+      return res.status(400).json({ success: false, error: 'Введите пароль для подтверждения' });
+    }
+
+    const isValid = await platform.checkPassword(password);
+    if (!isValid) {
+      return res.status(403).json({ success: false, error: 'Неверный пароль' });
+    }
 
     if (!walletAddress || !walletAddress.startsWith('T') || walletAddress.length !== 34) {
-      return res.status(400).json({ success: false, error: 'Неверный адрес кошелька TRC-20' });
+      return res.status(400).json({ success: false, error: 'Неверный формат адреса TRC-20' });
+    }
+
+    if (!blockchainService.isValidAddress(walletAddress)) {
+      return res.status(400).json({ success: false, error: 'Указанный адрес не существует. Проверьте правильность написания.' });
+    }
+
+    try {
+      const account = await blockchainService.tronWeb.trx.getAccount(walletAddress);
+      if (!account || !account.address) {
+        return res.status(400).json({ success: false, error: 'Адрес не активирован в сети TRON. Убедитесь, что кошелёк существует.' });
+      }
+    } catch (e) {
+      return res.status(400).json({ success: false, error: 'Адрес не найден в сети TRON. Проверьте правильность написания.' });
     }
 
     platform.walletAddress = walletAddress;
