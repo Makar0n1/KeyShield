@@ -19,7 +19,7 @@ function MaskedAddress({ addr }: { addr: string }) {
   )
 }
 
-type ModalStep = 'password' | 'address' | 'verifying' | null
+type ModalStep = 'password' | 'address' | 'verifying' | 'delete-confirm' | 'delete-loading' | null
 
 export function PartnerSettingsPage() {
   const { platform } = usePartnerAuth()
@@ -84,6 +84,31 @@ export function PartnerSettingsPage() {
     setModalError('')
     setShowModalPw(false)
     setModalStep('password')
+  }
+
+  const openDeleteModal = () => {
+    setModalPassword('')
+    setModalError('')
+    setShowModalPw(false)
+    setModalStep('delete-confirm')
+  }
+
+  const handleDeleteWallet = async () => {
+    if (!modalPassword.trim()) {
+      setModalError('Введите пароль')
+      return
+    }
+    setModalError('')
+    setModalStep('delete-loading')
+    try {
+      await partnerService.deleteWallet(modalPassword)
+      setSavedWallet(null)
+      setModalStep(null)
+      showToast('success', 'Адрес кошелька удалён')
+    } catch (err: any) {
+      setModalStep('delete-confirm')
+      setModalError(err?.response?.data?.error || 'Ошибка удаления')
+    }
   }
 
   const handleModalPasswordNext = () => {
@@ -173,21 +198,29 @@ export function PartnerSettingsPage() {
                 <p className="text-[11px] p-text-faint">TRON (TRC-20)</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0 ml-3">
-              <a
-                href={`https://tronscan.org/#/address/${savedWallet}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 rounded-lg transition-colors hover:opacity-70 p-text-muted"
-              >
-                <ExternalLink size={14} />
-              </a>
+            <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://tronscan.org/#/address/${savedWallet}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 rounded-lg transition-colors hover:opacity-70 p-text-muted"
+                >
+                  <ExternalLink size={14} />
+                </a>
+                <button
+                  onClick={openWalletModal}
+                  className="text-xs px-3 py-1.5 rounded-full transition-colors"
+                  style={{ background: 'var(--p-btn-bg)', color: 'var(--p-btn-text)' }}
+                >
+                  Сменить
+                </button>
+              </div>
               <button
-                onClick={openWalletModal}
-                className="text-xs px-3 py-1.5 rounded-full transition-colors"
-                style={{ background: 'var(--p-btn-bg)', color: 'var(--p-btn-text)' }}
+                onClick={openDeleteModal}
+                className="text-[11px] p-text-faint hover:text-red-400 transition-colors"
               >
-                Сменить
+                Удалить адрес
               </button>
             </div>
           </div>
@@ -291,7 +324,10 @@ export function PartnerSettingsPage() {
               <div className="flex items-center gap-2">
                 <Shield size={16} style={{ color: 'var(--p-btn-accent)' }} />
                 <h3 className="text-sm font-medium p-text">
-                  {modalStep === 'password' ? 'Подтверждение' : modalStep === 'verifying' ? 'Проверка адреса' : 'Адрес кошелька'}
+                  {modalStep === 'password' ? 'Подтверждение' :
+                   modalStep === 'verifying' ? 'Проверка адреса' :
+                   modalStep === 'delete-confirm' || modalStep === 'delete-loading' ? 'Удаление адреса' :
+                   'Адрес кошелька'}
                 </h3>
               </div>
               <button onClick={() => setModalStep(null)} className="p-text-muted hover:opacity-70 transition-opacity">
@@ -373,6 +409,48 @@ export function PartnerSettingsPage() {
                 </div>
                 <p className="text-sm p-text mb-1">Проверка адреса</p>
                 <p className="text-xs p-text-faint font-mono">{modalAddress.slice(0, 8)}...{modalAddress.slice(-6)}</p>
+              </div>
+            )}
+
+            {/* Step: Delete confirm */}
+            {modalStep === 'delete-confirm' && (
+              <>
+                <p className="text-xs p-text-faint mb-4">Введите пароль для подтверждения удаления адреса кошелька</p>
+                <div className="relative mb-4">
+                  <input
+                    type={showModalPw ? 'text' : 'password'}
+                    value={modalPassword}
+                    onChange={(e) => { setModalPassword(e.target.value); setModalError('') }}
+                    placeholder="Пароль"
+                    autoFocus
+                    className="w-full h-10 px-3 pr-10 rounded-xl text-sm outline-none transition-colors focus:ring-1 focus:ring-red-400"
+                    style={{ background: 'var(--p-input-bg)', border: '1px solid var(--p-input-border)', color: 'var(--p-text)' }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleDeleteWallet()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPw(!showModalPw)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-text-muted"
+                  >
+                    {showModalPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                <button
+                  onClick={handleDeleteWallet}
+                  className="w-full py-2.5 text-sm font-medium rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                >
+                  Удалить адрес
+                </button>
+              </>
+            )}
+
+            {/* Step: Delete loading */}
+            {modalStep === 'delete-loading' && (
+              <div className="flex flex-col items-center py-6">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(239,68,68,0.08)' }}>
+                  <Loader2 size={20} className="animate-spin text-red-400" />
+                </div>
+                <p className="text-sm p-text">Удаление...</p>
               </div>
             )}
           </div>

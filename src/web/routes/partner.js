@@ -358,6 +358,31 @@ router.post('/api/wallet', authenticatePartner, async (req, res) => {
   }
 });
 
+// API: Delete wallet address (requires password)
+router.post('/api/wallet/delete', authenticatePartner, async (req, res) => {
+  try {
+    const platform = req.platform;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ success: false, error: 'Введите пароль для подтверждения' });
+    }
+
+    const isValid = await platform.checkPassword(password);
+    if (!isValid) {
+      return res.status(403).json({ success: false, error: 'Неверный пароль' });
+    }
+
+    platform.walletAddress = null;
+    platform.addLog('wallet_deleted', {});
+    await platform.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============ HTML Templates ============
 
 function getLoginPage(error) {

@@ -115,4 +115,8 @@ export const partnerService = {
   updateWallet: async (walletAddress: string, password: string): Promise<void> => {
     await api.post('/partner/api/wallet', { walletAddress, password })
   },
+
+  deleteWallet: async (password: string): Promise<void> => {
+    await api.post('/partner/api/wallet/delete', { password })
+  },
 }
