@@ -63,11 +63,11 @@ function Heading({ children, className = '' }: { children: React.ReactNode; clas
  *   "M850,0 C850,150 150,50 150,200"   — из права вниз налево
  *   "M200,0 C800,60 200,140 800,200"   — S-образная
  */
-function FlowLine({ id, d, top = -60, height = 250, sw = 1.5 }: {
-  id: string; d: string; top?: number; height?: number; sw?: number
+function FlowLine({ id, d, top = -60, height = 250, left = 0, right = 0, sw = 1.5 }: {
+  id: string; d: string; top?: number; height?: number; left?: number; right?: number; sw?: number
 }) {
   return (
-    <div className="hidden lg:block absolute left-0 right-0 pointer-events-none z-0" style={{ top, height }} aria-hidden>
+    <div className="hidden lg:block absolute pointer-events-none z-0" style={{ top, height, left, right }} aria-hidden>
       <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 200">
         <path d={d} fill="none" stroke={`url(#${id})`} strokeWidth={sw} strokeLinecap="round" />
         <defs>
@@ -78,6 +78,40 @@ function FlowLine({ id, d, top = -60, height = 250, sw = 1.5 }: {
           </linearGradient>
         </defs>
       </svg>
+    </div>
+  )
+}
+
+// YouTube lazy embed — loads iframe only on click
+function YoutubeEmbed({ videoId }: { videoId: string }) {
+  const [playing, setPlaying] = useState(false)
+  return (
+    <div className="aspect-video rounded-2xl overflow-hidden relative bg-black">
+      {!playing ? (
+        <button onClick={() => setPlaying(true)} className="absolute inset-0 w-full h-full group cursor-pointer">
+          <img
+            src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+            alt="Video preview"
+            className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity duration-300"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm group-hover:bg-white/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M8 5.14v13.72a1 1 0 001.5.86l11.04-6.86a1 1 0 000-1.72L9.5 4.28a1 1 0 00-1.5.86z" fill="white"/>
+              </svg>
+            </div>
+          </div>
+        </button>
+      ) : (
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+          className="absolute inset-0 w-full h-full"
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          title="KeyShield Demo"
+        />
+      )}
     </div>
   )
 }
@@ -116,7 +150,7 @@ function HeroSection() {
           {/* Left — text */}
           <Reveal>
             <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400 mb-5">Escrow on TRON blockchain</p>
-            <h1 className="text-[2rem] sm:text-4xl lg:text-[2.8rem] font-normal leading-[1.15] tracking-tight text-white mb-5">
+            <h1 className="text-[2rem] sm:text-4xl lg:text-[2.8rem] font-normal tracking-tight text-white mb-5" style={{ lineHeight: 1.05 }}>
               {t('home.hero.title')}
             </h1>
             <p className="text-[15px] text-white/50 leading-relaxed mb-8">
@@ -529,7 +563,7 @@ function FAQSection() {
 
   return (
     <section className="py-20 sm:py-24 border-t border-white/[0.08] relative">
-      <FlowLine id="fl2" d="M600,0 C600,150 200,50 200,200" top={-80} height={180} />
+      <FlowLine id="fl2" d="M600,0 C600,150 200,50 200,200" top={-80} height={180} left={300} right={55} />
       <div className={CX}>
         <Reveal>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
@@ -562,7 +596,7 @@ function CTASection() {
   const { t } = useTranslation()
   return (
     <section className="py-20 sm:py-28 border-t border-white/[0.08] relative">
-      <FlowLine id="fl3" d="M350,0 C350,150 800,50 800,200" top={-80} height={180} />
+      <FlowLine id="fl3" d="M350,0 C350,150 800,50 800,200" top={-80} height={180} left={140} right={385} />
       <div className={CX}>
         <Reveal>
           <div className="grid lg:grid-cols-[5fr_7fr] gap-10 lg:gap-12 items-center">
@@ -576,15 +610,8 @@ function CTASection() {
               </a>
             </div>
 
-            {/* Video placeholder */}
-            <div className="aspect-video rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center overflow-hidden relative group cursor-pointer">
-              <div className="w-16 h-16 rounded-full bg-indigo-500/20 group-hover:bg-indigo-500/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 z-10">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M8 5.14v13.72a1 1 0 001.5.86l11.04-6.86a1 1 0 000-1.72L9.5 4.28a1 1 0 00-1.5.86z" fill="#6366f1"/>
-                </svg>
-              </div>
-              <p className="absolute bottom-4 text-[11px] text-white/20">Video guide — buyer deal flow</p>
-            </div>
+            {/* YouTube lazy embed */}
+            <YoutubeEmbed videoId="xd21ruhSILU" />
           </div>
         </Reveal>
       </div>
