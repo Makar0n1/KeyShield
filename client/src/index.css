@@ -177,6 +177,12 @@
     border-color: var(--p-divider) !important;
   }
 
+  /* SEO: override hidden animations for prerender/bots */
+  html:not(.js-ready) [data-animate] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }

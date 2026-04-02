@@ -35,7 +35,7 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
     return () => obs.disconnect()
   }, [])
 
-  return <div ref={ref} className={`transition-all duration-700 ${v ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${className}`}>{children}</div>
+  return <div ref={ref} data-animate className={`transition-all duration-700 ${v ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${className}`}>{children}</div>
 }
 
 // Section label
@@ -216,6 +216,7 @@ function FeatureCard({ icon: Icon, featureKey, index }: { icon: typeof Shield; f
   return (
     <div
       ref={ref}
+      data-animate
       className="group relative p-6 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] transition-all duration-500 cursor-default min-w-[260px] sm:min-w-0 h-full"
       style={{
         opacity: visible ? 1 : 0,

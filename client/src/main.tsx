@@ -9,3 +9,9 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// Signal that JS is hydrated — enables scroll animations
+// Without this class, CSS keeps all [data-animate] elements visible for SEO bots
+requestAnimationFrame(() => {
+  document.documentElement.classList.add('js-ready')
+})
