@@ -34,7 +34,6 @@ export function PartnerWithdrawalsPage() {
   const [showForm, setShowForm] = useState(false)
 
   const [amount, setAmount] = useState('')
-  const [walletAddress, setWalletAddress] = useState('')
 
   const fetchData = async () => {
     try {
@@ -42,9 +41,6 @@ export function PartnerWithdrawalsPage() {
       setWithdrawals(data.withdrawals)
       setAvailableBalance(data.availableBalance)
       setSavedWallet(data.walletAddress)
-      if (data.walletAddress && !walletAddress) {
-        setWalletAddress(data.walletAddress)
-      }
     } catch (err) {
       console.error('Failed to fetch withdrawals:', err)
     } finally {
@@ -68,14 +64,14 @@ export function PartnerWithdrawalsPage() {
       setError('Превышает доступный баланс')
       return
     }
-    if (!walletAddress || !walletAddress.startsWith('T') || walletAddress.length !== 34) {
-      setError('Некорректный адрес TRC-20')
+    if (!savedWallet) {
+      setError('Сначала укажите кошелёк в настройках')
       return
     }
 
     setSubmitting(true)
     try {
-      const result = await partnerService.requestWithdrawal(numAmount, walletAddress)
+      const result = await partnerService.requestWithdrawal(numAmount, savedWallet)
       setSuccess(`Заявка ${result.withdrawal.withdrawalId} создана`)
       setAmount('')
       setShowForm(false)
@@ -147,11 +143,26 @@ export function PartnerWithdrawalsPage() {
       )}
 
       {/* Withdraw action */}
-      {!hasPending && availableBalance >= 10 && !showForm && (
+      {!hasPending && availableBalance >= 10 && !savedWallet && (
+        <div className="mb-8">
+          <p className="text-sm p-text-secondary mb-2">Для вывода средств необходимо указать кошелёк</p>
+          <a
+            href="/partner/settings"
+            className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-full transition-colors"
+            style={{ background: 'var(--p-btn-accent)', color: 'var(--p-btn-accent-text)' }}
+          >
+            <Wallet size={14} />
+            Указать кошелёк в настройках
+          </a>
+        </div>
+      )}
+
+      {!hasPending && availableBalance >= 10 && savedWallet && !showForm && (
         <div className="mb-8">
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black text-sm font-medium rounded-full hover:bg-gray-200 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-full transition-colors"
+            style={{ background: 'var(--p-pill-active-bg)', color: 'var(--p-pill-active-text)' }}
           >
             <ArrowUpRight size={16} />
             Запросить вывод
@@ -175,6 +186,12 @@ export function PartnerWithdrawalsPage() {
             </div>
           )}
 
+          {/* Wallet preview */}
+          <div className="flex items-center gap-2 mb-4 text-xs p-text-muted">
+            <Wallet size={13} />
+            <span>Вывод на: <span className="font-mono p-text-secondary">{savedWallet?.slice(0, 8)}...{savedWallet?.slice(-6)}</span></span>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
             <div>
               <label className="block text-[11px] uppercase tracking-widest p-text-muted mb-2">Сумма</label>
@@ -191,30 +208,12 @@ export function PartnerWithdrawalsPage() {
                 <button
                   type="button"
                   onClick={() => setAmount(availableBalance.toFixed(2))}
-                  className="shrink-0 px-3 py-2 text-xs uppercase tracking-wider p-text-secondary hover:p-text border border-white/[0.08] rounded-lg transition-colors"
+                  className="shrink-0 px-3 py-2 text-xs uppercase tracking-wider p-text-secondary border rounded-lg transition-colors"
+                  style={{ borderColor: 'var(--p-pill-border)' }}
                 >
                   Max
                 </button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] uppercase tracking-widest p-text-muted mb-2">Кошелёк TRC-20</label>
-              <Input
-                type="text"
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="T..."
-              />
-              {savedWallet && walletAddress !== savedWallet && (
-                <button
-                  type="button"
-                  className="text-xs p-text-muted mt-1.5 hover:p-text transition-colors"
-                  onClick={() => setWalletAddress(savedWallet)}
-                >
-                  Сохранённый: {savedWallet.slice(0, 8)}...{savedWallet.slice(-4)}
-                </button>
-              )}
             </div>
 
             <div className="flex items-center gap-3 pt-1">
@@ -234,7 +233,7 @@ export function PartnerWithdrawalsPage() {
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setError('') }}
-                className="text-sm p-text-muted hover:p-text transition-colors"
+                className="text-sm p-text-muted transition-colors"
               >
                 Отмена
               </button>
