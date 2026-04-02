@@ -43,6 +43,45 @@ function Heading({ children, className = '' }: { children: React.ReactNode; clas
   return <h2 className={`text-2xl sm:text-[2rem] font-light leading-snug tracking-tight mb-10 text-white/90 ${className}`}>{children}</h2>
 }
 
+/*
+ * FlowLine — декоративная SVG кривая.
+ * Ставится ВНУТРЬ секции с className="relative".
+ * Позиционируется absolute, не влияет на layout.
+ *
+ * Props:
+ *   id     — уникальный для каждой линии ("fl1", "fl2", "fl3")
+ *   d      — SVG path. viewBox = "0 0 1000 200"
+ *            X: 0=лево  500=центр  1000=право
+ *            Y: 0=верх  200=низ
+ *            Формат: "M{x},{y} C{cp1x},{cp1y} {cp2x},{cp2y} {endX},{endY}"
+ *   top    — px от верха секции (default: -60, минус = выше секции)
+ *   height — высота SVG зоны в px (default: 250)
+ *   sw     — толщина линии (default: 1.5)
+ *
+ * Примеры d:
+ *   "M150,0 C150,150 850,50 850,200"   — из лева вниз направо
+ *   "M850,0 C850,150 150,50 150,200"   — из права вниз налево
+ *   "M200,0 C800,60 200,140 800,200"   — S-образная
+ */
+function FlowLine({ id, d, top = -60, height = 250, sw = 1.5 }: {
+  id: string; d: string; top?: number; height?: number; sw?: number
+}) {
+  return (
+    <div className="hidden lg:block absolute left-0 right-0 pointer-events-none z-0" style={{ top, height }} aria-hidden>
+      <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 200">
+        <path d={d} fill="none" stroke={`url(#${id})`} strokeWidth={sw} strokeLinecap="round" />
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.1" />
+            <stop offset="50%" stopColor="#6366f1" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.1" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  )
+}
+
 export function HomePage() {
   const { t } = useTranslation()
   return (
@@ -441,7 +480,7 @@ function DealBuilderCard() {
 function PricingSection() {
   const { t } = useTranslation()
   return (
-    <section id="pricing" className="py-20 sm:py-24 border-t border-white/[0.08]">
+    <section id="pricing" className="py-20 sm:py-24 border-t border-white/[0.08] relative">
       <div className={CX}>
         <Reveal>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
@@ -489,7 +528,8 @@ function FAQSection() {
   const items = [1, 2, 3, 4].map(i => ({ q: t(`home.faq.q${i}`), a: t(`home.faq.a${i}`) }))
 
   return (
-    <section className="py-20 sm:py-24 border-t border-white/[0.08]">
+    <section className="py-20 sm:py-24 border-t border-white/[0.08] relative">
+      <FlowLine id="fl2" d="M600,0 C600,150 200,50 200,200" top={-80} height={180} />
       <div className={CX}>
         <Reveal>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
@@ -521,7 +561,8 @@ function FAQSection() {
 function CTASection() {
   const { t } = useTranslation()
   return (
-    <section className="py-20 sm:py-28 border-t border-white/[0.08]">
+    <section className="py-20 sm:py-28 border-t border-white/[0.08] relative">
+      <FlowLine id="fl3" d="M350,0 C350,150 800,50 800,200" top={-80} height={180} />
       <div className={CX}>
         <Reveal>
           <div className="grid lg:grid-cols-[5fr_7fr] gap-10 lg:gap-12 items-center">
