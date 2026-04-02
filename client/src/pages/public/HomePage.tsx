@@ -154,7 +154,7 @@ function HeroSection() {
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left — text */}
           <Reveal>
-            <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400 mb-5">Escrow on TRON blockchain</p>
+            <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400 mb-5">{t('home.hero.label')}</p>
             <h1 className="text-[2rem] sm:text-4xl lg:text-[2.8rem] font-normal tracking-tight text-white mb-5" style={{ lineHeight: 1.05 }}>
               {t('home.hero.title')}
             </h1>
@@ -267,7 +267,7 @@ function FeaturesSection() {
   return (
     <section id="features" className="py-20 sm:py-24 border-t border-white/[0.08]">
       <div className={CX}>
-        <Label>Features</Label>
+        <Label>{t('home.features.label')}</Label>
         <Heading className="max-w-lg">{t('home.features.title')}</Heading>
       </div>
 
@@ -318,7 +318,7 @@ function HowItWorksSection() {
       <div className={CX}>
         <Reveal>
           <div className="mb-12">
-            <Label>Process</Label>
+            <Label>{t('home.how_it_works.label')}</Label>
             <Heading>{t('home.how_it_works.title')}</Heading>
           </div>
 
@@ -525,7 +525,7 @@ function PricingSection() {
         <Reveal>
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           <div>
-            <Label>Pricing</Label>
+            <Label>{t('home.pricing.label')}</Label>
             <Heading>{t('home.pricing.title')}</Heading>
             <div className="text-[13px] text-white/35 space-y-3 max-w-xs">
               <p><span className="text-white/60">{t('home.pricing.who_pays_title')}</span> — {t('home.pricing.who_pays_desc')}</p>
@@ -587,7 +587,7 @@ function FAQSection() {
               ))}
             </div>
             <div className="order-1 lg:order-2">
-              <Label>FAQ</Label>
+              <Label>{t('home.faq.label')}</Label>
               <Heading>{t('home.faq.title')}</Heading>
             </div>
           </div>
@@ -607,7 +607,7 @@ function CTASection() {
         <Reveal>
           <div className="grid lg:grid-cols-[5fr_7fr] gap-10 lg:gap-12 items-center">
             <div className="text-center lg:text-left">
-              <Label>Guide</Label>
+              <Label>{t('home.cta.label')}</Label>
               <Heading>{t('home.cta.title')}</Heading>
               <p className="text-[13px] text-white/40 mb-8 max-w-sm mx-auto lg:mx-0">{t('home.cta.subtitle')}</p>
               <a href="https://t.me/keyshield_bot" target="_blank" rel="noopener noreferrer" onClick={() => trackLead()}

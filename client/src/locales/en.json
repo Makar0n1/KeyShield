@@ -26,6 +26,7 @@
     "sticky_open_bot": "Open Telegram bot",
     "sticky_read_reviews": "Read reviews",
     "hero": {
+      "label": "Escrow on TRON blockchain",
       "title": "Trusted Crypto Escrow Service for Telegram Deals",
       "subtitle": "Funds locked in a 2-of-3 multisig wallet on TRON. Two signatures required — no admin can touch your money.",
       "cta_start": "Get started",
@@ -40,6 +41,7 @@
       "p2": "In KeyShield, the cryptocurrency escrow service role is played by a <strong>multisig wallet on the TRON blockchain</strong> — not a human intermediary. Unlike a traditional bitcoin escrow service, funds are locked at a blockchain address where any transfer requires two out of three signatures. This makes every deal technically transparent, not just based on trust."
     },
     "features": {
+      "label": "Features",
       "title": "Why KeyShield is the Most Secure Crypto Escrow Service on Telegram",
       "multisig_title": "Multisig Protection",
       "multisig_desc": "Each deal creates a dedicated 2-of-3 multisig wallet — the backbone of our escrow crypto system. Buyer and seller each hold a private key; KeyShield holds the third. Without two signatures, funds never move. No party, no admin, nobody can steal the deposit.",
@@ -55,6 +57,7 @@
       "fast_start_desc": "No registration or KYC required to use these crypto escrow services. Open the bot, describe your deal terms, and send USDT to the multisig address — that's it."
     },
     "how_it_works": {
+      "label": "Process",
       "title": "How it works",
       "step1_title": "Create a deal",
       "step1_desc": "The buyer or seller opens the Telegram bot and creates a secure deal: describes the service or product, the USDT amount, and the deadline.",
@@ -72,6 +75,7 @@
       "deadline_p3": "<strong>The service commission is retained regardless</strong> — it covers infrastructure costs. Please try to complete deals on time."
     },
     "pricing": {
+      "label": "Pricing",
       "title": "Transparent pricing",
       "standard_title": "Standard commission",
       "standard_from": "of the deal amount from 150 USDT",
@@ -92,6 +96,7 @@
       "no_hidden_desc": "The commission covers all operational costs: wallet activation, transactions, arbitration."
     },
     "faq": {
+      "label": "FAQ",
       "title": "Frequently Asked Questions About Our Crypto Escrow Services",
       "q1": "What exactly is a crypto escrow?",
       "a1": "A crypto escrow is a neutral intermediary service that holds funds on behalf of both parties during a transaction. The money is only released when both sides confirm the deal terms have been met. KeyShield provides this as a fully automated cryptocurrency escrow service — funds are held in a multisig wallet on TRON, not in a personal account controlled by anyone.",
@@ -159,6 +164,7 @@
       "error_amount": "Minimum 50 USDT"
     },
     "cta": {
+      "label": "Guide",
       "title": "Ready to Use Our Crypto Escrow Service?",
       "subtitle": "Join KeyShield and protect every cryptocurrency deal with blockchain-grade multisig escrow",
       "button": "Open Telegram bot"

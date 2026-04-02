@@ -12,6 +12,9 @@ createRoot(document.getElementById('root')!).render(
 
 // Signal that JS is hydrated — enables scroll animations
 // Without this class, CSS keeps all [data-animate] elements visible for SEO bots
-requestAnimationFrame(() => {
-  document.documentElement.classList.add('js-ready')
-})
+// Skip for prerender bot so crawlers see opacity: 1
+if (!navigator.userAgent.includes('Prerender')) {
+  requestAnimationFrame(() => {
+    document.documentElement.classList.add('js-ready')
+  })
+}

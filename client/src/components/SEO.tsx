@@ -94,6 +94,27 @@ export function SEO({
     setMetaTag('description', description)
     setLinkTag('canonical', fullUrl)
 
+    // Hreflang tags for multilingual pages
+    const pagePath = url || ''
+    const hreflangData = [
+      { lang: 'en', href: `${SITE_URL}/en${pagePath}` },
+      { lang: 'ru', href: `${SITE_URL}/ru${pagePath}` },
+      { lang: 'uk', href: `${SITE_URL}/uk${pagePath}` },
+      { lang: 'x-default', href: `${SITE_URL}/en${pagePath}` },
+    ]
+
+    // Remove old hreflang tags
+    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove())
+
+    // Add new hreflang tags
+    hreflangData.forEach(({ lang: hLang, href }) => {
+      const link = document.createElement('link')
+      link.rel = 'alternate'
+      link.hreflang = hLang
+      link.href = href.replace(/\/+$/, '') || href
+      document.head.appendChild(link)
+    })
+
     // Robots - noindex if:
     // 1. noindex prop is true
     // 2. Global INDEXATION is disabled (VITE_INDEXATION !== 'yes')
