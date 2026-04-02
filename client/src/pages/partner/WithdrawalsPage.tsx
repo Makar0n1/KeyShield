@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Copy,
   ArrowUpRight,
+  Wallet,
 } from 'lucide-react'
 
 const statusConfig: Record<string, { label: string; variant: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
