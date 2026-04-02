@@ -10,7 +10,10 @@ export function Footer() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand */}
           <div className="col-span-2 sm:col-span-1">
-            <p className="text-white font-semibold text-sm mb-2">KeyShield</p>
+            <div className="flex items-center gap-2 mb-2">
+              <img src="/keyshield-logo.png" alt="KeyShield" width="18" height="18" className="shrink-0" />
+              <p className="text-white font-semibold text-sm">KeyShield</p>
+            </div>
             <p className="text-white/30 text-xs leading-relaxed max-w-[200px]">
               {t('footer.tagline')}
             </p>

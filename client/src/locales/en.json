@@ -27,7 +27,7 @@
     "sticky_read_reviews": "Read reviews",
     "hero": {
       "title": "Trusted Crypto Escrow Service for Telegram Deals",
-      "subtitle": "A secure cryptocurrency escrow service built on the TRON blockchain. Funds are locked in a 2-of-3 multisig wallet — our escrow crypto solution requires two signatures before any transfer, with private keys belonging only to deal participants. No admin can withdraw funds unilaterally.",
+      "subtitle": "Funds locked in a 2-of-3 multisig wallet on TRON. Two signatures required — no admin can touch your money.",
       "cta_start": "Get started",
       "cta_how": "How it works",
       "stat_signatures": "Signatures required to transfer funds",

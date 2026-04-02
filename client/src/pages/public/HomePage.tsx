@@ -48,39 +48,42 @@ export function HomePage() {
   return (
     <>
       <SEO title={t('home.seo_title')} description={t('home.seo_description')} schema={generateOrganizationSchema()} />
-      <div className="bg-[#0e1117] text-white/80 overflow-hidden">
+      <div className="bg-[#13161d] text-white/85 overflow-hidden">
         <HeroSection />
+        <div id="sticky-cta-start" />
         <FeaturesSection />
         <HowItWorksSection />
-        <DealBuilderSection />
         <PricingSection />
         <FAQSection />
+        <div id="sticky-cta-end" />
         <CTASection />
+        <StickyBotCTA />
       </div>
     </>
   )
 }
 
-// ─── HERO ──────────────────────────────────
+// ─── HERO + DEAL BUILDER ───────────────────
 function HeroSection() {
   const { t } = useTranslation()
   return (
-    <section className="relative pt-32 sm:pt-40 pb-20 sm:pb-28">
+    <section className="relative pt-28 sm:pt-36 pb-16 sm:pb-24">
       {/* Gradient orbs */}
-      <div className="absolute top-20 left-1/3 w-[500px] h-[500px] bg-indigo-600/[0.05] rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-600/[0.04] rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-20 left-1/4 w-[500px] h-[500px] bg-indigo-600/[0.06] rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-600/[0.05] rounded-full blur-[120px] pointer-events-none" />
 
       <div className={CX}>
-        <Reveal>
-          <div className="max-w-2xl">
-            <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400/70 mb-5">Escrow on TRON blockchain</p>
-            <h1 className="text-[2.2rem] sm:text-5xl lg:text-[3.5rem] font-light leading-[1.12] tracking-tight text-white mb-6">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* Left — text */}
+          <Reveal>
+            <p className="text-[11px] uppercase tracking-[0.25em] text-indigo-400 mb-5">Escrow on TRON blockchain</p>
+            <h1 className="text-[2rem] sm:text-4xl lg:text-[2.8rem] font-normal leading-[1.15] tracking-tight text-white mb-5">
               {t('home.hero.title')}
             </h1>
-            <p className="text-base sm:text-[1.05rem] text-white/35 leading-relaxed max-w-xl mb-10">
+            <p className="text-[15px] text-white/50 leading-relaxed mb-8">
               {t('home.hero.subtitle')}
             </p>
-            <div className="flex flex-wrap items-center gap-3 mb-20">
+            <div className="flex flex-wrap items-center gap-3 mb-12">
               <a
                 href="https://t.me/keyshield_bot" target="_blank" rel="noopener noreferrer"
                 onClick={() => trackLead()}
@@ -88,34 +91,79 @@ function HeroSection() {
               >
                 {t('home.hero.cta_start')} <ArrowRight size={15} />
               </a>
-              <a href="#how-it-works" className="inline-flex items-center gap-2 px-6 py-3 text-white/40 text-sm border border-white/[0.08] rounded-full hover:border-white/[0.18] hover:text-white/70 transition-all">
+              <a href="#how-it-works" className="inline-flex items-center gap-2 px-6 py-3 text-white/50 text-sm border border-white/10 rounded-full hover:border-white/20 hover:text-white/70 transition-all">
                 {t('home.hero.cta_how')}
               </a>
             </div>
-          </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-8 sm:gap-14 max-w-md border-t border-white/[0.06] pt-8">
-            {[
-              { value: '2/3', label: t('home.hero.stat_signatures') },
-              { value: `${COMMISSION_TIER_1_FIXED}$`, label: t('home.hero.stat_commission') },
-              { value: '24/7', label: t('home.hero.stat_availability') },
-            ].map((s, i) => (
-              <div key={i}>
-                <p className="text-xl sm:text-2xl font-light text-white">{s.value}</p>
-                <p className="text-[11px] text-white/25 mt-1 leading-snug">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </Reveal>
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-8 border-t border-white/[0.08] pt-6">
+              {[
+                { value: '2/3', label: t('home.hero.stat_signatures') },
+                { value: `${COMMISSION_TIER_1_FIXED}$`, label: t('home.hero.stat_commission') },
+                { value: '24/7', label: t('home.hero.stat_availability') },
+              ].map((s, i) => (
+                <div key={i}>
+                  <p className="text-xl sm:text-2xl font-normal text-white">{s.value}</p>
+                  <p className="text-[11px] text-white/35 mt-1 leading-snug">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* Right — Deal Builder */}
+          <Reveal className="lg:mt-8">
+            <DealBuilderCard />
+          </Reveal>
+        </div>
       </div>
     </section>
   )
 }
 
 // ─── FEATURES ──────────────────────────────
+function FeatureCard({ icon: Icon, featureKey, index }: { icon: typeof Shield; featureKey: string; index: number }) {
+  const { t } = useTranslation()
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.2 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className="group relative p-6 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] transition-all duration-500 cursor-default min-w-[260px] sm:min-w-0 h-full"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.97)',
+        transition: `opacity 0.5s ${index * 0.1}s, transform 0.5s ${index * 0.1}s, background 0.3s`,
+      }}
+    >
+      {/* Hover glow */}
+      <div className="absolute inset-0 rounded-2xl bg-indigo-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+      <div className="relative">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center mb-4 group-hover:from-indigo-500/20 group-hover:to-purple-500/20 transition-all duration-500">
+          <Icon size={18} className="text-indigo-400/60 group-hover:text-indigo-400 transition-colors duration-500" strokeWidth={1.5} />
+        </div>
+        <h3 className="text-[15px] font-medium text-white mb-2">{t(`home.features.${featureKey}_title`, { fee: COMMISSION_TIER_1_FIXED })}</h3>
+        <p className="text-[12px] text-white/40 leading-relaxed">{t(`home.features.${featureKey}_desc`, { fee: COMMISSION_TIER_1_FIXED })}</p>
+      </div>
+    </div>
+  )
+}
+
 function FeaturesSection() {
   const { t } = useTranslation()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [activeDot, setActiveDot] = useState(0)
+
   const features = [
     { icon: Shield, key: 'multisig' },
     { icon: Zap, key: 'automation' },
@@ -124,51 +172,124 @@ function FeaturesSection() {
     { icon: Coins, key: 'low_fee' },
     { icon: Rocket, key: 'fast_start' },
   ]
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      const scrollLeft = el.scrollLeft
+      const cardWidth = el.scrollWidth / features.length
+      setActiveDot(Math.round(scrollLeft / cardWidth))
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [features.length])
+
   return (
-    <section id="features" className="py-20 sm:py-24 border-t border-white/[0.04]">
+    <section id="features" className="py-20 sm:py-24 border-t border-white/[0.08]">
       <div className={CX}>
-        <Reveal>
-          <Label>Features</Label>
-          <Heading className="max-w-lg">{t('home.features.title')}</Heading>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-10">
-            {features.map(({ icon: Icon, key }) => (
-              <div key={key} className="group">
-                <div className="w-9 h-9 rounded-xl bg-white/[0.03] flex items-center justify-center mb-4 group-hover:bg-indigo-500/10 transition-colors">
-                  <Icon size={18} className="text-white/25 group-hover:text-indigo-400 transition-colors" strokeWidth={1.5} />
-                </div>
-                <h3 className="text-[15px] font-medium text-white/80 mb-2">{t(`home.features.${key}_title`, { fee: COMMISSION_TIER_1_FIXED })}</h3>
-                <p className="text-[13px] text-white/30 leading-relaxed">{t(`home.features.${key}_desc`, { fee: COMMISSION_TIER_1_FIXED })}</p>
-              </div>
-            ))}
-          </div>
-        </Reveal>
+        <Label>Features</Label>
+        <Heading className="max-w-lg">{t('home.features.title')}</Heading>
+      </div>
+
+      {/* Desktop: grid */}
+      <div className={`${CX} hidden sm:block`}>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {features.map(({ icon, key }, i) => (
+            <FeatureCard key={key} icon={icon} featureKey={key} index={i} />
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile: horizontal scroll */}
+      <div className="sm:hidden px-5">
+        <div
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-0"
+        >
+          {features.map(({ icon, key }, i) => (
+            <div key={key} className="snap-center shrink-0 w-[80vw] max-w-[300px] h-[280px]">
+              <FeatureCard icon={icon} featureKey={key} index={i} />
+            </div>
+          ))}
+        </div>
+        {/* Pagination dots */}
+        <div className="flex items-center justify-center gap-1.5 mt-3">
+          {features.map((_, i) => (
+            <div
+              key={i}
+              className={`rounded-full transition-all duration-300 ${
+                i === activeDot ? 'w-5 h-1.5 bg-indigo-500' : 'w-1.5 h-1.5 bg-white/15'
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </section>
   )
 }
 
-// ─── HOW IT WORKS ──────────────────────────
+// ─── HOW IT WORKS (snake grid) ──────
 function HowItWorksSection() {
   const { t } = useTranslation()
   const steps = ['step1', 'step2', 'step3', 'step4', 'step5']
+
   return (
-    <section id="how-it-works" className="py-20 sm:py-24 border-t border-white/[0.04]">
+    <section id="how-it-works" className="py-20 sm:py-24 border-t border-white/[0.08]">
       <div className={CX}>
         <Reveal>
-          <Label>Process</Label>
-          <Heading>{t('home.how_it_works.title')}</Heading>
-          <div className="max-w-2xl space-y-6">
-            {steps.map((key, i) => (
-              <div key={key} className="flex gap-5 group">
-                <div className="w-8 h-8 rounded-full bg-white/[0.04] group-hover:bg-indigo-500/10 flex items-center justify-center shrink-0 transition-colors">
-                  <span className="text-[11px] font-mono text-white/25 group-hover:text-indigo-400 transition-colors">{String(i + 1).padStart(2, '0')}</span>
+          <div className="mb-12">
+            <Label>Process</Label>
+            <Heading>{t('home.how_it_works.title')}</Heading>
+          </div>
+
+          {/* Row 1: steps 1-2-3 */}
+          <div className="hidden sm:grid sm:grid-cols-3 gap-6 mb-4">
+            {steps.slice(0, 3).map((key, i) => (
+              <div key={key} className="group">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono text-indigo-400">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="flex-1 h-px bg-white/[0.06]" />
                 </div>
-                <div className="pt-1">
-                  <h3 className="text-[15px] font-medium text-white/80 mb-1">{t(`home.how_it_works.${key}_title`)}</h3>
-                  <p className="text-[13px] text-white/30 leading-relaxed">{t(`home.how_it_works.${key}_desc`)}</p>
-                </div>
+                <h3 className="text-sm font-medium text-white mb-1">{t(`home.how_it_works.${key}_title`)}</h3>
+                <p className="text-[12px] text-white/35 leading-relaxed">{t(`home.how_it_works.${key}_desc`)}</p>
               </div>
             ))}
+          </div>
+
+          {/* Row 2: steps 4-5 */}
+          <div className="hidden sm:grid sm:grid-cols-2 gap-6" style={{ maxWidth: 'calc(100% - (100% / 3 - 1.5rem) * 0)', paddingLeft: 0 }}>
+            {steps.slice(3, 5).map((key, i) => (
+              <div key={key} className="group">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono text-indigo-400">{String(i + 4).padStart(2, '0')}</span>
+                  <div className="flex-1 h-px bg-white/[0.06]" />
+                </div>
+                <h3 className="text-sm font-medium text-white mb-1">{t(`home.how_it_works.${key}_title`)}</h3>
+                <p className="text-[12px] text-white/35 leading-relaxed">{t(`home.how_it_works.${key}_desc`)}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile — staggered layout */}
+          <div className="sm:hidden space-y-4">
+            {steps.map((key, i) => {
+              const isEven = i % 2 === 0
+              return (
+                <div
+                  key={key}
+                  className={`p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] ${isEven ? 'mr-8' : 'ml-8'}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-mono text-indigo-400">{String(i + 1).padStart(2, '0')}</span>
+                    </div>
+                    <h3 className="text-sm font-medium text-white">{t(`home.how_it_works.${key}_title`)}</h3>
+                  </div>
+                  <p className="text-[12px] text-white/35 leading-relaxed pl-9">{t(`home.how_it_works.${key}_desc`)}</p>
+                </div>
+              )
+            })}
           </div>
         </Reveal>
       </div>
@@ -176,8 +297,8 @@ function HowItWorksSection() {
   )
 }
 
-// ─── DEAL BUILDER ──────────────────────────
-function DealBuilderSection() {
+// ─── DEAL BUILDER CARD ─────────────────────
+function DealBuilderCard() {
   const { t } = useTranslation()
   const [step, setStep] = useState(0)
   const [role, setRole] = useState<'buyer' | 'seller' | ''>('')
@@ -219,94 +340,100 @@ function DealBuilderSection() {
     : 0
 
   return (
-    <section className="py-20 sm:py-24 border-t border-white/[0.04]">
-      <div className={CX}>
-        <Reveal>
-          <div className="max-w-md mx-auto">
-            <Label>{t('home.deal_builder.label')}</Label>
-            <Heading className="text-center">{t('home.deal_builder.title')}</Heading>
-            <p className="text-[13px] text-white/30 text-center -mt-6 mb-8">{t('home.deal_builder.subtitle')}</p>
-
-            {/* Progress dots */}
-            <div className="flex items-center justify-center gap-2 mb-8">
-              {stepLabels.map((_, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full transition-all ${i <= step ? 'bg-indigo-500 scale-110' : 'bg-white/10'}`} />
-                  {i < 3 && <div className={`w-6 h-px ${i < step ? 'bg-indigo-500/40' : 'bg-white/[0.06]'}`} />}
-                </div>
-              ))}
+    <div className="p-6 sm:p-8 lg:p-10 rounded-2xl border border-white/[0.08] bg-white/[0.02] flex flex-col">
+      {/* Header — fixed */}
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-indigo-400 mb-3">{t('home.deal_builder.label')}</p>
+        <h3 className="text-xl font-medium text-white mb-2">{t('home.deal_builder.title')}</h3>
+        <p className="text-[13px] text-white/40 mb-6">{t('home.deal_builder.subtitle')}</p>
+        <div className="flex items-center justify-center gap-2 mb-6">
+          {stepLabels.map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full transition-all ${i <= step ? 'bg-indigo-500 scale-110' : 'bg-white/10'}`} />
+              {i < 3 && <div className={`w-6 h-px ${i < step ? 'bg-indigo-500/40' : 'bg-white/[0.06]'}`} />}
             </div>
-
-            {step === 0 && (
-              <div className="space-y-3">
-                {[
-                  { val: 'buyer', title: t('home.deal_builder.role_buyer'), hint: t('home.deal_builder.role_buyer_hint') },
-                  { val: 'seller', title: t('home.deal_builder.role_seller'), hint: t('home.deal_builder.role_seller_hint') },
-                ].map(opt => (
-                  <button key={opt.val} onClick={() => { setRole(opt.val as 'buyer' | 'seller'); setError('') }}
-                    className={`w-full text-left px-5 py-4 rounded-2xl border transition-all ${role === opt.val ? 'border-indigo-500/40 bg-indigo-500/[0.05]' : 'border-white/[0.06] hover:border-white/[0.12]'}`}>
-                    <p className="text-sm text-white/80">{opt.title}</p>
-                    <p className="text-[12px] text-white/25 mt-0.5">{opt.hint}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {step === 1 && (
-              <div>
-                <label className="block text-[11px] uppercase tracking-widest text-white/25 mb-2">{t('home.deal_builder.product_label')}</label>
-                <input type="text" value={product} onChange={e => { setProduct(e.target.value); setError('') }}
-                  placeholder={t('home.deal_builder.product_placeholder')} autoFocus maxLength={200}
-                  className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/15 outline-none focus:border-indigo-500/40 transition-colors"
-                  onKeyDown={e => e.key === 'Enter' && handleNext()} />
-              </div>
-            )}
-
-            {step === 2 && (
-              <div>
-                <label className="block text-[11px] uppercase tracking-widest text-white/25 mb-2">{t('home.deal_builder.amount_label')}</label>
-                <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setError('') }}
-                  placeholder={t('home.deal_builder.amount_placeholder')} autoFocus min={50}
-                  className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/15 outline-none focus:border-indigo-500/40 transition-colors"
-                  onKeyDown={e => e.key === 'Enter' && handleNext()} />
-                {commission > 0 && <p className="text-[11px] text-white/15 mt-2">{t('home.deal_builder.commission_hint')}: ~{commission.toFixed(2)} USDT</p>}
-              </div>
-            )}
-
-            {step === 3 && deepLink && (
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4"><Check size={22} /></div>
-                <p className="text-[15px] text-white/80 mb-1">{t('home.deal_builder.done_title')}</p>
-                <p className="text-[12px] text-white/25 mb-6">{t('home.deal_builder.done_subtitle')}</p>
-                <a href={deepLink} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 text-white text-sm font-medium rounded-full hover:bg-indigo-400 transition-colors mb-4">
-                  {t('home.deal_builder.done_open')} <ExternalLink size={14} />
-                </a>
-                <div className="flex items-center gap-2 justify-center">
-                  <p className="text-[11px] text-white/15 font-mono truncate max-w-[200px]">{deepLink}</p>
-                  <button onClick={copyLink} className="text-white/20 hover:text-white transition-colors">
-                    {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                  </button>
-                </div>
-                <p className="text-[11px] text-white/10 mt-2">{t('home.deal_builder.done_copy_hint')}</p>
-              </div>
-            )}
-
-            {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
-
-            {step < 3 && (
-              <button onClick={handleNext} disabled={loading || (step === 0 && !role)}
-                className="w-full mt-6 py-3 text-sm font-medium rounded-full transition-all disabled:opacity-20 bg-indigo-500 text-white hover:bg-indigo-400">
-                {loading ? <span className="flex items-center justify-center gap-2"><Loader2 size={14} className="animate-spin" />{t('home.deal_builder.btn_creating')}</span>
-                  : step === 2 ? t('home.deal_builder.btn_create') : t('home.deal_builder.btn_next')}
-              </button>
-            )}
-            {step > 0 && step < 3 && <button onClick={() => setStep(s => s - 1)} className="w-full mt-2 py-2 text-[13px] text-white/20 hover:text-white/40 transition-colors">{t('home.deal_builder.btn_back')}</button>}
-            {step === 3 && <button onClick={reset} className="w-full mt-4 py-2 text-[13px] text-white/20 hover:text-white/40 transition-colors">{t('home.deal_builder.done_another')}</button>}
-          </div>
-        </Reveal>
+          ))}
+        </div>
       </div>
-    </section>
+
+      {/* Content — fixed height area */}
+      <div className="min-h-[200px] flex flex-col justify-center">
+        {step === 0 && (
+          <div className="space-y-3">
+            {[
+              { val: 'buyer', title: t('home.deal_builder.role_buyer'), hint: t('home.deal_builder.role_buyer_hint') },
+              { val: 'seller', title: t('home.deal_builder.role_seller'), hint: t('home.deal_builder.role_seller_hint') },
+            ].map(opt => (
+              <button key={opt.val} onClick={() => { setRole(opt.val as 'buyer' | 'seller'); setError('') }}
+                className={`w-full text-left px-5 py-4 rounded-2xl border transition-all ${role === opt.val ? 'border-indigo-500/40 bg-indigo-500/[0.05]' : 'border-white/[0.06] hover:border-white/[0.12]'}`}>
+                <p className="text-sm text-white/80">{opt.title}</p>
+                <p className="text-[12px] text-white/25 mt-0.5">{opt.hint}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 1 && (
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-white/25 mb-2">{t('home.deal_builder.product_label')}</label>
+            <input type="text" value={product} onChange={e => { setProduct(e.target.value); setError('') }}
+              placeholder={t('home.deal_builder.product_placeholder')} autoFocus maxLength={200}
+              className="w-full h-14 px-5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/15 outline-none focus:border-indigo-500/40 transition-colors"
+              onKeyDown={e => e.key === 'Enter' && handleNext()} />
+            <p className="text-[11px] text-transparent mt-2 select-none">&nbsp;</p>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <label className="block text-[11px] uppercase tracking-widest text-white/25 mb-2">{t('home.deal_builder.amount_label')}</label>
+            <input type="number" value={amount} onChange={e => { setAmount(e.target.value); setError('') }}
+              placeholder={t('home.deal_builder.amount_placeholder')} autoFocus min={50}
+              className="w-full h-14 px-5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white text-sm placeholder:text-white/15 outline-none focus:border-indigo-500/40 transition-colors"
+              onKeyDown={e => e.key === 'Enter' && handleNext()} />
+            <p className="text-[11px] text-white/15 mt-2">{commission > 0 ? `${t('home.deal_builder.commission_hint')}: ~${commission.toFixed(2)} USDT` : '\u00A0'}</p>
+          </div>
+        )}
+
+        {step === 3 && deepLink && (
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4"><Check size={22} /></div>
+            <p className="text-[15px] text-white/80 mb-1">{t('home.deal_builder.done_title')}</p>
+            <p className="text-[12px] text-white/25 mb-5">{t('home.deal_builder.done_subtitle')}</p>
+            <a href={deepLink} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 text-white text-sm font-medium rounded-full hover:bg-indigo-400 transition-colors mb-3">
+              {t('home.deal_builder.done_open')} <ExternalLink size={14} />
+            </a>
+            <div className="flex items-center gap-2 justify-center">
+              <p className="text-[11px] text-white/15 font-mono truncate max-w-[200px]">{deepLink}</p>
+              <button onClick={copyLink} className="text-white/20 hover:text-white transition-colors">
+                {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+              </button>
+            </div>
+            <p className="text-[11px] text-white/10 mt-2">{t('home.deal_builder.done_copy_hint')}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer — fixed height, no layout shift */}
+      <div className="mt-4 h-[90px]">
+        {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+        {step < 3 && (
+          <>
+            <button onClick={handleNext} disabled={loading || (step === 0 && !role)}
+              className="w-full py-3.5 text-sm font-medium rounded-full transition-all disabled:opacity-20 bg-indigo-500 text-white hover:bg-indigo-400">
+              {loading ? <span className="flex items-center justify-center gap-2"><Loader2 size={14} className="animate-spin" />{t('home.deal_builder.btn_creating')}</span>
+                : step === 2 ? t('home.deal_builder.btn_create') : t('home.deal_builder.btn_next')}
+            </button>
+            <button onClick={() => step > 0 ? setStep(s => s - 1) : undefined}
+              className={`w-full mt-1 py-2 text-[13px] transition-colors ${step > 0 ? 'text-white/20 hover:text-white/40 cursor-pointer' : 'text-transparent cursor-default'}`}>
+              {t('home.deal_builder.btn_back')}
+            </button>
+          </>
+        )}
+        {step === 3 && <button onClick={reset} className="w-full py-2 text-[13px] text-white/20 hover:text-white/40 transition-colors">{t('home.deal_builder.done_another')}</button>}
+      </div>
+    </div>
   )
 }
 
@@ -314,12 +441,19 @@ function DealBuilderSection() {
 function PricingSection() {
   const { t } = useTranslation()
   return (
-    <section id="pricing" className="py-20 sm:py-24 border-t border-white/[0.04]">
+    <section id="pricing" className="py-20 sm:py-24 border-t border-white/[0.08]">
       <div className={CX}>
         <Reveal>
-          <Label>Pricing</Label>
-          <Heading>{t('home.pricing.title')}</Heading>
-          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
+          <div>
+            <Label>Pricing</Label>
+            <Heading>{t('home.pricing.title')}</Heading>
+            <div className="text-[13px] text-white/35 space-y-3 max-w-xs">
+              <p><span className="text-white/60">{t('home.pricing.who_pays_title')}</span> — {t('home.pricing.who_pays_desc')}</p>
+              <p><span className="text-white/60">{t('home.pricing.no_hidden_title')}</span> — {t('home.pricing.no_hidden_desc')}</p>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
             <div className="p-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.03]">
               <p className="text-[11px] uppercase tracking-widest text-indigo-400/50 mb-4">{t('home.pricing.minimum_badge')}</p>
               <p className="text-3xl font-light text-white mb-1">{COMMISSION_TIER_1_FIXED} <span className="text-sm text-white/25">USDT</span></p>
@@ -341,8 +475,6 @@ function PricingSection() {
               </ul>
             </div>
           </div>
-          <div className="mt-8 flex flex-wrap gap-x-10 gap-y-2 text-[12px] text-white/20 max-w-2xl">
-            <span>{t('home.pricing.who_pays_title')}: {t('home.pricing.who_pays_desc')}</span>
           </div>
         </Reveal>
       </div>
@@ -357,23 +489,27 @@ function FAQSection() {
   const items = [1, 2, 3, 4].map(i => ({ q: t(`home.faq.q${i}`), a: t(`home.faq.a${i}`) }))
 
   return (
-    <section className="py-20 sm:py-24 border-t border-white/[0.04]">
+    <section className="py-20 sm:py-24 border-t border-white/[0.08]">
       <div className={CX}>
         <Reveal>
-          <Label>FAQ</Label>
-          <Heading>{t('home.faq.title')}</Heading>
-          <div className="max-w-2xl">
-            {items.map((item, i) => (
-              <div key={i} className="border-b border-white/[0.04]">
-                <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between py-5 text-left group">
-                  <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors pr-4">{item.q}</span>
-                  <ChevronDown size={15} className={`text-white/15 shrink-0 transition-transform ${open === i ? 'rotate-180' : ''}`} />
-                </button>
-                <div className={`overflow-hidden transition-all duration-300 ${open === i ? 'max-h-96 pb-5' : 'max-h-0'}`}>
-                  <p className="text-[13px] text-white/25 leading-relaxed">{item.a}</p>
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
+            <div className="order-2 lg:order-1">
+              {items.map((item, i) => (
+                <div key={i} className="border-b border-white/[0.06]">
+                  <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between py-5 text-left group">
+                    <span className="text-sm text-white/70 group-hover:text-white transition-colors pr-4">{item.q}</span>
+                    <ChevronDown size={15} className={`text-white/20 shrink-0 transition-transform ${open === i ? 'rotate-180' : ''}`} />
+                  </button>
+                  <div className={`overflow-hidden transition-all duration-300 ${open === i ? 'max-h-96 pb-5' : 'max-h-0'}`}>
+                    <p className="text-[13px] text-white/40 leading-relaxed">{item.a}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="order-1 lg:order-2">
+              <Label>FAQ</Label>
+              <Heading>{t('home.faq.title')}</Heading>
+            </div>
           </div>
         </Reveal>
       </div>
@@ -381,21 +517,84 @@ function FAQSection() {
   )
 }
 
-// ─── CTA ───────────────────────────────────
+// ─── CTA + VIDEO ───────────────────────────
 function CTASection() {
   const { t } = useTranslation()
   return (
-    <section className="py-20 sm:py-28 border-t border-white/[0.04]">
-      <div className={`${CX} text-center`}>
+    <section className="py-20 sm:py-28 border-t border-white/[0.08]">
+      <div className={CX}>
         <Reveal>
-          <h2 className="text-2xl sm:text-3xl font-light tracking-tight text-white/90 mb-4">{t('home.cta.title')}</h2>
-          <p className="text-[13px] text-white/25 mb-8 max-w-md mx-auto">{t('home.cta.subtitle')}</p>
-          <a href="https://t.me/keyshield_bot" target="_blank" rel="noopener noreferrer" onClick={() => trackLead()}
-            className="inline-flex items-center gap-2 px-7 py-3.5 bg-indigo-500 text-white text-sm font-medium rounded-full hover:bg-indigo-400 transition-colors">
-            {t('home.cta.button')} <ArrowRight size={15} />
-          </a>
+          <div className="grid lg:grid-cols-[5fr_7fr] gap-10 lg:gap-12 items-center">
+            <div className="text-center lg:text-left">
+              <Label>Guide</Label>
+              <Heading>{t('home.cta.title')}</Heading>
+              <p className="text-[13px] text-white/40 mb-8 max-w-sm mx-auto lg:mx-0">{t('home.cta.subtitle')}</p>
+              <a href="https://t.me/keyshield_bot" target="_blank" rel="noopener noreferrer" onClick={() => trackLead()}
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-indigo-500 text-white text-sm font-medium rounded-full hover:bg-indigo-400 transition-colors">
+                {t('home.cta.button')} <ArrowRight size={15} />
+              </a>
+            </div>
+
+            {/* Video placeholder */}
+            <div className="aspect-video rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center overflow-hidden relative group cursor-pointer">
+              <div className="w-16 h-16 rounded-full bg-indigo-500/20 group-hover:bg-indigo-500/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 z-10">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M8 5.14v13.72a1 1 0 001.5.86l11.04-6.86a1 1 0 000-1.72L9.5 4.28a1 1 0 00-1.5.86z" fill="#6366f1"/>
+                </svg>
+              </div>
+              <p className="absolute bottom-4 text-[11px] text-white/20">Video guide — buyer deal flow</p>
+            </div>
+          </div>
         </Reveal>
       </div>
     </section>
+  )
+}
+
+// ─── STICKY BOT CTA (lead magnet bar) ──────
+function StickyBotCTA() {
+  const { t } = useTranslation()
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const start = document.getElementById('sticky-cta-start')
+      const end = document.getElementById('sticky-cta-end')
+      if (!start || !end) return
+      const show = start.getBoundingClientRect().top < 0 && end.getBoundingClientRect().bottom > window.innerHeight
+      setVisible(show)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  return (
+    <div
+      className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-500 ease-out ${
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
+      }`}
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-white/[0.08] lg:hidden">
+        <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-4">
+          <div className="hidden sm:block min-w-0">
+            <p className="text-sm text-white truncate">{t('home.hero.title')}</p>
+            <p className="text-[11px] text-white/30 truncate">{t('home.hero.subtitle')}</p>
+          </div>
+          <p className="text-[13px] text-white/50 sm:hidden flex-1">{t('home.hero.cta_start')}</p>
+          <a
+            href="https://t.me/keyshield_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackLead()}
+            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-500 text-white text-[13px] font-medium rounded-full hover:bg-indigo-400 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.2-.04-.28-.02-.12.02-2.02 1.28-5.69 3.77-.54.37-1.03.55-1.47.54-.48-.01-1.4-.27-2.09-.49-.84-.27-1.51-.42-1.45-.89.03-.24.38-.49 1.05-.74 4.11-1.79 6.85-2.97 8.24-3.54 3.93-1.62 4.74-1.9 5.27-1.91.12 0 .37.03.54.17.14.12.18.28.2.45-.01.06.01.24 0 .37z"/></svg>
+            {t('header.open_bot')}
+          </a>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -23,20 +23,12 @@ const LANGUAGES = [
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const lang = useLang()
 
   const isHomePage = location.pathname === `/${lang}` || location.pathname === `/${lang}/`
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    onScroll()
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : ''
@@ -70,17 +62,13 @@ export function Header() {
   return (
     <>
       <header
-        className={cn(
-          'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-          scrolled
-            ? 'bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06]'
-            : 'bg-transparent'
-        )}
+        className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06]"
       >
         <div className="max-w-5xl mx-auto px-5 sm:px-8">
           <nav className="flex items-center justify-between h-16">
             {/* Logo */}
             <LangLink to="/" className="flex items-center gap-2 group">
+              <img src="/keyshield-logo.png" alt="KeyShield" width="22" height="22" className="shrink-0" />
               <span className="text-white font-semibold tracking-tight">KeyShield</span>
             </LangLink>
 
