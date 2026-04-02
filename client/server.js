@@ -396,6 +396,49 @@ app.get('/api/admin/verify', adminAuth, (req, res) => {
 // Public blog API
 app.use('/api/blog', blogPublicRoutes);
 
+// ============ Web Deal API (public) ============
+const WebDeal = (await import('../src/models/WebDeal.js')).default;
+
+app.post('/api/web-deal', async (req, res) => {
+  try {
+    const { creatorRole, productName, description, amount, deadlineHours, commissionType } = req.body;
+
+    if (!creatorRole || !['buyer', 'seller'].includes(creatorRole)) {
+      return res.status(400).json({ error: 'Выберите роль' });
+    }
+    if (!productName || productName.length < 2) {
+      return res.status(400).json({ error: 'Укажите название товара/услуги' });
+    }
+    if (!amount || amount < 50) {
+      return res.status(400).json({ error: 'Минимальная сумма сделки: 50 USDT' });
+    }
+
+    const webDeal = new WebDeal({
+      creatorRole,
+      productName: productName.slice(0, 200),
+      description: (description || '').slice(0, 2000),
+      amount: Number(amount),
+      deadlineHours: [24, 48, 72, 168, 336].includes(Number(deadlineHours)) ? Number(deadlineHours) : 72,
+      commissionType: ['buyer', 'seller', 'split'].includes(commissionType) ? commissionType : 'buyer',
+    });
+
+    await webDeal.save();
+
+    const botUsername = process.env.BOT_USERNAME || 'KeyShieldBot';
+    const deepLink = `https://t.me/${botUsername}?start=web_${webDeal.token}`;
+
+    res.json({
+      success: true,
+      token: webDeal.token,
+      deepLink,
+      expiresAt: webDeal.expiresAt
+    });
+  } catch (error) {
+    console.error('WebDeal creation error:', error);
+    res.status(500).json({ error: 'Ошибка создания сделки' });
+  }
+});
+
 // ============ SEO: Sitemap & Robots ============
 
 // Models for sitemap

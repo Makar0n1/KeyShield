@@ -1,126 +1,66 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LangLink } from '@/components/ui/LangLink'
-import { blogService } from '@/services/blog'
-import type { BlogPost } from '@/types'
 
 export function Footer() {
-  const [recentPosts, setRecentPosts] = useState<BlogPost[]>([])
   const { t } = useTranslation()
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const data = await blogService.getPosts({ limit: 4, sort: 'newest' })
-        setRecentPosts(data.posts || [])
-      } catch {
-        // Silently fail
-      }
-    }
-    fetchPosts()
-  }, [])
-
-  const footerLinks = {
-    documents: [
-      { href: '/terms', key: 'footer.terms' },
-      { href: '/privacy', key: 'footer.privacy' },
-      { href: '/offer', key: 'footer.offer' },
-    ],
-    support: [
-      { href: 'https://t.me/keyshield_support', label: 'Telegram: @keyshield_support', external: true },
-      { href: 'mailto:support@keyshield.me', label: 'Email: support@keyshield.me', external: true },
-    ],
-  }
-
   return (
-    <footer className="bg-dark-light border-t border-border py-12">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <footer className="border-t border-white/[0.06]">
+      <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 sm:py-16">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand */}
-          <div>
-            <h4 className="text-white font-semibold mb-4">KeyShield</h4>
-            <p className="text-muted text-sm">
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-white font-semibold text-sm mb-2">KeyShield</p>
+            <p className="text-white/30 text-xs leading-relaxed max-w-[200px]">
               {t('footer.tagline')}
             </p>
           </div>
 
-          {/* Documents */}
+          {/* Product */}
           <div>
-            <h4 className="text-white font-semibold mb-4">{t('footer.documents')}</h4>
-            <ul className="space-y-2">
-              {footerLinks.documents.map((link) => (
-                <li key={link.href}>
-                  <LangLink to={link.href} className="text-muted hover:text-white text-sm transition-colors">
-                    {t(link.key)}
-                  </LangLink>
-                </li>
-              ))}
+            <p className="text-[11px] uppercase tracking-widest text-white/20 mb-3">Product</p>
+            <ul className="space-y-2.5">
+              <li><LangLink to="/#features" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('header.features')}</LangLink></li>
+              <li><LangLink to="/#how-it-works" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('header.how_it_works')}</LangLink></li>
+              <li><LangLink to="/#pricing" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('header.pricing')}</LangLink></li>
+              <li><LangLink to="/blog" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('header.blog')}</LangLink></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-white/20 mb-3">{t('footer.documents')}</p>
+            <ul className="space-y-2.5">
+              <li><LangLink to="/terms" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('footer.terms')}</LangLink></li>
+              <li><LangLink to="/privacy" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('footer.privacy')}</LangLink></li>
+              <li><LangLink to="/offer" className="text-white/40 hover:text-white text-[13px] transition-colors">{t('footer.offer')}</LangLink></li>
             </ul>
           </div>
 
           {/* Support */}
           <div>
-            <h4 className="text-white font-semibold mb-4">{t('footer.support')}</h4>
-            <ul className="space-y-2">
-              {footerLinks.support.map((link) => (
-                <li key={link.href}>
-                  <a
-                    href={link.href}
-                    target={link.external ? '_blank' : undefined}
-                    rel={link.external ? 'noopener noreferrer' : undefined}
-                    className="text-muted hover:text-white text-sm transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+            <p className="text-[11px] uppercase tracking-widest text-white/20 mb-3">{t('footer.support')}</p>
+            <ul className="space-y-2.5">
+              <li>
+                <a href="https://t.me/keyshield_support" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[13px] transition-colors">
+                  Telegram
+                </a>
+              </li>
+              <li>
+                <a href="mailto:support@keyshield.me" className="text-white/40 hover:text-white text-[13px] transition-colors">
+                  Email
+                </a>
+              </li>
             </ul>
-          </div>
-
-          {/* Blog - Recent Posts */}
-          <div>
-            <h4 className="text-white font-semibold mb-4">{t('footer.blog')}</h4>
-            {recentPosts.length > 0 ? (
-              <ul className="space-y-3">
-                {recentPosts.map((post) => (
-                  <li key={post._id}>
-                    <LangLink
-                      to={`/blog/${post.slug}`}
-                      className="group flex items-start gap-2.5 text-muted hover:text-white text-sm transition-colors"
-                    >
-                      {post.coverImage && (
-                        <div className="w-10 h-10 rounded shrink-0 relative overflow-hidden bg-dark">
-                          <img
-                            src={post.coverImage}
-                            alt=""
-                            aria-hidden="true"
-                            className="absolute inset-0 w-full h-full object-cover blur-lg scale-110 opacity-40"
-                          />
-                          <img
-                            src={post.coverImage}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-                      <span className="line-clamp-2 leading-snug pt-0.5">{post.title}</span>
-                    </LangLink>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <LangLink to="/blog" className="text-muted hover:text-white text-sm transition-colors">
-                {t('footer.all_posts')}
-              </LangLink>
-            )}
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-border text-center">
-          <p className="text-muted text-sm">
+        {/* Bottom */}
+        <div className="mt-12 pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-white/20 text-xs">
             {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
-          <p className="text-muted/70 text-xs mt-2 max-w-2xl mx-auto">
+          <p className="text-white/15 text-[11px] max-w-lg">
             {t('footer.disclaimer')}
           </p>
         </div>
