@@ -14,9 +14,12 @@
 
     /* Partner theme — dark (default) */
     --p-bg: #0f172a;
-    --p-surface: rgba(99, 102, 241, 0.08);
-    --p-chrome: rgba(99, 102, 241, 0.51);
+    --p-chrome-bg: #1e293b;
     --p-chrome-border: rgba(99, 102, 241, 0.3);
+    --p-chrome-hover: #334155;
+    --p-chrome-active: #6366f1;
+    --p-chrome-text: #e2e8f0;
+    --p-chrome-text-muted: #64748b;
     --p-text: #f1f5f9;
     --p-text-secondary: #94a3b8;
     --p-text-muted: #64748b;
@@ -24,17 +27,20 @@
     --p-divider: rgba(255, 255, 255, 0.06);
     --p-input-bg: #0f172a;
     --p-input-border: #334155;
-    --p-pill-bg: transparent;
     --p-pill-active-bg: #ffffff;
     --p-pill-active-text: #000000;
+    --p-pill-border: rgba(255, 255, 255, 0.08);
     --p-avatar-bg: rgba(255, 255, 255, 0.06);
   }
 
   [data-partner-theme="light"] {
     --p-bg: #f8fafc;
-    --p-surface: rgba(99, 102, 241, 0.06);
-    --p-chrome: rgba(99, 102, 241, 0.85);
-    --p-chrome-border: rgba(99, 102, 241, 0.4);
+    --p-chrome-bg: #ffffff;
+    --p-chrome-border: rgba(99, 102, 241, 0.25);
+    --p-chrome-hover: #f1f5f9;
+    --p-chrome-active: #6366f1;
+    --p-chrome-text: #1e293b;
+    --p-chrome-text-muted: #64748b;
     --p-text: #0f172a;
     --p-text-secondary: #475569;
     --p-text-muted: #64748b;
@@ -42,9 +48,9 @@
     --p-divider: rgba(0, 0, 0, 0.08);
     --p-input-bg: #ffffff;
     --p-input-border: #e2e8f0;
-    --p-pill-bg: transparent;
     --p-pill-active-bg: #0f172a;
     --p-pill-active-text: #ffffff;
+    --p-pill-border: rgba(0, 0, 0, 0.12);
     --p-avatar-bg: rgba(0, 0, 0, 0.06);
   }
 
@@ -127,9 +133,29 @@
   .p-text-muted { color: var(--p-text-muted); }
   .p-text-faint { color: var(--p-text-faint); }
   .p-bg { background: var(--p-bg); }
+  .p-chrome { background: var(--p-chrome-bg); }
   .p-divider { border-color: var(--p-divider); }
   .p-input { background: var(--p-input-bg); border-color: var(--p-input-border); color: var(--p-text); }
   .p-avatar { background: var(--p-avatar-bg); color: var(--p-text-muted); }
+
+  /* Override global .input/.card/.btn styles inside partner pages */
+  [data-partner-theme] .input,
+  [data-partner-theme] .textarea {
+    background: var(--p-input-bg);
+    border-color: var(--p-input-border);
+    color: var(--p-text);
+  }
+  [data-partner-theme] .input::placeholder,
+  [data-partner-theme] .textarea::placeholder {
+    color: var(--p-text-faint);
+  }
+  [data-partner-theme] .btn-primary {
+    background: var(--p-pill-active-bg);
+    color: var(--p-pill-active-text);
+  }
+  [data-partner-theme] .btn-primary:hover {
+    opacity: 0.85;
+  }
 
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
