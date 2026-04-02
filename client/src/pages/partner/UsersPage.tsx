@@ -36,13 +36,13 @@ export function PartnerUsersPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-medium text-white">Пользователи</h1>
-        <p className="text-sm text-gray-500">Всего: {total}</p>
+        <h1 className="text-xl font-medium p-text">Пользователи</h1>
+        <p className="text-sm p-text-muted">Всего: {total}</p>
       </div>
 
       {/* Search */}
       <div className="relative max-w-sm mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 p-text-muted" size={16} />
         <Input
           type="text"
           value={search}
@@ -58,32 +58,32 @@ export function PartnerUsersPage() {
           <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
         </div>
       ) : users.length === 0 ? (
-        <p className="text-sm text-gray-600 py-12">Пользователи не найдены</p>
+        <p className="text-sm p-text-faint py-12">Пользователи не найдены</p>
       ) : (
-        <div className="divide-y divide-white/[0.06]">
+        <div className="divide-y [&>*]:border-[var(--p-divider)]">
           {users.map((user) => (
             <div key={user._id} className="flex items-center py-3.5 gap-3">
-              <div className="w-8 h-8 rounded-full bg-white/[0.06] text-gray-400 flex items-center justify-center text-xs font-medium shrink-0">
+              <div className="w-8 h-8 rounded-full p-avatar p-text-secondary flex items-center justify-center text-xs font-medium shrink-0">
                 {user.username?.charAt(0).toUpperCase() || user.firstName?.charAt(0).toUpperCase() || '?'}
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">
+                <p className="text-sm p-text truncate">
                   {user.username ? `@${user.username}` : user.firstName || 'Без имени'}
                   {user.blacklisted && <span className="text-red-400 text-xs ml-2">blocked</span>}
                 </p>
-                <p className="text-xs text-gray-600 font-mono">{user.telegramId}</p>
+                <p className="text-xs p-text-faint font-mono">{user.telegramId}</p>
               </div>
 
               <div className="text-right shrink-0 hidden sm:block">
-                <p className="text-xs text-gray-500">{formatDate(user.createdAt)}</p>
+                <p className="text-xs p-text-muted">{formatDate(user.createdAt)}</p>
                 {user.lastActivity && (
-                  <p className="text-[11px] text-gray-600">акт. {formatDate(user.lastActivity)}</p>
+                  <p className="text-[11px] p-text-faint">акт. {formatDate(user.lastActivity)}</p>
                 )}
               </div>
 
               <div className="text-right shrink-0 sm:hidden">
-                <p className="text-xs text-gray-500">{formatDate(user.createdAt)}</p>
+                <p className="text-xs p-text-muted">{formatDate(user.createdAt)}</p>
               </div>
             </div>
           ))}

@@ -38,11 +38,7 @@ export function PartnerDashboardPage() {
   }
 
   useEffect(() => {
-    partnerService
-      .getDashboard()
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    partnerService.getDashboard().then(setData).catch(console.error).finally(() => setLoading(false))
   }, [])
 
   if (loading) {
@@ -53,95 +49,78 @@ export function PartnerDashboardPage() {
     )
   }
 
-  const stats = data?.stats || {
-    totalUsers: 0,
-    totalDeals: 0,
-    activeDeals: 0,
-    completedDeals: 0,
-    totalVolume: 0,
-    totalCommission: 0,
-  }
+  const stats = data?.stats || { totalUsers: 0, totalDeals: 0, activeDeals: 0, completedDeals: 0, totalVolume: 0, totalCommission: 0 }
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Hero — big numbers */}
+      {/* Hero */}
       <div className="mb-8 sm:mb-10">
-        <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Общий оборот</p>
-        <h1 className="text-4xl sm:text-5xl font-extralight text-white tracking-tight">
+        <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--p-text-muted)' }}>Общий оборот</p>
+        <h1 className="text-4xl sm:text-5xl font-extralight tracking-tight" style={{ color: 'var(--p-text)' }}>
           {formatNumber(stats.totalVolume)}
-          <span className="text-lg sm:text-xl text-gray-500 ml-2 font-normal">USDT</span>
+          <span className="text-lg sm:text-xl ml-2 font-normal" style={{ color: 'var(--p-text-muted)' }}>USDT</span>
         </h1>
       </div>
 
-      {/* Metric row */}
+      {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 sm:gap-x-10 gap-y-6 mb-10">
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Пользователи</p>
-          <p className="text-2xl font-light text-white">{formatNumber(stats.totalUsers)}</p>
+          <p className="text-[11px] uppercase tracking-widest mb-1" style={{ color: 'var(--p-text-muted)' }}>Пользователи</p>
+          <p className="text-2xl font-light" style={{ color: 'var(--p-text)' }}>{formatNumber(stats.totalUsers)}</p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Сделки</p>
-          <p className="text-2xl font-light text-white">
+          <p className="text-[11px] uppercase tracking-widest mb-1" style={{ color: 'var(--p-text-muted)' }}>Сделки</p>
+          <p className="text-2xl font-light" style={{ color: 'var(--p-text)' }}>
             {formatNumber(stats.totalDeals)}
-            {stats.activeDeals > 0 && (
-              <span className="text-sm text-green-400 ml-1.5 font-normal">{stats.activeDeals} акт.</span>
-            )}
+            {stats.activeDeals > 0 && <span className="text-sm text-green-400 ml-1.5 font-normal">{stats.activeDeals} акт.</span>}
           </p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Комиссия</p>
-          <p className="text-2xl font-light text-white">{formatNumber(stats.totalCommission)}<span className="text-sm text-gray-500 ml-1">$</span></p>
+          <p className="text-[11px] uppercase tracking-widest mb-1" style={{ color: 'var(--p-text-muted)' }}>Комиссия</p>
+          <p className="text-2xl font-light" style={{ color: 'var(--p-text)' }}>{formatNumber(stats.totalCommission)}<span className="text-sm ml-1" style={{ color: 'var(--p-text-muted)' }}>$</span></p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Ваша доля</p>
+          <p className="text-[11px] uppercase tracking-widest mb-1" style={{ color: 'var(--p-text-muted)' }}>Ваша доля</p>
           <p className="text-2xl font-light text-primary">{platform?.commissionPercent || 0}%</p>
         </div>
       </div>
 
       {/* Referral link */}
       {referralLink && (
-        <div className="mb-10">
-          <div className="border-t border-white/[0.06] pt-6">
-            <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-3">Реферальная ссылка</p>
-            <div className="flex items-center gap-3">
-              <p className="font-mono text-sm text-gray-300 break-all flex-1 select-all">{referralLink}</p>
-              <button
-                onClick={copyLink}
-                className="shrink-0 text-gray-500 hover:text-white transition-colors"
-                title="Скопировать"
-              >
-                {copied ? <CheckCircle2 size={18} className="text-green-400" /> : <Copy size={18} />}
-              </button>
-            </div>
-            <p className="text-xs text-gray-600 mt-2">Пользователи по этой ссылке автоматически привяжутся к вашей платформе</p>
+        <div className="mb-10" style={{ borderTop: '1px solid var(--p-divider)', paddingTop: '1.5rem' }}>
+          <p className="text-[11px] uppercase tracking-widest mb-3" style={{ color: 'var(--p-text-muted)' }}>Реферальная ссылка</p>
+          <div className="flex items-center gap-3">
+            <p className="font-mono text-sm break-all flex-1 select-all" style={{ color: 'var(--p-text-secondary)' }}>{referralLink}</p>
+            <button onClick={copyLink} className="shrink-0 transition-colors hover:opacity-70" style={{ color: 'var(--p-text-muted)' }}>
+              {copied ? <CheckCircle2 size={18} className="text-green-400" /> : <Copy size={18} />}
+            </button>
           </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--p-text-faint)' }}>Пользователи по этой ссылке автоматически привяжутся к вашей платформе</p>
         </div>
       )}
 
-      {/* Recent activity — two columns */}
+      {/* Recent activity */}
       <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-
         {/* Deals */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[11px] uppercase tracking-widest text-gray-500">Последние сделки</h2>
-            <Link to="/partner/deals" className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+            <h2 className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--p-text-muted)' }}>Последние сделки</h2>
+            <Link to="/partner/deals" className="text-xs flex items-center gap-1 hover:opacity-70 transition-opacity" style={{ color: 'var(--p-text-muted)' }}>
               Все <ArrowRight size={12} />
             </Link>
           </div>
-
           {data?.recentDeals && data.recentDeals.length > 0 ? (
-            <div className="divide-y divide-white/[0.06]">
+            <div style={{ borderColor: 'var(--p-divider)' }} className="divide-y">
               {data.recentDeals.slice(0, 6).map((deal) => {
                 const statusInfo = statusLabels[deal.status] || { label: deal.status, variant: 'secondary' as const }
                 return (
-                  <div key={deal._id} className="flex items-center justify-between py-3 first:pt-0">
+                  <div key={deal._id} className="flex items-center justify-between py-3 first:pt-0" style={{ borderColor: 'var(--p-divider)' }}>
                     <div className="min-w-0 mr-3">
-                      <p className="text-sm text-white truncate">{deal.productName}</p>
-                      <p className="text-xs text-gray-600 font-mono">{deal.dealId}</p>
+                      <p className="text-sm truncate" style={{ color: 'var(--p-text)' }}>{deal.productName}</p>
+                      <p className="text-xs font-mono" style={{ color: 'var(--p-text-faint)' }}>{deal.dealId}</p>
                     </div>
                     <div className="text-right shrink-0 flex items-center gap-2.5">
-                      <span className="text-sm tabular-nums text-gray-300">{formatNumber(deal.amount)}</span>
+                      <span className="text-sm tabular-nums" style={{ color: 'var(--p-text-secondary)' }}>{formatNumber(deal.amount)}</span>
                       <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                     </div>
                   </div>
@@ -149,46 +128,45 @@ export function PartnerDashboardPage() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-600 py-6">Нет сделок</p>
+            <p className="text-sm py-6" style={{ color: 'var(--p-text-faint)' }}>Нет сделок</p>
           )}
         </div>
 
         {/* Users */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[11px] uppercase tracking-widest text-gray-500">Новые пользователи</h2>
-            <Link to="/partner/users" className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+            <h2 className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--p-text-muted)' }}>Новые пользователи</h2>
+            <Link to="/partner/users" className="text-xs flex items-center gap-1 hover:opacity-70 transition-opacity" style={{ color: 'var(--p-text-muted)' }}>
               Все <ArrowRight size={12} />
             </Link>
           </div>
-
           {data?.recentUsers && data.recentUsers.length > 0 ? (
-            <div className="divide-y divide-white/[0.06]">
+            <div style={{ borderColor: 'var(--p-divider)' }} className="divide-y">
               {data.recentUsers.slice(0, 6).map((user) => (
-                <div key={user._id} className="flex items-center justify-between py-3 first:pt-0">
+                <div key={user._id} className="flex items-center justify-between py-3 first:pt-0" style={{ borderColor: 'var(--p-divider)' }}>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-white/[0.06] text-gray-400 flex items-center justify-center text-xs font-medium shrink-0">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0" style={{ background: 'var(--p-avatar-bg)', color: 'var(--p-text-muted)' }}>
                       {user.username?.charAt(0).toUpperCase() || user.firstName?.charAt(0).toUpperCase() || '?'}
                     </div>
-                    <p className="text-sm text-white truncate">
+                    <p className="text-sm truncate" style={{ color: 'var(--p-text)' }}>
                       {user.username ? `@${user.username}` : user.firstName || `${user.telegramId}`}
                     </p>
                   </div>
-                  <span className="text-xs text-gray-600 shrink-0 ml-3">{formatDate(user.createdAt)}</span>
+                  <span className="text-xs shrink-0 ml-3" style={{ color: 'var(--p-text-faint)' }}>{formatDate(user.createdAt)}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-600 py-6">Нет пользователей</p>
+            <p className="text-sm py-6" style={{ color: 'var(--p-text-faint)' }}>Нет пользователей</p>
           )}
         </div>
       </div>
 
-      {/* Footer info */}
-      <div className="border-t border-white/[0.06] mt-10 pt-6 flex flex-wrap gap-x-8 gap-y-2 text-xs text-gray-600">
-        <span>Код: <span className="text-gray-400 font-mono">{platform?.code}</span></span>
-        <span>Канал: <span className="text-gray-400">{platform?.telegramChannel || '—'}</span></span>
-        <span>Комиссия: <span className="text-gray-400">{platform?.commissionPercent}%</span></span>
+      {/* Footer */}
+      <div className="mt-10 pt-6 flex flex-wrap gap-x-8 gap-y-2 text-xs" style={{ borderTop: '1px solid var(--p-divider)', color: 'var(--p-text-faint)' }}>
+        <span>Код: <span className="font-mono" style={{ color: 'var(--p-text-muted)' }}>{platform?.code}</span></span>
+        <span>Канал: <span style={{ color: 'var(--p-text-muted)' }}>{platform?.telegramChannel || '—'}</span></span>
+        <span>Комиссия: <span style={{ color: 'var(--p-text-muted)' }}>{platform?.commissionPercent}%</span></span>
       </div>
     </div>
   )

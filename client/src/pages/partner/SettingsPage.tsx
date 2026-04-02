@@ -57,35 +57,35 @@ export function PartnerSettingsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-xl font-medium text-white">Настройки</h1>
+        <h1 className="text-xl font-medium p-text">Настройки</h1>
       </div>
 
       {/* Profile info */}
       <div className="mb-10">
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">Аккаунт</h2>
-        <div className="divide-y divide-white/[0.06]">
+        <h2 className="text-[11px] uppercase tracking-widest p-text-muted mb-4">Аккаунт</h2>
+        <div className="divide-y [&>*]:border-[var(--p-divider)]">
           <div className="flex items-center justify-between py-3.5">
-            <span className="text-sm text-gray-400">Название</span>
-            <span className="text-sm text-white">{platform?.name}</span>
+            <span className="text-sm p-text-secondary">Название</span>
+            <span className="text-sm p-text">{platform?.name}</span>
           </div>
           <div className="flex items-center justify-between py-3.5">
-            <span className="text-sm text-gray-400">Код</span>
+            <span className="text-sm p-text-secondary">Код</span>
             <span className="text-sm text-primary font-mono">{platform?.code}</span>
           </div>
           <div className="flex items-center justify-between py-3.5">
-            <span className="text-sm text-gray-400">Логин</span>
-            <span className="text-sm text-white">{platform?.login}</span>
+            <span className="text-sm p-text-secondary">Логин</span>
+            <span className="text-sm p-text">{platform?.login}</span>
           </div>
           <div className="flex items-center justify-between py-3.5">
-            <span className="text-sm text-gray-400">Комиссия</span>
-            <span className="text-sm text-white">{platform?.commissionPercent || 0}%</span>
+            <span className="text-sm p-text-secondary">Комиссия</span>
+            <span className="text-sm p-text">{platform?.commissionPercent || 0}%</span>
           </div>
           <div className="flex items-center justify-between py-3.5">
-            <span className="text-sm text-gray-400">Telegram канал</span>
-            <span className="text-sm text-white">{platform?.telegramChannel || '—'}</span>
+            <span className="text-sm p-text-secondary">Telegram канал</span>
+            <span className="text-sm p-text">{platform?.telegramChannel || '—'}</span>
           </div>
           <div className="flex items-center justify-between py-3.5">
-            <span className="text-sm text-gray-400">Статус</span>
+            <span className="text-sm p-text-secondary">Статус</span>
             <span className={`text-sm ${platform?.isActive ? 'text-green-400' : 'text-red-400'}`}>
               {platform?.isActive ? 'Активен' : 'Неактивен'}
             </span>
@@ -96,31 +96,31 @@ export function PartnerSettingsPage() {
       {/* Stats */}
       {platform?.stats && (
         <div className="mb-10">
-          <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">Статистика</h2>
+          <h2 className="text-[11px] uppercase tracking-widest p-text-muted mb-4">Статистика</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-4">
             <div>
-              <p className="text-2xl font-light text-white">{platform.stats.totalUsers}</p>
-              <p className="text-xs text-gray-500">Пользователей</p>
+              <p className="text-2xl font-light p-text">{platform.stats.totalUsers}</p>
+              <p className="text-xs p-text-muted">Пользователей</p>
             </div>
             <div>
-              <p className="text-2xl font-light text-white">{platform.stats.totalDeals}</p>
-              <p className="text-xs text-gray-500">Сделок</p>
+              <p className="text-2xl font-light p-text">{platform.stats.totalDeals}</p>
+              <p className="text-xs p-text-muted">Сделок</p>
             </div>
             <div>
-              <p className="text-2xl font-light text-white">{platform.stats.totalVolume?.toLocaleString()}</p>
-              <p className="text-xs text-gray-500">Оборот (USDT)</p>
+              <p className="text-2xl font-light p-text">{platform.stats.totalVolume?.toLocaleString()}</p>
+              <p className="text-xs p-text-muted">Оборот (USDT)</p>
             </div>
             <div>
               <p className="text-2xl font-light text-primary">{platform.stats.totalCommission?.toLocaleString()}</p>
-              <p className="text-xs text-gray-500">Комиссия (USDT)</p>
+              <p className="text-xs p-text-muted">Комиссия (USDT)</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Change password */}
-      <div className="border-t border-white/[0.06] pt-8">
-        <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-5">Смена пароля</h2>
+      <div className="border-t border-[var(--p-divider)] pt-8">
+        <h2 className="text-[11px] uppercase tracking-widest p-text-muted mb-5">Смена пароля</h2>
 
         {success && (
           <div className="flex items-center gap-2 mb-4">
@@ -138,7 +138,7 @@ export function PartnerSettingsPage() {
         <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
           {(['current', 'new', 'confirm'] as const).map((field) => (
             <div key={field}>
-              <label className="block text-xs text-gray-500 mb-1.5">
+              <label className="block text-xs p-text-muted mb-1.5">
                 {field === 'current' ? 'Текущий пароль' : field === 'new' ? 'Новый пароль' : 'Подтверждение'}
               </label>
               <div className="relative">
@@ -151,7 +151,7 @@ export function PartnerSettingsPage() {
                 <button
                   type="button"
                   onClick={() => togglePassword(field)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-text-muted hover:p-text transition-colors"
                 >
                   {showPasswords[field] ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>

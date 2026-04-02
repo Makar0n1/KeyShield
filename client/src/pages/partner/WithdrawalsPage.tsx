@@ -110,37 +110,37 @@ export function PartnerWithdrawalsPage() {
     <div className="max-w-4xl mx-auto">
       {/* Balance hero */}
       <div className="mb-8 sm:mb-10">
-        <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Доступно к выводу</p>
+        <p className="text-xs uppercase tracking-widest p-text-muted mb-1">Доступно к выводу</p>
         <h1 className="text-4xl sm:text-5xl font-extralight tracking-tight">
-          <span className={availableBalance >= 10 ? 'text-green-400' : 'text-white'}>{availableBalance.toFixed(2)}</span>
-          <span className="text-lg sm:text-xl text-gray-500 ml-2 font-normal">USDT</span>
+          <span className={availableBalance >= 10 ? 'text-green-400' : 'p-text'}>{availableBalance.toFixed(2)}</span>
+          <span className="text-lg sm:text-xl p-text-muted ml-2 font-normal">USDT</span>
         </h1>
       </div>
 
       {/* Earnings row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4 mb-8">
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Заработано</p>
-          <p className="text-xl font-light text-white">{totalEarned.toFixed(2)}<span className="text-sm text-gray-500 ml-1">$</span></p>
+          <p className="text-[11px] uppercase tracking-widest p-text-muted mb-1">Заработано</p>
+          <p className="text-xl font-light p-text">{totalEarned.toFixed(2)}<span className="text-sm p-text-muted ml-1">$</span></p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Выведено</p>
-          <p className="text-xl font-light text-white">{totalWithdrawn.toFixed(2)}<span className="text-sm text-gray-500 ml-1">$</span></p>
+          <p className="text-[11px] uppercase tracking-widest p-text-muted mb-1">Выведено</p>
+          <p className="text-xl font-light p-text">{totalWithdrawn.toFixed(2)}<span className="text-sm p-text-muted ml-1">$</span></p>
         </div>
         <div className="hidden sm:block">
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 mb-1">Комиссия</p>
+          <p className="text-[11px] uppercase tracking-widest p-text-muted mb-1">Комиссия</p>
           <p className="text-xl font-light text-primary">{platform?.commissionPercent || 0}%</p>
         </div>
       </div>
 
       {/* Pending withdrawal notice */}
       {hasPending && pendingWithdrawal && (
-        <div className="border-t border-white/[0.06] pt-5 mb-8">
+        <div className="border-t border-[var(--p-divider)] pt-5 mb-8">
           <div className="flex items-start gap-3">
             <Clock size={16} className="text-yellow-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm text-white">Активная заявка <span className="font-mono text-gray-400">{pendingWithdrawal.withdrawalId}</span></p>
-              <p className="text-xs text-gray-500 mt-0.5">{pendingWithdrawal.amount.toFixed(2)} USDT — ожидайте обработки</p>
+              <p className="text-sm p-text">Активная заявка <span className="font-mono p-text-secondary">{pendingWithdrawal.withdrawalId}</span></p>
+              <p className="text-xs p-text-muted mt-0.5">{pendingWithdrawal.amount.toFixed(2)} USDT — ожидайте обработки</p>
             </div>
           </div>
         </div>
@@ -161,7 +161,7 @@ export function PartnerWithdrawalsPage() {
 
       {/* Withdraw form */}
       {showForm && (
-        <div className="border-t border-white/[0.06] pt-6 mb-8">
+        <div className="border-t border-[var(--p-divider)] pt-6 mb-8">
           {error && (
             <div className="flex items-center gap-2 mb-4">
               <AlertCircle size={14} className="text-red-400 shrink-0" />
@@ -177,7 +177,7 @@ export function PartnerWithdrawalsPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
             <div>
-              <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-2">Сумма</label>
+              <label className="block text-[11px] uppercase tracking-widest p-text-muted mb-2">Сумма</label>
               <div className="flex gap-2">
                 <Input
                   type="number"
@@ -191,7 +191,7 @@ export function PartnerWithdrawalsPage() {
                 <button
                   type="button"
                   onClick={() => setAmount(availableBalance.toFixed(2))}
-                  className="shrink-0 px-3 py-2 text-xs uppercase tracking-wider text-gray-400 hover:text-white border border-white/[0.08] rounded-lg transition-colors"
+                  className="shrink-0 px-3 py-2 text-xs uppercase tracking-wider p-text-secondary hover:p-text border border-white/[0.08] rounded-lg transition-colors"
                 >
                   Max
                 </button>
@@ -199,7 +199,7 @@ export function PartnerWithdrawalsPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] uppercase tracking-widest text-gray-500 mb-2">Кошелёк TRC-20</label>
+              <label className="block text-[11px] uppercase tracking-widest p-text-muted mb-2">Кошелёк TRC-20</label>
               <Input
                 type="text"
                 value={walletAddress}
@@ -209,7 +209,7 @@ export function PartnerWithdrawalsPage() {
               {savedWallet && walletAddress !== savedWallet && (
                 <button
                   type="button"
-                  className="text-xs text-gray-500 mt-1.5 hover:text-white transition-colors"
+                  className="text-xs p-text-muted mt-1.5 hover:p-text transition-colors"
                   onClick={() => setWalletAddress(savedWallet)}
                 >
                   Сохранённый: {savedWallet.slice(0, 8)}...{savedWallet.slice(-4)}
@@ -234,44 +234,44 @@ export function PartnerWithdrawalsPage() {
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setError('') }}
-                className="text-sm text-gray-500 hover:text-white transition-colors"
+                className="text-sm p-text-muted hover:p-text transition-colors"
               >
                 Отмена
               </button>
             </div>
 
-            <p className="text-xs text-gray-600">Обработка: 24-48 часов</p>
+            <p className="text-xs p-text-faint">Обработка: 24-48 часов</p>
           </form>
         </div>
       )}
 
       {/* Not enough */}
       {availableBalance < 10 && !hasPending && (
-        <div className="mb-8 text-sm text-gray-500">
-          Минимум для вывода: 10 USDT. Осталось накопить: <span className="text-gray-300">{(10 - availableBalance).toFixed(2)} USDT</span>
+        <div className="mb-8 text-sm p-text-muted">
+          Минимум для вывода: 10 USDT. Осталось накопить: <span className="p-text-secondary">{(10 - availableBalance).toFixed(2)} USDT</span>
         </div>
       )}
 
       {/* History */}
       {withdrawals.length > 0 && (
-        <div className="border-t border-white/[0.06] pt-6">
-          <h2 className="text-[11px] uppercase tracking-widest text-gray-500 mb-4">История выводов</h2>
+        <div className="border-t border-[var(--p-divider)] pt-6">
+          <h2 className="text-[11px] uppercase tracking-widest p-text-muted mb-4">История выводов</h2>
 
-          <div className="divide-y divide-white/[0.06]">
+          <div className="divide-y [&>*]:border-[var(--p-divider)]">
             {withdrawals.map((w) => {
               const config = statusConfig[w.status] || statusConfig.pending
               return (
                 <div key={w._id} className="py-3.5 first:pt-0 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-mono text-xs text-gray-400">{w.withdrawalId}</span>
+                      <span className="font-mono text-xs p-text-secondary">{w.withdrawalId}</span>
                       <Badge variant={config.variant}>{config.label}</Badge>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-600">
+                    <div className="flex items-center gap-3 text-xs p-text-faint">
                       <span>{formatDate(w.createdAt)}</span>
                       <button
                         onClick={() => copyWallet(w.walletAddress)}
-                        className="font-mono hover:text-gray-300 transition-colors flex items-center gap-1"
+                        className="font-mono hover:p-text-secondary transition-colors flex items-center gap-1"
                       >
                         {w.walletAddress.slice(0, 6)}...{w.walletAddress.slice(-4)}
                         <Copy size={10} />
@@ -283,7 +283,7 @@ export function PartnerWithdrawalsPage() {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="text-sm tabular-nums text-white">{w.amount.toFixed(2)} <span className="text-gray-500 text-xs">USDT</span></p>
+                    <p className="text-sm tabular-nums p-text">{w.amount.toFixed(2)} <span className="p-text-muted text-xs">USDT</span></p>
                     {w.txHash && (
                       <a
                         href={`https://tronscan.org/#/transaction/${w.txHash}`}
@@ -303,14 +303,14 @@ export function PartnerWithdrawalsPage() {
       )}
 
       {withdrawals.length === 0 && (
-        <div className="border-t border-white/[0.06] pt-6 text-sm text-gray-600">
+        <div className="border-t border-[var(--p-divider)] pt-6 text-sm p-text-faint">
           Нет выводов
         </div>
       )}
 
       {/* Copied toast */}
       {copied && (
-        <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full text-xs text-white z-50 flex items-center gap-1.5">
+        <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full text-xs p-text z-50 flex items-center gap-1.5">
           <CheckCircle2 size={12} className="text-green-400" />
           Скопировано
         </div>

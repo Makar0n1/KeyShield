@@ -4,6 +4,7 @@ import { PublicLayout, AdminLayout } from '@/components/layout'
 import { PartnerLayout } from '@/layouts/PartnerLayout'
 import { LangLayout } from '@/layouts/LangLayout'
 import { PartnerAuthProvider, usePartnerAuth } from '@/contexts/PartnerAuthContext'
+import { PartnerThemeProvider } from '@/contexts/PartnerThemeContext'
 import { ScrollToTop, ScrollToTopButton } from '@/components/ui'
 import { useMetaPixel } from '@/hooks'
 
@@ -158,9 +159,11 @@ function App() {
           <Route
             path="/partner/login"
             element={
-              <PartnerAuthProvider>
-                <PartnerLoginPage />
-              </PartnerAuthProvider>
+              <PartnerThemeProvider>
+                <PartnerAuthProvider>
+                  <PartnerLoginPage />
+                </PartnerAuthProvider>
+              </PartnerThemeProvider>
             }
           />
 
@@ -168,11 +171,13 @@ function App() {
           <Route
             path="/partner"
             element={
-              <PartnerAuthProvider>
-                <PartnerProtectedRoute>
-                  <PartnerLayout />
-                </PartnerProtectedRoute>
-              </PartnerAuthProvider>
+              <PartnerThemeProvider>
+                <PartnerAuthProvider>
+                  <PartnerProtectedRoute>
+                    <PartnerLayout />
+                  </PartnerProtectedRoute>
+                </PartnerAuthProvider>
+              </PartnerThemeProvider>
             }
           >
             <Route index element={<PartnerDashboardPage />} />

@@ -62,14 +62,14 @@ export function PartnerDealsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-medium text-white">Сделки</h1>
-        <p className="text-sm text-gray-500">Всего: {total}</p>
+        <h1 className="text-xl font-medium p-text">Сделки</h1>
+        <p className="text-sm p-text-muted">Всего: {total}</p>
       </div>
 
       {/* Search + filters */}
       <div className="mb-6 space-y-3">
         <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 p-text-muted" size={16} />
           <Input
             type="text"
             value={search}
@@ -86,8 +86,8 @@ export function PartnerDealsPage() {
               onClick={() => { setStatus(filter.value); setPage(1) }}
               className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
                 status === filter.value
-                  ? 'bg-white text-black'
-                  : 'text-gray-400 hover:text-white border border-white/[0.08] hover:border-white/[0.15]'
+                  ? 'bg-[var(--p-pill-active-bg)] text-[var(--p-pill-active-text)]'
+                  : 'p-text-secondary hover:p-text border border-[var(--p-divider)]'
               }`}
             >
               {filter.label}
@@ -102,31 +102,31 @@ export function PartnerDealsPage() {
           <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
         </div>
       ) : deals.length === 0 ? (
-        <p className="text-sm text-gray-600 py-12">Сделки не найдены</p>
+        <p className="text-sm p-text-faint py-12">Сделки не найдены</p>
       ) : (
         <>
           {/* Desktop */}
-          <div className="hidden sm:block divide-y divide-white/[0.06]">
+          <div className="hidden sm:block divide-y [&>*]:border-[var(--p-divider)]">
             {deals.map((deal) => {
               const statusInfo = statusLabels[deal.status] || { label: deal.status, variant: 'secondary' as const }
               return (
                 <div key={deal._id} className="flex items-center py-3.5 gap-4">
                   <div className="w-24 shrink-0">
-                    <span className="font-mono text-xs text-gray-400">{deal.dealId}</span>
+                    <span className="font-mono text-xs p-text-secondary">{deal.dealId}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{deal.productName}</p>
-                    <p className="text-xs text-gray-600 truncate">{deal.description}</p>
+                    <p className="text-sm p-text truncate">{deal.productName}</p>
+                    <p className="text-xs p-text-faint truncate">{deal.description}</p>
                   </div>
                   <div className="text-right shrink-0 w-28">
-                    <p className="text-sm tabular-nums text-white">{formatNumber(deal.amount)} {deal.asset}</p>
-                    <p className="text-[11px] text-gray-600">ком. {formatNumber(deal.commission)}</p>
+                    <p className="text-sm tabular-nums p-text">{formatNumber(deal.amount)} {deal.asset}</p>
+                    <p className="text-[11px] p-text-faint">ком. {formatNumber(deal.commission)}</p>
                   </div>
                   <div className="w-24 shrink-0 text-right">
                     <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                   </div>
                   <div className="w-20 shrink-0 text-right">
-                    <span className="text-xs text-gray-600">{formatDate(deal.createdAt)}</span>
+                    <span className="text-xs p-text-faint">{formatDate(deal.createdAt)}</span>
                   </div>
                 </div>
               )
@@ -134,16 +134,16 @@ export function PartnerDealsPage() {
           </div>
 
           {/* Mobile */}
-          <div className="sm:hidden divide-y divide-white/[0.06]">
+          <div className="sm:hidden divide-y [&>*]:border-[var(--p-divider)]">
             {deals.map((deal) => {
               const statusInfo = statusLabels[deal.status] || { label: deal.status, variant: 'secondary' as const }
               return (
                 <div key={deal._id} className="py-3.5">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-white truncate mr-2">{deal.productName}</span>
+                    <span className="text-sm p-text truncate mr-2">{deal.productName}</span>
                     <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center justify-between text-xs p-text-muted">
                     <span className="font-mono">{deal.dealId}</span>
                     <span className="tabular-nums">{formatNumber(deal.amount)} {deal.asset}</span>
                   </div>
