@@ -7,9 +7,16 @@ import {
   Shield, X, Loader2, ArrowRight,
 } from 'lucide-react'
 
-function maskAddress(addr: string) {
-  if (!addr || addr.length < 12) return addr
-  return addr.slice(0, 6) + '••••••' + addr.slice(-6)
+function MaskedAddress({ addr }: { addr: string }) {
+  if (!addr || addr.length < 12) return <>{addr}</>
+  return (
+    <>
+      {addr.slice(0, 6)}
+      <span className="hidden sm:inline">••••••••••••••••••••••</span>
+      <span className="sm:hidden">••••••</span>
+      {addr.slice(-6)}
+    </>
+  )
 }
 
 type ModalStep = 'password' | 'address' | 'verifying' | null
@@ -162,7 +169,7 @@ export function PartnerSettingsPage() {
                 <Wallet size={14} className="p-text-muted" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-mono p-text">{maskAddress(savedWallet)}</p>
+                <p className="text-sm font-mono p-text"><MaskedAddress addr={savedWallet} /></p>
                 <p className="text-[11px] p-text-faint">TRON (TRC-20)</p>
               </div>
             </div>
