@@ -22,8 +22,8 @@
     "disclaimer": "KeyShield is not a financial institution and does not provide financial services. We provide a technology platform for secure cryptocurrency exchange between parties."
   },
   "home": {
-    "seo_title": "Crypto Escrow Service for Telegram | USDT & Bitcoin Escrow on TRON | KeyShield",
-    "seo_description": "KeyShield — trusted cryptocurrency escrow service for Telegram deals with USDT. 2-of-3 multisig wallet on TRON: escrow crypto payments transparently, private keys only to deal participants. No admin can access your funds.",
+    "seo_title": "Crypto Escrow Service for Telegram | USDT Escrow on TRON | KeyShield",
+    "seo_description": "KeyShield — crypto escrow service for secure USDT deals in Telegram. 2-of-3 multisig wallet on TRON, private keys only to participants. No admin can touch your funds.",
     "sticky_open_bot": "Open Telegram bot",
     "sticky_read_reviews": "Read reviews",
     "hero": {
