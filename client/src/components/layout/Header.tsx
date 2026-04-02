@@ -5,7 +5,7 @@ import { Menu, X, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { LangLink } from '@/components/ui/LangLink'
 import { cn } from '@/utils/cn'
-import { useLang, useLangPath } from '@/hooks/useLang'
+import { useLang } from '@/hooks/useLang'
 
 const navKeys = [
   { href: '/#features', key: 'header.features' },
@@ -28,7 +28,6 @@ export function Header() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const lang = useLang()
-  const langPath = useLangPath()
 
   const isHomePage = location.pathname === `/${lang}` || location.pathname === `/${lang}/`
 
