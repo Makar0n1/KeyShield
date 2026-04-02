@@ -138,16 +138,19 @@
   .p-input { background: var(--p-input-bg); border-color: var(--p-input-border); color: var(--p-text); }
   .p-avatar { background: var(--p-avatar-bg); color: var(--p-text-muted); }
 
-  /* Override global .input/.card/.btn styles inside partner pages */
+  /* Override form elements inside partner pages */
+  [data-partner-theme] input,
+  [data-partner-theme] textarea,
+  [data-partner-theme] select,
   [data-partner-theme] .input,
   [data-partner-theme] .textarea {
-    background: var(--p-input-bg);
-    border-color: var(--p-input-border);
-    color: var(--p-text);
+    background: var(--p-input-bg) !important;
+    border-color: var(--p-input-border) !important;
+    color: var(--p-text) !important;
   }
-  [data-partner-theme] .input::placeholder,
-  [data-partner-theme] .textarea::placeholder {
-    color: var(--p-text-faint);
+  [data-partner-theme] input::placeholder,
+  [data-partner-theme] textarea::placeholder {
+    color: var(--p-text-faint) !important;
   }
   [data-partner-theme] .btn-primary {
     background: var(--p-pill-active-bg);
