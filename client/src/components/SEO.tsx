@@ -79,7 +79,9 @@ export function SEO({
   schema,
 }: SEOProps) {
   const lang = useLang()
-  const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Безопасный Escrow для криптосделок`
+  const fullTitle = title
+    ? (title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`)
+    : `${SITE_NAME} — Безопасный Escrow для криптосделок`
   const rawUrl = url ? `${SITE_URL}/${lang}${url}` : `${SITE_URL}/${lang}`
   const fullUrl = rawUrl.replace(/\/+$/, '') || rawUrl
   const fullImage = image?.startsWith('http') ? image : `${SITE_URL}${image}`
@@ -226,14 +228,14 @@ export function generateBreadcrumbSchema(items: { name: string; url: string }[])
 }
 
 // Helper to generate Organization schema
-export function generateOrganizationSchema() {
+export function generateOrganizationSchema(description?: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'KeyShield',
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
-    description: DEFAULT_DESCRIPTION,
+    description: description || DEFAULT_DESCRIPTION,
     sameAs: [
       // Add social media links here
     ],

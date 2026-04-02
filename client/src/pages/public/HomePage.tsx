@@ -19,17 +19,22 @@ import api from '@/services/api'
 // Container used everywhere
 const CX = 'max-w-5xl mx-auto px-5 sm:px-8'
 
-// Reveal on scroll
+// Reveal on scroll — starts visible (for SEO/bots), animates after hydration
+const isBrowser = typeof window !== 'undefined'
+
 function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [v, setV] = useState(false)
+  const [v, setV] = useState(!isBrowser) // true on server (visible for bots), false in browser (animate)
+
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setV(true); obs.disconnect() } }, { threshold: 0.1 })
+    // threshold 0 + rootMargin ensures already-visible elements trigger immediately
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setV(true); obs.disconnect() } }, { threshold: 0.1, rootMargin: '100px' })
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
+
   return <div ref={ref} className={`transition-all duration-700 ${v ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${className}`}>{children}</div>
 }
 
@@ -120,7 +125,7 @@ export function HomePage() {
   const { t } = useTranslation()
   return (
     <>
-      <SEO title={t('home.seo_title')} description={t('home.seo_description')} schema={generateOrganizationSchema()} />
+      <SEO title={t('home.seo_title')} description={t('home.seo_description')} schema={generateOrganizationSchema(t('home.seo_description'))} />
       <div className="bg-[#13161d] text-white/85 overflow-hidden">
         <HeroSection />
         <div id="sticky-cta-start" />
@@ -198,12 +203,12 @@ function HeroSection() {
 function FeatureCard({ icon: Icon, featureKey, index }: { icon: typeof Shield; featureKey: string; index: number }) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(!isBrowser) // visible for bots
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.2 })
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.2, rootMargin: '100px' })
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
@@ -574,7 +579,7 @@ function FAQSection() {
                     <span className="text-sm text-white/70 group-hover:text-white transition-colors pr-4">{item.q}</span>
                     <ChevronDown size={15} className={`text-white/20 shrink-0 transition-transform ${open === i ? 'rotate-180' : ''}`} />
                   </button>
-                  <div className={`overflow-hidden transition-all duration-300 ${open === i ? 'max-h-96 pb-5' : 'max-h-0'}`}>
+                  <div className={`overflow-hidden transition-all duration-300 ${!isBrowser || open === i ? 'max-h-96 pb-5' : 'max-h-0'}`}>
                     <p className="text-[13px] text-white/40 leading-relaxed">{item.a}</p>
                   </div>
                 </div>
