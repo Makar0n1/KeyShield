@@ -136,6 +136,22 @@ export async function renderPage(url, baseUrl) {
     // Additional wait for dynamic content
     await new Promise(r => setTimeout(r, 1000));
 
+    // Make all hidden animated elements visible for SEO
+    await page.evaluate(() => {
+      document.querySelectorAll('[style]').forEach(el => {
+        const s = el.getAttribute('style') || '';
+        if (s.includes('opacity: 0') || s.includes('opacity:0')) {
+          el.style.opacity = '1';
+          el.style.transform = 'none';
+        }
+      });
+      // Expand all collapsed FAQ answers
+      document.querySelectorAll('.max-h-0').forEach(el => {
+        el.classList.remove('max-h-0');
+        el.classList.add('max-h-96', 'pb-5');
+      });
+    });
+
     // Get the rendered HTML
     const html = await page.content();
 
