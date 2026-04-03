@@ -203,7 +203,7 @@ export function generateArticleSchema(article: {
       name: 'KeyShield',
       logo: {
         '@type': 'ImageObject',
-        url: `${SITE_URL}/logo.png`,
+        url: `${SITE_URL}/keyshield-logo.png`,
       },
     },
     // Comment count via interactionStatistic (valid for Article)
@@ -248,17 +248,103 @@ export function generateBreadcrumbSchema(items: { name: string; url: string }[])
   }
 }
 
-// Helper to generate Organization schema
+// Full homepage schema with Organization + WebSite + WebPage + SoftwareApplication
+export function generateHomepageSchema(params: {
+  lang: string
+  title: string
+  description: string
+  logoCaption: string
+  botDescription: string
+  botOfferDescription: string
+}) {
+  const { lang, title, description, logoCaption, botDescription, botOfferDescription } = params
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'KeyShield',
+      url: SITE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        '@id': `${SITE_URL}/#logo`,
+        url: `${SITE_URL}/keyshield-logo.png`,
+        contentUrl: `${SITE_URL}/keyshield-logo.png`,
+        caption: logoCaption,
+      },
+      description,
+      email: 'support@keyshield.me',
+      sameAs: [
+        'https://t.me/jessy_jackson',
+        'https://www.crunchbase.com/organization/keyshield',
+        'https://www.producthunt.com/products/keyshield',
+        'https://hackernoon.com/u/ks-escrow-service',
+      ],
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        url: 'https://t.me/jessy_jackson',
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: 'KeyShield',
+      publisher: { '@id': `${SITE_URL}/#organization` },
+      inLanguage: lang,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      '@id': `${SITE_URL}/${lang}/#webpage`,
+      url: `${SITE_URL}/${lang}`,
+      name: title,
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+      about: { '@id': `${SITE_URL}/#organization` },
+      inLanguage: lang,
+      dateModified: new Date().toISOString().split('T')[0],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'KeyShield Escrow Bot',
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Telegram',
+      url: 'https://t.me/keyshield_bot',
+      description: botDescription,
+      offers: {
+        '@type': 'Offer',
+        price: '6',
+        priceCurrency: 'USD',
+        description: botOfferDescription,
+      },
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+  ]
+}
+
+// Legacy helper (for non-homepage pages)
 export function generateOrganizationSchema(description?: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': `${SITE_URL}/#organization`,
     name: 'KeyShield',
     url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
+    logo: {
+      '@type': 'ImageObject',
+      url: `${SITE_URL}/keyshield-logo.png`,
+      contentUrl: `${SITE_URL}/keyshield-logo.png`,
+    },
     description: description || DEFAULT_DESCRIPTION,
+    email: 'support@keyshield.me',
     sameAs: [
-      // Add social media links here
+      'https://t.me/jessy_jackson',
+      'https://www.crunchbase.com/organization/keyshield',
+      'https://www.producthunt.com/products/keyshield',
+      'https://hackernoon.com/u/ks-escrow-service',
     ],
   }
 }

@@ -24,6 +24,10 @@
   "home": {
     "seo_title": "Безопасная сделка в Telegram с USDT | Гарант-сервис на TRON",
     "seo_description": "KeyShield — безопасная сделка в Telegram с USDT. Мультисиг-кошелёк 2-из-3 на TRON: приватные ключи только у участников сделки, сервис не может вывести деньги.",
+    "schema_logo_caption": "KeyShield — Гарант-сервис для криптосделок",
+    "schema_org_description": "KeyShield — надёжный эскроу-сервис для безопасных сделок в Telegram с USDT. Мультисиг-кошелёк 2-из-3 на блокчейне TRON.",
+    "schema_bot_description": "Мультисиг эскроу-бот для безопасных сделок в Telegram. Без регистрации.",
+    "schema_bot_offer": "Минимальная комиссия за сделку",
     "sticky_open_bot": "Открыть Telegram бота",
     "sticky_read_reviews": "Читать отзывы",
     "hero": {

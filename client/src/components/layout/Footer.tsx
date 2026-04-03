@@ -45,7 +45,7 @@ export function Footer() {
             <p className="text-[11px] uppercase tracking-widest text-white/20 mb-3">{t('footer.support')}</p>
             <ul className="space-y-2.5">
               <li>
-                <a href="https://t.me/keyshield_support" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[13px] transition-colors">
+                <a href="https://t.me/jessy_jackson" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[13px] transition-colors">
                   Telegram
                 </a>
               </li>

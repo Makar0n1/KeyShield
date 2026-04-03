@@ -45,7 +45,7 @@ export function NotFoundPage() {
               {t('not_found.docs')}
             </Link>
             <span>•</span>
-            <a href="https://t.me/keyshield_support" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+            <a href="https://t.me/jessy_jackson" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
               {t('not_found.support')}
             </a>
           </div>

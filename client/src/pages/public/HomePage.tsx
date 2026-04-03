@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SEO, generateOrganizationSchema } from '@/components/SEO'
+import { SEO, generateHomepageSchema } from '@/components/SEO'
 import { trackLead } from '@/hooks/useMetaPixel'
 import {
   COMMISSION_TIER_1_FIXED,
@@ -131,10 +131,17 @@ function YoutubeEmbed({ videoId }: { videoId: string }) {
 }
 
 export function HomePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   return (
     <>
-      <SEO title={t('home.seo_title')} description={t('home.seo_description')} schema={generateOrganizationSchema(t('home.seo_description'))} />
+      <SEO title={t('home.seo_title')} description={t('home.seo_description')} schema={generateHomepageSchema({
+        lang: i18n.language,
+        title: t('home.seo_title'),
+        description: t('home.schema_org_description'),
+        logoCaption: t('home.schema_logo_caption'),
+        botDescription: t('home.schema_bot_description'),
+        botOfferDescription: t('home.schema_bot_offer'),
+      })} />
       <div className="bg-[#13161d] text-white/85 overflow-hidden">
         <HeroSection />
         <div id="sticky-cta-start" />

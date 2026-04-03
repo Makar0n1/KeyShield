@@ -24,6 +24,10 @@
   "home": {
     "seo_title": "Crypto Escrow Service for Telegram | USDT Escrow on TRON | KeyShield",
     "seo_description": "KeyShield — crypto escrow service for secure USDT deals in Telegram. 2-of-3 multisig wallet on TRON, private keys only to participants. No admin can touch your funds.",
+    "schema_logo_caption": "KeyShield — Crypto Escrow Service",
+    "schema_org_description": "KeyShield — trusted cryptocurrency escrow service for Telegram deals with USDT. 2-of-3 multisig wallet on TRON blockchain.",
+    "schema_bot_description": "2-of-3 multisig crypto escrow bot for Telegram deals. No registration required.",
+    "schema_bot_offer": "Minimum commission per deal",
     "sticky_open_bot": "Open Telegram bot",
     "sticky_read_reviews": "Read reviews",
     "hero": {
