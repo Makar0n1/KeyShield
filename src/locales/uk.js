@@ -31,7 +31,7 @@ module.exports = {
     session_expired_alert: '❌ Сесія закінчилася',
     key_saved_alert: '✅ Ключ збережено!',
     loading_high_load: '⏳ *Завантаження...*\n\nСервіс має підвищене навантаження, будь ласка, зачекайте трохи.\n\nМи обов\'язково обробимо ваш запит! 🙏',
-    contact_support: 'Будь ласка, зверніться до підтримки: @keyshield\\_support',
+    contact_support: 'Будь ласка, зверніться до підтримки: @jessy\\_jackson',
     obsolete_message: '⚠️ _Це повідомлення застаріло. Використовуйте повідомлення нижче._',
     try_again: 'Спробуйте ще раз.',
     try_later: 'Спробуйте пізніше.',
@@ -292,7 +292,7 @@ module.exports = {
 
     main_menu_short: '🏠 *Головне меню*\n\nОберіть дію:',
 
-    ban_screen: '🚫 *Акаунт заблоковано*\n\nВаш акаунт заблоковано через порушення правил сервісу.\n\nЯкщо ви вважаєте, що блокування помилкове, зверніться до підтримки:\n\n📧 support@keyshield.io\n💬 @keyshield\\_support',
+    ban_screen: '🚫 *Акаунт заблоковано*\n\nВаш акаунт заблоковано через порушення правил сервісу.\n\nЯкщо ви вважаєте, що блокування помилкове, зверніться до підтримки:\n\n📧 support@keyshield.io\n💬 @jessy\\_jackson',
 
     account_blocked: '🚫 Ви не можете створювати угоди, оскільки ваш акаунт заблоковано.',
 
@@ -490,7 +490,7 @@ module.exports = {
 
     rules_fees: ({ tier1Max, tier1Fixed, tier2Max, tier2Rate, tier3Max, tier3Rate, tier4Rate, autoBanStreak, minAmount }) => `💰 *Правила та комісії*\n\n📊 *Комісія сервісу:*\n\n• До ${tier1Max} USDT — *${tier1Fixed} USDT* фіксовано\n• ${tier1Max}-${tier2Max} USDT — *${(tier2Rate * 100).toFixed(1)}%*\n• ${tier2Max}-${tier3Max} USDT — *${(tier3Rate * 100).toFixed(1)}%*\n• Понад ${tier3Max} USDT — *${(tier4Rate * 100).toFixed(1)}%*\n\n💡 *Приклади:*\n• Угода на 100 USDT → комісія ${tier1Fixed} USDT\n• Угода на 300 USDT → комісія ${(300 * tier2Rate).toFixed(1)} USDT\n• Угода на 1000 USDT → комісія ${(1000 * tier3Rate).toFixed(1)} USDT\n• Угода на 2000 USDT → комісія ${(2000 * tier4Rate).toFixed(1)} USDT\n\n💸 *Хто сплачує комісію?*\nПри створенні угоди можна обрати:\n• Покупець (додається до депозиту)\n• Продавець (вираховується із суми)\n• 50/50 (ділиться навпіл)\n\n📋 *Правила користування:*\n\n1. Мінімальна сума угоди: *${minAmount} USDT*\n2. Підтримуваний актив: *USDT (TRC-20)*\n3. Термін депозиту: *24 години* після створення\n4. Термін виконання: обирається при створенні\n5. Grace-період: *12 годин* після закінчення дедлайну\n\n⚠️ *Система блокувань:*\n${autoBanStreak} програних спори поспіль = автоматичне блокування акаунту.`,
 
-    support: ({ tier1Fixed, minAmount }) => `🆘 *Підтримка*\n\n📧 Email: support@keyshield.io\n💬 Telegram: @keyshield\\_support\n\n❓ *FAQ:*\n\n*Q: Як довго обробляється депозит?*\nA: Система перевіряє блокчейн кожні 30 секунд. Зазвичай депозит підтверджується протягом 1-3 хвилин.\n\n*Q: Чи можна скасувати угоду?*\nA: До внесення депозиту — так. Після — лише через арбітраж.\n\n*Q: Як працює арбітраж?*\nA: При спорі обидві сторони надають докази. Нейтральний арбітр виносить рішення на основі фактів.\n\n*Q: Чи безпечно це?*\nA: Кошти зберігаються на multisig-гаманці (2 з 3 підписів). Ні бот, ні жодна зі сторін не може забрати кошти самостійно.\n\n*Q: Яка мінімальна сума угоди?*\nA: ${minAmount} USDT.\n\n*Q: Яка комісія?*\nA: Від ${tier1Fixed} USDT. Детальніше у розділі «Правила та комісії».`,
+    support: ({ tier1Fixed, minAmount }) => `🆘 *Підтримка*\n\n📧 Email: support@keyshield.io\n💬 Telegram: @jessy\\_jackson\n\n❓ *FAQ:*\n\n*Q: Як довго обробляється депозит?*\nA: Система перевіряє блокчейн кожні 30 секунд. Зазвичай депозит підтверджується протягом 1-3 хвилин.\n\n*Q: Чи можна скасувати угоду?*\nA: До внесення депозиту — так. Після — лише через арбітраж.\n\n*Q: Як працює арбітраж?*\nA: При спорі обидві сторони надають докази. Нейтральний арбітр виносить рішення на основі фактів.\n\n*Q: Чи безпечно це?*\nA: Кошти зберігаються на multisig-гаманці (2 з 3 підписів). Ні бот, ні жодна зі сторін не може забрати кошти самостійно.\n\n*Q: Яка мінімальна сума угоди?*\nA: ${minAmount} USDT.\n\n*Q: Яка комісія?*\nA: Від ${tier1Fixed} USDT. Детальніше у розділі «Правила та комісії».`,
   },
 
   // ============================================
@@ -563,14 +563,14 @@ module.exports = {
 
     seller_refund_notify: ({ dealId, productName, refundAmount, asset, commission, txHash }) => `⚠️ *Угоду завершено автоповерненням*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\nТермін угоди закінчився без підтвердження виконання.\nКошти повернуто покупцеві.\n\n💸 Повернуто покупцеві: ${refundAmount} ${asset}\n📊 Комісія сервісу: ${commission} ${asset}\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
-    refund_error: ({ dealId, errorMessage }) => `❌ *Помилка автоповернення*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @keyshield\\_support`,
+    refund_error: ({ dealId, errorMessage }) => `❌ *Помилка автоповернення*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @jessy\\_jackson`,
 
     // Auto-release complete
     seller_release_complete: ({ dealId, productName, releaseAmount, asset, commission, txHash }) => `✅ *Угоду успішно завершено!*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\n💸 Отримано: *${releaseAmount} ${asset}*\n📊 Комісія сервісу: ${commission} ${asset}\n\nПокупець не відповів протягом 12 годин після здачі роботи.\nРоботу прийнято автоматично, кошти переведено на ваш гаманець.\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
     buyer_release_notify: ({ dealId, productName, releaseAmount, asset, commission, txHash }) => `✅ *Угоду завершено*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\nПродавець здав роботу, але ви не відповіли протягом 12 годин.\nРоботу прийнято автоматично, кошти переведено продавцеві.\n\n💸 Переведено продавцеві: ${releaseAmount} ${asset}\n📊 Комісія сервісу: ${commission} ${asset}\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
-    release_error: ({ dealId, errorMessage }) => `❌ *Помилка автопереказу продавцеві*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @keyshield\\_support`,
+    release_error: ({ dealId, errorMessage }) => `❌ *Помилка автопереказу продавцеві*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @jessy\\_jackson`,
   },
 
   // ============================================
@@ -580,23 +580,23 @@ module.exports = {
     processing: '⏳ *Завантаження...*\n\nТриває процес виплати, будь ласка, зачекайте.',
 
     wrong_key: ({ attempts }) => `❌ *Невірний ключ!*\n\nСпроба ${attempts} з 3\n\nВведіть ваш приватний ключ ще раз:`,
-    wrong_key_many: ({ attempts }) => `❌ *Невірний ключ!*\n\nСпроба ${attempts}\n\n⚠️ Якщо ви втратили ключ, зверніться до підтримки: @keyshield\\_support\n\nСпробуйте ще раз:`,
+    wrong_key_many: ({ attempts }) => `❌ *Невірний ключ!*\n\nСпроба ${attempts}\n\n⚠️ Якщо ви втратили ключ, зверніться до підтримки: @jessy\\_jackson\n\nСпробуйте ще раз:`,
 
     seller_success: ({ dealId, productName, releaseAmount, asset, commission, txHash }) => `✅ *Кошти отримано!*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\n💸 Отримано: *${releaseAmount} ${asset}*\n📊 Комісія сервісу: ${commission} ${asset}\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
     buyer_deal_complete: ({ dealId, productName, amount, asset, commission, txHash }) => `✅ *Угоду завершено!*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\n💸 Сума покупки: *${amount} ${asset}*\n📊 Комісія сервісу: ${commission} ${asset}\n\nПродавець підтвердив отримання коштів.\nУгоду успішно завершено!\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
-    seller_error: ({ dealId, errorMessage }) => `❌ *Помилка виплати*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @keyshield\\_support`,
+    seller_error: ({ dealId, errorMessage }) => `❌ *Помилка виплати*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @jessy\\_jackson`,
 
     buyer_refund_success: ({ dealId, productName, refundAmount, asset, commission, txHash }) => `✅ *Повернення виконано!*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\n💸 Повернуто: *${refundAmount} ${asset}*\n📊 Комісія сервісу: ${commission} ${asset}\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
     seller_refund_notify: ({ dealId, productName, refundAmount, asset, txHash }) => `⚠️ *Угоду завершено поверненням*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\nТермін угоди закінчився без підтвердження виконання.\nКошти повернуто покупцеві.\n\n💸 Повернуто: ${refundAmount} ${asset}\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
-    buyer_refund_error: ({ dealId, errorMessage }) => `❌ *Помилка повернення*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @keyshield\\_support`,
+    buyer_refund_error: ({ dealId, errorMessage }) => `❌ *Помилка повернення*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @jessy\\_jackson`,
 
     dispute_winner: ({ dealId, productName, payoutAmount, asset, commission, txHash }) => `✅ *Кошти отримано!*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n\n💸 Отримано: *${payoutAmount} ${asset}*\n📊 Комісія сервісу: ${commission} ${asset}\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
-    dispute_error: ({ dealId, errorMessage }) => `❌ *Помилка виплати*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @keyshield\\_support`,
+    dispute_error: ({ dealId, errorMessage }) => `❌ *Помилка виплати*\n\n🆔 Угода: \`${dealId}\`\nПомилка: ${errorMessage}\n\nБудь ласка, зверніться до підтримки: @jessy\\_jackson`,
   },
 
   // ============================================
@@ -858,7 +858,7 @@ module.exports = {
   abandoned: {
     title: '⏰ *Виникли складнощі?*',
     stopped_at: ({ step }) => `Ви зупинилися на кроці: *${step}*`,
-    help_text: 'Якщо у вас виникли питання:\n• Напишіть у підтримку: @keyshield\\_support\n• Інструкція на сайті: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)',
+    help_text: 'Якщо у вас виникли питання:\n• Напишіть у підтримку: @jessy\\_jackson\n• Інструкція на сайті: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)',
     continue_or_menu: 'Продовжити створення угоди або повернутися до головного меню?',
     btn_continue: '▶️ Продовжити',
     btn_main_menu: '🏠 Головне меню',

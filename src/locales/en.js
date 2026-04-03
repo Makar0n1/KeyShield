@@ -31,7 +31,7 @@ module.exports = {
     session_expired_alert: '❌ Session expired',
     key_saved_alert: '✅ Key saved!',
     loading_high_load: '⏳ *Loading...*\n\nThe service is under high load, please stay with us and wait a moment.\n\nWe will process your request! 🙏',
-    contact_support: 'Please contact support: @keyshield\\_support',
+    contact_support: 'Please contact support: @jessy\\_jackson',
     obsolete_message: '⚠️ _This message is outdated. Please use the message below._',
     try_again: 'Please try again.',
     try_later: 'Please try later.',
@@ -292,7 +292,7 @@ module.exports = {
 
     main_menu_short: '🏠 *Main Menu*\n\nChoose an action:',
 
-    ban_screen: '🚫 *Account blocked*\n\nYour account has been blocked due to a violation of service rules.\n\nIf you believe this is a mistake, please contact support:\n\n📧 support@keyshield.io\n💬 @keyshield\\_support',
+    ban_screen: '🚫 *Account blocked*\n\nYour account has been blocked due to a violation of service rules.\n\nIf you believe this is a mistake, please contact support:\n\n📧 support@keyshield.io\n💬 @jessy\\_jackson',
 
     account_blocked: '🚫 You cannot create deals because your account is blocked.',
 
@@ -490,7 +490,7 @@ module.exports = {
 
     rules_fees: ({ tier1Max, tier1Fixed, tier2Max, tier2Rate, tier3Max, tier3Rate, tier4Rate, autoBanStreak, minAmount }) => `💰 *Rules & Fees*\n\n📊 *Service fee:*\n\n• Up to ${tier1Max} USDT — *${tier1Fixed} USDT* fixed\n• ${tier1Max}-${tier2Max} USDT — *${(tier2Rate * 100).toFixed(1)}%*\n• ${tier2Max}-${tier3Max} USDT — *${(tier3Rate * 100).toFixed(1)}%*\n• Over ${tier3Max} USDT — *${(tier4Rate * 100).toFixed(1)}%*\n\n💡 *Examples:*\n• Deal for 100 USDT → fee ${tier1Fixed} USDT\n• Deal for 300 USDT → fee ${(300 * tier2Rate).toFixed(1)} USDT\n• Deal for 1000 USDT → fee ${(1000 * tier3Rate).toFixed(1)} USDT\n• Deal for 2000 USDT → fee ${(2000 * tier4Rate).toFixed(1)} USDT\n\n💸 *Who pays the fee?*\nWhen creating a deal, you can choose:\n• Buyer (added to the deposit)\n• Seller (deducted from the amount)\n• 50/50 (split equally)\n\n📋 *Terms of use:*\n\n1. Minimum deal amount: *${minAmount} USDT*\n2. Supported asset: *USDT (TRC-20)*\n3. Deposit deadline: *24 hours* after creation\n4. Execution deadline: chosen when creating\n5. Grace period: *12 hours* after the deadline expires\n\n⚠️ *Ban system:*\n${autoBanStreak} lost disputes in a row = automatic account ban.`,
 
-    support: ({ tier1Fixed, minAmount }) => `🆘 *Support*\n\n📧 Email: support@keyshield.io\n💬 Telegram: @keyshield\\_support\n\n❓ *FAQ:*\n\n*Q: How long does deposit processing take?*\nA: The system checks the blockchain every 30 seconds. Typically, a deposit is confirmed within 1-3 minutes.\n\n*Q: Can I cancel a deal?*\nA: Before making a deposit — yes. After — only through arbitration.\n\n*Q: How does arbitration work?*\nA: In a dispute, both parties provide evidence. A neutral arbiter makes a decision based on the facts.\n\n*Q: Is it safe?*\nA: Funds are stored in a multisig wallet (2 of 3 signatures). Neither the bot nor any single party can take the funds alone.\n\n*Q: What is the minimum deal amount?*\nA: ${minAmount} USDT.\n\n*Q: What is the fee?*\nA: Starting from ${tier1Fixed} USDT. See the "Rules & Fees" section for details.`,
+    support: ({ tier1Fixed, minAmount }) => `🆘 *Support*\n\n📧 Email: support@keyshield.io\n💬 Telegram: @jessy\\_jackson\n\n❓ *FAQ:*\n\n*Q: How long does deposit processing take?*\nA: The system checks the blockchain every 30 seconds. Typically, a deposit is confirmed within 1-3 minutes.\n\n*Q: Can I cancel a deal?*\nA: Before making a deposit — yes. After — only through arbitration.\n\n*Q: How does arbitration work?*\nA: In a dispute, both parties provide evidence. A neutral arbiter makes a decision based on the facts.\n\n*Q: Is it safe?*\nA: Funds are stored in a multisig wallet (2 of 3 signatures). Neither the bot nor any single party can take the funds alone.\n\n*Q: What is the minimum deal amount?*\nA: ${minAmount} USDT.\n\n*Q: What is the fee?*\nA: Starting from ${tier1Fixed} USDT. See the "Rules & Fees" section for details.`,
   },
 
   // ============================================
@@ -563,14 +563,14 @@ module.exports = {
 
     seller_refund_notify: ({ dealId, productName, refundAmount, asset, commission, txHash }) => `⚠️ *Deal completed with auto-refund*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\nThe deal deadline expired without confirmation of completion.\nFunds have been returned to the buyer.\n\n💸 Refunded to buyer: ${refundAmount} ${asset}\n📊 Service fee: ${commission} ${asset}\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
-    refund_error: ({ dealId, errorMessage }) => `❌ *Auto-refund error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @keyshield\\_support`,
+    refund_error: ({ dealId, errorMessage }) => `❌ *Auto-refund error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @jessy\\_jackson`,
 
     // Auto-release complete
     seller_release_complete: ({ dealId, productName, releaseAmount, asset, commission, txHash }) => `✅ *Deal successfully completed!*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n💸 Received: *${releaseAmount} ${asset}*\n📊 Service fee: ${commission} ${asset}\n\nThe buyer did not respond within 12 hours after work submission.\nThe work was accepted automatically and funds have been transferred to your wallet.\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
     buyer_release_notify: ({ dealId, productName, releaseAmount, asset, commission, txHash }) => `✅ *Deal completed*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\nThe seller submitted the work, but you did not respond within 12 hours.\nThe work was accepted automatically and funds have been transferred to the seller.\n\n💸 Transferred to seller: ${releaseAmount} ${asset}\n📊 Service fee: ${commission} ${asset}\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
-    release_error: ({ dealId, errorMessage }) => `❌ *Auto-transfer to seller error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @keyshield\\_support`,
+    release_error: ({ dealId, errorMessage }) => `❌ *Auto-transfer to seller error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @jessy\\_jackson`,
   },
 
   // ============================================
@@ -580,23 +580,23 @@ module.exports = {
     processing: '⏳ *Loading...*\n\nPayout in progress, please wait.',
 
     wrong_key: ({ attempts }) => `❌ *Invalid key!*\n\nAttempt ${attempts} of 3\n\nEnter your private key again:`,
-    wrong_key_many: ({ attempts }) => `❌ *Invalid key!*\n\nAttempt ${attempts}\n\n⚠️ If you lost your key, contact support: @keyshield\\_support\n\nTry again:`,
+    wrong_key_many: ({ attempts }) => `❌ *Invalid key!*\n\nAttempt ${attempts}\n\n⚠️ If you lost your key, contact support: @jessy\\_jackson\n\nTry again:`,
 
     seller_success: ({ dealId, productName, releaseAmount, asset, commission, txHash }) => `✅ *Funds received!*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n💸 Received: *${releaseAmount} ${asset}*\n📊 Service fee: ${commission} ${asset}\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
     buyer_deal_complete: ({ dealId, productName, amount, asset, commission, txHash }) => `✅ *Deal completed!*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n💸 Purchase amount: *${amount} ${asset}*\n📊 Service fee: ${commission} ${asset}\n\nThe seller confirmed receipt of funds.\nThe deal is successfully completed!\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
-    seller_error: ({ dealId, errorMessage }) => `❌ *Payout error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @keyshield\\_support`,
+    seller_error: ({ dealId, errorMessage }) => `❌ *Payout error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @jessy\\_jackson`,
 
     buyer_refund_success: ({ dealId, productName, refundAmount, asset, commission, txHash }) => `✅ *Refund completed!*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n💸 Refunded: *${refundAmount} ${asset}*\n📊 Service fee: ${commission} ${asset}\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
     seller_refund_notify: ({ dealId, productName, refundAmount, asset, txHash }) => `⚠️ *Deal completed with refund*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\nThe deal deadline expired without confirmation of completion.\nFunds have been returned to the buyer.\n\n💸 Refunded: ${refundAmount} ${asset}\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
-    buyer_refund_error: ({ dealId, errorMessage }) => `❌ *Refund error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @keyshield\\_support`,
+    buyer_refund_error: ({ dealId, errorMessage }) => `❌ *Refund error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @jessy\\_jackson`,
 
     dispute_winner: ({ dealId, productName, payoutAmount, asset, commission, txHash }) => `✅ *Funds received!*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n💸 Received: *${payoutAmount} ${asset}*\n📊 Service fee: ${commission} ${asset}\n\n[Transaction](https://tronscan.org/#/transaction/${txHash})`,
 
-    dispute_error: ({ dealId, errorMessage }) => `❌ *Payout error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @keyshield\\_support`,
+    dispute_error: ({ dealId, errorMessage }) => `❌ *Payout error*\n\n🆔 Deal: \`${dealId}\`\nError: ${errorMessage}\n\nPlease contact support: @jessy\\_jackson`,
   },
 
   // ============================================
@@ -856,7 +856,7 @@ module.exports = {
   abandoned: {
     title: '⏰ *Having trouble?*',
     stopped_at: ({ step }) => `You stopped at step: *${step}*`,
-    help_text: 'If you have questions:\n• Contact support: @keyshield\\_support\n• Instructions on the website: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)',
+    help_text: 'If you have questions:\n• Contact support: @jessy\\_jackson\n• Instructions on the website: [keyshield.me/blog/keyshield-instruction-usdt-escrow](https://keyshield.me/blog/keyshield-instruction-usdt-escrow)',
     continue_or_menu: 'Continue creating the deal or return to the main menu?',
     btn_continue: '▶️ Continue',
     btn_main_menu: '🏠 Main menu',
