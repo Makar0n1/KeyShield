@@ -158,8 +158,9 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://connect.facebook.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "https://www.facebook.com"],
+      imgSrc: ["'self'", "data:", "https:", "https://www.facebook.com", "https://img.youtube.com", "https://i.ytimg.com"],
       connectSrc: ["'self'", "https://api.trongrid.io", "https://tronscan.org", "https://www.facebook.com"],
+      frameSrc: ["'self'", "https://www.youtube-nocookie.com", "https://www.youtube.com"],
     }
   },
   crossOriginEmbedderPolicy: false,
