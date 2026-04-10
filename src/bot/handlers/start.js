@@ -296,18 +296,23 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     const deal = await dealService.getDealByInviteToken(inviteToken);
 
     if (!deal) {
-      // Invalid or expired link
-      await messageManager.deleteMainMessage(ctx, telegramId);
-      await messageManager.resetNavigation(telegramId);
-
+      // Invalid or expired link — show error in existing message
       const errorText = t(lang, 'invite.invalid');
-
       const keyboard = mainMenuButton(lang);
-      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
+
+      try {
+        // Try to edit existing main message
+        await messageManager.updateScreen(ctx, telegramId, 'invite_invalid', errorText, keyboard);
+      } catch (e) {
+        // Fallback: delete old and send new
+        await messageManager.deleteMainMessage(ctx, telegramId);
+        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard.reply_markup
+        });
+        await messageManager.setMainMessage(telegramId, msg.message_id);
+      }
+      await messageManager.resetNavigation(telegramId);
       return;
     }
 
@@ -318,34 +323,35 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       deal.inviteToken = null;
       await deal.save();
 
-      await messageManager.deleteMainMessage(ctx, telegramId);
+      const errorText = t(lang, 'invite.expired_long');
+      const keyboard = mainMenuButton(lang);
+      try {
+        await messageManager.updateScreen(ctx, telegramId, 'invite_expired', errorText, keyboard);
+      } catch (e) {
+        await messageManager.deleteMainMessage(ctx, telegramId);
+        const msg = await ctx.telegram.sendMessage(telegramId, errorText, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+        await messageManager.setMainMessage(telegramId, msg.message_id);
+      }
       await messageManager.resetNavigation(telegramId);
 
-      const errorText = t(lang, 'invite.expired_long');
-
-      const keyboard = mainMenuButton(lang);
-      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
+      deal.status = 'cancelled';
+      deal.inviteToken = null;
+      await deal.save();
       return;
     }
 
     // Check if user is the creator (can't accept own deal)
     const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
     if (telegramId === creatorId) {
-      await messageManager.deleteMainMessage(ctx, telegramId);
-      await messageManager.resetNavigation(telegramId);
-
       const errorText = t(lang, 'invite.own_deal');
-
       const keyboard = mainMenuButton(lang);
-      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
+      try {
+        await messageManager.updateScreen(ctx, telegramId, 'invite_own', errorText, keyboard);
+      } catch (e) {
+        await messageManager.deleteMainMessage(ctx, telegramId);
+        const msg = await ctx.telegram.sendMessage(telegramId, errorText, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+        await messageManager.setMainMessage(telegramId, msg.message_id);
+      }
       return;
     }
 
