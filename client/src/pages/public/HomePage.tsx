@@ -96,15 +96,24 @@ function FlowLine({ id, d, top = -60, height = 250, left = 0, right = 0, sw = 1.
   )
 }
 
-// YouTube lazy embed — loads iframe only on click
-function YoutubeEmbed({ videoId }: { videoId: string }) {
+// Video lazy embed — loads iframe only on click
+function VideoEmbed({ videoId, provider = 'dailymotion' }: { videoId: string; provider?: 'dailymotion' | 'youtube' }) {
   const [playing, setPlaying] = useState(false)
+
+  const thumbUrl = provider === 'youtube'
+    ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+    : `https://www.dailymotion.com/thumbnail/video/${videoId}`
+
+  const embedUrl = provider === 'youtube'
+    ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
+    : `https://geo.dailymotion.com/player.html?video=${videoId}&autoplay=1&mute=0&ui-start-screen-info=false`
+
   return (
     <div className="aspect-video rounded-2xl overflow-hidden relative bg-black">
       {!playing ? (
         <button onClick={() => setPlaying(true)} className="absolute inset-0 w-full h-full group cursor-pointer">
           <img
-            src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+            src={thumbUrl}
             alt="Video preview"
             className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity duration-300"
             loading="lazy"
@@ -119,9 +128,9 @@ function YoutubeEmbed({ videoId }: { videoId: string }) {
         </button>
       ) : (
         <iframe
-          src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+          src={embedUrl}
           className="absolute inset-0 w-full h-full"
-          allow="autoplay; encrypted-media"
+          allow="autoplay; encrypted-media; fullscreen"
           allowFullScreen
           title="KeyShield Demo"
         />
@@ -633,7 +642,7 @@ function CTASection() {
             </div>
 
             {/* YouTube lazy embed */}
-            <YoutubeEmbed videoId="xd21ruhSILU" />
+            <VideoEmbed videoId="xa53nmc" provider="dailymotion" />
           </div>
         </Reveal>
       </div>

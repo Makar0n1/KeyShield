@@ -160,7 +160,7 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "https://www.facebook.com", "https://img.youtube.com", "https://i.ytimg.com"],
       connectSrc: ["'self'", "https://api.trongrid.io", "https://tronscan.org", "https://www.facebook.com"],
-      frameSrc: ["'self'", "https://www.youtube-nocookie.com", "https://www.youtube.com"],
+      frameSrc: ["'self'", "https://www.youtube-nocookie.com", "https://www.youtube.com", "https://www.dailymotion.com", "https://geo.dailymotion.com"],
     }
   },
   crossOriginEmbedderPolicy: false,
