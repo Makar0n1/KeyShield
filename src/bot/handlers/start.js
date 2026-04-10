@@ -572,6 +572,9 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
 async function startWebDealSession(ctx, telegramId, user, webDeal, webToken) {
   const lang = user.languageCode || 'ru';
 
+  // Delete previous message (language picker etc)
+  await messageManager.deleteMainMessage(ctx, telegramId);
+
   const sessionData = {
     step: 'description',
     data: {

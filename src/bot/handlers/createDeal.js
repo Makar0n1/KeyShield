@@ -436,6 +436,20 @@ const handleDescription = async (ctx, session, text) => {
   }
 
   session.data.description = text;
+
+  // Web deal: asset and amount already set — skip to commission
+  if (session.data.webDealToken && session.data.amount && session.data.asset) {
+    session.step = 'commission';
+    await setCreateDealSession(telegramId, session);
+
+    const { amount, asset } = session.data;
+    const commission = Deal.calculateCommission(amount);
+    const successText = t(lang, 'createDeal.step7_commission', { amount, asset, commission });
+    const keyboard = commissionTypeKeyboard(amount, asset, lang);
+    await messageManager.navigateToScreen(ctx, telegramId, 'create_deal_commission', successText, keyboard);
+    return;
+  }
+
   session.step = 'asset';
   await setCreateDealSession(telegramId, session);
 
