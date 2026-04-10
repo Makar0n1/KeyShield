@@ -1,6 +1,8 @@
 const User = require('../../models/User');
 const Platform = require('../../models/Platform');
 const Deal = require('../../models/Deal');
+const WebDeal = require('../../models/WebDeal');
+const Session = require('../../models/Session');
 const { mainMenuKeyboard, languageSelectKeyboard, inviteAcceptKeyboard, mainMenuButton } = require('../keyboards/main');
 const { languageSync } = require('../middleware/languageSync');
 const messageManager = require('../utils/messageManager');
@@ -68,6 +70,13 @@ const startHandler = async (ctx) => {
     if (startPayload && startPayload.startsWith('deal_')) {
       const inviteToken = startPayload.replace('deal_', '');
       await handleDealInvite(ctx, telegramId, username, firstName, inviteToken);
+      return;
+    }
+
+    // Handle web deal link: /start web_TOKEN
+    if (startPayload && startPayload.startsWith('web_')) {
+      const webToken = startPayload.replace('web_', '');
+      await handleWebDealClaim(ctx, telegramId, username, firstName, webToken);
       return;
     }
 
@@ -477,11 +486,113 @@ const handleLanguageSelection = async (ctx) => {
   }
 };
 
+/**
+ * Handle web deal claim: user clicked link from website deal builder
+ * Pre-populates create_deal session with WebDeal data, starts from description step
+ */
+async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken) {
+  try {
+    const webDeal = await WebDeal.findOne({ token: webToken });
+
+    if (!webDeal) {
+      console.log(`❌ WebDeal not found: ${webToken}`);
+      // Fall through to normal start
+      return await startHandler(ctx);
+    }
+
+    if (webDeal.status === 'claimed') {
+      console.log(`⚠️ WebDeal already claimed: ${webToken}`);
+      return await startHandler(ctx);
+    }
+
+    if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
+      console.log(`⚠️ WebDeal expired: ${webToken}`);
+      return await startHandler(ctx);
+    }
+
+    // Ensure user exists
+    let user = await User.findOne({ telegramId });
+    if (!user) {
+      user = new User({ telegramId, username, firstName, source: 'web_deal' });
+      await user.save();
+      console.log(`✅ New user registered via web deal: ${telegramId} (@${username})`);
+      await adminAlertService.alertNewUser(user);
+    }
+
+    // Check if user is banned
+    if (user.blacklisted) {
+      return await startHandler(ctx);
+    }
+
+    // Detect language
+    const lang = user.languageCode || ctx.from?.language_code || 'ru';
+
+    // Claim the web deal
+    await webDeal.claim(telegramId);
+    console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
+
+    // Delete old bot message if exists
+    await messageManager.deleteMainMessage(ctx, telegramId);
+
+    // Create pre-populated create_deal session
+    // Skip: role, counterparty method, product name, amount, asset
+    // Start from: description
+    const sessionData = {
+      step: 'description',
+      data: {
+        creatorRole: webDeal.creatorRole,
+        isInviteLink: true, // always invite link for web deals
+        productName: webDeal.productName,
+        amount: webDeal.amount,
+        asset: webDeal.asset || 'USDT',
+        commissionType: webDeal.commissionType || 'buyer',
+        webDealToken: webToken,
+      }
+    };
+
+    // Set buyer/seller IDs based on role
+    if (webDeal.creatorRole === 'buyer') {
+      sessionData.data.buyerId = telegramId;
+      sessionData.data.sellerId = 0; // will be set when counterparty accepts
+    } else {
+      sessionData.data.sellerId = telegramId;
+      sessionData.data.buyerId = 0;
+    }
+
+    await Session.setSession(telegramId, 'create_deal', sessionData, 2);
+
+    // Show description step
+    const text = t(lang, 'createDeal.step4_description');
+    const { backButton } = require('../keyboards/main');
+    const keyboard = backButton(lang);
+
+    const msg = await ctx.telegram.sendMessage(telegramId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard.reply_markup
+    });
+
+    await User.updateOne({ telegramId }, {
+      $set: {
+        mainMessageId: msg.message_id,
+        currentScreen: 'create_deal_description',
+        lastActivity: new Date()
+      }
+    });
+
+    console.log(`🌐 WebDeal session started for ${telegramId}, step: description`);
+
+  } catch (error) {
+    console.error('Error handling web deal claim:', error);
+    await startHandler(ctx);
+  }
+}
+
 module.exports = {
   startHandler,
   mainMenuHandler,
   backHandler,
   handleDealInvite,
+  handleWebDealClaim,
   handleLanguageSelection,
   getMainMenuText,
   MAIN_MENU_TEXT: getMainMenuText('ru')
