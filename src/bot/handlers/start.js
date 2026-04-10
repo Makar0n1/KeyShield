@@ -463,14 +463,26 @@ const handleLanguageSelection = async (ctx) => {
     // Save chosen language and mark as explicitly selected
     await languageSync.setLanguage(telegramId, selectedLang);
 
-    // Reload user to determine new/returning status
-    const user = await User.findOne({ telegramId }).select('blacklisted').lean();
+    // Reload user
+    const user = await User.findOne({ telegramId });
     if (!user) return;
 
     if (user.blacklisted) {
       const banText = getBanScreenText(selectedLang);
       await messageManager.showFinalScreen(ctx, telegramId, 'ban', banText, null);
       return;
+    }
+
+    // Check if there's a pending web deal to resume
+    if (user.pendingWebDeal) {
+      const webDeal = await WebDeal.findOne({ token: user.pendingWebDeal, status: 'claimed' });
+      if (webDeal) {
+        console.log(`🌐 Resuming web deal ${user.pendingWebDeal} after language selection`);
+        await startWebDealSession(ctx, telegramId, user, webDeal, user.pendingWebDeal);
+        return;
+      }
+      // Clean up stale pendingWebDeal
+      await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
     }
 
     // Show welcome in chosen language
@@ -524,9 +536,6 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
       return await startHandler(ctx);
     }
 
-    // Detect language
-    const lang = user.languageCode || ctx.from?.language_code || 'ru';
-
     // Claim the web deal
     await webDeal.claim(telegramId);
     console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
@@ -534,57 +543,77 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
     // Delete old bot message if exists
     await messageManager.deleteMainMessage(ctx, telegramId);
 
-    // Create pre-populated create_deal session
-    // Skip: role, counterparty method, product name, amount, asset
-    // Start from: description
-    const sessionData = {
-      step: 'description',
-      data: {
-        creatorRole: webDeal.creatorRole,
-        isInviteLink: true, // always invite link for web deals
-        productName: webDeal.productName,
-        amount: webDeal.amount,
-        asset: webDeal.asset || 'USDT',
-        commissionType: webDeal.commissionType || 'buyer',
-        webDealToken: webToken,
-      }
-    };
-
-    // Set buyer/seller IDs based on role
-    if (webDeal.creatorRole === 'buyer') {
-      sessionData.data.buyerId = telegramId;
-      sessionData.data.sellerId = 0; // will be set when counterparty accepts
-    } else {
-      sessionData.data.sellerId = telegramId;
-      sessionData.data.buyerId = 0;
+    // If user hasn't chosen language yet — show language picker first
+    // Save webDealToken so we can resume after language selection
+    if (!user.languageSelected) {
+      await User.updateOne({ telegramId }, { $set: { pendingWebDeal: webToken } });
+      const keyboard = languageSelectKeyboard();
+      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`🌐 WebDeal ${webToken}: language picker shown first`);
+      return;
     }
 
-    await Session.setSession(telegramId, 'create_deal', sessionData, 2);
-
-    // Show description step
-    const text = t(lang, 'createDeal.step4_description');
-    const { backButton } = require('../keyboards/main');
-    const keyboard = backButton(lang);
-
-    const msg = await ctx.telegram.sendMessage(telegramId, text, {
-      parse_mode: 'Markdown',
-      reply_markup: keyboard.reply_markup
-    });
-
-    await User.updateOne({ telegramId }, {
-      $set: {
-        mainMessageId: msg.message_id,
-        currentScreen: 'create_deal_description',
-        lastActivity: new Date()
-      }
-    });
-
-    console.log(`🌐 WebDeal session started for ${telegramId}, step: description`);
+    // Language already selected — proceed to deal creation
+    await startWebDealSession(ctx, telegramId, user, webDeal, webToken);
 
   } catch (error) {
     console.error('Error handling web deal claim:', error);
     await startHandler(ctx);
   }
+}
+
+/**
+ * Start web deal session — creates pre-populated create_deal session
+ */
+async function startWebDealSession(ctx, telegramId, user, webDeal, webToken) {
+  const lang = user.languageCode || 'ru';
+
+  const sessionData = {
+    step: 'description',
+    data: {
+      creatorRole: webDeal.creatorRole,
+      isInviteLink: true,
+      productName: webDeal.productName,
+      amount: webDeal.amount,
+      asset: webDeal.asset || 'USDT',
+      commissionType: webDeal.commissionType || 'buyer',
+      webDealToken: webToken,
+    }
+  };
+
+  if (webDeal.creatorRole === 'buyer') {
+    sessionData.data.buyerId = telegramId;
+    sessionData.data.sellerId = 0;
+  } else {
+    sessionData.data.sellerId = telegramId;
+    sessionData.data.buyerId = 0;
+  }
+
+  await Session.setSession(telegramId, 'create_deal', sessionData, 2);
+
+  const text = t(lang, 'createDeal.step4_description');
+  const { backButton } = require('../keyboards/main');
+  const keyboard = backButton(lang);
+
+  const msg = await ctx.telegram.sendMessage(telegramId, text, {
+    parse_mode: 'Markdown',
+    reply_markup: keyboard.reply_markup
+  });
+
+  await User.updateOne({ telegramId }, {
+    $set: {
+      mainMessageId: msg.message_id,
+      currentScreen: 'create_deal_description',
+      lastActivity: new Date()
+    },
+    $unset: { pendingWebDeal: 1 }
+  });
+
+  console.log(`🌐 WebDeal session started for ${telegramId}, step: description`);
 }
 
 module.exports = {
