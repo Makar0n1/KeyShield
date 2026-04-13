@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const { encrypt, decrypt, isEnabled: encryptionEnabled } = require('../utils/encryption');
+
+// Sensitive fields to encrypt at rest
+const ENCRYPTED_FIELDS = [
+  'buyerAddress', 'sellerAddress',
+  'buyerPrivateKey', 'sellerPrivateKey',
+  'buyerKey', 'sellerKey', 'arbiterKey',
+];
 
 const dealSchema = new mongoose.Schema({
   dealId: {
@@ -327,5 +335,24 @@ dealSchema.methods.getUserRole = function(telegramId) {
   if (this.sellerId === telegramId) return 'seller';
   return null;
 };
+
+// ─── Encryption hooks ───────────────────────────────────
+dealSchema.pre('save', function () {
+  if (!encryptionEnabled()) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (this[field]) this[field] = encrypt(this[field]);
+  }
+});
+
+function decryptDealDoc(doc) {
+  if (!doc || !encryptionEnabled()) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (doc[field]) doc[field] = decrypt(doc[field]);
+  }
+}
+
+dealSchema.post('find', (docs) => docs.forEach(decryptDealDoc));
+dealSchema.post('findOne', decryptDealDoc);
+dealSchema.post('findOneAndUpdate', decryptDealDoc);
 
 module.exports = mongoose.model('Deal', dealSchema);

@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const connectDB = require('../config/database');
 const { testConnection } = require('../config/tron');
+const encryption = require('../utils/encryption');
 const errorHandler = require('./middleware/errorHandler');
 const mongoose = require('mongoose');
 
@@ -195,6 +196,9 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+
+    // Initialize encryption
+    encryption.init();
 
     // Test TRON connection
     await testConnection();

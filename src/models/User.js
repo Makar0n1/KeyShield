@@ -1,4 +1,8 @@
 const mongoose = require('mongoose');
+const { encrypt, decrypt, isEnabled: encryptionEnabled } = require('../utils/encryption');
+
+// Top-level sensitive fields
+const ENCRYPTED_FIELDS = ['email', 'referralWallet'];
 
 const userSchema = new mongoose.Schema({
   telegramId: {
@@ -487,5 +491,35 @@ userSchema.statics.getRatingDisplayById = async function(telegramId, lang = 'ru'
   const word = t(lang, 'plural.reviews', { count });
   return `⭐ ${user.averageRating} (${count} ${word})`;
 };
+
+// ─── Encryption hooks ───────────────────────────────────
+userSchema.pre('save', function () {
+  if (!encryptionEnabled()) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (this[field]) this[field] = encrypt(this[field]);
+  }
+  // Encrypt wallet addresses in array
+  if (this.wallets && this.wallets.length > 0) {
+    for (const w of this.wallets) {
+      if (w.address) w.address = encrypt(w.address);
+    }
+  }
+});
+
+function decryptUserDoc(doc) {
+  if (!doc || !encryptionEnabled()) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (doc[field]) doc[field] = decrypt(doc[field]);
+  }
+  if (doc.wallets && doc.wallets.length > 0) {
+    for (const w of doc.wallets) {
+      if (w.address) w.address = decrypt(w.address);
+    }
+  }
+}
+
+userSchema.post('find', (docs) => docs.forEach(decryptUserDoc));
+userSchema.post('findOne', decryptUserDoc);
+userSchema.post('findOneAndUpdate', decryptUserDoc);
 
 module.exports = mongoose.model('User', userSchema);

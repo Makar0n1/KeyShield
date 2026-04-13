@@ -1,4 +1,8 @@
 const mongoose = require('mongoose');
+const { encrypt, decrypt, isEnabled: encryptionEnabled } = require('../utils/encryption');
+
+// Fields to encrypt/decrypt automatically
+const ENCRYPTED_FIELDS = ['privateKey', 'buyerPublicKey', 'sellerPublicKey', 'arbiterPublicKey'];
 
 const multisigWalletSchema = new mongoose.Schema({
   dealId: {
@@ -62,5 +66,24 @@ const multisigWalletSchema = new mongoose.Schema({
 
 // Index for searching by address
 multisigWalletSchema.index({ address: 1 });
+
+// ─── Encryption hooks ───────────────────────────────────
+multisigWalletSchema.pre('save', function () {
+  if (!encryptionEnabled()) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (this[field]) this[field] = encrypt(this[field]);
+  }
+});
+
+function decryptDoc(doc) {
+  if (!doc || !encryptionEnabled()) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (doc[field]) doc[field] = decrypt(doc[field]);
+  }
+}
+
+multisigWalletSchema.post('find', (docs) => docs.forEach(decryptDoc));
+multisigWalletSchema.post('findOne', decryptDoc);
+multisigWalletSchema.post('findOneAndUpdate', decryptDoc);
 
 module.exports = mongoose.model('MultisigWallet', multisigWalletSchema);

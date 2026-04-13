@@ -14,6 +14,7 @@ const adminAlertService = require('../services/adminAlertService');
 const emailService = require('../services/emailService');
 const messageManager = require('./utils/messageManager');
 const { t } = require('../locales');
+const encryption = require('../utils/encryption');
 
 // Middleware for high-load optimization
 const { deduplicationMiddleware } = require('./middleware/deduplication');
@@ -806,6 +807,9 @@ const startBot = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+
+    // Initialize encryption
+    encryption.init();
 
     // Pass bot instance to services
     depositMonitor.setBotInstance(bot);
