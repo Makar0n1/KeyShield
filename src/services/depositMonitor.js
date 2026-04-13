@@ -7,7 +7,7 @@ const blockchainService = require('./blockchain');
 const adminAlertService = require('./adminAlertService');
 const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
-const { depositReceivedKeyboard } = require('../bot/keyboards/main');
+const { depositReceivedKeyboard, mainMenuButton } = require('../bot/keyboards/main');
 const User = require('../models/User');
 const { t, formatDate } = require('../locales');
 
@@ -37,6 +37,9 @@ class DepositMonitor {
 
     // Track processed deposits to prevent duplicates (bounded to prevent memory leaks)
     this.processedDeposits = new BoundedSet(5000);
+
+    // Auto-cancel deals waiting for deposit longer than 24 hours
+    this.DEPOSIT_TIMEOUT_HOURS = 24;
   }
 
   /**
@@ -172,6 +175,9 @@ class DepositMonitor {
     this.isChecking = true;
 
     try {
+      // Cancel deals that have been waiting for deposit too long
+      await this.cancelExpiredDeposits();
+
       // Find all deals waiting for deposit
       const deals = await Deal.find({
         status: 'waiting_for_deposit',
@@ -231,6 +237,83 @@ class DepositMonitor {
       }
     } finally {
       this.isChecking = false;
+    }
+  }
+
+  /**
+   * Cancel deals that have been in waiting_for_deposit for too long
+   */
+  async cancelExpiredDeposits() {
+    try {
+      const cutoff = new Date(Date.now() - this.DEPOSIT_TIMEOUT_HOURS * 60 * 60 * 1000);
+
+      const expiredDeals = await Deal.find({
+        status: 'waiting_for_deposit',
+        updatedAt: { $lt: cutoff }
+      }).lean();
+
+      if (expiredDeals.length === 0) return;
+
+      console.log(`⏰ Found ${expiredDeals.length} deal(s) with expired deposit timeout...`);
+
+      for (const deal of expiredDeals) {
+        try {
+          // Atomic update — only cancel if still waiting_for_deposit
+          const updated = await Deal.findOneAndUpdate(
+            { _id: deal._id, status: 'waiting_for_deposit' },
+            { $set: { status: 'cancelled' } },
+            { new: true }
+          );
+
+          if (!updated) continue;
+
+          // Log
+          await AuditLog.log(0, 'deal_deposit_timeout', {
+            dealId: deal.dealId,
+            waitedHours: this.DEPOSIT_TIMEOUT_HOURS
+          }, { dealId: deal._id });
+
+          // Notify both parties
+          if (this.botInstance) {
+            const ctx = { telegram: this.botInstance.telegram };
+            const creatorId = deal.creatorRole === 'buyer' ? deal.buyerId : deal.sellerId;
+            const counterpartyId = deal.creatorRole === 'buyer' ? deal.sellerId : deal.buyerId;
+
+            const msgParams = {
+              dealId: deal.dealId,
+              productName: deal.productName,
+              amount: deal.amount,
+              asset: deal.asset
+            };
+
+            // Notify creator
+            try {
+              const creatorUser = await User.findOne({ telegramId: creatorId }).select('languageCode').lean();
+              const creatorLang = creatorUser?.languageCode || 'ru';
+              await messageManager.showNotification(ctx, creatorId, t(creatorLang, 'deposit.timeout_creator', msgParams), mainMenuButton(creatorLang));
+            } catch (e) {
+              console.error(`Error notifying creator ${creatorId}:`, e.message);
+            }
+
+            // Notify counterparty
+            if (counterpartyId && counterpartyId !== 0) {
+              try {
+                const cpUser = await User.findOne({ telegramId: counterpartyId }).select('languageCode').lean();
+                const cpLang = cpUser?.languageCode || 'ru';
+                await messageManager.showNotification(ctx, counterpartyId, t(cpLang, 'deposit.timeout_counterparty', msgParams), mainMenuButton(cpLang));
+              } catch (e) {
+                console.error(`Error notifying counterparty ${counterpartyId}:`, e.message);
+              }
+            }
+          }
+
+          console.log(`⏰ Deal ${deal.dealId} cancelled — deposit timeout (${this.DEPOSIT_TIMEOUT_HOURS}h)`);
+        } catch (error) {
+          console.error(`Error cancelling expired deal ${deal.dealId}:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.error('Error in cancelExpiredDeposits:', error.message);
     }
   }
 

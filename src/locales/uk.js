@@ -537,6 +537,10 @@ module.exports = {
     buyer_confirmed_short: ({ dealId, amount, asset, txHash }) => `✅ *Депозит підтверджено!*\n\nУгода ${dealId}\nСума: ${amount} ${asset}\n\nКошти заморожено в multisig-гаманці.\nПродавець може розпочати роботу.\n\n[Транзакція](https://tronscan.org/#/transaction/${txHash})`,
 
     seller_funded_short: ({ dealId, productName, amount, asset }) => `💰 *Кошти надійшли!*\n\nУгода ${dealId}\n${productName}\n\nДепозит ${amount} ${asset} підтверджено.\nМожете приступати до роботи!\n\nНадішліть \`${dealId}\` для перегляду деталей.`,
+
+    timeout_creator: ({ dealId, productName, amount, asset }) => `⏰ *Угоду скасовано*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n💰 ${amount} ${asset}\n\nДепозит не надійшов протягом 24 годин.\nУгоду автоматично скасовано.\n\nВи можете створити нову угоду в будь-який час.`,
+
+    timeout_counterparty: ({ dealId, productName, amount, asset }) => `⏰ *Угоду скасовано*\n\n🆔 Угода: \`${dealId}\`\n📦 ${productName}\n💰 ${amount} ${asset}\n\nДепозит не надійшов протягом 24 годин.\nУгоду автоматично скасовано.`,
   },
 
   // ============================================
