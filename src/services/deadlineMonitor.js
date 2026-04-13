@@ -12,7 +12,7 @@ const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const TronWeb = require('tronweb');
 const User = require('../models/User');
-const { t, formatDate } = require('../locales');
+const { t, formatDate, escapeMarkdown } = require('../locales');
 
 // High-load optimization utilities
 const BoundedSet = require('../utils/BoundedSet');
@@ -301,7 +301,7 @@ class DeadlineMonitor {
 
     const buyerText = t(buyerLang, 'deadlineMonitor.buyer_expired', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       amount: deal.amount,
       asset: deal.asset,
       deadline: formatDate(buyerLang, deadline),
@@ -331,7 +331,7 @@ class DeadlineMonitor {
 
     const sellerText = t(sellerLang, 'deadlineMonitor.seller_expired', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       amount: deal.amount,
       asset: deal.asset,
       deadline: formatDate(sellerLang, deadline),
@@ -449,7 +449,7 @@ class DeadlineMonitor {
 
       const buyerText = t(buyerLang, 'deadlineMonitor.buyer_auto_refund_key', {
         dealId: deal.dealId,
-        productName: deal.productName,
+        productName: escapeMarkdown(deal.productName),
         refundAmount: refundAmount.toFixed(2),
         asset: deal.asset,
         commission: commission.toFixed(2)
@@ -592,7 +592,7 @@ class DeadlineMonitor {
 
       const sellerText = t(sellerLang, 'deadlineMonitor.seller_auto_release_key', {
         dealId: deal.dealId,
-        productName: deal.productName,
+        productName: escapeMarkdown(deal.productName),
         releaseAmount: releaseAmount.toFixed(2),
         asset: deal.asset,
         commission: commission.toFixed(2)
@@ -791,7 +791,7 @@ class DeadlineMonitor {
     // Buyer notification
     const buyerText = t(buyerLang, 'deadlineMonitor.buyer_refund_complete', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       refundAmount: refundAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),
@@ -817,7 +817,7 @@ class DeadlineMonitor {
     // Seller notification
     const sellerText = t(sellerLang, 'deadlineMonitor.seller_refund_notify', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       refundAmount: refundAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),
@@ -898,7 +898,7 @@ class DeadlineMonitor {
     // Seller notification (winner)
     const sellerText = t(sellerLang, 'deadlineMonitor.seller_release_complete', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       releaseAmount: releaseAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),
@@ -924,7 +924,7 @@ class DeadlineMonitor {
     // Buyer notification
     const buyerText = t(buyerLang, 'deadlineMonitor.buyer_release_notify', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       releaseAmount: releaseAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),

@@ -5,7 +5,7 @@
 
 const messageManager = require('../bot/utils/messageManager');
 const User = require('../models/User');
-const { t, formatDate } = require('../locales');
+const { t, formatDate, escapeMarkdown } = require('../locales');
 
 class NotificationService {
   constructor() {
@@ -103,7 +103,8 @@ class NotificationService {
    * @param {Date} deadline - New/current deadline
    * @param {boolean} isNewDeadline - Whether deadline was updated
    */
-  async notifyDisputeCancelledWithDeadline(buyerId, sellerId, dealId, productName, deadline, isNewDeadline) {
+  async notifyDisputeCancelledWithDeadline(buyerId, sellerId, dealId, rawProductName, deadline, isNewDeadline) {
+    const productName = escapeMarkdown(rawProductName);
     const buyerUserDoc = await User.findOne({ telegramId: buyerId }).select('languageCode').lean();
     const buyerLang = buyerUserDoc?.languageCode || 'ru';
     const sellerUserDoc = await User.findOne({ telegramId: sellerId }).select('languageCode').lean();

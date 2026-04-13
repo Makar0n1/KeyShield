@@ -397,7 +397,7 @@ class SessionTimeoutMonitor {
     if (dealId) {
       const deal = await Deal.findOne({ dealId });
       if (deal) {
-        const text = `${t(lang, 'timeout.wallet_title')}\n\n🆔 \`${dealId}\`\n📦 ${deal.productName}\n\n${t(lang, 'timeout.wallet_hint')}`;
+        const text = `${t(lang, 'timeout.wallet_title')}\n\n🆔 \`${dealId}\`\n📦 ${this.escapeMarkdown(deal.productName)}\n\n${t(lang, 'timeout.wallet_hint')}`;
 
         const keyboard = Markup.inlineKeyboard([
           [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
@@ -450,7 +450,7 @@ class SessionTimeoutMonitor {
     if (dealId) {
       const deal = await Deal.findOne({ dealId });
       if (deal) {
-        const text = `${t(lang, 'timeout.dispute_title')}\n\n🆔 \`${dealId}\`\n📦 ${deal.productName}\n\n${t(lang, 'timeout.dispute_hint')}`;
+        const text = `${t(lang, 'timeout.dispute_title')}\n\n🆔 \`${dealId}\`\n📦 ${this.escapeMarkdown(deal.productName)}\n\n${t(lang, 'timeout.dispute_hint')}`;
 
         const keyboard = Markup.inlineKeyboard([
           [Markup.button.callback(t(lang, 'btn.deal_details'), `view_deal:${dealId}`)],
@@ -682,6 +682,11 @@ class SessionTimeoutMonitor {
   /**
    * Sleep helper
    */
+  escapeMarkdown(text) {
+    if (!text) return '';
+    return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+  }
+
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

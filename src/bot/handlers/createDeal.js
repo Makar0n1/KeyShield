@@ -340,8 +340,9 @@ const handleCounterpartyUsername = async (ctx, session, text) => {
     return;
   }
 
-  // Find counterparty
-  const counterparty = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+  // Find counterparty (escape regex to prevent ReDoS / wildcard injection)
+  const safeUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const counterparty = await User.findOne({ username: { $regex: new RegExp(`^${safeUsername}$`, 'i') } });
   const counterpartyLabel = creatorRole === 'buyer' ? t(lang, 'role.seller') : t(lang, 'role.buyer');
 
   if (!counterparty) {

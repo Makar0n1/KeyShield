@@ -192,9 +192,10 @@ async function handleCounterpartyInput(ctx) {
     return true;
   }
 
-  // Find counterparty
+  // Find counterparty (escape regex to prevent ReDoS / wildcard injection)
+  const safeUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const counterparty = await User.findOne({
-    username: { $regex: new RegExp(`^${username}$`, 'i') }
+    username: { $regex: new RegExp(`^${safeUsername}$`, 'i') }
   });
 
   if (!counterparty) {

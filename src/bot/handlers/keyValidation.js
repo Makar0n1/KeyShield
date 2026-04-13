@@ -22,7 +22,7 @@ const adminAlertService = require('../../services/adminAlertService');
 const messageManager = require('../utils/messageManager');
 const { mainMenuButton, backButton } = require('../keyboards/main');
 const { showReceiptQuestion, sendReceiptNotification } = require('./receiptEmail');
-const { t } = require('../../locales');
+const { t, escapeMarkdown } = require('../../locales');
 
 // ============================================
 // REFERRAL BONUS SYSTEM
@@ -577,7 +577,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
     // Notify seller (success) - with receipt option
     const sellerText = t(lang, 'payout.seller_success', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       releaseAmount: releaseAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),
@@ -606,7 +606,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
     if (buyerId) {
       const buyerText = t(lang, 'payout.buyer_deal_complete', {
         dealId: deal.dealId,
-        productName: deal.productName,
+        productName: escapeMarkdown(deal.productName),
         amount: deal.amount.toFixed(2),
         asset: deal.asset,
         commission: commission.toFixed(2),
@@ -938,7 +938,7 @@ async function processBuyerRefund(ctx, deal) {
     // Notify buyer (success) - with receipt option
     const buyerText = t(lang, 'payout.buyer_refund_success', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       refundAmount: refundAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),
@@ -959,7 +959,7 @@ async function processBuyerRefund(ctx, deal) {
     // Notify seller
     const sellerText = t(lang, 'payout.seller_refund_notify', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       refundAmount: refundAmount.toFixed(2),
       asset: deal.asset,
       txHash: refundResult.txHash
@@ -1268,7 +1268,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     // Notify winner - with receipt option
     const winnerText = t(lang, 'payout.dispute_winner', {
       dealId: deal.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       payoutAmount: payoutAmount.toFixed(2),
       asset: deal.asset,
       commission: commission.toFixed(2),

@@ -98,4 +98,13 @@ function getLocale(lang) {
   return LOCALE_MAP[lang] || 'ru-RU';
 }
 
-module.exports = { t, formatDate, getLocale, LOCALE_MAP };
+/**
+ * Escape Telegram Markdown special characters
+ * Use on any user-provided text before inserting into Markdown messages
+ */
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
+module.exports = { t, formatDate, getLocale, escapeMarkdown, LOCALE_MAP };

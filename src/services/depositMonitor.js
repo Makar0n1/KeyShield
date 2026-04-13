@@ -9,7 +9,7 @@ const constants = require('../config/constants');
 const messageManager = require('../bot/utils/messageManager');
 const { depositReceivedKeyboard, mainMenuButton } = require('../bot/keyboards/main');
 const User = require('../models/User');
-const { t, formatDate } = require('../locales');
+const { t, formatDate, escapeMarkdown } = require('../locales');
 
 // High-load optimization utilities
 const RateLimiter = require('../utils/RateLimiter');
@@ -278,7 +278,7 @@ class DepositMonitor {
 
             const msgParams = {
               dealId: deal.dealId,
-              productName: deal.productName,
+              productName: escapeMarkdown(deal.productName),
               amount: deal.amount,
               asset: deal.asset
             };
@@ -483,7 +483,7 @@ class DepositMonitor {
               // Notify buyer
               const buyerText = t(buyerLang, 'deposit.buyer_confirmed', {
                 dealId: deal.dealId,
-                productName: deal.productName,
+                productName: escapeMarkdown(deal.productName),
                 depositAmount: deposit.amount,
                 dealAmount: deal.amount,
                 asset: deal.asset,
@@ -510,7 +510,7 @@ class DepositMonitor {
               // Notify seller
               const sellerText = t(sellerLang, 'deposit.seller_funded', {
                 dealId: deal.dealId,
-                productName: deal.productName,
+                productName: escapeMarkdown(deal.productName),
                 dealAmount: deal.amount,
                 asset: deal.asset,
                 sellerPayout: sellerPayout.toFixed(2)
@@ -598,7 +598,7 @@ class DepositMonitor {
 
             const sellerText = t(sellerLang, 'deposit.seller_funded_short', {
               dealId: deal.dealId,
-              productName: deal.productName,
+              productName: escapeMarkdown(deal.productName),
               amount: deal.amount,
               asset: deal.asset
             });

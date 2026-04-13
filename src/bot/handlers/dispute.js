@@ -12,6 +12,11 @@ const messageManager = require('../utils/messageManager');
 const adminAlertService = require('../../services/adminAlertService');
 const { t } = require('../../locales');
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return text.replace(/([_*`\[\]])/g, '\\$1');
+}
+
 // ============================================
 // SESSION HELPERS (MongoDB persistence)
 // ============================================
@@ -79,7 +84,7 @@ const startDispute = async (ctx) => {
       media: []
     });
 
-    const text = t(lang, 'dispute.start', { dealId, productName: deal.productName });
+    const text = t(lang, 'dispute.start', { dealId, productName: escapeMarkdown(deal.productName) });
 
     const keyboard = backButton(lang);
     await messageManager.navigateToScreen(ctx, telegramId, `dispute_${dealId}`, text, keyboard);
@@ -368,7 +373,7 @@ const finalizeDisputeHandler = async (ctx) => {
     // Show success to initiator (final screen)
     const successText = t(lang, 'dispute.opened', {
       dealId: session.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       mediaCount: session.media.length
     });
 
@@ -386,7 +391,7 @@ const finalizeDisputeHandler = async (ctx) => {
 
     const otherText = t(counterpartyLang, 'dispute.notify_other', {
       dealId: session.dealId,
-      productName: deal.productName,
+      productName: escapeMarkdown(deal.productName),
       role
     });
 

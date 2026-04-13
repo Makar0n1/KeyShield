@@ -203,7 +203,7 @@ class DisputeService {
       const winnerText = `✅ *Спор решён в вашу пользу!*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${this.escapeMarkdown(deal.productName)}
 
 💰 *Для получения средств введите ваш приватный ключ:*
 
@@ -232,7 +232,7 @@ class DisputeService {
       let loserText = `❌ *Спор решён не в вашу пользу*
 
 🆔 Сделка: \`${deal.dealId}\`
-📦 ${deal.productName}
+📦 ${this.escapeMarkdown(deal.productName)}
 
 ⚠️ *Проигранных споров подряд: ${lossStreak} из 3*`;
 
@@ -347,6 +347,11 @@ _Счётчик сбрасывается после первой победы в
       .populate('dealId')
       .sort({ createdAt: -1 })
       .limit(filters.limit || 50);
+  }
+
+  escapeMarkdown(text) {
+    if (!text) return '';
+    return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
   }
 }
 
