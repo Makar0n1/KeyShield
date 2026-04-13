@@ -520,6 +520,14 @@ module.exports = {
     notify_other: ({ dealId, productName, role }) => `⚠️ *Dispute opened*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n${role} has opened a dispute for this deal.\nAn arbiter will review the complaint and make a decision.\n\nYou can provide your evidence by contacting support.`,
 
     error: ({ message }) => `❌ Error creating dispute: ${message}`,
+
+    resolve_winner: ({ dealId, productName, payoutAmount, asset, commission }) => `✅ *Dispute resolved in your favour!*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n💰 *To receive your funds, enter your private key:*\n\n💸 You will receive: *${payoutAmount} ${asset}*\n📊 Service fee: ${commission} ${asset}\n\n⚠️ This is the key you received when you provided your wallet.\n\n❗️ *Without entering the key, funds will NOT be transferred!*\n❗️ *If you lost your key, the funds will remain locked forever!*`,
+
+    resolve_loser: ({ dealId, productName, lossStreak }) => `❌ *Dispute resolved against you*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n⚠️ *Disputes lost in a row: ${lossStreak} of 3*\n\n_After 3 consecutive dispute losses, your account will be automatically blocked._\n_The counter resets after your first dispute win._`,
+
+    resolve_loser_banned: ({ dealId, productName, lossStreak }) => `❌ *Dispute resolved against you*\n\n🆔 Deal: \`${dealId}\`\n📦 ${productName}\n\n⚠️ *Disputes lost in a row: ${lossStreak} of 3*\n\n🚫 *Your account has been blocked!*\nYou lost 3 disputes in a row.\n\nBlocked users cannot:\n• Create new deals\n• Participate in deals as a counterparty\n\nTo unblock, contact support: @jessy\\_jackson`,
+
+    ban_notification: '🚫 *Your account has been blocked*\n\nYou lost 3 disputes in a row, resulting in an automatic account block.\n\nBlocked users cannot:\n• Create new deals\n• Participate in deals as a counterparty\n\nIf you believe this is a mistake, contact support:\n💬 @jessy\\_jackson',
   },
 
   // ============================================

@@ -6,6 +6,7 @@ const AuditLog = require('../models/AuditLog');
 const blockchainService = require('./blockchain');
 const notificationService = require('./notificationService');
 const messageManager = require('../bot/utils/messageManager');
+const { t } = require('../locales');
 
 class DisputeService {
   /**
@@ -199,63 +200,41 @@ class DisputeService {
     const ctx = this.botInstance ? { telegram: this.botInstance.telegram } : null;
 
     if (ctx) {
-      // Notify WINNER - request private key
-      const winnerText = `✅ *Спор решён в вашу пользу!*
+      // Load languages for both parties
+      const winnerUser = await User.findOne({ telegramId: winnerId }).select('languageCode').lean();
+      const winnerLang = winnerUser?.languageCode || 'ru';
+      const loserUser = await User.findOne({ telegramId: loserId }).select('languageCode').lean();
+      const loserLang = loserUser?.languageCode || 'ru';
 
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${this.escapeMarkdown(deal.productName)}
-
-💰 *Для получения средств введите ваш приватный ключ:*
-
-💸 К получению: *${payoutAmount.toFixed(2)} ${deal.asset}*
-📊 Комиссия сервиса: ${commission.toFixed(2)} ${deal.asset}
-
-⚠️ Это ключ, который был выдан вам при указании кошелька.
-
-❗️ *Без ввода ключа средства НЕ будут переведены!*
-❗️ *Если вы потеряли ключ - средства останутся заблокированными навсегда!*`;
-
-      const winnerKeyboard = {
-        inline_keyboard: [
-          [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
-        ]
+      const msgParams = {
+        dealId: deal.dealId,
+        productName: this.escapeMarkdown(deal.productName),
+        payoutAmount: payoutAmount.toFixed(2),
+        asset: deal.asset,
+        commission: commission.toFixed(2),
+        lossStreak,
       };
 
+      const mainMenuKeyboard = (lang) => ({
+        inline_keyboard: [
+          [{ text: t(lang, 'btn.main_menu'), callback_data: 'main_menu' }]
+        ]
+      });
+
+      // Notify WINNER - request private key
       try {
-        await messageManager.showNotification(ctx, winnerId, winnerText, winnerKeyboard);
+        const winnerText = t(winnerLang, 'dispute.resolve_winner', msgParams);
+        await messageManager.showNotification(ctx, winnerId, winnerText, mainMenuKeyboard(winnerLang));
         console.log(`📬 Key request sent to winner for deal ${deal.dealId}`);
       } catch (error) {
         console.error(`Error sending key request to winner:`, error.message);
       }
 
       // Notify LOSER - inform about loss streak
-      let loserText = `❌ *Спор решён не в вашу пользу*
-
-🆔 Сделка: \`${deal.dealId}\`
-📦 ${this.escapeMarkdown(deal.productName)}
-
-⚠️ *Проигранных споров подряд: ${lossStreak} из 3*`;
-
-      if (isNowBanned) {
-        loserText += `
-
-🚫 *Ваш аккаунт заблокирован!*
-Вы проиграли 3 спора подряд.
-
-Заблокированные пользователи не могут:
-• Создавать новые сделки
-• Участвовать в сделках как контрагент
-
-Для разблокировки обратитесь в поддержку: @keyshield\\_support`;
-      } else {
-        loserText += `
-
-_После 3 проигранных споров подряд — автоматическая блокировка аккаунта._
-_Счётчик сбрасывается после первой победы в споре._`;
-      }
-
       try {
-        await messageManager.showNotification(ctx, loserId, loserText, winnerKeyboard);
+        const loserKey = isNowBanned ? 'dispute.resolve_loser_banned' : 'dispute.resolve_loser';
+        const loserText = t(loserLang, loserKey, msgParams);
+        await messageManager.showNotification(ctx, loserId, loserText, mainMenuKeyboard(loserLang));
         console.log(`📬 Loss notification sent to loser for deal ${deal.dealId}`);
       } catch (error) {
         console.error(`Error sending notification to loser:`, error.message);
@@ -281,21 +260,11 @@ _Счётчик сбрасывается после первой победы в
    * @param {number} userId - Telegram user ID
    */
   async sendBanNotification(userId) {
-    const banText = `🚫 *Ваш аккаунт заблокирован*
-
-Вы проиграли 3 спора подряд, что привело к автоматической блокировке аккаунта.
-
-Заблокированные пользователи не могут:
-• Создавать новые сделки
-• Участвовать в сделках как контрагент
-
-Если вы считаете, что блокировка ошибочна, обратитесь в поддержку:
-
-📧 support@keyshield.io
-💬 @keyshield\\_support`;
-
     try {
-      // Use notificationService which uses DELETE+SEND pattern
+      const user = await User.findOne({ telegramId: userId }).select('languageCode').lean();
+      const lang = user?.languageCode || 'ru';
+      const banText = t(lang, 'dispute.ban_notification');
+
       await notificationService.sendNotification(userId, banText, {});
       console.log(`📤 Ban notification sent to user ${userId}`);
     } catch (error) {
