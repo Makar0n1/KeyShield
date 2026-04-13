@@ -141,7 +141,7 @@ class DeadlineMonitor {
    * Note: BoundedSet handles this automatically now, but we log stats
    */
   cleanup() {
-    console.log(`📊 DeadlineMonitor stats: notified=${this.notifiedDeals.size}, refunding=${this.refundingDeals.size}`);
+    // Silent — BoundedSet handles cleanup automatically
   }
 
   /**

@@ -188,15 +188,9 @@ class DepositMonitor {
         return;
       }
 
-      console.log(`🔍 Checking deposits for ${deals.length} deal(s) in batches of ${this.BATCH_SIZE}...`);
-
       // Process deals in batches for parallel execution
       for (let i = 0; i < deals.length; i += this.BATCH_SIZE) {
         const batch = deals.slice(i, i + this.BATCH_SIZE);
-        const batchNum = Math.floor(i / this.BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(deals.length / this.BATCH_SIZE);
-
-        console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} deals)...`);
 
         // Process batch in parallel using Promise.allSettled for fault tolerance
         const results = await Promise.allSettled(
@@ -216,7 +210,7 @@ class DepositMonitor {
         }
       }
 
-      console.log(`✅ Deposit check cycle completed for ${deals.length} deal(s)`);
+      // Cycle complete — silent unless deposit found
 
       // Update heartbeat in DB
       try {
@@ -246,7 +240,6 @@ class DepositMonitor {
   async cancelExpiredDeposits() {
     try {
       const cutoff = new Date(Date.now() - this.DEPOSIT_TIMEOUT_HOURS * 60 * 60 * 1000);
-      console.log(`⏰ Checking deposit timeout (cutoff: ${cutoff.toISOString()})...`);
 
       // Use createdAt — updatedAt can be refreshed by unrelated writes
       const expiredDeals = await Deal.find({
