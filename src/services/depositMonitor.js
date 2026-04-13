@@ -246,13 +246,17 @@ class DepositMonitor {
   async cancelExpiredDeposits() {
     try {
       const cutoff = new Date(Date.now() - this.DEPOSIT_TIMEOUT_HOURS * 60 * 60 * 1000);
+      console.log(`⏰ Checking deposit timeout (cutoff: ${cutoff.toISOString()})...`);
 
+      // Use createdAt — updatedAt can be refreshed by unrelated writes
       const expiredDeals = await Deal.find({
         status: 'waiting_for_deposit',
-        updatedAt: { $lt: cutoff }
+        createdAt: { $lt: cutoff }
       }).lean();
 
-      if (expiredDeals.length === 0) return;
+      if (expiredDeals.length === 0) {
+        return;
+      }
 
       console.log(`⏰ Found ${expiredDeals.length} deal(s) with expired deposit timeout...`);
 
