@@ -56,6 +56,8 @@ const referralsRoutes = (await import('../src/api/routes/referrals.js')).default
 
 // Services
 const botStatusChecker = (await import('../src/services/botStatusChecker.js')).default;
+const encryptionModule = await import('../src/utils/encryption.js');
+const encryption = encryptionModule.default || encryptionModule;
 
 const app = express();
 const PORT = process.env.WEB_PORT || 3001;
@@ -866,13 +868,16 @@ app.get('/api/admin/deals/:id', adminAuth, async (req, res) => {
 
     // Try by MongoDB ObjectId first (24 hex chars)
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
-      deal = await Deal.findById(id).lean();
+      deal = await Deal.findById(id);
     }
 
     // If not found, try by dealId code
     if (!deal) {
-      deal = await Deal.findOne({ dealId: id }).lean();
+      deal = await Deal.findOne({ dealId: id });
     }
+
+    // Convert to plain object for JSON response
+    if (deal) deal = deal.toObject();
 
     if (!deal) {
       return res.status(404).json({ error: 'Deal not found' });
@@ -1364,7 +1369,7 @@ async function findUserByIdOrUsername(identifier) {
   // Try as numeric ID first
   const numericId = parseInt(cleanId);
   if (!isNaN(numericId) && numericId > 0) {
-    const userById = await User.findOne({ telegramId: numericId }).lean();
+    const userById = await User.findOne({ telegramId: numericId });
     if (userById) return userById;
   }
 
@@ -1372,7 +1377,7 @@ async function findUserByIdOrUsername(identifier) {
   const safeCleanId = escapeRegex(cleanId);
   const userByUsername = await User.findOne({
     username: { $regex: new RegExp(`^${safeCleanId}$`, 'i') }
-  }).lean();
+  });
 
   return userByUsername;
 }
@@ -1401,14 +1406,15 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     // Try to find deal by MongoDB _id or by dealId string (e.g., "DL-100001")
     let deal = null;
     if (/^[0-9a-fA-F]{24}$/.test(dealId)) {
-      deal = await Deal.findById(dealId).lean();
+      deal = await Deal.findById(dealId);
     }
     if (!deal) {
-      deal = await Deal.findOne({ dealId }).lean();
+      deal = await Deal.findOne({ dealId });
     }
     if (!deal) {
       return res.status(404).json({ error: 'Deal not found' });
     }
+    deal = deal.toObject();
 
     const exportableStatuses = ['completed', 'resolved', 'expired'];
     if (!exportableStatuses.includes(deal.status)) {
@@ -1421,8 +1427,8 @@ app.get('/api/admin/export/deal/:dealId', adminAuth, async (req, res) => {
     }
 
     const [buyerUser, sellerUser] = await Promise.all([
-      User.findOne({ telegramId: deal.buyerId }).lean(),
-      User.findOne({ telegramId: deal.sellerId }).lean()
+      User.findOne({ telegramId: deal.buyerId }),
+      User.findOne({ telegramId: deal.sellerId })
     ]);
 
     const exportsDir = join(__dirname, '../exports');
@@ -1682,7 +1688,7 @@ app.get('/api/admin/export/user/:userIdentifier', adminAuth, async (req, res) =>
 
     // Get all participants info
     const allUserIds = [...new Set(deals.flatMap(d => [d.buyerId, d.sellerId]))];
-    const allUsers = await User.find({ telegramId: { $in: allUserIds } }).lean();
+    const allUsers = await User.find({ telegramId: { $in: allUserIds } });
     const usersMap = {};
     allUsers.forEach(u => { usersMap[u.telegramId] = u; });
 
@@ -2317,6 +2323,7 @@ app.use('/uploads', express.static(join(__dirname, 'public/uploads')));
 async function startServer() {
   try {
     await connectDB();
+    encryption.init();
 
     // Determine base URL for prerendering
     const SITE_URL = process.env.WEB_DOMAIN
