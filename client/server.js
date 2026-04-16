@@ -1356,7 +1356,7 @@ app.get('/api/admin/transactions', adminAuth, async (req, res) => {
 
     const transactions = await Transaction.find(query)
       .populate({ path: 'dealId', select: 'dealId' })
-      .sort({ createdAt: -1 })
+      .sort({ timestamp: -1 })
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
