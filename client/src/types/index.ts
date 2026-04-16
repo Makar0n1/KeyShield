@@ -317,10 +317,10 @@ export interface Platform {
 export interface Transaction {
   _id: string
   dealId: string
-  type: 'deposit' | 'payout' | 'refund' | 'commission'
-  txHash: string
-  fromAddress: string
-  toAddress: string
+  type: 'deposit' | 'release' | 'refund' | 'fee'
+  txHash: string | null
+  fromAddress: string | null
+  toAddress: string | null
   amount: number
   asset: string
   status: 'pending' | 'confirmed' | 'failed'

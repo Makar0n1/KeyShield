@@ -1343,17 +1343,34 @@ app.get('/api/admin/transactions', adminAuth, async (req, res) => {
 
     let query = {};
     if (type) query.type = type;
-    if (dealId) query.dealId = dealId;
+
+    // Search by deal ID string (e.g. "DL-000044") — resolve to ObjectId
+    if (dealId) {
+      const deal = await Deal.findOne({ dealId: dealId }).select('_id').lean();
+      if (deal) {
+        query.dealId = deal._id;
+      } else {
+        return res.json({ transactions: [], total: 0 });
+      }
+    }
 
     const transactions = await Transaction.find(query)
+      .populate({ path: 'dealId', select: 'dealId' })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
 
+    // Flatten: replace populated dealId object with string
+    const mapped = transactions.map(tx => ({
+      ...tx,
+      dealId: tx.dealId?.dealId || 'N/A',
+      _dealObjectId: tx.dealId?._id || null,
+    }));
+
     const total = await Transaction.countDocuments(query);
 
-    res.json({ transactions, total });
+    res.json({ transactions: mapped, total });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

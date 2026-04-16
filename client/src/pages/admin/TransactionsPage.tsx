@@ -10,16 +10,16 @@ import { Search, ExternalLink, Filter } from 'lucide-react'
 
 const typeLabels: Record<string, string> = {
   deposit: 'Депозит',
-  payout: 'Выплата',
+  release: 'Выплата',
   refund: 'Возврат',
-  commission: 'Комиссия',
+  fee: 'Комиссия',
 }
 
 const typeVariants: Record<string, 'default' | 'success' | 'warning' | 'destructive' | 'primary'> = {
   deposit: 'primary',
-  payout: 'success',
+  release: 'success',
   refund: 'warning',
-  commission: 'default',
+  fee: 'default',
 }
 
 const statusVariants: Record<string, 'default' | 'success' | 'warning' | 'destructive'> = {
@@ -31,9 +31,9 @@ const statusVariants: Record<string, 'default' | 'success' | 'warning' | 'destru
 const typeFilters = [
   { value: '', label: 'Все' },
   { value: 'deposit', label: 'Депозиты' },
-  { value: 'payout', label: 'Выплаты' },
+  { value: 'release', label: 'Выплаты' },
   { value: 'refund', label: 'Возвраты' },
-  { value: 'commission', label: 'Комиссии' },
+  { value: 'fee', label: 'Комиссии' },
 ]
 
 export function AdminTransactionsPage() {
@@ -194,20 +194,24 @@ export function AdminTransactionsPage() {
                       </span>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm text-gray-300">
-                          {truncateHash(tx.txHash)}
-                        </span>
-                        <a
-                          href={`https://tronscan.org/#/transaction/${tx.txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:text-primary-light"
-                          title="Открыть в Tronscan"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      </div>
+                      {tx.txHash ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm text-gray-300">
+                            {truncateHash(tx.txHash)}
+                          </span>
+                          <a
+                            href={`https://tronscan.org/#/transaction/${tx.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:text-primary-light"
+                            title="Открыть в Tronscan"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-muted text-sm">—</span>
+                      )}
                     </td>
                     <td className="p-4">
                       <span className="font-mono text-xs text-muted">
