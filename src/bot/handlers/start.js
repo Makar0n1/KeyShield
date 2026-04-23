@@ -274,8 +274,6 @@ const backHandler = async (ctx) => {
  */
 async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken) {
   try {
-    const webDeal = await WebDeal.findOne({ token: webToken });
-
     // Find or create user (atomic upsert to prevent duplicate key errors)
     const user = await User.findOneAndUpdate(
       { telegramId },
@@ -286,7 +284,7 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
       { upsert: true, new: true }
     );
 
-    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000; // Created in last 5 seconds
+    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000;
     if (isNewUser) {
       console.log(`✅ New user registered via web deal: ${telegramId} (@${username})`);
       await adminAlertService.alertNewUser(user);
@@ -304,58 +302,11 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
       return;
     }
 
-    // WebDeal doesn't exist or expired
-    if (!webDeal) {
-      console.log(`❌ WebDeal not found: ${webToken}`);
-      const errorText = t(lang, 'invite.invalid');
-      const keyboard = mainMenuButton(lang);
-      await messageManager.deleteMainMessage(ctx, telegramId);
-      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
-      await messageManager.resetNavigation(telegramId);
-      return;
-    }
-
-    if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
-      console.log(`⚠️ WebDeal expired: ${webToken}`);
-      const errorText = t(lang, 'invite.expired_long');
-      const keyboard = mainMenuButton(lang);
-      await messageManager.deleteMainMessage(ctx, telegramId);
-      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
-      await messageManager.resetNavigation(telegramId);
-      return;
-    }
-
-    // WebDeal already claimed (ONE-TIME USE) → show error
-    if (webDeal.status === 'claimed') {
-      console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
-      const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
-        `Каждая ссылка может быть использована только один раз.\n\n` +
-        `Вы можете:\n` +
-        `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
-        `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
-      const keyboard = mainMenuButton(lang);
-      await messageManager.deleteMainMessage(ctx, telegramId);
-      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
-      await messageManager.resetNavigation(telegramId);
-      return;
-    }
-
     // Delete old bot message
     await messageManager.deleteMainMessage(ctx, telegramId);
 
     // Step 1: If no language selected yet → show language picker
+    // (WebDeal token saved in pendingWebDeal for later verification)
     if (!user.languageSelected) {
       await User.updateOne({ telegramId }, { $set: { pendingWebDeal: webToken } });
       const keyboard = languageSelectKeyboard();
@@ -369,6 +320,7 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
     }
 
     // Step 2: Check if user has username (required)
+    // Save pendingWebDeal so it persists through username gate
     if (!ctx.from.username) {
       await User.updateOne({ telegramId }, { $set: { pendingWebDeal: webToken } });
       const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
@@ -383,7 +335,53 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
       return;
     }
 
-    // Step 3: All checks passed → claim and start web deal session
+    // Step 3: All prerequisites met, NOW check WebDeal status
+    const webDeal = await WebDeal.findOne({ token: webToken });
+
+    if (!webDeal) {
+      console.log(`❌ WebDeal not found: ${webToken}`);
+      const errorText = t(lang, 'invite.invalid');
+      const keyboard = mainMenuButton(lang);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.resetNavigation(telegramId);
+      return;
+    }
+
+    if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
+      console.log(`⚠️ WebDeal expired: ${webToken}`);
+      const errorText = t(lang, 'invite.expired_long');
+      const keyboard = mainMenuButton(lang);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.resetNavigation(telegramId);
+      return;
+    }
+
+    if (webDeal.status === 'claimed') {
+      console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
+      const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
+        `Каждая ссылка может быть использована только один раз.\n\n` +
+        `Вы можете:\n` +
+        `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
+        `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+      const keyboard = mainMenuButton(lang);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.resetNavigation(telegramId);
+      return;
+    }
+
+    // All checks passed → claim and start web deal session
     await webDeal.claim(telegramId);
     console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
     await startWebDealSession(ctx, telegramId, user, webDeal, webToken);
