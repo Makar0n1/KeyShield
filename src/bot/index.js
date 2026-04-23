@@ -367,7 +367,11 @@ bot.action('username_set', async (ctx) => {
     // Username is now set — update DB and invalidate cache
     const User = require('../models/User');
     try {
-      await User.updateOne({ telegramId }, { $set: { username: currentUsername } });
+      await User.findOneAndUpdate(
+        { telegramId },
+        { $set: { username: currentUsername } },
+        { new: true }
+      );
     } finally {
       usernameRequired.invalidate(telegramId);
     }

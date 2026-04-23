@@ -431,8 +431,12 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     // FIRST: Check if user has selected language (show picker if not)
     if (!user.languageSelected) {
       console.log(`[DealInvite] No language selected, showing picker`);
-      // Save invite token BEFORE sending message (prevent race condition)
-      await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
+      // Save invite token BEFORE sending message (use findOneAndUpdate for reliability)
+      await User.findOneAndUpdate(
+        { telegramId },
+        { $set: { pendingDealInvite: inviteToken } },
+        { new: true }
+      );
 
       const keyboard = languageSelectKeyboard();
       await messageManager.deleteMainMessage(ctx, telegramId);
@@ -452,8 +456,12 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       const screenText = t(selectedLang, 'usernameRequired.screen');
       const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
 
-      // Save invite token BEFORE sending message (prevent race condition)
-      await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
+      // Save invite token BEFORE sending message (use findOneAndUpdate for reliability)
+      await User.findOneAndUpdate(
+        { telegramId },
+        { $set: { pendingDealInvite: inviteToken } },
+        { new: true }
+      );
 
       await messageManager.deleteMainMessage(ctx, telegramId);
       const msg = await ctx.telegram.sendMessage(telegramId, screenText, {
@@ -598,7 +606,11 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     await messageManager.resetNavigation(telegramId);
 
     // Clear the pending invite since we're now showing the acceptance screen
-    await User.updateOne({ telegramId }, { $unset: { pendingDealInvite: 1 } });
+    await User.findOneAndUpdate(
+      { telegramId },
+      { $unset: { pendingDealInvite: 1 } },
+      { new: true }
+    );
 
     const keyboard = inviteAcceptKeyboard(deal.dealId, lang);
     const msg = await ctx.telegram.sendMessage(telegramId, inviteText, {
