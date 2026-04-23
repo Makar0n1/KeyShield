@@ -674,6 +674,13 @@ module.exports = {
   },
 
   // ============================================
+  // WEB DEAL
+  // ============================================
+  webdeal: {
+    link_inactive: '*This link is no longer active*\n\nEach link can only be used once.\n\nYou can:\n1️⃣ Create a deal directly in the bot using the "Create deal" button\n2️⃣ Get a new link on the website (fill out the form again)',
+  },
+
+  // ============================================
   // REFERRAL
   // ============================================
   referral: {
