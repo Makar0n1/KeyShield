@@ -377,8 +377,8 @@ bot.action('username_set', async (ctx) => {
 
     console.log(`✅ [UsernameRequired] Username confirmed: ${telegramId} → @${currentUsername}`);
 
-    // Check if user has pending WebDeal to resume
-    const userWithPending = await User.findOne({ telegramId }).select('pendingWebDeal languageCode');
+    // Check if user has pending WebDeal or invite to resume
+    const userWithPending = await User.findOne({ telegramId }).select('pendingWebDeal languageCode pendingDealInvite');
     if (userWithPending?.pendingWebDeal) {
       console.log(`→ [UsernameRequired] Resuming pending WebDeal for ${telegramId}`);
       const webToken = userWithPending.pendingWebDeal;
@@ -433,6 +433,14 @@ bot.action('username_set', async (ctx) => {
     if (await hasCreateDealSession(telegramId)) {
       console.log(`→ [UsernameRequired] Resuming deal creation for ${telegramId}`);
       await startCreateDeal(ctx);
+      return;
+    }
+
+    // Check if there's a pending deal invite to resume
+    if (userWithPending?.pendingDealInvite) {
+      console.log(`→ [UsernameRequired] Resuming deal invite for ${telegramId}`);
+      const { handleDealInvite } = require('./handlers/start');
+      await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, userWithPending.pendingDealInvite);
       return;
     }
 
