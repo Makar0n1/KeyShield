@@ -425,6 +425,38 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       return;
     }
 
+    // Check if user has username (required for everything)
+    if (!ctx.from.username) {
+      const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
+      const screenText = t(lang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(lang);
+
+      // Save invite token so we can resume after username is set
+      await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
+
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, screenText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`🚫 [DealInvite] Username gate shown to ${telegramId}, invite saved`);
+      return;
+    }
+
+    // Check if user has selected language (show picker if not)
+    if (!user.languageSelected) {
+      const keyboard = languageSelectKeyboard();
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`🌐 [DealInvite] Language picker shown to ${telegramId}, invite saved`);
+      return;
+    }
+
     // Find the deal by invite token
     const deal = await dealService.getDealByInviteToken(inviteToken);
 
@@ -654,6 +686,13 @@ const handleLanguageSelection = async (ctx) => {
         await startWebDealSession(ctx, telegramId, user, webDeal, user.pendingWebDeal);
         return;
       }
+    }
+
+    // Check if there's a pending deal invite to resume (after language selection)
+    if (user.pendingDealInvite) {
+      console.log(`📨 Resuming deal invite ${user.pendingDealInvite} after language selection`);
+      await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, user.pendingDealInvite);
+      return;
     }
 
     // Show welcome in chosen language
