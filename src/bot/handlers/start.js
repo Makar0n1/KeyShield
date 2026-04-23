@@ -425,11 +425,27 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       return;
     }
 
-    // Check if user has username (required for everything)
+    // FIRST: Check if user has selected language (show picker if not)
+    if (!user.languageSelected) {
+      const keyboard = languageSelectKeyboard();
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      // Save invite token so we can resume after language selection
+      await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
+      console.log(`🌐 [DealInvite] Language picker shown to ${telegramId}, invite saved`);
+      return;
+    }
+
+    // SECOND: Check if user has username (required for everything)
     if (!ctx.from.username) {
+      const selectedLang = user.languageCode || 'ru';
       const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
-      const screenText = t(lang, 'usernameRequired.screen');
-      const keyboard = usernameRequiredPersistentKeyboard(lang);
+      const screenText = t(selectedLang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
 
       // Save invite token so we can resume after username is set
       await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
@@ -441,19 +457,6 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
       console.log(`🚫 [DealInvite] Username gate shown to ${telegramId}, invite saved`);
-      return;
-    }
-
-    // Check if user has selected language (show picker if not)
-    if (!user.languageSelected) {
-      const keyboard = languageSelectKeyboard();
-      await messageManager.deleteMainMessage(ctx, telegramId);
-      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
-      console.log(`🌐 [DealInvite] Language picker shown to ${telegramId}, invite saved`);
       return;
     }
 
