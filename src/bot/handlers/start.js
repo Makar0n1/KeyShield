@@ -397,7 +397,6 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
 const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
   try {
     console.log(`[DealInvite] Processing token: ${inviteToken}, user: ${telegramId}`);
-    const lang = ctx.state?.lang || 'ru';
 
     // Find or create user (atomic upsert to prevent duplicate key errors)
     const user = await User.findOneAndUpdate(
@@ -408,6 +407,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       },
       { upsert: true, new: true }
     );
+
+    // Use user's language if selected, otherwise fallback to context or Russian
+    const lang = user.languageSelected ? (user.languageCode || 'ru') : (ctx.state?.lang || 'ru');
 
     console.log(`[DealInvite] User state: new=${user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000}, lang=${user.languageSelected}, username=${ctx.from.username}`);
 
@@ -451,10 +453,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
 
     // SECOND: Check if user has username (required for everything)
     if (!ctx.from.username) {
-      const selectedLang = user.languageCode || 'ru';
       const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
-      const screenText = t(selectedLang, 'usernameRequired.screen');
-      const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
+      const screenText = t(lang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(lang);
 
       // Save invite token BEFORE sending message (use findOneAndUpdate for reliability)
       await User.findOneAndUpdate(
