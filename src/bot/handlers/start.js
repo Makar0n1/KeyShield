@@ -448,6 +448,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
 
       // Save invite token so we can resume after username is set
+      console.log(`💾 [DealInvite] Saving pendingDealInvite: ${inviteToken}`);
       await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
 
       await messageManager.deleteMainMessage(ctx, telegramId);
@@ -456,7 +457,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
         reply_markup: keyboard.reply_markup
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
-      console.log(`🚫 [DealInvite] Username gate shown to ${telegramId}, invite saved`);
+      console.log(`🚫 [DealInvite] Username gate shown to ${telegramId}, invite saved: ${inviteToken}`);
       return;
     }
 

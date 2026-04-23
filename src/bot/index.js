@@ -379,6 +379,7 @@ bot.action('username_set', async (ctx) => {
 
     // Check if user has pending WebDeal or invite to resume
     const userWithPending = await User.findOne({ telegramId }).select('pendingWebDeal languageCode pendingDealInvite');
+    console.log(`📋 [UsernameRequired] User state: webdeal=${userWithPending?.pendingWebDeal}, invite=${userWithPending?.pendingDealInvite}`);
     if (userWithPending?.pendingWebDeal) {
       console.log(`→ [UsernameRequired] Resuming pending WebDeal for ${telegramId}`);
       const webToken = userWithPending.pendingWebDeal;

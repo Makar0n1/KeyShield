@@ -158,6 +158,16 @@ const usernameRequiredMiddleware = async (ctx, next) => {
   const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
   const messageManager = require('../utils/messageManager');
 
+  // Load user to preserve pendingDealInvite if it exists
+  try {
+    const user = await User.findOne({ telegramId }).select('pendingDealInvite').lean();
+    if (user?.pendingDealInvite) {
+      console.log(`💾 [UsernameRequired] Preserving pendingDealInvite for ${telegramId}`);
+    }
+  } catch (err) {
+    // Ignore DB errors
+  }
+
   const screenText = t(lang, 'usernameRequired.screen');
   const keyboard = usernameRequiredPersistentKeyboard(lang);
 
