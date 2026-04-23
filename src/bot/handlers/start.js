@@ -423,6 +423,9 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
 
     // FIRST: Check if user has selected language (show picker if not)
     if (!user.languageSelected) {
+      // Save invite token BEFORE sending message (prevent race condition)
+      await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
+
       const keyboard = languageSelectKeyboard();
       await messageManager.deleteMainMessage(ctx, telegramId);
       const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
@@ -430,8 +433,6 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
         reply_markup: keyboard.reply_markup
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
-      // Save invite token before showing language picker
-      await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
       return;
     }
 
@@ -442,7 +443,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       const screenText = t(selectedLang, 'usernameRequired.screen');
       const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
 
-      // Save invite token before showing username gate
+      // Save invite token BEFORE sending message (prevent race condition)
       await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
 
       await messageManager.deleteMainMessage(ctx, telegramId);
