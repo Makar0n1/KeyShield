@@ -271,6 +271,139 @@ const backHandler = async (ctx) => {
  * Handle deal invite link
  * User clicked t.me/BotName?start=deal_TOKEN
  */
+/**
+ * Handle web deal claim: user clicked link from website deal builder
+ * Pre-populates create_deal session with WebDeal data, starts from description step
+ */
+async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken) {
+  try {
+    const webDeal = await WebDeal.findOne({ token: webToken });
+
+    // Find or create user first (needed for language selection check)
+    let user = await User.findOne({ telegramId });
+    let isNewUser = false;
+
+    if (!user) {
+      isNewUser = true;
+      user = new User({ telegramId, username, firstName, source: 'web_deal' });
+      await user.save();
+      console.log(`✅ New user registered via web deal: ${telegramId} (@${username})`);
+      await adminAlertService.alertNewUser(user);
+    } else {
+      user.username = username;
+      user.firstName = firstName;
+      await user.save();
+    }
+
+    const lang = user?.languageCode || 'ru';
+
+    // Check if user is banned
+    if (user.blacklisted) {
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, getBanScreenText(lang), {
+        parse_mode: 'Markdown'
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      return;
+    }
+
+    // WebDeal doesn't exist or expired
+    if (!webDeal) {
+      console.log(`❌ WebDeal not found: ${webToken}`);
+      const errorText = t(lang, 'invite.invalid');
+      const keyboard = mainMenuButton(lang);
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.resetNavigation(telegramId);
+      return;
+    }
+
+    if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
+      console.log(`⚠️ WebDeal expired: ${webToken}`);
+      const errorText = t(lang, 'invite.expired_long');
+      const keyboard = mainMenuButton(lang);
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.resetNavigation(telegramId);
+      return;
+    }
+
+    // WebDeal already claimed (ONE-TIME USE) → show error
+    if (webDeal.status === 'claimed') {
+      console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
+      const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
+        `Каждая ссылка может быть использована только один раз.\n\n` +
+        `Вы можете:\n` +
+        `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
+        `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+      const keyboard = mainMenuButton(lang);
+      await messageManager.deleteMainMessage(ctx, telegramId);
+      const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      await messageManager.resetNavigation(telegramId);
+      return;
+    }
+
+    // Delete old bot message
+    await messageManager.deleteMainMessage(ctx, telegramId);
+
+    // Step 1: If no language selected yet → show language picker
+    if (!user.languageSelected) {
+      await User.updateOne({ telegramId }, { $set: { pendingWebDeal: webToken } });
+      const keyboard = languageSelectKeyboard();
+      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`🌐 WebDeal: language picker shown for ${telegramId}`);
+      return;
+    }
+
+    // Step 2: Check if user has username (required)
+    if (!ctx.from.username) {
+      await User.updateOne({ telegramId }, { $set: { pendingWebDeal: webToken } });
+      const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
+      const screenText = t(lang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(lang);
+      const msg = await ctx.telegram.sendMessage(telegramId, screenText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`🚫 WebDeal: username gate shown for ${telegramId}`);
+      return;
+    }
+
+    // Step 3: All checks passed → claim and start web deal session
+    await webDeal.claim(telegramId);
+    console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
+    await startWebDealSession(ctx, telegramId, user, webDeal, webToken);
+
+  } catch (error) {
+    console.error('Error handling web deal claim:', error);
+    const lang = 'ru';
+    const keyboard = mainMenuButton(lang);
+    await messageManager.deleteMainMessage(ctx, telegramId);
+    const msg = await ctx.telegram.sendMessage(telegramId, t(lang, 'common.error_generic'), {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard.reply_markup
+    });
+    await messageManager.setMainMessage(telegramId, msg.message_id);
+  }
+}
+
 const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
   try {
     const lang = ctx.state?.lang || 'ru';
@@ -493,7 +626,17 @@ const handleLanguageSelection = async (ctx) => {
       return;
     }
 
-    // Check if there's a pending web deal to resume
+    // Check if user has a Telegram username FIRST (required for everything)
+    if (!ctx.from.username) {
+      const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
+      const screenText = t(selectedLang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'username_required', screenText, keyboard);
+      console.log(`🚫 [UsernameRequired] Username gate shown to ${telegramId} after language selection`);
+      return;
+    }
+
+    // Check if there's a pending web deal to resume (after username check)
     if (user.pendingWebDeal) {
       const webDeal = await WebDeal.findOne({ token: user.pendingWebDeal, status: 'claimed' });
       if (webDeal) {
@@ -503,16 +646,6 @@ const handleLanguageSelection = async (ctx) => {
       }
       // Clean up stale pendingWebDeal
       await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
-    }
-
-    // Check if user has a Telegram username (required for all bot functionality)
-    if (!ctx.from.username) {
-      const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
-      const screenText = t(selectedLang, 'usernameRequired.screen');
-      const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
-      await messageManager.showFinalScreen(ctx, telegramId, 'username_required', screenText, keyboard);
-      console.log(`🚫 [UsernameRequired] Username gate shown to ${telegramId} after language selection`);
-      return;
     }
 
     // Show welcome in chosen language
@@ -527,74 +660,6 @@ const handleLanguageSelection = async (ctx) => {
     console.error('Error in handleLanguageSelection:', error);
   }
 };
-
-/**
- * Handle web deal claim: user clicked link from website deal builder
- * Pre-populates create_deal session with WebDeal data, starts from description step
- */
-async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken) {
-  try {
-    const webDeal = await WebDeal.findOne({ token: webToken });
-
-    if (!webDeal) {
-      console.log(`❌ WebDeal not found: ${webToken}`);
-      // Fall through to normal start
-      return await startHandler(ctx);
-    }
-
-    if (webDeal.status === 'claimed') {
-      console.log(`⚠️ WebDeal already claimed: ${webToken}`);
-      return await startHandler(ctx);
-    }
-
-    if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
-      console.log(`⚠️ WebDeal expired: ${webToken}`);
-      return await startHandler(ctx);
-    }
-
-    // Ensure user exists
-    let user = await User.findOne({ telegramId });
-    if (!user) {
-      user = new User({ telegramId, username, firstName, source: 'web_deal' });
-      await user.save();
-      console.log(`✅ New user registered via web deal: ${telegramId} (@${username})`);
-      await adminAlertService.alertNewUser(user);
-    }
-
-    // Check if user is banned
-    if (user.blacklisted) {
-      return await startHandler(ctx);
-    }
-
-    // Claim the web deal
-    await webDeal.claim(telegramId);
-    console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
-
-    // Delete old bot message if exists
-    await messageManager.deleteMainMessage(ctx, telegramId);
-
-    // If user hasn't chosen language yet — show language picker first
-    // Save webDealToken so we can resume after language selection
-    if (!user.languageSelected) {
-      await User.updateOne({ telegramId }, { $set: { pendingWebDeal: webToken } });
-      const keyboard = languageSelectKeyboard();
-      const msg = await ctx.telegram.sendMessage(telegramId, LANGUAGE_SELECT_TEXT, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.reply_markup
-      });
-      await messageManager.setMainMessage(telegramId, msg.message_id);
-      console.log(`🌐 WebDeal ${webToken}: language picker shown first`);
-      return;
-    }
-
-    // Language already selected — proceed to deal creation
-    await startWebDealSession(ctx, telegramId, user, webDeal, webToken);
-
-  } catch (error) {
-    console.error('Error handling web deal claim:', error);
-    await startHandler(ctx);
-  }
-}
 
 /**
  * Start web deal session — creates pre-populated create_deal session
