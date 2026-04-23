@@ -327,7 +327,14 @@ async function handleKeyValidationInput(ctx) {
  */
 async function processSellerPayout(ctx, deal, buyerId) {
   const telegramId = deal.sellerId;
-  const lang = ctx.state?.lang || 'ru';
+
+  // Load seller's language from DB to ensure correct language for seller notifications
+  const seller = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+  const sellerLang = seller?.languageCode || 'ru';
+
+  // Load buyer's language from DB to ensure correct language for buyer notifications
+  const buyer = await User.findOne({ telegramId: buyerId }).select('languageCode').lean();
+  const buyerLang = buyer?.languageCode || 'ru';
   let energyMethod = 'none';
   let feesaverEnergyCost = 0;
   let feesaverBandwidthCost = 0;
@@ -575,7 +582,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
     await saveOperationalCosts(deal, energyMethod, feesaverCosts, trxReturned, 'seller_payout');
 
     // Notify seller (success) - with receipt option
-    const sellerText = t(lang, 'payout.seller_success', {
+    const sellerText = t(sellerLang, 'payout.seller_success', {
       dealId: deal.dealId,
       productName: escapeMarkdown(deal.productName),
       releaseAmount: releaseAmount.toFixed(2),
@@ -604,7 +611,7 @@ async function processSellerPayout(ctx, deal, buyerId) {
 
     // Notify buyer with receipt option
     if (buyerId) {
-      const buyerText = t(lang, 'payout.buyer_deal_complete', {
+      const buyerText = t(buyerLang, 'payout.buyer_deal_complete', {
         dealId: deal.dealId,
         productName: escapeMarkdown(deal.productName),
         amount: deal.amount.toFixed(2),
@@ -699,7 +706,12 @@ async function processSellerRelease(ctx, deal) {
  */
 async function processBuyerRefund(ctx, deal) {
   const telegramId = deal.buyerId;
-  const lang = ctx.state?.lang || 'ru';
+
+  // Load buyer's and seller's languages from DB
+  const buyer = await User.findOne({ telegramId: deal.buyerId }).select('languageCode').lean();
+  const buyerLang = buyer?.languageCode || 'ru';
+  const seller = await User.findOne({ telegramId: deal.sellerId }).select('languageCode').lean();
+  const sellerLang = seller?.languageCode || 'ru';
   let energyMethod = 'none';
   let feesaverEnergyCost = 0;
   let feesaverBandwidthCost = 0;
@@ -936,7 +948,7 @@ async function processBuyerRefund(ctx, deal) {
     await saveOperationalCosts(deal, energyMethod, feesaverCosts, trxReturned, 'buyer_refund');
 
     // Notify buyer (success) - with receipt option
-    const buyerText = t(lang, 'payout.buyer_refund_success', {
+    const buyerText = t(buyerLang, 'payout.buyer_refund_success', {
       dealId: deal.dealId,
       productName: escapeMarkdown(deal.productName),
       refundAmount: refundAmount.toFixed(2),
@@ -957,7 +969,7 @@ async function processBuyerRefund(ctx, deal) {
     await showReceiptQuestion(ctx, telegramId, deal, transactionData, buyerText);
 
     // Notify seller
-    const sellerText = t(lang, 'payout.seller_refund_notify', {
+    const sellerText = t(sellerLang, 'payout.seller_refund_notify', {
       dealId: deal.dealId,
       productName: escapeMarkdown(deal.productName),
       refundAmount: refundAmount.toFixed(2),
@@ -1029,7 +1041,12 @@ async function processDisputePayout(ctx, deal, winnerRole) {
   const winnerId = winnerRole === 'buyer' ? deal.buyerId : deal.sellerId;
   const loserId = winnerRole === 'buyer' ? deal.sellerId : deal.buyerId;
   const winnerAddress = winnerRole === 'buyer' ? deal.buyerAddress : deal.sellerAddress;
-  const lang = ctx.state?.lang || 'ru';
+
+  // Load winner's and loser's languages from DB
+  const winner = await User.findOne({ telegramId: winnerId }).select('languageCode').lean();
+  const winnerLang = winner?.languageCode || 'ru';
+  const loser = await User.findOne({ telegramId: loserId }).select('languageCode').lean();
+  const loserLang = loser?.languageCode || 'ru';
 
   let energyMethod = 'none';
   let feesaverEnergyCost = 0;
@@ -1266,7 +1283,7 @@ async function processDisputePayout(ctx, deal, winnerRole) {
     await saveOperationalCosts(deal, energyMethod, feesaverCosts, trxReturned, 'dispute_payout');
 
     // Notify winner - with receipt option
-    const winnerText = t(lang, 'payout.dispute_winner', {
+    const winnerText = t(winnerLang, 'payout.dispute_winner', {
       dealId: deal.dealId,
       productName: escapeMarkdown(deal.productName),
       payoutAmount: payoutAmount.toFixed(2),
