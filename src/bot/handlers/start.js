@@ -711,6 +711,7 @@ module.exports = {
   handleDealInvite,
   handleWebDealClaim,
   handleLanguageSelection,
+  startWebDealSession,
   getMainMenuText,
   getWelcomeText,
   LANGUAGE_SELECT_TEXT,

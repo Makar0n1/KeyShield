@@ -377,6 +377,71 @@ bot.action('username_set', async (ctx) => {
 
     console.log(`✅ [UsernameRequired] Username confirmed: ${telegramId} → @${currentUsername}`);
 
+    // Check if user has pending WebDeal to resume
+    const userWithPending = await User.findOne({ telegramId }).select('pendingWebDeal languageCode');
+    if (userWithPending?.pendingWebDeal) {
+      console.log(`→ [UsernameRequired] Resuming pending WebDeal for ${telegramId}`);
+      const webToken = userWithPending.pendingWebDeal;
+      const lang = userWithPending.languageCode || 'ru';
+
+      // Check WebDeal status
+      const WebDeal = require('../models/WebDeal');
+      const webDeal = await WebDeal.findOne({ token: webToken });
+
+      if (!webDeal) {
+        console.log(`❌ WebDeal not found: ${webToken}`);
+        const { mainMenuButton } = require('./keyboards/main');
+        const errorText = t(lang, 'invite.invalid');
+        const keyboard = mainMenuButton(lang);
+        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard.reply_markup
+        });
+        await messageManager.setMainMessage(telegramId, msg.message_id);
+        await messageManager.resetNavigation(telegramId);
+        return;
+      }
+
+      if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
+        console.log(`⚠️ WebDeal expired: ${webToken}`);
+        const { mainMenuButton } = require('./keyboards/main');
+        const errorText = t(lang, 'invite.expired_long');
+        const keyboard = mainMenuButton(lang);
+        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard.reply_markup
+        });
+        await messageManager.setMainMessage(telegramId, msg.message_id);
+        await messageManager.resetNavigation(telegramId);
+        return;
+      }
+
+      if (webDeal.status === 'claimed') {
+        console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
+        const { mainMenuButton } = require('./keyboards/main');
+        const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
+          `Каждая ссылка может быть использована только один раз.\n\n` +
+          `Вы можете:\n` +
+          `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
+          `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+        const keyboard = mainMenuButton(lang);
+        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard.reply_markup
+        });
+        await messageManager.setMainMessage(telegramId, msg.message_id);
+        await messageManager.resetNavigation(telegramId);
+        return;
+      }
+
+      // WebDeal is valid → claim and start session
+      const { startWebDealSession } = require('./handlers/start');
+      await webDeal.claim(telegramId);
+      console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
+      await startWebDealSession(ctx, telegramId, userWithPending, webDeal, webToken);
+      return;
+    }
+
     // If user was in deal creation flow, resume it
     if (await hasCreateDealSession(telegramId)) {
       console.log(`→ [UsernameRequired] Resuming deal creation for ${telegramId}`);
