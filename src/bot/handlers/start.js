@@ -396,6 +396,7 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
 
 const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
   try {
+    console.log(`[DealInvite] Processing token: ${inviteToken}, user: ${telegramId}`);
     const lang = ctx.state?.lang || 'ru';
 
     // Find or create user (atomic upsert to prevent duplicate key errors)
@@ -408,13 +409,17 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       { upsert: true, new: true }
     );
 
+    console.log(`[DealInvite] User state: new=${user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000}, lang=${user.languageSelected}, username=${ctx.from.username}`);
+
     const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000;
     if (isNewUser) {
+      console.log(`[DealInvite] New user created via invite`);
       await adminAlertService.alertNewUser(user);
     }
 
     // Check if user is banned
     if (user.blacklisted) {
+      console.log(`[DealInvite] User is banned`);
       await messageManager.deleteMainMessage(ctx, telegramId);
       const msg = await ctx.telegram.sendMessage(telegramId, getBanScreenText(lang), {
         parse_mode: 'Markdown'
@@ -425,6 +430,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
 
     // FIRST: Check if user has selected language (show picker if not)
     if (!user.languageSelected) {
+      console.log(`[DealInvite] No language selected, showing picker`);
       // Save invite token BEFORE sending message (prevent race condition)
       await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
 
@@ -435,6 +441,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
         reply_markup: keyboard.reply_markup
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`[DealInvite] Language picker sent, invite token saved`);
       return;
     }
 
@@ -628,14 +635,18 @@ const handleLanguageSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const selectedLang = ctx.callbackQuery.data.split(':')[1]; // 'ru' | 'en' | 'uk'
 
+    console.log(`[LangSelect] User ${telegramId} selected: ${selectedLang}`);
+
     // Save chosen language and mark as explicitly selected
     await languageSync.setLanguage(telegramId, selectedLang);
 
     // Reload user to get any pending operations
     const user = await User.findOne({ telegramId });
+    console.log(`[LangSelect] User loaded: pending_invite=${user?.pendingDealInvite}, username=${ctx.from.username}`);
     if (!user) return;
 
     if (user.blacklisted) {
+      console.log(`[LangSelect] User is banned`);
       const banText = getBanScreenText(selectedLang);
       await messageManager.showFinalScreen(ctx, telegramId, 'ban', banText, null);
       return;
@@ -643,12 +654,14 @@ const handleLanguageSelection = async (ctx) => {
 
     // Check if there's a pending deal invite (resume from invite link flow)
     if (user.pendingDealInvite) {
+      console.log(`[LangSelect] Resuming deal invite: ${user.pendingDealInvite}`);
       await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, user.pendingDealInvite);
       return;
     }
 
     // Check if user has a Telegram username (required for everything else)
     if (!ctx.from.username) {
+      console.log(`[LangSelect] No username, showing gate`);
       const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
       const screenText = t(selectedLang, 'usernameRequired.screen');
       const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
