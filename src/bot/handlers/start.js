@@ -397,6 +397,7 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
 
 const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
   try {
+    console.log(`📨 [DealInvite] Called with token: ${inviteToken}, user: ${telegramId}`);
     const lang = ctx.state?.lang || 'ru';
 
     // Find or create user (atomic upsert to prevent duplicate key errors)
