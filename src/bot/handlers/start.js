@@ -114,25 +114,27 @@ const startHandler = async (ctx) => {
       }
     }
 
-    // Find or create user
-    let user = await User.findOne({ telegramId });
-    let isNewUser = false;
+    // Find or create user (atomic upsert to prevent duplicate key errors)
+    const user = await User.findOneAndUpdate(
+      { telegramId },
+      {
+        $set: { username, firstName },
+        $setOnInsert: {
+          telegramId,
+          platformId,
+          platformCode,
+          source,
+          referredBy: referredByTelegramId,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true, new: true }
+    );
 
-    if (!user) {
-      isNewUser = true;
-      user = new User({
-        telegramId,
-        username,
-        firstName,
-        platformId,
-        platformCode,
-        source,
-        referredBy: referredByTelegramId // Set referrer if this is a new user
-      });
-      await user.save();
+    const isNewUser = !user.platformId && platformId; // First time setting platformId
+
+    if (isNewUser) {
       console.log(`✅ New user registered: ${telegramId} (@${username}) from: ${source}`);
-
-      // Alert admin about new user
       await adminAlertService.alertNewUser(user);
 
       // Update platform stats
@@ -150,11 +152,6 @@ const startHandler = async (ctx) => {
         );
         console.log(`📊 Referrer ${referredByTelegramId} stats updated: +1 invited`);
       }
-    } else {
-      // Update user info if changed
-      user.username = username;
-      user.firstName = firstName;
-      await user.save();
     }
 
     // Check if user is banned
@@ -279,20 +276,20 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
   try {
     const webDeal = await WebDeal.findOne({ token: webToken });
 
-    // Find or create user first (needed for language selection check)
-    let user = await User.findOne({ telegramId });
-    let isNewUser = false;
+    // Find or create user (atomic upsert to prevent duplicate key errors)
+    const user = await User.findOneAndUpdate(
+      { telegramId },
+      {
+        $set: { username, firstName },
+        $setOnInsert: { telegramId, source: 'web_deal', createdAt: new Date() }
+      },
+      { upsert: true, new: true }
+    );
 
-    if (!user) {
-      isNewUser = true;
-      user = new User({ telegramId, username, firstName, source: 'web_deal' });
-      await user.save();
+    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000; // Created in last 5 seconds
+    if (isNewUser) {
       console.log(`✅ New user registered via web deal: ${telegramId} (@${username})`);
       await adminAlertService.alertNewUser(user);
-    } else {
-      user.username = username;
-      user.firstName = firstName;
-      await user.save();
     }
 
     const lang = user?.languageCode || 'ru';
@@ -408,25 +405,20 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
   try {
     const lang = ctx.state?.lang || 'ru';
 
-    // First, ensure user exists (register if new)
-    let user = await User.findOne({ telegramId });
-    let isNewUser = false;
+    // Find or create user (atomic upsert to prevent duplicate key errors)
+    const user = await User.findOneAndUpdate(
+      { telegramId },
+      {
+        $set: { username, firstName },
+        $setOnInsert: { telegramId, source: 'invite_link', createdAt: new Date() }
+      },
+      { upsert: true, new: true }
+    );
 
-    if (!user) {
-      isNewUser = true;
-      user = new User({
-        telegramId,
-        username,
-        firstName,
-        source: 'invite_link'
-      });
-      await user.save();
+    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000; // Created in last 5 seconds
+    if (isNewUser) {
       console.log(`✅ New user registered via invite link: ${telegramId} (@${username})`);
       await adminAlertService.alertNewUser(user);
-    } else {
-      user.username = username;
-      user.firstName = firstName;
-      await user.save();
     }
 
     // Check if user is banned
