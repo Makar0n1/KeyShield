@@ -68,6 +68,7 @@ const startHandler = async (ctx) => {
 
     // Handle deal invite link: /start deal_TOKEN
     if (startPayload && startPayload.startsWith('deal_')) {
+      console.log(`📎 Deal invite link: ${startPayload}`);
       const inviteToken = startPayload.replace('deal_', '');
       await handleDealInvite(ctx, telegramId, username, firstName, inviteToken);
       return;
@@ -75,6 +76,7 @@ const startHandler = async (ctx) => {
 
     // Handle web deal link: /start web_TOKEN
     if (startPayload && startPayload.startsWith('web_')) {
+      console.log(`🌐 Web deal link: ${startPayload}`);
       const webToken = startPayload.replace('web_', '');
       await handleWebDealClaim(ctx, telegramId, username, firstName, webToken);
       return;
