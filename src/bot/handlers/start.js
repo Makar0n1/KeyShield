@@ -188,6 +188,20 @@ const startHandler = async (ctx) => {
       return;
     }
 
+    // Check if user has a Telegram username (required for all bot functionality)
+    if (!ctx.from.username) {
+      const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
+      const screenText = t(lang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(lang);
+      const msg = await ctx.telegram.sendMessage(telegramId, screenText, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.reply_markup
+      });
+      await messageManager.setMainMessage(telegramId, msg.message_id);
+      console.log(`🚫 [UsernameRequired] Username gate shown to ${telegramId}`);
+      return;
+    }
+
     // Choose text based on new/returning user
     const textToShow = isNewUser ? getWelcomeText(lang) : getMainMenuText(lang);
 
@@ -491,6 +505,16 @@ const handleLanguageSelection = async (ctx) => {
       await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
     }
 
+    // Check if user has a Telegram username (required for all bot functionality)
+    if (!ctx.from.username) {
+      const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
+      const screenText = t(selectedLang, 'usernameRequired.screen');
+      const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
+      await messageManager.showFinalScreen(ctx, telegramId, 'username_required', screenText, keyboard);
+      console.log(`🚫 [UsernameRequired] Username gate shown to ${telegramId} after language selection`);
+      return;
+    }
+
     // Show welcome in chosen language
     const textToShow = getWelcomeText(selectedLang);
     const keyboard = mainMenuKeyboard(selectedLang);
@@ -633,5 +657,7 @@ module.exports = {
   handleWebDealClaim,
   handleLanguageSelection,
   getMainMenuText,
+  getWelcomeText,
+  LANGUAGE_SELECT_TEXT,
   MAIN_MENU_TEXT: getMainMenuText('ru')
 };

@@ -207,8 +207,14 @@ class SessionTimeoutMonitor {
     // Delete session first
     await Session.deleteSession(telegramId, 'receipt_email');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId username').lean();
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleReceiptEmailTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     // If there's rating data, show rating screen
     if (data.ratingData) {
@@ -277,8 +283,14 @@ class SessionTimeoutMonitor {
     // Delete session
     await Session.deleteSession(telegramId, 'deal_rating');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId username').lean();
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleDealRatingTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     const { mainMenuButton } = require('../bot/keyboards/main');
     const lang = await this.getUserLang(telegramId);
@@ -316,8 +328,14 @@ class SessionTimeoutMonitor {
     // Delete session
     await Session.deleteSession(telegramId, 'my_data');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId email wallets averageRating ratingsCount languageCode').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId email wallets averageRating ratingsCount languageCode username').lean();
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleMyDataTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     const { myDataMenuKeyboard } = require('../bot/keyboards/main');
     const lang = user.languageCode || 'ru';
@@ -383,8 +401,14 @@ class SessionTimeoutMonitor {
     // Delete session
     await Session.deleteSession(telegramId, 'provide_wallet');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId pendingDealId').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId pendingDealId username').lean();
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleProvideWalletTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     // Clear pending data from user
     await User.updateOne({ telegramId }, { $unset: { pendingDealId: 1, pendingWallet: 1 } });
@@ -440,8 +464,14 @@ class SessionTimeoutMonitor {
     // Delete session
     await Session.deleteSession(telegramId, 'dispute');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId username').lean();
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleDisputeTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     const dealId = data.dealId;
 
@@ -492,10 +522,16 @@ class SessionTimeoutMonitor {
     await Session.deleteSession(telegramId, 'referral');
 
     const user = await User.findOne({ telegramId })
-      .select('mainMessageId referralBalance referralTotalEarned referralWithdrawnTotal referralStats referralCode languageCode')
+      .select('mainMessageId referralBalance referralTotalEarned referralWithdrawnTotal referralStats referralCode languageCode username')
       .lean();
 
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleReferralTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     const lang = user.languageCode || 'ru';
     const balance = user.referralBalance || 0;
@@ -563,8 +599,14 @@ class SessionTimeoutMonitor {
     // Delete session
     await Session.deleteSession(telegramId, 'deal_template');
 
-    const user = await User.findOne({ telegramId }).select('mainMessageId languageCode').lean();
+    const user = await User.findOne({ telegramId }).select('mainMessageId languageCode username').lean();
     if (!user || !user.mainMessageId) return false;
+
+    // Skip users without username
+    if (!user.username) {
+      console.log(`[SessionTimeoutMonitor] Skipping handleDealTemplateTimeout for ${telegramId} — no username`);
+      return false;
+    }
 
     const lang = user.languageCode || 'ru';
     const DealTemplate = require('../models/DealTemplate');
@@ -626,12 +668,26 @@ class SessionTimeoutMonitor {
   }
 
   /**
+   * Get user with username check
+   */
+  async getUserWithUsername(telegramId) {
+    const user = await User.findOne({ telegramId }).select('languageCode username').lean();
+    return { lang: user?.languageCode || 'ru', username: user?.username || null };
+  }
+
+  /**
    * Show main menu as fallback
    */
   async showMainMenu(telegramId, mainMessageId) {
     const { getMainMenuText } = require('../bot/handlers/start');
     const { mainMenuKeyboard } = require('../bot/keyboards/main');
-    const lang = await this.getUserLang(telegramId);
+    const { lang, username } = await this.getUserWithUsername(telegramId);
+
+    // Don't replace username_required gate screen with main menu
+    if (!username) {
+      console.log(`[SessionTimeoutMonitor] Skipping showMainMenu for ${telegramId} — no username`);
+      return false;
+    }
 
     const text = getMainMenuText(lang);
     const keyboard = mainMenuKeyboard(lang);

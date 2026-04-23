@@ -21,12 +21,13 @@ const { deduplicationMiddleware } = require('./middleware/deduplication');
 const { loadingTimeoutMiddleware } = require('./middleware/loadingTimeout');
 const { usernameSyncMiddleware } = require('./middleware/usernameSync');
 const { languageSyncMiddleware } = require('./middleware/languageSync');
+const { usernameRequiredMiddleware, usernameRequired } = require('./middleware/usernameRequired');
 
 // Activity logging
 const activityLogger = require('../services/activityLogger');
 
 // Handlers
-const { startHandler, mainMenuHandler, backHandler, handleLanguageSelection, MAIN_MENU_TEXT } = require('./handlers/start');
+const { startHandler, mainMenuHandler, backHandler, handleLanguageSelection, LANGUAGE_SELECT_TEXT, MAIN_MENU_TEXT } = require('./handlers/start');
 const {
   startCreateDeal,
   handleCreateDealInput,
@@ -254,6 +255,9 @@ bot.use(usernameSyncMiddleware);
 // 1.5. Language sync - detects and stores user's language from Telegram
 bot.use(languageSyncMiddleware);
 
+// 1.7. Username required gate - blocks users without @username after language selection
+bot.use(usernameRequiredMiddleware);
+
 // 2. Callback deduplication - prevents double-tap issues
 // User clicks button twice quickly → only first click is processed
 bot.use(deduplicationMiddleware);
@@ -303,6 +307,20 @@ bot.command('cancel', async (ctx) => {
 // Language selection (shown on /start before main menu)
 bot.action(/^lang_select:/, handleLanguageSelection);
 
+// Language change from username-required screen
+bot.action('lang_change', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+    const { languageSelectKeyboard } = require('./keyboards/main');
+    const messageManager = require('./utils/messageManager');
+    console.log(`🌐 [UsernameRequired] Language change requested: ${telegramId}`);
+    await messageManager.showFinalScreen(ctx, telegramId, 'lang_select', LANGUAGE_SELECT_TEXT, languageSelectKeyboard());
+  } catch (err) {
+    console.error('[lang_change] Error:', err.message);
+  }
+});
+
 // Navigation
 bot.action('main_menu', mainMenuHandler);
 // Smart back handler: check if in deal creation first
@@ -321,7 +339,59 @@ bot.action('back', async (ctx) => {
 
 // Create deal flow
 bot.action('create_deal', startCreateDeal);
-bot.action('username_set', handleUsernameSet);
+
+// username_set — global handler (works from both the persistent gate AND the old deal-creation context)
+bot.action('username_set', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from.id;
+    const lang = ctx.state?.lang || 'ru';
+    const currentUsername = ctx.from.username;
+
+    if (!currentUsername) {
+      // Username still not set — show 2-second error then re-show gate
+      const messageManager = require('./utils/messageManager');
+      const { usernameRequiredPersistentKeyboard } = require('./keyboards/main');
+      const errorText = t(lang, 'usernameRequired.still_missing');
+
+      console.log(`⚠️ [UsernameRequired] Username check failed: ${telegramId}, showing error`);
+      await messageManager.updateScreen(ctx, telegramId, 'username_error', errorText, {});
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const screenText = t(lang, 'usernameRequired.screen');
+      await messageManager.showFinalScreen(
+        ctx, telegramId, 'username_required',
+        screenText, usernameRequiredPersistentKeyboard(lang)
+      );
+      return;
+    }
+
+    // Username is now set — update DB and invalidate cache
+    // Use try/finally to guarantee cache invalidation even if DB update fails
+    const User = require('../models/User');
+    try {
+      await User.updateOne({ telegramId }, { $set: { username: currentUsername } });
+    } finally {
+      usernameRequired.invalidate(telegramId);
+    }
+
+    console.log(`✅ [UsernameRequired] Username confirmed: ${telegramId} → @${currentUsername}`);
+
+    // If user was in deal creation flow, resume it
+    if (await hasCreateDealSession(telegramId)) {
+      console.log(`→ [UsernameRequired] Resuming deal creation for ${telegramId}`);
+      await startCreateDeal(ctx);
+      return;
+    }
+
+    // Otherwise show main menu
+    console.log(`→ [UsernameRequired] Showing main menu for ${telegramId}`);
+    await mainMenuHandler(ctx);
+  } catch (err) {
+    console.error('Error in username_set handler:', err.message);
+    await ctx.answerCbQuery(t(ctx.state?.lang || 'ru', 'common.error'));
+  }
+});
 bot.action(/^role:/, handleRoleSelection);
 bot.action(/^counterparty_method:/, handleCounterpartyMethod);
 bot.action(/^keep_value:/, handleKeepValue);
@@ -835,7 +905,10 @@ const startBot = async () => {
     // Initialize email service at startup
     emailService.init();
 
-    // Start bot
+    // Notify existing users without username (runs in background, doesn't block startup)
+    notifyNoUsernameUsers(bot).catch(err => console.error('Error in notifyNoUsernameUsers:', err.message));
+
+    // Start bot immediately
     await bot.launch();
 
     console.log('\n🤖 KeyShield Telegram Bot started!');
@@ -870,6 +943,94 @@ const startBot = async () => {
     process.exit(1);
   }
 };
+
+/**
+ * One-time notification: send "username required" screen to existing active users
+ * who have no Telegram username and haven't been notified yet.
+ *
+ * Runs on every startup but the DB flag prevents duplicate sends.
+ */
+async function notifyNoUsernameUsers(botInstance) {
+  try {
+    const User = require('../models/User');
+    const { usernameRequiredPersistentKeyboard } = require('./keyboards/main');
+
+    const users = await User.find({
+      username: null,
+      botBlocked: { $ne: true },
+      mainMessageId: { $ne: null },
+      noUsernameNotifiedAt: null
+    }).select('telegramId languageCode mainMessageId').lean();
+
+    if (users.length === 0) {
+      console.log('✅ [noUsernameNotify] No users to notify.');
+      return;
+    }
+
+    console.log(`📢 [noUsernameNotify] Notifying ${users.length} existing no-username users...`);
+
+    for (const user of users) {
+      try {
+        const lang = user.languageCode || 'ru';
+        const text = t(lang, 'usernameRequired.screen');
+        const keyboard = usernameRequiredPersistentKeyboard(lang);
+
+        // Delete old main message
+        if (user.mainMessageId) {
+          try {
+            await botInstance.telegram.deleteMessage(user.telegramId, user.mainMessageId);
+          } catch (e) { /* already deleted */ }
+        }
+
+        // Send username required screen
+        const msg = await botInstance.telegram.sendMessage(user.telegramId, text, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard.reply_markup
+        });
+
+        // Update user state
+        await User.updateOne({ telegramId: user.telegramId }, {
+          $set: {
+            mainMessageId: msg.message_id,
+            currentScreen: 'username_required',
+            currentScreenData: { text, keyboard: keyboard.reply_markup },
+            navigationStack: [],
+            noUsernameNotifiedAt: new Date()
+          }
+        });
+
+        console.log(`📨 [noUsernameNotify] Notified: ${user.telegramId}`);
+
+        // Rate limiting — avoid Telegram's 30 messages/second limit
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (err) {
+        if (
+          err.description?.includes('bot was blocked') ||
+          err.description?.includes('chat not found') ||
+          err.description?.includes('user is deactivated')
+        ) {
+          // Mark as blocked and set notified flag to avoid retrying
+          await User.updateOne({ telegramId: user.telegramId }, {
+            $set: {
+              botBlocked: true,
+              botBlockedAt: new Date(),
+              mainMessageId: null,
+              noUsernameNotifiedAt: new Date()
+            }
+          });
+          console.log(`🚫 [noUsernameNotify] User blocked: ${user.telegramId}`);
+        } else {
+          console.error(`⚠️ [noUsernameNotify] Error for ${user.telegramId}: ${err.message}`);
+        }
+      }
+    }
+
+    console.log(`✅ [noUsernameNotify] Done.`);
+  } catch (err) {
+    console.error('[noUsernameNotify] Fatal error:', err.message);
+    // Non-fatal — bot should still start
+  }
+}
 
 // Only start bot if this file is run directly
 if (require.main === module) {

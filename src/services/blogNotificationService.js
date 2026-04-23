@@ -141,7 +141,8 @@ ${truncatedSummary ? this.escapeMarkdown(truncatedSummary) + '\n\n' : ''}🔗 Ч
     const users = await User.find({
       blacklisted: { $ne: true },
       mainMessageId: { $exists: true, $ne: null },
-      lastActivity: { $gte: thirtyDaysAgo }
+      lastActivity: { $gte: thirtyDaysAgo },
+      username: { $ne: null }  // Skip users without username (blocked by middleware)
     }).lean();
 
     console.log(`📤 Sending blog notification to ${users.length} users for post "${post.title}"${coverImageUrl ? ' (with image)' : ''}`);

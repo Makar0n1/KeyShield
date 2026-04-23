@@ -101,6 +101,7 @@ module.exports = {
 
     // Username
     username_set: '✅ Username set',
+    change_language: '🌐 Change language',
 
     // Create deal
     i_am_buyer: '💵 I am the Buyer',
@@ -299,6 +300,15 @@ module.exports = {
     username_required: '⚠️ *Username required*\n\nA public username is required to create deals. Please set one in your Telegram settings.\n\n📱 *How to set a username:*\n1. Open Telegram settings\n2. Tap on your name\n3. Select "Username"\n4. Choose and save a username\n\nOnce set, click the "Username set" button.',
 
     username_not_found: '❌ *Username not found*\n\nThe system still cannot detect your username.\n\nMake sure you have saved a username in your Telegram settings and try again.',
+  },
+
+  // ============================================
+  // USERNAME REQUIRED PERSISTENT SCREEN
+  // ============================================
+  usernameRequired: {
+    screen: '🔒 *A Telegram username is required to use KeyShield*\n\nYour @username is how counterparties identify you in deals. Without it you cannot create or accept transactions.\n\n📱 *How to set a username:*\n1. Open Telegram *Settings*\n2. Tap *Edit Profile*\n3. Find the *Username* field\n4. Type your desired handle and tap *Done*\n\nOnce saved, press the button below.',
+
+    still_missing: '❌ *Username not found*\n\nThe system still cannot see your username. Make sure you tapped *Done* in settings and try again.',
   },
 
   // ============================================

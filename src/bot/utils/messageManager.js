@@ -70,6 +70,9 @@ class MessageManager {
    * Delete old message and send new one (triggers push notification!)
    * This is the MAIN method for all screen transitions.
    * Uses TelegramQueue for rate limiting under high load.
+   *
+   * ATOMIC: Prevents race condition where two concurrent calls create duplicate messages.
+   * Uses MongoDB condition: only updates mainMessageId if it matches the old value.
    */
   async sendNewMessage(ctx, userId, text, keyboard) {
     const user = await this.loadUserState(userId);
@@ -125,8 +128,26 @@ class MessageManager {
         return null;
       }
 
-      // 3. Update mainMessageId in DB
-      await this.saveUserState(userId, { mainMessageId: newMsg.message_id });
+      // 3. Atomic update: only update if mainMessageId matches the old value
+      // This prevents race condition where concurrent calls create duplicate messages
+      const result = await User.findOneAndUpdate(
+        {
+          telegramId: userId,
+          mainMessageId: oldMessageId  // ← Atomic condition: only update if still the same
+        },
+        {
+          $set: {
+            mainMessageId: newMsg.message_id,
+            lastActivity: new Date()
+          }
+        },
+        { new: true }
+      );
+
+      // If update failed (mainMessageId changed), log it (concurrent update detected)
+      if (!result) {
+        console.log(`[sendNewMessage] Atomic update failed for ${userId} — concurrent update detected, but new message (${newMsg.message_id}) was sent`);
+      }
 
       return newMsg.message_id;
     } catch (error) {

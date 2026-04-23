@@ -206,9 +206,15 @@ class AbandonedDealMonitor {
       const data = session.data || {};
       const step = data.step || 'role_selection';
 
-      // Get user language
-      const userDoc = await User.findOne({ telegramId }).select('languageCode').lean();
+      // Get user language and username
+      const userDoc = await User.findOne({ telegramId }).select('languageCode username').lean();
       const lang = userDoc?.languageCode || 'ru';
+
+      // Skip users without username (blocked by middleware)
+      if (!userDoc?.username) {
+        console.log(`[AbandonedDealMonitor] Skipping ${telegramId} — no username`);
+        return;
+      }
 
       const stepLabel = t(lang, `abandoned.steps.${step}`) || step;
 
@@ -291,8 +297,14 @@ class AbandonedDealMonitor {
       // Delete the create_deal session
       await Session.deleteSession(telegramId, 'create_deal');
 
-      const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+      const user = await User.findOne({ telegramId }).select('mainMessageId username').lean();
       if (!user || !user.mainMessageId) return;
+
+      // Skip users without username (they see username_required gate instead)
+      if (!user.username) {
+        console.log(`[AbandonedDealMonitor] Skipping autoReturn for ${telegramId} — no username`);
+        return;
+      }
 
       // Use the same main menu as startHandler
       const { MAIN_MENU_TEXT } = require('../bot/handlers/start');

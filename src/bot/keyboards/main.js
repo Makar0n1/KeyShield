@@ -115,6 +115,17 @@ const usernameRequiredKeyboard = (lang = 'ru') => {
 };
 
 /**
+ * Username required PERSISTENT keyboard (global gate after language selection)
+ * Two buttons: change language + confirm username set
+ */
+const usernameRequiredPersistentKeyboard = (lang = 'ru') => {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback(t(lang, 'btn.change_language'), 'lang_change')],
+    [Markup.button.callback(t(lang, 'btn.username_set'), 'username_set')]
+  ]);
+};
+
+/**
  * Role selection keyboard
  */
 const roleSelectionKeyboard = (lang = 'ru') => {
@@ -742,6 +753,7 @@ module.exports = {
 
   // Deal creation
   usernameRequiredKeyboard,
+  usernameRequiredPersistentKeyboard,
   roleSelectionKeyboard,
   counterpartyMethodKeyboard,
   inviteDealCreatedKeyboard,

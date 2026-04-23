@@ -30,13 +30,21 @@ class CallbackDeduplicator {
 
   /**
    * Generate unique key for callback
+   * Some callbacks (like username_set) can appear on different message IDs,
+   * so we need to deduplicate by userId:data only for those cases.
    */
   getKey(ctx) {
     const userId = ctx.from?.id;
     const data = ctx.callbackQuery?.data;
     const messageId = ctx.callbackQuery?.message?.message_id;
 
-    // Include message_id to allow same button on different messages
+    // For actions that can be on different screens, deduplicate by userId:data only
+    const actionOnlyActions = new Set(['username_set', 'lang_change', 'main_menu', 'back']);
+    if (actionOnlyActions.has(data)) {
+      return `${userId}:${data}`;  // No message_id, dedups across all messages
+    }
+
+    // For other callbacks, include message_id (allow same button on different messages)
     return `${userId}:${data}:${messageId}`;
   }
 

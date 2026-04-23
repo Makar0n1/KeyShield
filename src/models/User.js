@@ -243,6 +243,12 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // Дата первого уведомления пользователя об отсутствии username
+  // null = ещё не уведомлён, Date = уведомлён (не повторять при перезапуске сервера)
+  noUsernameNotifiedAt: {
+    type: Date,
+    default: null
+  },
   // Last action tracking
   lastActionType: {
     type: String,
