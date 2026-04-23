@@ -648,7 +648,14 @@ const handleLanguageSelection = async (ctx) => {
       return;
     }
 
-    // Check if user has a Telegram username FIRST (required for everything)
+    // Check if there's a pending deal invite FIRST (before username check)
+    if (user.pendingDealInvite) {
+      console.log(`📨 Resuming deal invite ${user.pendingDealInvite} after language selection`);
+      await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, user.pendingDealInvite);
+      return;
+    }
+
+    // Check if user has a Telegram username (required for everything else)
     if (!ctx.from.username) {
       const { usernameRequiredPersistentKeyboard } = require('../keyboards/main');
       const screenText = t(selectedLang, 'usernameRequired.screen');
@@ -658,7 +665,7 @@ const handleLanguageSelection = async (ctx) => {
       return;
     }
 
-    // Check if there's a pending web deal to resume (after username check)
+    // Check if there's a pending web deal to resume (after both invite and username check)
     if (user.pendingWebDeal) {
       const webDeal = await WebDeal.findOne({ token: user.pendingWebDeal });
 
@@ -690,13 +697,6 @@ const handleLanguageSelection = async (ctx) => {
         await startWebDealSession(ctx, telegramId, user, webDeal, user.pendingWebDeal);
         return;
       }
-    }
-
-    // Check if there's a pending deal invite to resume (after language selection)
-    if (user.pendingDealInvite) {
-      console.log(`📨 Resuming deal invite ${user.pendingDealInvite} after language selection`);
-      await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, user.pendingDealInvite);
-      return;
     }
 
     // Show welcome in chosen language
