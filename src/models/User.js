@@ -199,6 +199,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  pendingDealInvite: {
+    type: String,
+    default: null
+  },
   // Saved email for transaction receipts
   email: {
     type: String,
