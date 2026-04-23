@@ -52,6 +52,8 @@ const startHandler = async (ctx) => {
     const firstName = ctx.from.first_name;
     const lang = ctx.state?.lang || 'ru';
 
+    console.log(`🔵 [StartHandler] CALLED for ${telegramId}, payload: ${ctx.message?.text?.split(' ')[1] || 'none'}`);
+
     // Log bot unblocked if user was blocked before (they're back!)
     await activityLogger.logBotUnblocked(telegramId);
 
