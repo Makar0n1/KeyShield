@@ -366,11 +366,7 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
 
     if (webDeal.status === 'claimed') {
       console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
-      const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
-        `Каждая ссылка может быть использована только один раз.\n\n` +
-        `Вы можете:\n` +
-        `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
-        `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+      const errorText = t(lang, 'webdeal.link_inactive');
       const keyboard = mainMenuButton(lang);
       const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
         parse_mode: 'Markdown',
@@ -636,11 +632,7 @@ const handleLanguageSelection = async (ctx) => {
       } else if (webDeal.status === 'claimed') {
         console.log(`⚠️ Pending WebDeal already claimed (one-time): ${user.pendingWebDeal}`);
         const { mainMenuButton } = require('../keyboards/main');
-        const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
-          `Каждая ссылка может быть использована только один раз.\n\n` +
-          `Вы можете:\n` +
-          `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
-          `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+        const errorText = t(selectedLang, 'webdeal.link_inactive');
         const keyboard = mainMenuButton(selectedLang);
         await messageManager.showFinalScreen(ctx, telegramId, 'webdeal_inactive', errorText, keyboard);
         await messageManager.resetNavigation(telegramId);
