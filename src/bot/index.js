@@ -393,12 +393,9 @@ bot.action('username_set', async (ctx) => {
         const { mainMenuButton } = require('./keyboards/main');
         const errorText = t(lang, 'invite.invalid');
         const keyboard = mainMenuButton(lang);
-        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-        await messageManager.setMainMessage(telegramId, msg.message_id);
+        await messageManager.showFinalScreen(ctx, telegramId, 'webdeal_invalid', errorText, keyboard);
         await messageManager.resetNavigation(telegramId);
+        await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
         return;
       }
 
@@ -407,30 +404,20 @@ bot.action('username_set', async (ctx) => {
         const { mainMenuButton } = require('./keyboards/main');
         const errorText = t(lang, 'invite.expired_long');
         const keyboard = mainMenuButton(lang);
-        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-        await messageManager.setMainMessage(telegramId, msg.message_id);
+        await messageManager.showFinalScreen(ctx, telegramId, 'webdeal_expired', errorText, keyboard);
         await messageManager.resetNavigation(telegramId);
+        await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
         return;
       }
 
       if (webDeal.status === 'claimed') {
         console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
         const { mainMenuButton } = require('./keyboards/main');
-        const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
-          `Каждая ссылка может быть использована только один раз.\n\n` +
-          `Вы можете:\n` +
-          `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
-          `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+        const errorText = t(lang, 'webdeal.link_inactive');
         const keyboard = mainMenuButton(lang);
-        const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-        await messageManager.setMainMessage(telegramId, msg.message_id);
+        await messageManager.showFinalScreen(ctx, telegramId, 'webdeal_inactive', errorText, keyboard);
         await messageManager.resetNavigation(telegramId);
+        await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
         return;
       }
 
