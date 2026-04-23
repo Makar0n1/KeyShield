@@ -628,14 +628,40 @@ const handleLanguageSelection = async (ctx) => {
 
     // Check if there's a pending web deal to resume (after username check)
     if (user.pendingWebDeal) {
-      const webDeal = await WebDeal.findOne({ token: user.pendingWebDeal, status: 'claimed' });
-      if (webDeal) {
+      const webDeal = await WebDeal.findOne({ token: user.pendingWebDeal });
+
+      if (!webDeal) {
+        console.log(`❌ Pending WebDeal not found: ${user.pendingWebDeal}`);
+        await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
+      } else if (webDeal.status === 'claimed') {
+        console.log(`⚠️ Pending WebDeal already claimed (one-time): ${user.pendingWebDeal}`);
+        const { mainMenuButton } = require('../keyboards/main');
+        const errorText = `⚠️ *Эта ссылка больше не активна*\n\n` +
+          `Каждая ссылка может быть использована только один раз.\n\n` +
+          `Вы можете:\n` +
+          `1️⃣ Создать сделку прямо в боте через кнопку "Создать сделку"\n` +
+          `2️⃣ Получить новую ссылку на сайте (заполните форму заново)`;
+        const keyboard = mainMenuButton(selectedLang);
+        await messageManager.showFinalScreen(ctx, telegramId, 'webdeal_inactive', errorText, keyboard);
+        await messageManager.resetNavigation(telegramId);
+        await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
+        return;
+      } else if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
+        console.log(`⚠️ Pending WebDeal expired: ${user.pendingWebDeal}`);
+        const { mainMenuButton } = require('../keyboards/main');
+        const errorText = t(selectedLang, 'invite.expired_long');
+        const keyboard = mainMenuButton(selectedLang);
+        await messageManager.showFinalScreen(ctx, telegramId, 'webdeal_expired', errorText, keyboard);
+        await messageManager.resetNavigation(telegramId);
+        await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
+        return;
+      } else {
+        // WebDeal is valid
         console.log(`🌐 Resuming web deal ${user.pendingWebDeal} after language selection`);
+        await webDeal.claim(telegramId);
         await startWebDealSession(ctx, telegramId, user, webDeal, user.pendingWebDeal);
         return;
       }
-      // Clean up stale pendingWebDeal
-      await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
     }
 
     // Show welcome in chosen language
