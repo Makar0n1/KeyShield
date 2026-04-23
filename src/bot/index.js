@@ -314,7 +314,6 @@ bot.action('lang_change', async (ctx) => {
     const telegramId = ctx.from.id;
     const { languageSelectKeyboard } = require('./keyboards/main');
     const messageManager = require('./utils/messageManager');
-    console.log(`🌐 [UsernameRequired] Language change requested: ${telegramId}`);
     await messageManager.showFinalScreen(ctx, telegramId, 'lang_select', LANGUAGE_SELECT_TEXT, languageSelectKeyboard());
   } catch (err) {
     console.error('[lang_change] Error:', err.message);
@@ -354,7 +353,6 @@ bot.action('username_set', async (ctx) => {
       const { usernameRequiredPersistentKeyboard } = require('./keyboards/main');
       const errorText = t(lang, 'usernameRequired.still_missing');
 
-      console.log(`⚠️ [UsernameRequired] Username check failed: ${telegramId}, showing error`);
       await messageManager.updateScreen(ctx, telegramId, 'username_error', errorText, {});
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -367,7 +365,6 @@ bot.action('username_set', async (ctx) => {
     }
 
     // Username is now set — update DB and invalidate cache
-    // Use try/finally to guarantee cache invalidation even if DB update fails
     const User = require('../models/User');
     try {
       await User.updateOne({ telegramId }, { $set: { username: currentUsername } });
@@ -375,13 +372,9 @@ bot.action('username_set', async (ctx) => {
       usernameRequired.invalidate(telegramId);
     }
 
-    console.log(`✅ [UsernameRequired] Username confirmed: ${telegramId} → @${currentUsername}`);
-
     // Check if user has pending WebDeal or invite to resume
     const userWithPending = await User.findOne({ telegramId }).select('pendingWebDeal languageCode pendingDealInvite');
-    console.log(`📋 [UsernameRequired] User state: webdeal=${userWithPending?.pendingWebDeal}, invite=${userWithPending?.pendingDealInvite}`);
     if (userWithPending?.pendingWebDeal) {
-      console.log(`→ [UsernameRequired] Resuming pending WebDeal for ${telegramId}`);
       const webToken = userWithPending.pendingWebDeal;
       const lang = userWithPending.languageCode || 'ru';
 
@@ -390,7 +383,6 @@ bot.action('username_set', async (ctx) => {
       const webDeal = await WebDeal.findOne({ token: webToken });
 
       if (!webDeal) {
-        console.log(`❌ WebDeal not found: ${webToken}`);
         const { mainMenuButton } = require('./keyboards/main');
         const errorText = t(lang, 'invite.invalid');
         const keyboard = mainMenuButton(lang);
@@ -401,7 +393,6 @@ bot.action('username_set', async (ctx) => {
       }
 
       if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
-        console.log(`⚠️ WebDeal expired: ${webToken}`);
         const { mainMenuButton } = require('./keyboards/main');
         const errorText = t(lang, 'invite.expired_long');
         const keyboard = mainMenuButton(lang);
@@ -412,7 +403,6 @@ bot.action('username_set', async (ctx) => {
       }
 
       if (webDeal.status === 'claimed') {
-        console.log(`⚠️ WebDeal already claimed (one-time): ${webToken} by user ${webDeal.claimedBy}`);
         const { mainMenuButton } = require('./keyboards/main');
         const errorText = t(lang, 'webdeal.link_inactive');
         const keyboard = mainMenuButton(lang);
@@ -422,31 +412,27 @@ bot.action('username_set', async (ctx) => {
         return;
       }
 
-      // WebDeal is valid → claim and start session
+      // WebDeal is valid — claim and start session
       const { startWebDealSession } = require('./handlers/start');
       await webDeal.claim(telegramId);
-      console.log(`🌐 WebDeal claimed: ${webToken} by ${telegramId}`);
       await startWebDealSession(ctx, telegramId, userWithPending, webDeal, webToken);
       return;
     }
 
     // If user was in deal creation flow, resume it
     if (await hasCreateDealSession(telegramId)) {
-      console.log(`→ [UsernameRequired] Resuming deal creation for ${telegramId}`);
       await startCreateDeal(ctx);
       return;
     }
 
     // Check if there's a pending deal invite to resume
     if (userWithPending?.pendingDealInvite) {
-      console.log(`→ [UsernameRequired] Resuming deal invite for ${telegramId}`);
       const { handleDealInvite } = require('./handlers/start');
       await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, userWithPending.pendingDealInvite);
       return;
     }
 
     // Otherwise show main menu
-    console.log(`→ [UsernameRequired] Showing main menu for ${telegramId}`);
     await mainMenuHandler(ctx);
   } catch (err) {
     console.error('Error in username_set handler:', err.message);

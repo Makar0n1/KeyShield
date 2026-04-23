@@ -52,8 +52,6 @@ const startHandler = async (ctx) => {
     const firstName = ctx.from.first_name;
     const lang = ctx.state?.lang || 'ru';
 
-    console.log(`🔵 [StartHandler] CALLED for ${telegramId}, payload: ${ctx.message?.text?.split(' ')[1] || 'none'}`);
-
     // Log bot unblocked if user was blocked before (they're back!)
     await activityLogger.logBotUnblocked(telegramId);
 
@@ -197,7 +195,6 @@ const startHandler = async (ctx) => {
         reply_markup: keyboard.reply_markup
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
-      console.log(`🚫 [UsernameRequired] Username gate shown to ${telegramId}`);
       return;
     }
 
@@ -214,8 +211,6 @@ const startHandler = async (ctx) => {
     // Track main message (persisted to DB)
     await messageManager.setMainMessage(telegramId, msg.message_id);
     await messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
-
-    console.log(`${isNewUser ? 'Welcome' : 'Main menu'} shown to user ${telegramId}, message ID: ${msg.message_id}`);
   } catch (error) {
     console.error('Error in start handler:', error);
   }
@@ -399,7 +394,6 @@ async function handleWebDealClaim(ctx, telegramId, username, firstName, webToken
 
 const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToken) => {
   try {
-    console.log(`📨 [DealInvite] Called with token: ${inviteToken}, user: ${telegramId}`);
     const lang = ctx.state?.lang || 'ru';
 
     // Find or create user (atomic upsert to prevent duplicate key errors)
@@ -412,9 +406,8 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       { upsert: true, new: true }
     );
 
-    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000; // Created in last 5 seconds
+    const isNewUser = user.createdAt && (Date.now() - user.createdAt.getTime()) < 5000;
     if (isNewUser) {
-      console.log(`✅ New user registered via invite link: ${telegramId} (@${username})`);
       await adminAlertService.alertNewUser(user);
     }
 
@@ -437,9 +430,8 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
         reply_markup: keyboard.reply_markup
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
-      // Save invite token so we can resume after language selection
+      // Save invite token before showing language picker
       await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
-      console.log(`🌐 [DealInvite] Language picker shown to ${telegramId}, invite saved`);
       return;
     }
 
@@ -450,8 +442,7 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
       const screenText = t(selectedLang, 'usernameRequired.screen');
       const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
 
-      // Save invite token so we can resume after username is set
-      console.log(`💾 [DealInvite] Saving pendingDealInvite: ${inviteToken}`);
+      // Save invite token before showing username gate
       await User.updateOne({ telegramId }, { $set: { pendingDealInvite: inviteToken } });
 
       await messageManager.deleteMainMessage(ctx, telegramId);
@@ -460,7 +451,6 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
         reply_markup: keyboard.reply_markup
       });
       await messageManager.setMainMessage(telegramId, msg.message_id);
-      console.log(`🚫 [DealInvite] Username gate shown to ${telegramId}, invite saved: ${inviteToken}`);
       return;
     }
 
@@ -468,15 +458,12 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     const deal = await dealService.getDealByInviteToken(inviteToken);
 
     if (!deal) {
-      // Invalid or expired link — show error in existing message
       const errorText = t(lang, 'invite.invalid');
       const keyboard = mainMenuButton(lang);
 
       try {
-        // Try to edit existing main message
         await messageManager.updateScreen(ctx, telegramId, 'invite_invalid', errorText, keyboard);
       } catch (e) {
-        // Fallback: delete old and send new
         await messageManager.deleteMainMessage(ctx, telegramId);
         const msg = await ctx.telegram.sendMessage(telegramId, errorText, {
           parse_mode: 'Markdown',
@@ -600,19 +587,19 @@ const handleDealInvite = async (ctx, telegramId, username, firstName, inviteToke
     await messageManager.deleteMainMessage(ctx, telegramId);
     await messageManager.resetNavigation(telegramId);
 
+    // Clear the pending invite since we're now showing the acceptance screen
+    await User.updateOne({ telegramId }, { $unset: { pendingDealInvite: 1 } });
+
     const keyboard = inviteAcceptKeyboard(deal.dealId, lang);
     const msg = await ctx.telegram.sendMessage(telegramId, inviteText, {
       parse_mode: 'Markdown',
       reply_markup: keyboard.reply_markup
     });
     await messageManager.setMainMessage(telegramId, msg.message_id);
-
-    console.log(`📨 Invite screen shown to ${telegramId} for deal ${deal.dealId}`);
   } catch (error) {
     console.error('Error handling deal invite:', error);
 
     const errorText = t(lang, 'common.error_generic');
-
     const keyboard = mainMenuButton(lang);
     try {
       await messageManager.deleteMainMessage(ctx, telegramId);
@@ -638,14 +625,11 @@ const handleLanguageSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const selectedLang = ctx.callbackQuery.data.split(':')[1]; // 'ru' | 'en' | 'uk'
 
-    console.log(`🔵 [HandleLanguageSelection] CALLED for ${telegramId}, lang: ${selectedLang}`);
-
     // Save chosen language and mark as explicitly selected
     await languageSync.setLanguage(telegramId, selectedLang);
 
-    // Reload user
+    // Reload user to get any pending operations
     const user = await User.findOne({ telegramId });
-    console.log(`📋 [HandleLanguageSelection] User loaded: pendingDealInvite=${user?.pendingDealInvite}, username=${ctx.from.username}`);
     if (!user) return;
 
     if (user.blacklisted) {
@@ -654,9 +638,8 @@ const handleLanguageSelection = async (ctx) => {
       return;
     }
 
-    // Check if there's a pending deal invite FIRST (before username check)
+    // Check if there's a pending deal invite (resume from invite link flow)
     if (user.pendingDealInvite) {
-      console.log(`📨 Resuming deal invite ${user.pendingDealInvite} after language selection`);
       await handleDealInvite(ctx, telegramId, ctx.from.username, ctx.from.first_name, user.pendingDealInvite);
       return;
     }
@@ -667,7 +650,6 @@ const handleLanguageSelection = async (ctx) => {
       const screenText = t(selectedLang, 'usernameRequired.screen');
       const keyboard = usernameRequiredPersistentKeyboard(selectedLang);
       await messageManager.showFinalScreen(ctx, telegramId, 'username_required', screenText, keyboard);
-      console.log(`🚫 [UsernameRequired] Username gate shown to ${telegramId} after language selection`);
       return;
     }
 
@@ -679,7 +661,6 @@ const handleLanguageSelection = async (ctx) => {
         console.log(`❌ Pending WebDeal not found: ${user.pendingWebDeal}`);
         await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
       } else if (webDeal.status === 'claimed') {
-        console.log(`⚠️ Pending WebDeal already claimed (one-time): ${user.pendingWebDeal}`);
         const { mainMenuButton } = require('../keyboards/main');
         const errorText = t(selectedLang, 'webdeal.link_inactive');
         const keyboard = mainMenuButton(selectedLang);
@@ -688,7 +669,6 @@ const handleLanguageSelection = async (ctx) => {
         await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
         return;
       } else if (webDeal.status === 'expired' || new Date() > webDeal.expiresAt) {
-        console.log(`⚠️ Pending WebDeal expired: ${user.pendingWebDeal}`);
         const { mainMenuButton } = require('../keyboards/main');
         const errorText = t(selectedLang, 'invite.expired_long');
         const keyboard = mainMenuButton(selectedLang);
@@ -697,8 +677,6 @@ const handleLanguageSelection = async (ctx) => {
         await User.updateOne({ telegramId }, { $unset: { pendingWebDeal: 1 } });
         return;
       } else {
-        // WebDeal is valid
-        console.log(`🌐 Resuming web deal ${user.pendingWebDeal} after language selection`);
         await webDeal.claim(telegramId);
         await startWebDealSession(ctx, telegramId, user, webDeal, user.pendingWebDeal);
         return;
@@ -711,8 +689,6 @@ const handleLanguageSelection = async (ctx) => {
 
     await messageManager.showFinalScreen(ctx, telegramId, 'main_menu', textToShow, keyboard);
     await messageManager.setCurrentScreenData(telegramId, 'main_menu', textToShow, keyboard);
-
-    console.log(`Language selected: ${selectedLang} for user ${telegramId}`);
   } catch (error) {
     console.error('Error in handleLanguageSelection:', error);
   }
