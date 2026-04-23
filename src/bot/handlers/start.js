@@ -638,11 +638,14 @@ const handleLanguageSelection = async (ctx) => {
     const telegramId = ctx.from.id;
     const selectedLang = ctx.callbackQuery.data.split(':')[1]; // 'ru' | 'en' | 'uk'
 
+    console.log(`🔵 [HandleLanguageSelection] CALLED for ${telegramId}, lang: ${selectedLang}`);
+
     // Save chosen language and mark as explicitly selected
     await languageSync.setLanguage(telegramId, selectedLang);
 
     // Reload user
     const user = await User.findOne({ telegramId });
+    console.log(`📋 [HandleLanguageSelection] User loaded: pendingDealInvite=${user?.pendingDealInvite}, username=${ctx.from.username}`);
     if (!user) return;
 
     if (user.blacklisted) {
