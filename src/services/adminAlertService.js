@@ -26,12 +26,16 @@ class AdminAlertService {
   }
 
   /**
-   * Escape special Markdown characters
-   * _ * [ ] ( ) ~ ` > # + - = | { } . !
+   * Escape special Markdown characters for safe Telegram message
+   * Handles: _ * [ ] ( ) ~ ` > # + - = | { } . ! \ and more
    */
   escapeMarkdown(text) {
     if (!text) return '';
-    return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+    // Replace special characters with safe alternatives or remove them
+    return String(text)
+      .replace(/\\/g, '\\\\')  // Backslash first!
+      .replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&')
+      .slice(0, 100);  // Cap at 100 chars to prevent long entity errors
   }
 
   /**
@@ -622,16 +626,27 @@ ${await this.formatOperationsStatus()}
    * Security threat detected (SQL injection, XSS, code injection, etc.)
    */
   async alertSecurityThreat(threatType, username, telegramId, originalText) {
+    const threatTypeEscaped = this.escapeMarkdown(threatType);
+    const usernameEscaped = this.escapeMarkdown(username);
+    const textEscaped = this.escapeMarkdown(originalText.slice(0, 80));
+
     const text = `🚨 *SECURITY THREAT DETECTED!*
 
-🔒 Тип атаки: *${threatType}*
-👤 Пользователь: \`@${this.escapeMarkdown(username)}\`
+🔒 Тип атаки: *${threatTypeEscaped}*
+👤 Пользователь: \`@${usernameEscaped}\`
 🆔 ID: \`${telegramId}\`
-📝 Текст: \`${this.escapeMarkdown(originalText.slice(0, 100))}\`
+📝 Текст: \`${textEscaped}...\`
 
 ⏰ ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
 
-    await this.sendAlert(text);
+    try {
+      await this.sendAlert(text);
+    } catch (error) {
+      // If message parsing fails, try with even simpler format
+      console.error(`[AdminAlert] Error sending rich alert: ${error.message}`);
+      const fallbackText = `🚨 SECURITY THREAT: ${threatTypeEscaped} by @${usernameEscaped}`;
+      await this.sendAlert(fallbackText);
+    }
   }
 }
 
