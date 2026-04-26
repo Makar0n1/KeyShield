@@ -312,6 +312,11 @@ module.exports = {
   },
 
   // ============================================
+  // FILE UPLOAD BLOCKED (outside dispute)
+  // ============================================
+  fileUploadBlocked: '🚫 *File upload not allowed*\n\nFiles (photos, videos, documents, voice) can only be sent when opening a dispute as evidence.\n\nReturning to the previous screen...',
+
+  // ============================================
   // CREATE DEAL
   // ============================================
   createDeal: {

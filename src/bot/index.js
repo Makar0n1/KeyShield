@@ -910,8 +910,34 @@ bot.on(['photo', 'video', 'document', 'voice'], async (ctx) => {
     return;
   }
 
-  // Unknown media - just delete it
+  // File uploads are not allowed outside dispute evidence collection.
+  // Delete the user's file, show a 2-second error, then restore the previous screen.
   await messageManager.deleteUserMessage(ctx);
+
+  const lang = ctx.state?.lang || 'ru';
+  const userState = await messageManager.loadUserState(telegramId);
+  const previousScreen = userState?.currentScreen;
+  const previousData = userState?.currentScreenData;
+
+  // If there's no main message to restore, just drop the file silently
+  if (!userState?.mainMessageId || !previousData?.text) {
+    return;
+  }
+
+  try {
+    await messageManager.updateScreen(
+      ctx, telegramId, 'file_upload_blocked',
+      t(lang, 'fileUploadBlocked'), {}
+    );
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    await messageManager.updateScreen(
+      ctx, telegramId, previousScreen,
+      previousData.text, previousData.keyboard
+    );
+  } catch (err) {
+    console.error('[fileUploadBlocked] Error restoring previous screen:', err.message);
+  }
 });
 
 // ============================================

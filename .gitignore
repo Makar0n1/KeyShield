@@ -45,3 +45,11 @@ package-lock.json
 # Deploy guide (local only)
 DEPLOY.md
 LOGGING_GUIDE.md
+
+# Security analysis & pentest docs (local only — never push)
+FILE_UPLOAD_SECURITY_ANALYSIS.md
+PENTEST_EXAMPLES.md
+PENTEST_PAYLOADS.md
+PENTEST_README.md
+PENTEST_REPORT.md
+QUICK_PAYLOADS.txt
