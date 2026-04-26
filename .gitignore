@@ -44,3 +44,4 @@ package-lock.json
 
 # Deploy guide (local only)
 DEPLOY.md
+LOGGING_GUIDE.md

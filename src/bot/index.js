@@ -22,6 +22,7 @@ const { loadingTimeoutMiddleware } = require('./middleware/loadingTimeout');
 const { usernameSyncMiddleware } = require('./middleware/usernameSync');
 const { languageSyncMiddleware } = require('./middleware/languageSync');
 const { usernameRequiredMiddleware, usernameRequired } = require('./middleware/usernameRequired');
+const { textInputLoggerMiddleware } = require('./middleware/textInputLogger');
 
 // Activity logging
 const activityLogger = require('../services/activityLogger');
@@ -218,7 +219,11 @@ bot.catch((err, ctx) => {
 // MIDDLEWARE FOR HIGH-LOAD OPTIMIZATION
 // ============================================
 
-// 0. Activity logging - logs ALL user actions to console
+// 0. Text Input Logger - logs ALL text inputs with security detection (FIRST middleware!)
+// Перехватывает все текстовые вводы, маскирует чувствительные данные и детектит атаки
+bot.use(textInputLoggerMiddleware);
+
+// 0.1. Activity logging - logs ALL user actions to console
 bot.use(async (ctx, next) => {
   const telegramId = ctx.from?.id;
   if (!telegramId) return next();
