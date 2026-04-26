@@ -517,6 +517,8 @@ module.exports = {
 
     media_added: ({ mediaCount }) => `✅ *Files added: ${mediaCount}*`,
 
+    file_rejected: ({ reason }) => `🚫 *File Rejected*\n\n${reason}\n\n*Reasons for rejection:*\n• Unsupported file type\n• File too large\n• Suspected malicious content\n• Possible file extension spoofing\n\n*Accepted formats:*\n✅ Photos (JPG, PNG)\n✅ Videos (MP4)\n✅ Documents (PDF)\n✅ Voice (OGG, MP3)\n\n❌ Executable files\n❌ Archives\n❌ Scripts`,
+
     media_without_reason: 'Send a text description of the problem (minimum 20 characters), then attach evidence.',
     media_without_reason_caption: ({ length }) => `Description too short (${length} characters).`,
     media_group_hint: 'Or send a group of photos with a caption — a description of the problem (minimum 20 characters).',

@@ -1,0 +1,69 @@
+# KeyShield Bot - Quick Payload Reference (Copy-Paste)
+# Для тестирования скопируйте payload и отправьте в чат бота
+
+=== NoSQL INJECTION ===
+{"$ne": null}
+{$regex: ".*"}
+{$where: "1==1"}
+{$gt: ""}
+{"$in": [1,2,3]}
+
+=== COMMAND INJECTION ===
+; whoami
+&& id
+| cat /etc/passwd
+$(whoami)
+`whoami`
+| nc 127.0.0.1 1234
+
+=== PATH TRAVERSAL ===
+../../../etc/passwd
+..\\..\\windows\\system32\\config\\sam
+%2e%2e%2f%2e%2e%2fetc%2fpasswd
+%252e%252e%252fetc%252fpasswd
+
+=== SSRF ===
+http://localhost:8080/admin
+http://127.0.0.1:27017
+http://192.168.1.1
+file:///etc/passwd
+gopher://localhost:27017
+
+=== XSS / MARKDOWN INJECTION ===
+<script>alert(1)</script>
+javascript:alert(1)
+[click me](javascript:alert(1))
+*<b>test</b>*
+
+=== TEMPLATE INJECTION ===
+{{7*7}}
+${7*7}
+<%= 7*7 %>
+#{7*7}
+
+=== PROTOTYPE POLLUTION ===
+{"__proto__": {"isAdmin": true}}
+{"constructor": {"prototype": {"role": "admin"}}}
+
+=== ENCODED ATTACKS ===
+%7B%24ne%3A%20null%7D
+&#123;&#36;ne&#58; null&#125;
+\x7b\x24\x6e\x65\x3a\x20null\x7d
+
+=== MIXED REALISTIC ATTACKS ===
+Привет! Ищу товар {"$ne": null}, адрес T9yeDtKwDHtHtGs65qstLHoCDYxo5D, сумма 100
+Продаю за 500 USDT, кошелек T9yeDtKwDHtHtGs65qstLHoCDYxo5D; whoami #
+Файл: ../../../etc/passwd, цена 1500, состояние отличное
+
+=== QUICK TEST ===
+Быстрый тест всех типов атак:
+1. {"$ne": null}
+2. ; whoami
+3. ../../../etc/passwd
+4. http://127.0.0.1:8080
+5. <script>test</script>
+
+После отправки проверьте:
+- Логи бота (должны быть 🚨 [SECURITY] алерты)
+- Console вывод (DETECTED THREAT_TYPE)
+- Admin Telegram (должны приойти уведомления)

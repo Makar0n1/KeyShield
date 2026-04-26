@@ -1,5 +1,6 @@
 const disputeService = require('../../services/disputeService');
 const dealService = require('../../services/dealService');
+const fileSecurityService = require('../../services/fileSecurityService');
 const Session = require('../../models/Session');
 const User = require('../../models/User');
 const {
@@ -239,44 +240,87 @@ ${t(lang, 'dispute.media_single_hint')}`;
     // Delete user message (media)
     await messageManager.deleteUserMessage(ctx);
 
-    // Get file_id and convert to URL
+    // Get file_id, type, and name
     let fileId;
     let fileType;
-    let fileUrl;
+    let fileName;
+    let fileData;
 
     if (ctx.message.photo) {
       fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
       fileType = 'photo';
+      fileName = `photo_${Date.now()}.jpg`;
     } else if (ctx.message.video) {
       fileId = ctx.message.video.file_id;
       fileType = 'video';
+      fileName = ctx.message.video.file_name || `video_${Date.now()}.mp4`;
     } else if (ctx.message.document) {
       fileId = ctx.message.document.file_id;
       fileType = 'document';
+      fileName = ctx.message.document.file_name || `document_${Date.now()}.pdf`;
     } else if (ctx.message.voice) {
       fileId = ctx.message.voice.file_id;
       fileType = 'voice';
+      fileName = `voice_${Date.now()}.ogg`;
     }
 
     if (fileId) {
-      // Get permanent file URL from Telegram
       try {
-        const fileLink = await ctx.telegram.getFileLink(fileId);
-        fileUrl = fileLink.href || fileLink.toString();
-        console.log(`📎 Got file URL for dispute: ${fileUrl}`);
+        // Download file from Telegram servers
+        const fileUrl = await ctx.telegram.getFileLink(fileId);
+        const fileResponse = await require('axios').get(fileUrl.href || fileUrl.toString(), {
+          responseType: 'arraybuffer'
+        });
+        fileData = fileResponse.data;
+
+        // Validate file security
+        const validation = await fileSecurityService.validateFile(
+          Buffer.from(fileData),
+          fileType,
+          fileName
+        );
+
+        if (!validation.valid) {
+          // File failed security validation
+          const errorMsg = t(lang, 'dispute.file_rejected', { reason: validation.error });
+          console.error(`🚫 [SECURITY] File rejected for dispute: ${validation.error}`);
+
+          // Log security incident
+          await adminAlertService.alertSecurityThreat(
+            'MALICIOUS_FILE_UPLOAD',
+            ctx.from.username || 'unknown',
+            ctx.from.id,
+            `File: ${fileName} - ${validation.error}`
+          );
+
+          // Notify user
+          await messageManager.updateScreen(
+            ctx,
+            telegramId,
+            'dispute_file_rejected',
+            errorMsg,
+            disputeMediaKeyboard(session.dealId, lang)
+          );
+
+          return false;
+        }
+
+        // File is valid - store in session
+        const permanentFileUrl = fileUrl.href || fileUrl.toString();
+        session.media.push({
+          fileId,
+          fileUrl: permanentFileUrl,
+          type: fileType,
+          metadata: validation.metadata,
+          securityValidated: true
+        });
+
+        console.log(`✅ [SECURITY] File validated and added to dispute: ${fileName}`);
+        await setDisputeSession(telegramId, session);
       } catch (err) {
-        console.error('Error getting file link:', err.message);
-        fileUrl = fileId; // Fallback to file_id if URL fails
+        console.error('Error handling dispute media file:', err.message);
+        return false;
       }
-
-      // Store file info with URL
-      session.media.push({
-        fileId,
-        fileUrl,
-        type: fileType
-      });
-
-      await setDisputeSession(telegramId, session);
 
       // For media groups, debounce screen update to avoid spamming editMessageText
       if (mediaGroupId) {
