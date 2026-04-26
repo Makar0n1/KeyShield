@@ -77,9 +77,9 @@ const FORBIDDEN_EXTENSIONS = new Set([
   'app', 'deb', 'rpm', // Installers
 ]);
 
-// Suspicious keywords in filenames
+// Suspicious keywords in filenames (more specific to avoid false positives)
 const SUSPICIOUS_PATTERNS = [
-  /test|hack|crack|malware|virus|trojan|backdoor|payload/i,
+  /hack[0-9]|crack|malware|virus|trojan|backdoor|payload|shell/i,
   /\.\w{2,}\./, // Double extension (file.php.jpg)
   /\x00/, // Null byte
 ];
