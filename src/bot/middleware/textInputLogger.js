@@ -23,7 +23,7 @@ const textInputLoggerMiddleware = async (ctx, next) => {
       const text = ctx.message.text;
 
       // Логируем с маскировкой чувствительных данных
-      const { sanitized, suspicious, type } = logTextInput(
+      const result = logTextInput(
         telegramId,
         username,
         text,
@@ -31,12 +31,14 @@ const textInputLoggerMiddleware = async (ctx, next) => {
       );
 
       // Если детектили атаку - отправляем ALERT администратору
-      if (suspicious) {
-        console.error(`🚨 [SECURITY] @${username} (${telegramId}): ${type} - ${text.slice(0, 80)}`);
-
+      if (result.suspicious) {
         try {
+          const threatDesc = result.normalized
+            ? `${result.type} (detected via encoding normalization)`
+            : result.type;
+
           await adminAlertService.alertSecurityThreat(
-            type,
+            threatDesc,
             username,
             telegramId,
             text
@@ -49,9 +51,12 @@ const textInputLoggerMiddleware = async (ctx, next) => {
       // Сохраняем в контекст для использования в других middleware
       ctx.userTextInput = {
         raw: text,
-        sanitized: sanitized,
-        suspicious: suspicious,
-        type: type
+        sanitized: result.sanitized,
+        suspicious: result.suspicious,
+        type: result.type,
+        risk: result.risk,
+        matched: result.matched,
+        normalized: result.normalized
       };
     }
 
