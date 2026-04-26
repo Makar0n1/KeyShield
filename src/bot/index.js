@@ -223,32 +223,21 @@ bot.catch((err, ctx) => {
 // Перехватывает все текстовые вводы, маскирует чувствительные данные и детектит атаки
 bot.use(textInputLoggerMiddleware);
 
-// 0.1. Activity logging - logs ALL user actions to console
+// 0.1. Activity logging - logs media actions only (text/commands are logged by textInputLoggerMiddleware)
 bot.use(async (ctx, next) => {
   const telegramId = ctx.from?.id;
   if (!telegramId) return next();
 
   const username = ctx.from?.username || 'no_username';
-  let actionType = 'unknown';
 
-  if (ctx.callbackQuery?.data) {
-    actionType = `button_${ctx.callbackQuery.data}`;
-  } else if (ctx.message?.text) {
-    if (ctx.message.text.startsWith('/')) {
-      actionType = `command_${ctx.message.text.split(' ')[0].slice(1)}`;
-    } else {
-      actionType = 'text_input';
-    }
-  } else if (ctx.message?.photo) {
-    actionType = 'media_photo';
+  // Only log media - text and commands are already logged by textInputLoggerMiddleware
+  if (ctx.message?.photo) {
+    console.log(`📷 [${new Date().toISOString()}] @${username} (${telegramId}): media_photo`);
   } else if (ctx.message?.document) {
-    actionType = 'media_document';
+    console.log(`📄 [${new Date().toISOString()}] @${username} (${telegramId}): media_document`);
   } else if (ctx.message?.video) {
-    actionType = 'media_video';
+    console.log(`🎥 [${new Date().toISOString()}] @${username} (${telegramId}): media_video`);
   }
-
-  // Console log (all actions)
-  console.log(`👤 [${new Date().toISOString()}] @${username} (${telegramId}): ${actionType}`);
 
   await next();
 });

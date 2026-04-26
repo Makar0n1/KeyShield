@@ -613,6 +613,26 @@ ${await this.formatOperationsStatus()}
 
     await this.sendAlert(text);
   }
+
+  // ============================================
+  // SECURITY EVENTS
+  // ============================================
+
+  /**
+   * Security threat detected (SQL injection, XSS, code injection, etc.)
+   */
+  async alertSecurityThreat(threatType, username, telegramId, originalText) {
+    const text = `🚨 *SECURITY THREAT DETECTED!*
+
+🔒 Тип атаки: *${threatType}*
+👤 Пользователь: \`@${this.escapeMarkdown(username)}\`
+🆔 ID: \`${telegramId}\`
+📝 Текст: \`${this.escapeMarkdown(originalText.slice(0, 100))}\`
+
+⏰ ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+
+    await this.sendAlert(text);
+  }
 }
 
 // Export singleton instance

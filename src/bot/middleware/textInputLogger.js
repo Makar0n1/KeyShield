@@ -17,9 +17,9 @@ const textInputLoggerMiddleware = async (ctx, next) => {
     const username = ctx.from?.username || 'unknown';
 
     // ==========================================
-    // Логируем текстовые сообщения
+    // Логируем текстовые сообщения (НО НЕ команды - они логируются отдельно)
     // ==========================================
-    if (ctx.message?.text) {
+    if (ctx.message?.text && !ctx.message.text.startsWith('/')) {
       const text = ctx.message.text;
 
       // Логируем с маскировкой чувствительных данных
@@ -27,23 +27,22 @@ const textInputLoggerMiddleware = async (ctx, next) => {
         telegramId,
         username,
         text,
-        'text_message'
+        'text_input'
       );
 
       // Если детектили атаку - отправляем ALERT администратору
       if (suspicious) {
-        console.error(`⚠️  SECURITY ALERT: ${type} detected from @${username} (${telegramId})`);
+        console.error(`🚨 [SECURITY] @${username} (${telegramId}): ${type} - ${text.slice(0, 80)}`);
 
         try {
-          await adminAlertService.alert(
-            `🚨 *POTENTIAL ATTACK DETECTED*\n\n` +
-            `Type: ${type}\n` +
-            `User: @${username} (${telegramId})\n` +
-            `Text: ${text.slice(0, 100)}\n` +
-            `Time: ${new Date().toISOString()}`
+          await adminAlertService.alertSecurityThreat(
+            type,
+            username,
+            telegramId,
+            text
           );
         } catch (e) {
-          console.error('Error sending security alert:', e);
+          console.error(`[SECURITY] Failed to send alert: ${e.message}`);
         }
       }
 
@@ -57,19 +56,6 @@ const textInputLoggerMiddleware = async (ctx, next) => {
     }
 
     // ==========================================
-    // Логируем callback queries (кнопки)
-    // ==========================================
-    if (ctx.callbackQuery?.data) {
-      const data = ctx.callbackQuery.data;
-
-      // Callback queries обычно не содержат чувствительные данные,
-      // но логируем для полноты (format: action:param1:param2)
-      console.log(
-        `🔘 [${new Date().toISOString()}] @${username} (${telegramId}): callback "${data}"`
-      );
-    }
-
-    // ==========================================
     // Логируем команды
     // ==========================================
     if (ctx.message?.text?.startsWith('/')) {
@@ -77,7 +63,17 @@ const textInputLoggerMiddleware = async (ctx, next) => {
       const param = ctx.message.text.split(' ')[1] || '';
 
       console.log(
-        `⌘  [${new Date().toISOString()}] @${username} (${telegramId}): command "${command}" ${param ? `param="${param}"` : ''}`
+        `⌘  [${new Date().toISOString()}] @${username} (${telegramId}): ${command} ${param ? `"${param}"` : ''}`
+      );
+    }
+
+    // ==========================================
+    // Логируем callback queries (кнопки)
+    // ==========================================
+    if (ctx.callbackQuery?.data) {
+      const data = ctx.callbackQuery.data;
+      console.log(
+        `🔘 [${new Date().toISOString()}] @${username} (${telegramId}): ${data}`
       );
     }
 
