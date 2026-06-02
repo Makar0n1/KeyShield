@@ -13,6 +13,8 @@
  * the bot), the DB record stays and the admin UI shows a "not delivered" flag.
  */
 
+const axios = require('axios');
+
 const DisputeChat = require('../models/DisputeChat');
 const Dispute = require('../models/Dispute');
 const Deal = require('../models/Deal');
@@ -27,11 +29,40 @@ const SESSION_TTL_HOURS = 168; // 7 days — generous window, TTL index auto-cle
 class DisputeChatService {
   constructor() {
     this.bot = null;
+    // When set, postMessage will additionally POST events to this HTTP endpoint
+    // so the admin web process (which owns the SSE listeners) sees them even
+    // though it lives in a separate Node process. Only the bot process needs
+    // to enable this — the web process emits on its local eventBus directly.
+    this.bridgeUrl = null;
+    this.bridgeSecret = null;
   }
 
   setBotInstance(bot) {
     this.bot = bot;
     console.log('✅ Dispute chat service initialized with bot instance');
+  }
+
+  /**
+   * Enable HTTP bridge to the admin web process.
+   * Called only from src/bot/index.js (the bot process).
+   */
+  enableHttpBridge(url, secret) {
+    this.bridgeUrl = url;
+    this.bridgeSecret = secret;
+    console.log(`✅ Dispute chat HTTP bridge enabled → ${url}`);
+  }
+
+  async _bridgeEmit(event, payload) {
+    if (!this.bridgeUrl) return; // not in bot process — nothing to forward
+    try {
+      await axios.post(this.bridgeUrl, { event, payload }, {
+        headers: { 'x-internal-secret': this.bridgeSecret || '' },
+        timeout: 3000
+      });
+    } catch (err) {
+      // Bridge failure must NOT break the chat flow — log and move on.
+      console.warn('[disputeChat bridge] forward failed:', err.message);
+    }
   }
 
   // ============================================
@@ -86,7 +117,9 @@ class DisputeChatService {
     await this._sendIntro(deal.buyerId, 'buyer');
     await this._sendIntro(deal.sellerId, 'seller');
 
-    eventBus.emit('chat.started', { chatId: chat._id.toString() });
+    const startedPayload = { chatId: chat._id.toString() };
+    eventBus.emit('chat.started', startedPayload);
+    await this._bridgeEmit('chat.started', startedPayload);
     return chat;
   }
 
@@ -188,10 +221,9 @@ class DisputeChatService {
     const fresh = await DisputeChat.findById(chatId, { messages: { $slice: -1 } }).lean();
     const finalMessage = fresh?.messages?.[0] || message;
 
-    eventBus.emit('chat.message', {
-      chatId: chatId.toString(),
-      message: finalMessage
-    });
+    const msgPayload = { chatId: chatId.toString(), message: finalMessage };
+    eventBus.emit('chat.message', msgPayload);
+    await this._bridgeEmit('chat.message', msgPayload);
 
     return finalMessage;
   }
@@ -307,10 +339,9 @@ class DisputeChatService {
     await chat.save();
 
     // 5. Notify SSE subscribers — admin panel navigates away
-    eventBus.emit('chat.closed', {
-      chatId: chat._id.toString(),
-      resolution: decision
-    });
+    const closedPayload = { chatId: chat._id.toString(), resolution: decision };
+    eventBus.emit('chat.closed', closedPayload);
+    await this._bridgeEmit('chat.closed', closedPayload);
 
     // 6. Delegate to existing resolution pipeline (notifications + key validation)
     const deal = await Deal.findById(chat.dealId).select('dealId');

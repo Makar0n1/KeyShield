@@ -990,6 +990,15 @@ const startBot = async () => {
 
     disputeService.setBotInstance(bot);
     disputeChatService.setBotInstance(bot);
+    // Cross-process bridge: bot lives in src/index.js process, SSE listeners
+    // live in client/server.js (port 3001). Forward chat events over HTTP so
+    // admin panel sees party messages in real-time.
+    const bridgePort = process.env.WEB_PORT || 3001;
+    const bridgeSecret = process.env.INTERNAL_SECRET || '';
+    disputeChatService.enableHttpBridge(
+      `http://127.0.0.1:${bridgePort}/api/internal/dispute-chat/notify`,
+      bridgeSecret
+    );
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
     adminAlertService.setBotInstance(bot);

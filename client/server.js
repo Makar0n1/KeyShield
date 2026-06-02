@@ -40,6 +40,7 @@ const priceService = (await import('../src/services/priceService.js')).default;
 const disputeService = (await import('../src/services/disputeService.js')).default;
 const disputeChatService = (await import('../src/services/disputeChatService.js')).default;
 const eventBus = (await import('../src/services/eventBus.js')).default;
+const crypto = (await import('crypto')).default;
 
 // Models
 const Deal = (await import('../src/models/Deal.js')).default;
@@ -78,6 +79,7 @@ notificationService.setBotInstance(webBot);
 blogNotificationService.setBotInstance(webBot);
 broadcastService.setBotInstance(webBot);
 disputeService.setBotInstance(webBot);
+disputeChatService.setBotInstance(webBot);
 
 // ============ MULTER CONFIG FOR UPLOADS ============
 
@@ -1252,6 +1254,24 @@ app.post('/api/admin/disputes/:id/cancel', adminAuth, async (req, res) => {
 // ============================================
 // DISPUTE CHAT (anonymized arbitration chat)
 // ============================================
+
+// Internal bridge: receives chat events from the bot process and re-emits
+// them on THIS process's eventBus so local SSE listeners pick them up.
+// Auth: shared secret + bind to localhost only (the route itself is unprotected
+// against external traffic by checking req.ip).
+const INTERNAL_SECRET = process.env.INTERNAL_SECRET || '';
+app.post('/api/internal/dispute-chat/notify', (req, res) => {
+  const ip = req.ip || req.connection?.remoteAddress || '';
+  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  if (!isLocal) return res.status(403).json({ error: 'forbidden' });
+  if (INTERNAL_SECRET && req.headers['x-internal-secret'] !== INTERNAL_SECRET) {
+    return res.status(401).json({ error: 'bad secret' });
+  }
+  const { event, payload } = req.body || {};
+  if (!event || !payload) return res.status(400).json({ error: 'event+payload required' });
+  eventBus.emit(event, payload);
+  res.json({ ok: true });
+});
 
 // SSE-friendly auth: accepts JWT via Authorization header OR ?token= query param.
 // EventSource doesn't let us set custom headers, so the query-param fallback is required.
