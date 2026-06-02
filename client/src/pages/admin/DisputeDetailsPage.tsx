@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { adminService } from '@/services/admin'
+import { disputeChatService } from '@/services/disputeChat'
 import type { Dispute, Deal } from '@/types'
 import { Card, Button } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
@@ -17,14 +18,17 @@ import {
   File,
   Video,
   Mic,
+  MessageSquare,
 } from 'lucide-react'
 
 export function AdminDisputeDetailsPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [dispute, setDispute] = useState<Dispute | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
+  const [openingChat, setOpeningChat] = useState(false)
 
   // Modal state
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
@@ -59,6 +63,20 @@ export function AdminDisputeDetailsPage() {
       alert('Ошибка при решении спора')
     } finally {
       setResolving(false)
+    }
+  }
+
+  const handleOpenChat = async () => {
+    if (!dispute) return
+    setOpeningChat(true)
+    try {
+      const { chatId } = await disputeChatService.start(dispute._id)
+      navigate(`/admin/dispute-chats/${chatId}`)
+    } catch (err) {
+      console.error('Open chat error:', err)
+      alert(err instanceof Error ? err.message : 'Не удалось открыть чат')
+    } finally {
+      setOpeningChat(false)
     }
   }
 
@@ -188,7 +206,16 @@ export function AdminDisputeDetailsPage() {
           </div>
         </div>
         {(dispute.status === 'open' || dispute.status === 'pending' || dispute.status === 'in_review') && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={handleOpenChat}
+              variant="default"
+              disabled={openingChat || resolving}
+              title="Открыть анонимизированный чат-арбитраж со сторонами"
+            >
+              <MessageSquare size={18} className="mr-2" />
+              {openingChat ? 'Открываем...' : 'Открыть чат'}
+            </Button>
             <Button
               onClick={() => handleResolve('buyer')}
               variant="success"

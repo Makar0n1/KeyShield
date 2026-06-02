@@ -38,12 +38,15 @@ const blogNotificationService = (await import('../src/services/blogNotificationS
 const broadcastService = (await import('../src/services/broadcastService.js')).default;
 const priceService = (await import('../src/services/priceService.js')).default;
 const disputeService = (await import('../src/services/disputeService.js')).default;
+const disputeChatService = (await import('../src/services/disputeChatService.js')).default;
+const eventBus = (await import('../src/services/eventBus.js')).default;
 
 // Models
 const Deal = (await import('../src/models/Deal.js')).default;
 const User = (await import('../src/models/User.js')).default;
 const Transaction = (await import('../src/models/Transaction.js')).default;
 const Dispute = (await import('../src/models/Dispute.js')).default;
+const DisputeChat = (await import('../src/models/DisputeChat.js')).default;
 const Platform = (await import('../src/models/Platform.js')).default;
 const ExportLog = (await import('../src/models/ExportLog.js')).default;
 const Broadcast = (await import('../src/models/Broadcast.js')).default;
@@ -1244,6 +1247,155 @@ app.post('/api/admin/disputes/:id/cancel', adminAuth, async (req, res) => {
     console.error('Cancel dispute error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// ============================================
+// DISPUTE CHAT (anonymized arbitration chat)
+// ============================================
+
+// SSE-friendly auth: accepts JWT via Authorization header OR ?token= query param.
+// EventSource doesn't let us set custom headers, so the query-param fallback is required.
+const adminAuthSse = (req, res, next) => {
+  const headerToken = req.headers['authorization']?.replace(/^Bearer\s+/, '');
+  const token = headerToken || req.query.token;
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
+  try {
+    req.admin = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Start chat for a dispute (idempotent — reuses active chat if one exists)
+app.post('/api/admin/disputes/:disputeId/chat/start', adminAuth, async (req, res) => {
+  try {
+    const arbiterId = req.admin?.id || 0;
+    const chat = await disputeChatService.startChat(req.params.disputeId, arbiterId);
+    res.json({ chatId: chat._id.toString(), status: chat.status });
+  } catch (error) {
+    console.error('[dispute-chat] start error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List active (and recently closed) chats for the sidebar
+app.get('/api/admin/dispute-chats', adminAuth, async (req, res) => {
+  try {
+    const { status = 'active', limit = 50 } = req.query;
+    const chats = await DisputeChat.find({ status })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('dealId', 'dealId productName amount asset')
+      .lean();
+    res.json({ chats });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Full chat (for initial load before SSE takes over)
+app.get('/api/admin/dispute-chats/:chatId', adminAuth, async (req, res) => {
+  try {
+    const chat = await DisputeChat.findById(req.params.chatId)
+      .populate('dealId', 'dealId productName amount asset')
+      .lean();
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+
+    // Enrich with @usernames for arbiter view only (parties don't see this UI)
+    const [buyer, seller] = await Promise.all([
+      User.findOne({ telegramId: chat.buyerTelegramId }).select('username firstName').lean(),
+      User.findOne({ telegramId: chat.sellerTelegramId }).select('username firstName').lean()
+    ]);
+    chat.parties = {
+      buyer: { telegramId: chat.buyerTelegramId, username: buyer?.username, firstName: buyer?.firstName },
+      seller: { telegramId: chat.sellerTelegramId, username: seller?.username, firstName: seller?.firstName }
+    };
+    res.json({ chat });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Arbiter sends a message
+app.post('/api/admin/dispute-chats/:chatId/message', adminAuth, async (req, res) => {
+  try {
+    const { text } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'Empty message' });
+    }
+    const trimmed = text.trim();
+    if (trimmed.length > 2000) {
+      return res.status(400).json({ error: 'Message too long (max 2000 chars)' });
+    }
+    const message = await disputeChatService.postMessage({
+      chatId: req.params.chatId,
+      from: 'arbiter',
+      text: trimmed
+    });
+    res.json({ message });
+  } catch (error) {
+    console.error('[dispute-chat] arbiter message error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Resolve chat — closes it, wipes Telegram messages, finalizes the dispute
+app.post('/api/admin/dispute-chats/:chatId/resolve', adminAuth, async (req, res) => {
+  try {
+    const { decision } = req.body || {};
+    if (!['refund_buyer', 'release_seller'].includes(decision)) {
+      return res.status(400).json({ error: 'decision must be refund_buyer or release_seller' });
+    }
+    const arbiterId = req.admin?.id || 0;
+    const result = await disputeChatService.resolveChat(req.params.chatId, decision, arbiterId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[dispute-chat] resolve error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Real-time stream of new messages for the open chat.
+// Auth: Authorization header OR ?token=<jwt> query (EventSource limitation).
+app.get('/api/admin/dispute-chats/:chatId/stream', adminAuthSse, async (req, res) => {
+  const chatId = req.params.chatId;
+
+  // Ensure the chat exists before opening the stream
+  const exists = await DisputeChat.exists({ _id: chatId });
+  if (!exists) return res.status(404).json({ error: 'Chat not found' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no' // disable nginx buffering
+  });
+  res.flushHeaders?.();
+  res.write('retry: 5000\n\n');
+
+  const onMessage = (payload) => {
+    if (payload?.chatId !== chatId) return;
+    res.write(`event: message\ndata: ${JSON.stringify(payload.message)}\n\n`);
+  };
+  const onClosed = (payload) => {
+    if (payload?.chatId !== chatId) return;
+    res.write(`event: closed\ndata: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  eventBus.on('chat.message', onMessage);
+  eventBus.on('chat.closed', onClosed);
+
+  // Heartbeat to defeat proxy idle timeouts
+  const heartbeat = setInterval(() => {
+    try { res.write(`: ping ${Date.now()}\n\n`); } catch (_) {}
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    eventBus.off('chat.message', onMessage);
+    eventBus.off('chat.closed', onClosed);
+  });
 });
 
 // Platforms API

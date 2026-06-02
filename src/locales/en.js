@@ -317,6 +317,22 @@ module.exports = {
   fileUploadBlocked: '🚫 *File upload not allowed*\n\nFiles (photos, videos, documents, voice) can only be sent when opening a dispute as evidence.\n\nReturning to the previous screen...',
 
   // ============================================
+  // DISPUTE CHAT (anonymized arbitration chat)
+  // ============================================
+  disputeChat: {
+    intro: ({ role }) => `⚖️ *The arbiter has opened a discussion chat*\n\nTo make an objective decision, the arbiter needs to clarify details. All your messages are visible to the other party and the arbiter. Your @username is hidden — you appear as *${role}*.\n\nReply with text or attach files (photos, videos, documents, voice). The chat will close automatically after the decision is made, and the conversation will be deleted from the bot.`,
+    label_buyer: '👤 Buyer',
+    label_seller: '👤 Seller',
+    label_arbiter: '⚖️ Arbiter',
+    role_you_buyer: 'Buyer',
+    role_you_seller: 'Seller',
+    message_too_long: 'Message is too long (max 2000 characters).',
+    chat_closing: '⚖️ The arbiter has made a decision. Closing the chat...',
+    file_rejected: ({ reason }) => `🚫 *File rejected*\n\n${reason}`,
+    upload_failed: 'Failed to upload the file. Please try again.'
+  },
+
+  // ============================================
   // CREATE DEAL
   // ============================================
   createDeal: {

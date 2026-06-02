@@ -8,6 +8,7 @@ const abandonedDealMonitor = require('../services/abandonedDealMonitor');
 const inviteExpiryMonitor = require('../services/inviteExpiryMonitor');
 const sessionTimeoutMonitor = require('../services/sessionTimeoutMonitor');
 const disputeService = require('../services/disputeService');
+const disputeChatService = require('../services/disputeChatService');
 const notificationService = require('../services/notificationService');
 const blogNotificationService = require('../services/blogNotificationService');
 const adminAlertService = require('../services/adminAlertService');
@@ -71,6 +72,11 @@ const {
   hasDisputeSession,
   clearDisputeSession
 } = require('./handlers/dispute');
+const {
+  handleDisputeChatText,
+  handleDisputeChatMedia,
+  hasDisputeChatSession
+} = require('./handlers/disputeChat');
 const {
   showHelp,
   howItWorks,
@@ -807,6 +813,13 @@ bot.on('text', async (ctx) => {
   const telegramId = ctx.from.id;
   const text = ctx.message.text.trim();
 
+  // Dispute chat mode short-circuits everything else: while the arbiter has
+  // an open anonymized chat with this user, ALL text goes through the relay.
+  if (await hasDisputeChatSession(telegramId)) {
+    await handleDisputeChatText(ctx);
+    return;
+  }
+
   // Handle key validation input FIRST (pseudo-multisig)
   // This must be checked before any other handlers
   if (await hasKeyValidationSession(telegramId)) {
@@ -904,7 +917,14 @@ bot.on('text', async (ctx) => {
 bot.on(['photo', 'video', 'document', 'voice'], async (ctx) => {
   const telegramId = ctx.from.id;
 
-  // Handle dispute media
+  // Dispute chat mode: relay file to the other side and admin panel.
+  // Must come BEFORE the file-upload-blocked fallback below.
+  if (await hasDisputeChatSession(telegramId)) {
+    await handleDisputeChatMedia(ctx);
+    return;
+  }
+
+  // Handle dispute media (evidence collection when opening a dispute)
   if (await hasDisputeSession(telegramId)) {
     await handleDisputeMedia(ctx);
     return;
@@ -969,6 +989,7 @@ const startBot = async () => {
     inviteExpiryMonitor.start();
 
     disputeService.setBotInstance(bot);
+    disputeChatService.setBotInstance(bot);
     notificationService.setBotInstance(bot);
     blogNotificationService.setBotInstance(bot);
     adminAlertService.setBotInstance(bot);

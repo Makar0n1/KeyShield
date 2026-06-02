@@ -22,6 +22,7 @@ const sessionSchema = new mongoose.Schema({
     enum: [
       'create_deal',
       'dispute',
+      'dispute_chat',
       'navigation',
       'screen_data',
       'key_validation',
