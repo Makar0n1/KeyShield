@@ -579,6 +579,7 @@ app.get('/robots.txt', (req, res) => {
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /manager
 Disallow: /api/
 Disallow: /partner/
 
@@ -621,6 +622,7 @@ Disallow: /
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /admin
+Disallow: /manager
 Disallow: /api/
 Disallow: /partner/
 
@@ -628,6 +630,7 @@ Disallow: /partner/
 User-agent: PerplexityBot
 Allow: /
 Disallow: /admin
+Disallow: /manager
 Disallow: /api/
 Disallow: /partner/
 
@@ -2891,7 +2894,7 @@ app.use((err, req, res, next) => {
 
 const LANG_PREFIXES = ['ru', 'en', 'uk'];
 // Paths that must not be redirected
-const SKIP_PATH_PREFIXES = ['/api', '/admin', '/partner', '/uploads', '/assets', '/health', '/sitemap', '/robots', '/_vite', '/@'];
+const SKIP_PATH_PREFIXES = ['/api', '/admin', '/manager', '/partner', '/uploads', '/assets', '/health', '/sitemap', '/robots', '/_vite', '/@'];
 // Also skip any path that looks like a file (has extension)
 const FILE_EXT_RE = /\.\w{2,10}$/;
 
