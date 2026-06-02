@@ -73,7 +73,7 @@ class DisputeChatService {
    * Open a chat for an existing dispute. Idempotent: if an active chat
    * already exists for this dispute, returns it instead of creating a new one.
    */
-  async startChat(disputeId, arbiterId) {
+  async startChat(disputeId, arbiterId, opts = {}) {
     if (!this.bot) throw new Error('Bot instance not set in dispute chat service');
 
     const dispute = await Dispute.findById(disputeId).populate('dealId');
@@ -85,16 +85,23 @@ class DisputeChatService {
     const deal = dispute.dealId;
     if (!deal) throw new Error('Deal not found for dispute');
 
-    // Idempotency: reuse existing active chat
+    // Idempotency: reuse existing active chat (stamp manager id if missing)
     const existing = await DisputeChat.findOne({ disputeId, status: 'active' });
-    if (existing) return existing;
+    if (existing) {
+      if (opts.managerId && !existing.arbiterManagerId) {
+        existing.arbiterManagerId = opts.managerId;
+        await existing.save();
+      }
+      return existing;
+    }
 
     const chat = await DisputeChat.create({
       disputeId,
       dealId: deal._id,
       buyerTelegramId: deal.buyerId,
       sellerTelegramId: deal.sellerId,
-      arbiterId
+      arbiterId,
+      arbiterManagerId: opts.managerId || null
     });
 
     // Mark dispute as under active review (existing enum value)
@@ -323,7 +330,7 @@ class DisputeChatService {
    *   5. Emit 'chat.closed' for SSE subscribers
    *   6. Call disputeService.resolveDispute(dealId, decision, arbiterId)
    */
-  async resolveChat(chatId, decision, arbiterId) {
+  async resolveChat(chatId, decision, arbiterId, opts = {}) {
     if (!this.bot) throw new Error('Bot instance not set in dispute chat service');
     if (!['refund_buyer', 'release_seller'].includes(decision)) {
       throw new Error(`Invalid decision: ${decision}`);
@@ -332,6 +339,11 @@ class DisputeChatService {
     const chat = await DisputeChat.findById(chatId);
     if (!chat) throw new Error(`Dispute chat ${chatId} not found`);
     if (chat.status === 'closed') throw new Error('Chat already closed');
+
+    // If a manager is resolving, stamp them on the chat so audit reflects it
+    if (opts.managerId) {
+      chat.arbiterManagerId = opts.managerId;
+    }
 
     // 1. Closing notice on both sides — kept long enough to read, then wiped too
     const closingMsgIds = { buyer: null, seller: null };
@@ -400,7 +412,9 @@ class DisputeChatService {
     const deal = await Deal.findById(chat.dealId).select('dealId');
     if (!deal) throw new Error('Deal vanished during resolve');
 
-    const result = await disputeService.resolveDispute(deal.dealId, decision, arbiterId);
+    const result = await disputeService.resolveDispute(deal.dealId, decision, arbiterId, {
+      managerId: opts.managerId
+    });
     return { chatId: chat._id.toString(), resolution: decision, result };
   }
 

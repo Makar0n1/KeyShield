@@ -11,11 +11,13 @@ const api = axios.create({
 // Request interceptor - add auth token
 api.interceptors.request.use(
   (config) => {
-    // Use partner token for partner routes, admin token for everything else
     const isPartnerRoute = config.url?.startsWith('/partner/')
+    const isManagerRoute = config.url?.startsWith('/manager/')
     const token = isPartnerRoute
       ? localStorage.getItem('partner_token')
-      : localStorage.getItem('adminToken')
+      : isManagerRoute
+        ? localStorage.getItem('managerToken')
+        : localStorage.getItem('adminToken')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -29,9 +31,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('adminToken')
-      // Only redirect if we're in admin area
-      if (window.location.pathname.startsWith('/admin')) {
+      const path = window.location.pathname
+      if (path.startsWith('/manager')) {
+        localStorage.removeItem('managerToken')
+        window.location.href = '/manager/login'
+      } else if (path.startsWith('/admin')) {
+        localStorage.removeItem('adminToken')
         window.location.href = '/admin'
       }
     }

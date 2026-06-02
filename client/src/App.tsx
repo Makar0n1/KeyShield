@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { PublicLayout, AdminLayout } from '@/components/layout'
+import { PublicLayout, AdminLayout, ManagerLayout } from '@/components/layout'
 import { PartnerLayout } from '@/layouts/PartnerLayout'
 import { LangLayout } from '@/layouts/LangLayout'
 import { PartnerAuthProvider, usePartnerAuth } from '@/contexts/PartnerAuthContext'
@@ -57,6 +57,7 @@ import {
   AdminDisputeDetailsPage,
   AdminDisputeChatPage,
   AdminDisputeChatsListPage,
+  AdminManagersPage,
   AdminPlatformsPage,
   AdminExportsPage,
   AdminTransactionsPage,
@@ -65,6 +66,13 @@ import {
   AdminPartnerWithdrawalsPage,
   AdminBroadcastsPage,
 } from '@/pages/admin'
+import {
+  ManagerLoginPage,
+  ManagerDisputesPage,
+  ManagerDisputeDetailsPage,
+  ManagerDisputeChatsListPage,
+  ManagerDisputeChatPage,
+} from '@/pages/manager'
 import {
   BlogPostsPage,
   BlogPostEditorPage,
@@ -140,6 +148,7 @@ function App() {
             <Route path="disputes/:id" element={<AdminDisputeDetailsPage />} />
             <Route path="dispute-chats" element={<AdminDisputeChatsListPage />} />
             <Route path="dispute-chats/:chatId" element={<AdminDisputeChatPage />} />
+            <Route path="managers" element={<AdminManagersPage />} />
             <Route path="platforms" element={<AdminPlatformsPage />} />
             <Route path="referrals" element={<AdminReferralsPage />} />
             <Route path="partner-withdrawals" element={<AdminPartnerWithdrawalsPage />} />
@@ -157,6 +166,18 @@ function App() {
             <Route path="blog/media" element={<BlogMediaPage />} />
             <Route path="blog/comments" element={<BlogCommentsPage />} />
             <Route path="blog/settings" element={<BlogSettingsPage />} />
+          </Route>
+
+          {/* Manager Login (no layout) */}
+          <Route path="/manager/login" element={<ManagerLoginPage />} />
+
+          {/* Manager Cabinet (separate from /admin) */}
+          <Route path="/manager" element={<ManagerLayout />}>
+            <Route index element={<ManagerDisputesPage />} />
+            <Route path="disputes" element={<ManagerDisputesPage />} />
+            <Route path="disputes/:id" element={<ManagerDisputeDetailsPage />} />
+            <Route path="dispute-chats" element={<ManagerDisputeChatsListPage />} />
+            <Route path="dispute-chats/:chatId" element={<ManagerDisputeChatPage />} />
           </Route>
 
           {/* Partner Login (needs auth provider for login function) */}

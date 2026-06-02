@@ -56,6 +56,14 @@ const disputeSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  // Set when a manager (not the owner-admin) resolved this dispute.
+  // arbiterId stays at 0 in that case — this field is the actual decision-maker.
+  resolvedByManagerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Manager',
+    default: null,
+    index: true
+  },
   resolvedAt: {
     type: Date,
     default: null

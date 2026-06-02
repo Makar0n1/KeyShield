@@ -40,7 +40,9 @@ const priceService = (await import('../src/services/priceService.js')).default;
 const disputeService = (await import('../src/services/disputeService.js')).default;
 const disputeChatService = (await import('../src/services/disputeChatService.js')).default;
 const eventBus = (await import('../src/services/eventBus.js')).default;
+const anonymizer = (await import('../src/services/anonymizer.js')).default;
 const crypto = (await import('crypto')).default;
+const bcrypt = (await import('bcryptjs')).default;
 
 // Models
 const Deal = (await import('../src/models/Deal.js')).default;
@@ -48,6 +50,7 @@ const User = (await import('../src/models/User.js')).default;
 const Transaction = (await import('../src/models/Transaction.js')).default;
 const Dispute = (await import('../src/models/Dispute.js')).default;
 const DisputeChat = (await import('../src/models/DisputeChat.js')).default;
+const Manager = (await import('../src/models/Manager.js')).default;
 const Platform = (await import('../src/models/Platform.js')).default;
 const ExportLog = (await import('../src/models/ExportLog.js')).default;
 const Broadcast = (await import('../src/models/Broadcast.js')).default;
@@ -1455,6 +1458,407 @@ app.get('/api/admin/dispute-chats/:chatId/stream', adminAuthSse, async (req, res
     eventBus.off('chat.message', onMessage);
     eventBus.off('chat.closed', onClosed);
   });
+});
+
+// ============================================
+// MANAGER CABINET — auth + anonymized dispute ops
+// ============================================
+
+// Verifies a JWT and ensures role==='manager'. Loads the Manager doc into
+// req.manager so route handlers can reference manager._id.
+const managerAuth = async (req, res, next) => {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const token = auth.replace('Bearer ', '');
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== 'manager') {
+      return res.status(403).json({ error: 'Manager role required' });
+    }
+    const manager = await Manager.findById(decoded.id).lean();
+    if (!manager || !manager.active) {
+      return res.status(401).json({ error: 'Manager account disabled' });
+    }
+    req.manager = manager;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// SSE-friendly variant accepting ?token=<jwt> query param (EventSource and
+// <img>/<video>/<audio> can't set Authorization headers).
+const managerAuthSse = async (req, res, next) => {
+  const headerToken = req.headers['authorization']?.replace(/^Bearer\s+/, '');
+  const token = headerToken || req.query.token;
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== 'manager') return res.status(403).json({ error: 'Manager role required' });
+    const manager = await Manager.findById(decoded.id).lean();
+    if (!manager || !manager.active) return res.status(401).json({ error: 'Manager disabled' });
+    req.manager = manager;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// ---- Auth ----
+
+app.post('/api/manager/login', adminLoginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'username + password required' });
+    }
+    const manager = await Manager.findOne({ username: String(username).toLowerCase() })
+      .select('+passwordHash');
+    if (!manager || !manager.active) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+    const ok = await bcrypt.compare(password, manager.passwordHash);
+    if (!ok) return res.status(401).json({ success: false, error: 'Invalid credentials' });
+
+    manager.lastLoginAt = new Date();
+    await manager.save();
+
+    const token = jwt.sign(
+      { id: manager._id.toString(), username: manager.username, role: 'manager' },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+    res.json({
+      success: true,
+      token,
+      manager: {
+        id: manager._id, username: manager.username, displayName: manager.displayName
+      }
+    });
+  } catch (err) {
+    console.error('[manager] login error:', err);
+    res.status(500).json({ success: false, error: 'Internal error' });
+  }
+});
+
+app.get('/api/manager/verify', managerAuth, (req, res) => {
+  res.json({
+    valid: true,
+    manager: {
+      id: req.manager._id,
+      username: req.manager.username,
+      displayName: req.manager.displayName
+    }
+  });
+});
+
+// ---- Anonymized disputes ----
+
+app.get('/api/manager/disputes', managerAuth, async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const query = status ? { status } : {};
+    const [disputes, total] = await Promise.all([
+      Dispute.find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip(skip)
+        .populate('dealId')
+        .lean(),
+      Dispute.countDocuments(query)
+    ]);
+    res.json({
+      disputes: disputes.map(anonymizer.anonymizeDispute),
+      total,
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/manager/disputes/:id', managerAuth, async (req, res) => {
+  try {
+    const dispute = await Dispute.findById(req.params.id).populate('dealId').lean();
+    if (!dispute) return res.status(404).json({ error: 'Dispute not found' });
+    res.json({ dispute: anonymizer.anonymizeDispute(dispute) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/manager/disputes/:id/resolve', managerAuth, async (req, res) => {
+  try {
+    const { winner, reason } = req.body || {};
+    if (!['buyer', 'seller'].includes(winner)) {
+      return res.status(400).json({ error: 'winner must be buyer or seller' });
+    }
+    const dispute = await Dispute.findById(req.params.id).populate('dealId');
+    if (!dispute) return res.status(404).json({ error: 'Dispute not found' });
+    if (!dispute.dealId) return res.status(404).json({ error: 'Deal not found' });
+
+    const decision = winner === 'buyer' ? 'refund_buyer' : 'release_seller';
+    if (reason) {
+      dispute.comments.push({
+        userId: 0,
+        text: `[Решение менеджера @${req.manager.username}] ${reason}`,
+        createdAt: new Date()
+      });
+      await dispute.save();
+    }
+
+    const result = await disputeService.resolveDispute(
+      dispute.dealId.dealId, decision, 0,
+      { managerId: req.manager._id }
+    );
+    await Manager.updateOne({ _id: req.manager._id }, { $inc: { disputesResolved: 1 } });
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error('[manager] resolve error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/manager/disputes/:id/cancel', managerAuth, async (req, res) => {
+  // Delegates to the same flow as admin cancel; manager just gets the same
+  // ability. Pulled inline because admin's cancel has bespoke deadline math.
+  // For now we restrict managers from cancel — resolve only — to keep their
+  // surface minimal. Owner cancels.
+  res.status(403).json({ error: 'Cancel is owner-only. Resolve in favor of buyer or seller instead.' });
+});
+
+// ---- Anonymized dispute chats ----
+
+app.post('/api/manager/disputes/:disputeId/chat/start', managerAuth, async (req, res) => {
+  try {
+    const chat = await disputeChatService.startChat(req.params.disputeId, 0, {
+      managerId: req.manager._id
+    });
+    res.json({ chatId: chat._id.toString(), status: chat.status });
+  } catch (err) {
+    console.error('[manager] chat start error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/manager/dispute-chats', managerAuth, async (req, res) => {
+  try {
+    const { status = 'active', limit = 50 } = req.query;
+    const chats = await DisputeChat.find({ status })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('dealId', 'dealId productName amount asset')
+      .lean();
+    res.json({ chats: chats.map(anonymizer.anonymizeChat) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/manager/dispute-chats/:chatId', managerAuth, async (req, res) => {
+  try {
+    const chat = await DisputeChat.findById(req.params.chatId)
+      .populate('dealId', 'dealId productName description amount asset commission deadline multisigAddress depositTxHash')
+      .lean();
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+    res.json({ chat: anonymizer.anonymizeChat(chat) });
+    // NOTE: parties (usernames/firstNames) deliberately NOT enriched for manager.
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/manager/dispute-chats/:chatId/message', managerAuth, async (req, res) => {
+  try {
+    const { text } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'Empty message' });
+    }
+    const trimmed = text.trim();
+    if (trimmed.length > 2000) return res.status(400).json({ error: 'Message too long (max 2000)' });
+
+    const raw = await disputeChatService.postMessage({
+      chatId: req.params.chatId,
+      from: 'arbiter',
+      text: trimmed
+    });
+    // Strip telegramMessageIds/etc before returning to manager
+    res.json({ message: anonymizer.anonymizeChat({ messages: [raw] }).messages[0] });
+  } catch (err) {
+    console.error('[manager] chat message error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/manager/dispute-chats/:chatId/resolve', managerAuth, async (req, res) => {
+  try {
+    const { decision } = req.body || {};
+    if (!['refund_buyer', 'release_seller'].includes(decision)) {
+      return res.status(400).json({ error: 'decision must be refund_buyer or release_seller' });
+    }
+    const result = await disputeChatService.resolveChat(
+      req.params.chatId, decision, 0,
+      { managerId: req.manager._id }
+    );
+    await Manager.updateOne({ _id: req.manager._id }, { $inc: { disputesResolved: 1 } });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[manager] chat resolve error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// File proxy (same as admin's but auth via manager token)
+app.get('/api/manager/dispute-chats/:chatId/files/:seq', managerAuthSse, async (req, res) => {
+  try {
+    const { chatId, seq } = req.params;
+    const seqNum = parseInt(seq, 10);
+    if (!Number.isFinite(seqNum)) return res.status(400).json({ error: 'bad seq' });
+
+    const chat = await DisputeChat.findOne(
+      { _id: chatId, 'messages.seq': seqNum },
+      { 'messages.$': 1 }
+    ).lean();
+    const message = chat?.messages?.[0];
+    if (!message?.file?.telegramFileId) return res.status(404).json({ error: 'file not found' });
+
+    const link = await webBot.telegram.getFileLink(message.file.telegramFileId);
+    const upstream = await (await import('axios')).default.get(
+      link.href || link.toString(),
+      { responseType: 'stream', timeout: 30000 }
+    );
+
+    res.set('Content-Type', message.file.mimeType || upstream.headers['content-type'] || 'application/octet-stream');
+    if (message.file.safeFileName) {
+      const disposition = message.file.kind === 'document' ? 'attachment' : 'inline';
+      res.set('Content-Disposition', `${disposition}; filename="${encodeURIComponent(message.file.safeFileName)}"`);
+    }
+    res.set('Cache-Control', 'private, max-age=3600');
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('[manager] file proxy error:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'proxy failed' });
+  }
+});
+
+// SSE — re-emits chat.message events anonymized for managers
+app.get('/api/manager/dispute-chats/:chatId/stream', managerAuthSse, async (req, res) => {
+  const chatId = req.params.chatId;
+  const exists = await DisputeChat.exists({ _id: chatId });
+  if (!exists) return res.status(404).json({ error: 'Chat not found' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.flushHeaders?.();
+  res.write('retry: 5000\n\n');
+
+  const onMessage = (payload) => {
+    if (payload?.chatId !== chatId) return;
+    const anonMsg = anonymizer.anonymizeChat({ messages: [payload.message] }).messages[0];
+    res.write(`event: message\ndata: ${JSON.stringify(anonMsg)}\n\n`);
+  };
+  const onClosed = (payload) => {
+    if (payload?.chatId !== chatId) return;
+    res.write(`event: closed\ndata: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  eventBus.on('chat.message', onMessage);
+  eventBus.on('chat.closed', onClosed);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`: ping ${Date.now()}\n\n`); } catch (_) {}
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    eventBus.off('chat.message', onMessage);
+    eventBus.off('chat.closed', onClosed);
+  });
+});
+
+// ============================================
+// ADMIN: manager-account management
+// ============================================
+
+app.get('/api/admin/managers', adminAuth, async (req, res) => {
+  try {
+    const managers = await Manager.find({})
+      .sort({ createdAt: -1 })
+      .select('-passwordHash')
+      .lean();
+    res.json({ managers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/managers', adminAuth, async (req, res) => {
+  try {
+    const { username, password, displayName } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ error: 'username + password required' });
+    }
+    if (String(password).length < 8) {
+      return res.status(400).json({ error: 'password must be at least 8 chars' });
+    }
+    const normalized = String(username).toLowerCase().trim();
+    const exists = await Manager.findOne({ username: normalized }).lean();
+    if (exists) return res.status(409).json({ error: 'username already taken' });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const manager = await Manager.create({
+      username: normalized,
+      passwordHash,
+      displayName: displayName || '',
+      createdBy: req.admin?.username || 'admin',
+      active: true
+    });
+    const out = manager.toObject();
+    delete out.passwordHash;
+    res.json({ manager: out });
+  } catch (err) {
+    console.error('[admin] create manager error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/managers/:id/disable', adminAuth, async (req, res) => {
+  try {
+    await Manager.updateOne({ _id: req.params.id }, { $set: { active: false } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/managers/:id/enable', adminAuth, async (req, res) => {
+  try {
+    await Manager.updateOne({ _id: req.params.id }, { $set: { active: true } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/managers/:id/reset-password', adminAuth, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ error: 'password must be at least 8 chars' });
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await Manager.updateOne({ _id: req.params.id }, { $set: { passwordHash } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Platforms API

@@ -116,7 +116,7 @@ class DisputeService {
    * @param {number} arbiterId - Admin/arbiter user ID
    * @returns {Promise<Object>}
    */
-  async resolveDispute(dealId, decision, arbiterId) {
+  async resolveDispute(dealId, decision, arbiterId, opts = {}) {
     const deal = await Deal.findOne({ dealId });
     if (!deal) {
       throw new Error('Deal not found');
@@ -125,6 +125,13 @@ class DisputeService {
     const dispute = await Dispute.findOne({ dealId: deal._id });
     if (!dispute) {
       throw new Error('Dispute not found');
+    }
+
+    // Track the manager who actually decided this (separate from arbiterId
+    // which stays as the owner-admin telegram id or 0). Stamped on the
+    // dispute doc so the owner can audit later.
+    if (opts.managerId) {
+      dispute.resolvedByManagerId = opts.managerId;
     }
 
     if (dispute.status === 'resolved') {

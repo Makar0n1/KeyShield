@@ -29,6 +29,7 @@ const mainNavItems = [
   { path: '/admin/users', icon: Users, label: 'Пользователи' },
   { path: '/admin/disputes', icon: Scale, label: 'Споры' },
   { path: '/admin/dispute-chats', icon: MessageSquare, label: 'Чаты споров' },
+  { path: '/admin/managers', icon: Users, label: 'Менеджеры' },
   { path: '/admin/referrals', icon: Gift, label: 'Рефералы' },
   { path: '/admin/partner-withdrawals', icon: Wallet, label: 'Выводы партнёров' },
   { path: '/admin/broadcasts', icon: Megaphone, label: 'Рассылки' },

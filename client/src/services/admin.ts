@@ -125,6 +125,42 @@ export const adminService = {
     return data
   },
 
+  // ========== Managers (RBAC) ==========
+
+  listManagers: async () => {
+    const { data } = await api.get('/admin/managers')
+    return data as { managers: Array<{
+      _id: string
+      username: string
+      displayName: string
+      active: boolean
+      createdBy: string | null
+      lastLoginAt: string | null
+      disputesResolved: number
+      createdAt: string
+    }> }
+  },
+
+  createManager: async (payload: { username: string; password: string; displayName?: string }) => {
+    const { data } = await api.post('/admin/managers', payload)
+    return data
+  },
+
+  disableManager: async (id: string) => {
+    const { data } = await api.post(`/admin/managers/${id}/disable`)
+    return data
+  },
+
+  enableManager: async (id: string) => {
+    const { data } = await api.post(`/admin/managers/${id}/enable`)
+    return data
+  },
+
+  resetManagerPassword: async (id: string, password: string) => {
+    const { data } = await api.post(`/admin/managers/${id}/reset-password`, { password })
+    return data
+  },
+
   cancelDispute: async (id: string, deadlineHours: number): Promise<ApiResponse> => {
     const { data } = await api.post(`/admin/disputes/${id}/cancel`, { deadlineHours })
     return data

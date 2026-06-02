@@ -1,0 +1,5 @@
+export { ManagerLoginPage } from './ManagerLoginPage'
+export { ManagerDisputesPage } from './ManagerDisputesPage'
+export { ManagerDisputeDetailsPage } from './ManagerDisputeDetailsPage'
+export { ManagerDisputeChatsListPage } from './ManagerDisputeChatsListPage'
+export { ManagerDisputeChatPage } from './ManagerDisputeChatPage'

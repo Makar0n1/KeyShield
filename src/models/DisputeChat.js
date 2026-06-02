@@ -110,6 +110,13 @@ const disputeChatSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // Set when a manager opened/handled the chat; arbiterId stays at 0.
+  arbiterManagerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Manager',
+    default: null,
+    index: true
+  },
   status: {
     type: String,
     enum: ['active', 'closed'],
