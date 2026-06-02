@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Card, Button } from '@/components/ui'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Send, MessageSquare, CheckCircle, Scale, AlertTriangle } from 'lucide-react'
+import {
+  ArrowLeft, Send, MessageSquare, CheckCircle, Scale, AlertTriangle,
+  FileText, ExternalLink,
+} from 'lucide-react'
 import {
   disputeChatService,
   type DisputeChat,
@@ -263,7 +266,7 @@ export function AdminDisputeChatPage() {
               <p className="text-center text-muted py-12">Сообщений пока нет. Напишите первым.</p>
             )}
             {chat.messages.map((m) => (
-              <MessageBubble key={m.seq} message={m} />
+              <MessageBubble key={m.seq} message={m} chatId={chat._id} />
             ))}
           </div>
 
@@ -303,7 +306,7 @@ export function AdminDisputeChatPage() {
   )
 }
 
-function MessageBubble({ message: m }: { message: DisputeChatMessage }) {
+function MessageBubble({ message: m, chatId }: { message: DisputeChatMessage; chatId: string }) {
   const isArbiter = m.from === 'arbiter'
   const label =
     m.from === 'buyer' ? '👤 Покупатель'
@@ -317,11 +320,13 @@ function MessageBubble({ message: m }: { message: DisputeChatMessage }) {
       ? 'bg-blue-500/15 border-blue-500/30'
       : 'bg-green-500/15 border-green-500/30'
 
-  const hasFile = m.file && m.file.type
+  const file = m.file && m.file.kind ? m.file : null
+  const fileUrl = file ? disputeChatService.fileUrl(chatId, m.seq) : null
+
+  // Undelivered = at least one expected recipient failed
   const undelivered =
-    (!isArbiter && m.delivery?.buyer === 'failed' && m.from !== 'buyer') ||
-    (!isArbiter && m.delivery?.seller === 'failed' && m.from !== 'seller') ||
-    (isArbiter && (m.delivery?.buyer === 'failed' || m.delivery?.seller === 'failed'))
+    (m.from !== 'buyer' && m.delivery?.buyer === 'failed') ||
+    (m.from !== 'seller' && m.delivery?.seller === 'failed')
 
   return (
     <div className={`flex flex-col ${alignment}`}>
@@ -335,17 +340,58 @@ function MessageBubble({ message: m }: { message: DisputeChatMessage }) {
             </span>
           )}
         </div>
-        {hasFile && (
-          <div className="text-xs text-muted mb-1">
-            📎 {m.file?.type} · {m.file?.safeFileName || ''}
-            {m.file?.size ? ` · ${(m.file.size / 1024).toFixed(1)} KB` : ''}
-          </div>
+
+        {file && fileUrl && (
+          <FilePreview file={file} url={fileUrl} />
         )}
+
         {m.text && (
-          <div className="text-sm text-white whitespace-pre-wrap break-words">{m.text}</div>
+          <div className="text-sm text-white whitespace-pre-wrap break-words mt-2">{m.text}</div>
         )}
         <div className="text-[10px] text-muted mt-1">{formatDate(m.createdAt)}</div>
       </div>
     </div>
+  )
+}
+
+function FilePreview({ file, url }: { file: NonNullable<DisputeChatMessage['file']>; url: string }) {
+  const sizeLabel = file.size ? ` · ${(file.size / 1024).toFixed(1)} KB` : ''
+  const nameLabel = file.safeFileName ? ` · ${file.safeFileName}` : ''
+
+  if (file.kind === 'photo') {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+        <img src={url} alt={file.safeFileName || 'photo'}
+          className="max-w-full max-h-80 rounded border border-dark-lighter" />
+        <div className="text-[10px] text-muted mt-1">photo{nameLabel}{sizeLabel}</div>
+      </a>
+    )
+  }
+  if (file.kind === 'video') {
+    return (
+      <div>
+        <video src={url} controls preload="metadata"
+          className="max-w-full max-h-80 rounded border border-dark-lighter" />
+        <div className="text-[10px] text-muted mt-1">video{nameLabel}{sizeLabel}</div>
+      </div>
+    )
+  }
+  if (file.kind === 'voice') {
+    return (
+      <div>
+        <audio src={url} controls preload="metadata" className="w-full" />
+        <div className="text-[10px] text-muted mt-1">voice{sizeLabel}</div>
+      </div>
+    )
+  }
+  // document
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      className="flex items-center gap-2 px-3 py-2 bg-dark-lighter rounded border border-dark-lighter hover:border-primary/40 transition-colors text-sm">
+      <FileText size={18} className="text-muted" />
+      <span className="text-white truncate">{file.safeFileName || 'document'}</span>
+      <span className="text-xs text-muted ml-auto">{sizeLabel.replace(/^ · /, '')}</span>
+      <ExternalLink size={14} className="text-muted" />
+    </a>
   )
 }

@@ -208,13 +208,13 @@ class DisputeChatService {
                                 : null,
                   text,
                   file: file ? {
-                    type: file.type,
+                    kind: file.kind,
                     telegramFileId: file.telegramFileId || null,
                     safeFileName: file.safeFileName || null,
                     hash: file.hash || null,
                     size: file.size || null,
                     mimeType: file.mimeType || null
-                  } : { type: null },
+                  } : null,
                   telegramMessageIds: initialMsgIds,
                   delivery: {
                     buyer: from === 'buyer' ? 'delivered' : 'skipped',
@@ -276,10 +276,10 @@ class DisputeChatService {
 
     try {
       let sent;
-      if (file && file.type && file.telegramFileId) {
+      if (file && file.kind && file.telegramFileId) {
         const caption = text ? `*${label}:*\n${text}` : `*${label}*`;
         const opts = { caption, parse_mode: 'Markdown' };
-        switch (file.type) {
+        switch (file.kind) {
           case 'photo':
             sent = await this.bot.telegram.sendPhoto(telegramId, file.telegramFileId, opts);
             break;

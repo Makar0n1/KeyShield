@@ -1376,6 +1376,45 @@ app.post('/api/admin/dispute-chats/:chatId/resolve', adminAuth, async (req, res)
   }
 });
 
+// File proxy for admin preview. Streams the actual photo/video/document
+// from Telegram (via getFileLink) so the admin browser can render it.
+// Uses the same ?token= auth as SSE because <img>/<video> tags can't set
+// custom headers, and we don't want the bot token in the URL.
+app.get('/api/admin/dispute-chats/:chatId/files/:seq', adminAuthSse, async (req, res) => {
+  try {
+    const { chatId, seq } = req.params;
+    const seqNum = parseInt(seq, 10);
+    if (!Number.isFinite(seqNum)) return res.status(400).json({ error: 'bad seq' });
+
+    const chat = await DisputeChat.findOne(
+      { _id: chatId, 'messages.seq': seqNum },
+      { 'messages.$': 1 }
+    ).lean();
+    const message = chat?.messages?.[0];
+    if (!message?.file?.telegramFileId) {
+      return res.status(404).json({ error: 'file not found' });
+    }
+
+    const link = await webBot.telegram.getFileLink(message.file.telegramFileId);
+    const upstream = await (await import('axios')).default.get(
+      link.href || link.toString(),
+      { responseType: 'stream', timeout: 30000 }
+    );
+
+    res.set('Content-Type', message.file.mimeType || upstream.headers['content-type'] || 'application/octet-stream');
+    if (message.file.safeFileName) {
+      // inline for previewable types; download for documents
+      const disposition = message.file.kind === 'document' ? 'attachment' : 'inline';
+      res.set('Content-Disposition', `${disposition}; filename="${encodeURIComponent(message.file.safeFileName)}"`);
+    }
+    res.set('Cache-Control', 'private, max-age=3600');
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('[dispute-chat] file proxy error:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'proxy failed' });
+  }
+});
+
 // Real-time stream of new messages for the open chat.
 // Auth: Authorization header OR ?token=<jwt> query (EventSource limitation).
 app.get('/api/admin/dispute-chats/:chatId/stream', adminAuthSse, async (req, res) => {

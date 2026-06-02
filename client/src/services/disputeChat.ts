@@ -2,8 +2,10 @@ import api from './api'
 
 export type DisputeChatRole = 'buyer' | 'seller' | 'arbiter'
 
+export type DisputeChatFileKind = 'photo' | 'video' | 'document' | 'voice'
+
 export interface DisputeChatFile {
-  type: 'photo' | 'video' | 'document' | 'voice' | null
+  kind: DisputeChatFileKind
   telegramFileId?: string | null
   safeFileName?: string | null
   hash?: string | null
@@ -89,5 +91,12 @@ export const disputeChatService = {
     return new EventSource(
       `/api/admin/dispute-chats/${chatId}/stream?token=${encodeURIComponent(token)}`
     )
+  },
+
+  // Build a URL for the proxy that streams file content from Telegram.
+  // Token in query (same reason as SSE — img/video/audio tags can't set headers).
+  fileUrl: (chatId: string, seq: number): string => {
+    const token = localStorage.getItem('adminToken') || ''
+    return `/api/admin/dispute-chats/${chatId}/files/${seq}?token=${encodeURIComponent(token)}`
   }
 }

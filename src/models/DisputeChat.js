@@ -14,6 +14,24 @@
 
 const mongoose = require('mongoose');
 
+// Separate sub-schema so mongoose doesn't mistake the inner `kind` for a
+// type-key definition. Critical: previous version used `file.type` as the
+// discriminator field which mongoose interpreted as a SchemaType definition,
+// collapsing the whole subdoc to a single String and losing all file
+// metadata at save time. Renamed to `kind`.
+const fileAttachmentSchema = new mongoose.Schema({
+  kind: {
+    type: String,
+    enum: ['photo', 'video', 'document', 'voice'],
+    required: true
+  },
+  telegramFileId: { type: String, default: null },
+  safeFileName: { type: String, default: null },
+  hash: { type: String, default: null },
+  size: { type: Number, default: null },
+  mimeType: { type: String, default: null }
+}, { _id: false });
+
 const messageSchema = new mongoose.Schema({
   // Monotonic sequence number — assigned via atomic $inc on the parent doc.
   // Guarantees strict global order even under concurrent posts from both sides.
@@ -37,18 +55,8 @@ const messageSchema = new mongoose.Schema({
     maxlength: 2000
   },
   // Optional file attachment. Validated through fileSecurityService before save.
-  file: {
-    type: {
-      type: String,
-      enum: ['photo', 'video', 'document', 'voice', null],
-      default: null
-    },
-    telegramFileId: { type: String, default: null },
-    safeFileName: { type: String, default: null },
-    hash: { type: String, default: null },
-    size: { type: Number, default: null },
-    mimeType: { type: String, default: null }
-  },
+  // Stored as embedded subdocument; absent on text-only messages.
+  file: { type: fileAttachmentSchema, default: null },
   // Tracks the Telegram message_id created on each party's chat by the relay.
   // null for the side that originated the message (their own message was
   // already deleted by ctx.deleteMessage in the handler).

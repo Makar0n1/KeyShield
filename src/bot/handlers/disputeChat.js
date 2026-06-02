@@ -167,7 +167,7 @@ async function handleDisputeChatMedia(ctx) {
       from: session.role,
       text: caption,
       file: {
-        type: fileType,
+        kind: fileType,
         telegramFileId: fileId,
         safeFileName: fileName,
         hash: validation.metadata?.hash,

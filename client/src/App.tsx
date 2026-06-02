@@ -56,6 +56,7 @@ import {
   AdminDisputesPage,
   AdminDisputeDetailsPage,
   AdminDisputeChatPage,
+  AdminDisputeChatsListPage,
   AdminPlatformsPage,
   AdminExportsPage,
   AdminTransactionsPage,
@@ -137,6 +138,7 @@ function App() {
             <Route path="users/:telegramId" element={<AdminUserDetailsPage />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="disputes/:id" element={<AdminDisputeDetailsPage />} />
+            <Route path="dispute-chats" element={<AdminDisputeChatsListPage />} />
             <Route path="dispute-chats/:chatId" element={<AdminDisputeChatPage />} />
             <Route path="platforms" element={<AdminPlatformsPage />} />
             <Route path="referrals" element={<AdminReferralsPage />} />
