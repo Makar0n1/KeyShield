@@ -119,6 +119,12 @@ const disputeChatSchema = new mongoose.Schema({
     default: 1
   },
   messages: [messageSchema],
+  // Message ids of the intro notice ("Арбитр открыл чат") on each side —
+  // tracked separately so they're wiped along with the chat on resolve.
+  introMessageIds: {
+    buyer: { type: Number, default: null },
+    seller: { type: Number, default: null }
+  },
   closedAt: {
     type: Date,
     default: null

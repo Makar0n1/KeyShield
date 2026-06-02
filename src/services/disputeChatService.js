@@ -111,11 +111,19 @@ class DisputeChatService {
         { chatId: chat._id.toString(), role: 'seller' }, SESSION_TTL_HOURS)
     ]);
 
-    // Intro message to both sides (uses bot.telegram.sendMessage directly,
-    // NOT messageManager — we don't want to touch mainMessageId so we can
-    // restore it cleanly on resolve)
-    await this._sendIntro(deal.buyerId, 'buyer');
-    await this._sendIntro(deal.sellerId, 'seller');
+    // For each side: wipe the current main message (clean slate for the
+    // chat experience), then send the intro. Done in parallel so a slow
+    // side doesn't hold up the other.
+    const [buyerIntro, sellerIntro] = await Promise.all([
+      this._wipeMainAndSendIntro(deal.buyerId, 'buyer'),
+      this._wipeMainAndSendIntro(deal.sellerId, 'seller')
+    ]);
+
+    chat.introMessageIds = {
+      buyer: buyerIntro,
+      seller: sellerIntro
+    };
+    await chat.save();
 
     const startedPayload = { chatId: chat._id.toString() };
     eventBus.emit('chat.started', startedPayload);
@@ -123,17 +131,35 @@ class DisputeChatService {
     return chat;
   }
 
-  async _sendIntro(telegramId, role) {
-    const lang = await this._getUserLang(telegramId);
-    const roleLabel = role === 'buyer'
-      ? t(lang, 'disputeChat.role_you_buyer')
-      : t(lang, 'disputeChat.role_you_seller');
-    const text = t(lang, 'disputeChat.intro', { role: roleLabel });
+  async _wipeMainAndSendIntro(telegramId, role) {
+    // Delete the user's current main bot message (main menu / deal details /
+    // whatever they were on) so the chat starts on a clean slate.
     try {
-      await this.bot.telegram.sendMessage(telegramId, text, { parse_mode: 'Markdown' });
+      const user = await User.findOne({ telegramId }).select('mainMessageId').lean();
+      if (user?.mainMessageId) {
+        await this.bot.telegram.deleteMessage(telegramId, user.mainMessageId).catch(() => {});
+      }
+      await User.updateOne(
+        { telegramId },
+        { $set: { mainMessageId: null, currentScreen: null, currentScreenData: null } }
+      );
+    } catch (err) {
+      console.warn(`[DisputeChat] main-message wipe for ${telegramId} failed:`, err.message);
+    }
+
+    // Send intro
+    try {
+      const lang = await this._getUserLang(telegramId);
+      const roleLabel = role === 'buyer'
+        ? t(lang, 'disputeChat.role_you_buyer')
+        : t(lang, 'disputeChat.role_you_seller');
+      const text = t(lang, 'disputeChat.intro', { role: roleLabel });
+      const sent = await this.bot.telegram.sendMessage(telegramId, text, { parse_mode: 'Markdown' });
+      return sent.message_id;
     } catch (err) {
       this._markBlockedIfNeeded(telegramId, err);
       console.error(`[DisputeChat] Intro failed for ${telegramId}:`, err.message);
+      return null;
     }
   }
 
@@ -149,14 +175,21 @@ class DisputeChatService {
    * @param {'buyer'|'seller'|'arbiter'} opts.from
    * @param {string} [opts.text]
    * @param {Object} [opts.file]   — { type, telegramFileId, safeFileName, hash, size, mimeType }
+   * @param {number} [opts.originatorMessageId] — the user's own Telegram message_id (for wipe-on-resolve)
    * @returns {Object} the persisted message (with assigned seq)
    */
-  async postMessage({ chatId, from, text = '', file = null }) {
+  async postMessage({ chatId, from, text = '', file = null, originatorMessageId = null }) {
     if (!this.bot) throw new Error('Bot instance not set in dispute chat service');
     if (!text && !file) throw new Error('Empty message: need text or file');
 
     const chat = await DisputeChat.findOne({ _id: chatId, status: 'active' });
     if (!chat) throw new Error(`Active dispute chat ${chatId} not found`);
+
+    // Pre-seed the originator side's message_id so we can wipe the user's
+    // own message from their chat on resolve.
+    const initialMsgIds = { buyer: null, seller: null };
+    if (from === 'buyer' && originatorMessageId) initialMsgIds.buyer = originatorMessageId;
+    if (from === 'seller' && originatorMessageId) initialMsgIds.seller = originatorMessageId;
 
     // Atomic seq assignment + push
     const updated = await DisputeChat.findOneAndUpdate(
@@ -182,8 +215,11 @@ class DisputeChatService {
                     size: file.size || null,
                     mimeType: file.mimeType || null
                   } : { type: null },
-                  telegramMessageIds: { buyer: null, seller: null },
-                  delivery: { buyer: 'skipped', seller: 'skipped' },
+                  telegramMessageIds: initialMsgIds,
+                  delivery: {
+                    buyer: from === 'buyer' ? 'delivered' : 'skipped',
+                    seller: from === 'seller' ? 'delivered' : 'skipped'
+                  },
                   createdAt: new Date()
                 }]
               ]
@@ -198,14 +234,14 @@ class DisputeChatService {
     const message = updated.messages[updated.messages.length - 1];
     const seq = message.seq;
 
-    // Fan-out: relay to the parties that should receive it
+    // Fan-out: relay to the parties that should receive it.
+    // Run in parallel so a slow side doesn't block the other.
     const targets = []; // [{ telegramId, role: 'buyer'|'seller' }]
     if (from !== 'buyer') targets.push({ telegramId: chat.buyerTelegramId, role: 'buyer' });
     if (from !== 'seller') targets.push({ telegramId: chat.sellerTelegramId, role: 'seller' });
 
-    for (const tgt of targets) {
+    await Promise.all(targets.map(async (tgt) => {
       const sendResult = await this._relayToParty(tgt.telegramId, tgt.role, from, text, file);
-      // Persist message_id + delivery status for this side
       await DisputeChat.updateOne(
         { _id: chatId, 'messages.seq': seq },
         {
@@ -215,7 +251,7 @@ class DisputeChatService {
           }
         }
       );
-    }
+    }));
 
     // Re-fetch the final message state for the event payload
     const fresh = await DisputeChat.findById(chatId, { messages: { $slice: -1 } }).lean();
@@ -313,18 +349,35 @@ class DisputeChatService {
     );
     await new Promise(r => setTimeout(r, 1500));
 
-    // 2. Wipe all chat messages from both sides (best-effort)
+    // 2. Wipe everything bot-sent on both sides (best-effort, parallelized).
+    // Collect every message_id to delete, then fire them all in parallel
+    // (Telegram allows ~30 deletes/sec; even 100 messages finishes in ~3s).
+    const toDelete = []; // [{ chatId, messageId }]
     for (const msg of chat.messages) {
-      const buyerMsgId = msg.telegramMessageIds?.buyer;
-      const sellerMsgId = msg.telegramMessageIds?.seller;
-      const tasks = [];
-      if (buyerMsgId) tasks.push(this._safeDelete(chat.buyerTelegramId, buyerMsgId));
-      if (sellerMsgId) tasks.push(this._safeDelete(chat.sellerTelegramId, sellerMsgId));
-      await Promise.all(tasks);
+      if (msg.telegramMessageIds?.buyer) {
+        toDelete.push({ chatId: chat.buyerTelegramId, messageId: msg.telegramMessageIds.buyer });
+      }
+      if (msg.telegramMessageIds?.seller) {
+        toDelete.push({ chatId: chat.sellerTelegramId, messageId: msg.telegramMessageIds.seller });
+      }
     }
-    // Also wipe the closing notice
-    if (closingMsgIds.buyer) await this._safeDelete(chat.buyerTelegramId, closingMsgIds.buyer);
-    if (closingMsgIds.seller) await this._safeDelete(chat.sellerTelegramId, closingMsgIds.seller);
+    // Intro messages
+    if (chat.introMessageIds?.buyer) {
+      toDelete.push({ chatId: chat.buyerTelegramId, messageId: chat.introMessageIds.buyer });
+    }
+    if (chat.introMessageIds?.seller) {
+      toDelete.push({ chatId: chat.sellerTelegramId, messageId: chat.introMessageIds.seller });
+    }
+    // Closing notice
+    if (closingMsgIds.buyer) {
+      toDelete.push({ chatId: chat.buyerTelegramId, messageId: closingMsgIds.buyer });
+    }
+    if (closingMsgIds.seller) {
+      toDelete.push({ chatId: chat.sellerTelegramId, messageId: closingMsgIds.seller });
+    }
+    await Promise.all(
+      toDelete.map(({ chatId, messageId }) => this._safeDelete(chatId, messageId))
+    );
 
     // 3. Clear sessions so the bot text/media routers stop relaying
     await Promise.all([

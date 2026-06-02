@@ -30,6 +30,11 @@ async function hasDisputeChatSession(telegramId) {
 
 /**
  * Handle a text message from a party in dispute chat mode.
+ *
+ * NOTE: The user's own message is intentionally KEPT in their chat — they
+ * see their own messages naturally (like in any chat). The relay only sends
+ * the labeled version to the OTHER side and the admin panel. On resolve,
+ * the originator's message_id (stored in DB) is wiped along with everything else.
  */
 async function handleDisputeChatText(ctx) {
   const telegramId = ctx.from.id;
@@ -38,26 +43,24 @@ async function handleDisputeChatText(ctx) {
   if (!session) return false;
 
   const raw = ctx.message?.text?.trim() || '';
+  const originatorMessageId = ctx.message?.message_id;
 
-  // Always delete user's own message — relay handles the visible representation.
-  try { await ctx.deleteMessage(); } catch (_) { /* may be too old */ }
+  // Ignore slash-commands inside the chat (don't pollute the conversation either)
+  if (raw.startsWith('/')) {
+    try { await ctx.deleteMessage(); } catch (_) {}
+    return true;
+  }
 
-  // Ignore slash-commands inside the chat (let other handlers/no-op handle them)
-  if (raw.startsWith('/')) return true;
-
-  if (!raw) return true;
+  if (!raw) {
+    try { await ctx.deleteMessage(); } catch (_) {}
+    return true;
+  }
 
   if (raw.length > MAX_TEXT_LENGTH) {
-    // Bounce a transient warning straight to the user (not via mainMessage).
-    try {
-      const warn = await ctx.telegram.sendMessage(
-        telegramId,
-        `⚠️ ${t(lang, 'disputeChat.message_too_long')}`
-      );
-      setTimeout(() => {
-        ctx.telegram.deleteMessage(telegramId, warn.message_id).catch(() => {});
-      }, 3000);
-    } catch (_) { /* ignore */ }
+    // Too long — reject and remove (don't pollute the chat with the bad attempt)
+    try { await ctx.deleteMessage(); } catch (_) {}
+    await _notifyTransient(ctx, telegramId,
+      `⚠️ ${t(lang, 'disputeChat.message_too_long')}`);
     return true;
   }
 
@@ -65,7 +68,8 @@ async function handleDisputeChatText(ctx) {
     await disputeChatService.postMessage({
       chatId: session.chatId,
       from: session.role,
-      text: raw
+      text: raw,
+      originatorMessageId
     });
   } catch (err) {
     console.error('[disputeChat] postMessage(text) failed:', err.message);
@@ -76,12 +80,19 @@ async function handleDisputeChatText(ctx) {
 /**
  * Handle a media message (photo/video/document/voice) from a party in chat mode.
  * Validates the file through fileSecurityService before relaying.
+ *
+ * NOTE: User's own file message is KEPT visible in their chat on success.
+ * Only deleted if the file fails validation (security) or download fails
+ * (don't leave a stuck attachment in the chat). On resolve, all message_ids
+ * are wiped — including the user's own file.
  */
 async function handleDisputeChatMedia(ctx) {
   const telegramId = ctx.from.id;
   const lang = ctx.state?.lang || 'ru';
   const session = await getDisputeChatSession(telegramId);
   if (!session) return false;
+
+  const originatorMessageId = ctx.message?.message_id;
 
   // Extract file info
   let fileId, fileType, fileName, mimeType;
@@ -112,9 +123,6 @@ async function handleDisputeChatMedia(ctx) {
 
   const caption = ctx.message.caption?.trim() || '';
 
-  // Delete the user's original — we're about to relay a sanitized version.
-  try { await ctx.deleteMessage(); } catch (_) {}
-
   let fileBuffer;
   try {
     const fileUrl = await ctx.telegram.getFileLink(fileId);
@@ -125,6 +133,7 @@ async function handleDisputeChatMedia(ctx) {
     fileBuffer = Buffer.from(resp.data);
   } catch (err) {
     console.error('[disputeChat] File download failed:', err.message);
+    try { await ctx.deleteMessage(); } catch (_) {}
     await _notifyTransient(ctx, telegramId,
       `⚠️ ${t(lang, 'disputeChat.upload_failed')}`);
     return true;
@@ -134,8 +143,10 @@ async function handleDisputeChatMedia(ctx) {
   const validation = await fileSecurityService.validateFile(fileBuffer, fileType, fileName);
   if (!validation.valid) {
     console.warn(`[disputeChat] File rejected: ${validation.error}`);
+    // Remove the rejected file from the chat (don't leave malware visible)
+    try { await ctx.deleteMessage(); } catch (_) {}
 
-    // Alert admin — this is the same threat surface as initial dispute evidence
+    // Alert admin — same threat surface as initial dispute evidence
     try {
       await adminAlertService.alertSecurityThreat(
         'MALICIOUS_FILE_UPLOAD',
@@ -162,7 +173,8 @@ async function handleDisputeChatMedia(ctx) {
         hash: validation.metadata?.hash,
         size: validation.metadata?.size,
         mimeType
-      }
+      },
+      originatorMessageId
     });
   } catch (err) {
     console.error('[disputeChat] postMessage(file) failed:', err.message);
