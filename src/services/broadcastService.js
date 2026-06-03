@@ -156,11 +156,15 @@ class BroadcastService {
       throw new Error('Broadcast not found');
     }
 
-    if (broadcast.status !== 'draft') {
-      throw new Error('Broadcast already sent or in progress');
+    // The /send route is responsible for state validation and has already
+    // flipped status to 'sending' before invoking us. The only state we
+    // can't proceed with is one already truly finalized AND somehow not
+    // marked 'sending' — defensively allow only 'draft' or 'sending' here.
+    if (broadcast.status !== 'draft' && broadcast.status !== 'sending') {
+      throw new Error(`Cannot send broadcast with status '${broadcast.status}'`);
     }
 
-    // Mark as sending
+    // Mark as sending (idempotent — route may have done this already)
     broadcast.status = 'sending';
     broadcast.sentAt = new Date();
     await broadcast.save();
