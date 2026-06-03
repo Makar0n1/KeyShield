@@ -32,6 +32,14 @@ const broadcastSchema = new mongoose.Schema({
     required: true
   },
 
+  // Целевой язык. 'all' = всем, иначе фильтр по User.languageCode
+  targetLanguage: {
+    type: String,
+    enum: ['all', 'ru', 'en', 'uk'],
+    default: 'all',
+    index: true
+  },
+
   // Статус
   status: {
     type: String,

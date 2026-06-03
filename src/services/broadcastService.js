@@ -140,13 +140,21 @@ class BroadcastService {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      users = await User.find({
+      const recipientQuery = {
         blacklisted: { $ne: true },
         mainMessageId: { $exists: true, $ne: null },
         lastActivity: { $gte: thirtyDaysAgo }
-      }).lean();
+      };
+      // Language targeting — 'all' (or legacy missing) → no filter
+      if (broadcast.targetLanguage && broadcast.targetLanguage !== 'all') {
+        recipientQuery.languageCode = broadcast.targetLanguage;
+      }
+      users = await User.find(recipientQuery).lean();
 
-      console.log(`📤 Sending broadcast "${broadcast.title}" to ${users.length} users`);
+      const langLabel = broadcast.targetLanguage && broadcast.targetLanguage !== 'all'
+        ? ` [lang=${broadcast.targetLanguage}]`
+        : ' [all langs]';
+      console.log(`📤 Sending broadcast "${broadcast.title}"${langLabel} to ${users.length} users`);
     }
 
     // Update total users

@@ -2710,7 +2710,7 @@ app.get('/api/admin/broadcasts/:id', adminAuth, async (req, res) => {
 // Create new broadcast (with image upload)
 app.post('/api/admin/broadcasts', adminAuth, uploadBroadcast.single('image'), async (req, res) => {
   try {
-    const { title, text, isTest, testUserId } = req.body;
+    const { title, text, isTest, testUserId, targetLanguage } = req.body;
 
     if (!title || !text) {
       return res.status(400).json({ error: 'Title and text are required' });
@@ -2725,6 +2725,10 @@ app.post('/api/admin/broadcasts', adminAuth, uploadBroadcast.single('image'), as
       return res.status(400).json({ error: 'Test user ID is required for test mode' });
     }
 
+    // Validate language target
+    const allowedLangs = ['all', 'ru', 'en', 'uk'];
+    const finalTargetLang = allowedLangs.includes(targetLanguage) ? targetLanguage : 'all';
+
     // Build image URL
     const imageUrl = `/uploads/broadcasts/${req.file.filename}`;
 
@@ -2732,6 +2736,7 @@ app.post('/api/admin/broadcasts', adminAuth, uploadBroadcast.single('image'), as
       title,
       text,
       imageUrl,
+      targetLanguage: finalTargetLang,
       isTest: isTest === 'true',
       testUserId: isTest === 'true' ? testUserId : null,
       status: 'draft',
@@ -2758,9 +2763,12 @@ app.put('/api/admin/broadcasts/:id', adminAuth, uploadBroadcast.single('image'),
       return res.status(400).json({ error: 'Can only edit draft broadcasts' });
     }
 
-    const { title, text } = req.body;
+    const { title, text, targetLanguage } = req.body;
     if (title) broadcast.title = title;
     if (text) broadcast.text = text;
+    if (targetLanguage && ['all', 'ru', 'en', 'uk'].includes(targetLanguage)) {
+      broadcast.targetLanguage = targetLanguage;
+    }
 
     // Update image if new one uploaded
     if (req.file) {

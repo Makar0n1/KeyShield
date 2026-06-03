@@ -36,7 +36,13 @@ export function BroadcastsPage() {
 
   // Create form
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ title: '', text: '', isTest: false, testUserId: '' })
+  const [formData, setFormData] = useState<{
+    title: string
+    text: string
+    isTest: boolean
+    testUserId: string
+    targetLanguage: 'all' | 'ru' | 'en' | 'uk'
+  }>({ title: '', text: '', isTest: false, testUserId: '', targetLanguage: 'all' })
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -117,13 +123,14 @@ export function BroadcastsPage() {
       fd.append('text', formData.text)
       fd.append('image', selectedImage)
       fd.append('isTest', String(formData.isTest))
+      fd.append('targetLanguage', formData.targetLanguage)
       if (formData.isTest) {
         fd.append('testUserId', formData.testUserId.trim())
       }
 
       await adminService.createBroadcast(fd)
       setShowForm(false)
-      setFormData({ title: '', text: '', isTest: false, testUserId: '' })
+      setFormData({ title: '', text: '', isTest: false, testUserId: '', targetLanguage: 'all' })
       setSelectedImage(null)
       setImagePreview(null)
       fetchBroadcasts()
@@ -265,6 +272,38 @@ export function BroadcastsPage() {
                 )}
               </div>
 
+              {/* Target language */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Целевой язык
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {([
+                    { value: 'all', label: '🌍 Все' },
+                    { value: 'ru', label: '🇷🇺 RU' },
+                    { value: 'en', label: '🇬🇧 EN' },
+                    { value: 'uk', label: '🇺🇦 UK' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, targetLanguage: opt.value })}
+                      className={`px-3 py-2 rounded-lg text-sm border transition-colors ${
+                        formData.targetLanguage === opt.value
+                          ? 'bg-primary text-white border-primary'
+                          : 'text-gray-300 border-border hover:border-primary/40'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted mt-1">
+                  Рассылка уйдёт только пользователям с выбранным языком (учитывается{' '}
+                  <span className="font-mono">languageCode</span>). «Все» — без фильтра.
+                </p>
+              </div>
+
               {/* Test mode */}
               <div className="border border-border rounded-lg p-4 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -397,12 +436,22 @@ export function BroadcastsPage() {
                             />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-white font-medium">{broadcast.title}</p>
                               {broadcast.isTest && (
                                 <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">
                                   <FlaskConical size={10} />
                                   ТЕСТ
+                                </span>
+                              )}
+                              {broadcast.targetLanguage && broadcast.targetLanguage !== 'all' && (
+                                <span className="inline-flex items-center text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded font-mono uppercase">
+                                  {broadcast.targetLanguage}
+                                </span>
+                              )}
+                              {(!broadcast.targetLanguage || broadcast.targetLanguage === 'all') && (
+                                <span className="inline-flex items-center text-xs bg-dark-lighter text-muted px-1.5 py-0.5 rounded">
+                                  все языки
                                 </span>
                               )}
                             </div>

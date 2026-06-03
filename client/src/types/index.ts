@@ -493,6 +493,7 @@ export interface ReferralStats {
 // ========== Broadcast Types ==========
 
 export type BroadcastStatus = 'draft' | 'sending' | 'completed' | 'failed'
+export type BroadcastTargetLanguage = 'all' | 'ru' | 'en' | 'uk'
 
 export interface BroadcastStats {
   totalUsers: number
@@ -506,6 +507,7 @@ export interface Broadcast {
   title: string
   text: string
   imageUrl: string
+  targetLanguage?: BroadcastTargetLanguage
   isTest: boolean
   testUserId?: string
   status: BroadcastStatus
