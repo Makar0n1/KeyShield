@@ -255,17 +255,35 @@ class BroadcastService {
       }
 
       // 2. SEND new photo message with caption (this triggers PUSH notification!)
-      const caption = `📣 *${this.escapeMarkdown(broadcast.title)}*\n\n${this.escapeMarkdown(broadcast.text)}`;
+      // - Title is escaped because we wrap it in *...* for bold; raw `*` in
+      //   the admin-typed title would break that wrapping.
+      // - Body is sent AS-IS so admin-typed *bold*, _italic_, `code`,
+      //   [link](url) and \n line breaks all render natively.
+      const caption = `📣 *${this.escapeMarkdown(broadcast.title)}*\n\n${broadcast.text}`;
 
-      const newMsg = await this.bot.telegram.sendPhoto(
-        userId,
-        broadcast.imageUrl,
-        {
+      let newMsg;
+      try {
+        newMsg = await this.bot.telegram.sendPhoto(userId, broadcast.imageUrl, {
           caption,
           parse_mode: 'Markdown',
           reply_markup: keyboard
-        }
-      );
+        });
+      } catch (err) {
+        // Telegram returns 400 "can't parse entities" when admin's markdown
+        // is malformed (stray `*`, mismatched `[`, etc.). Don't lose the
+        // broadcast — fall back to plain text so the user still gets it.
+        const desc = err?.response?.description || err?.description || '';
+        const isParseError = err?.response?.error_code === 400 &&
+          /can't parse|parse entities|reserved|character/i.test(desc);
+        if (!isParseError) throw err;
+
+        console.warn(`[broadcast] Markdown parse failed for ${userId}, retrying plain. (${desc})`);
+        const plainCaption = `📣 ${broadcast.title}\n\n${broadcast.text}`;
+        newMsg = await this.bot.telegram.sendPhoto(userId, broadcast.imageUrl, {
+          caption: plainCaption,
+          reply_markup: keyboard
+        });
+      }
 
       // 3. Update mainMessageId and state in DB
       await User.updateOne(
