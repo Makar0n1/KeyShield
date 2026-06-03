@@ -417,4 +417,16 @@ export const adminService = {
     const { data } = await api.get(`/admin/broadcasts/${id}/progress`)
     return data
   },
+
+  // How many users would the next send actually reach, given the
+  // dedupe of users who already received this broadcast successfully.
+  getBroadcastAudience: async (id: string): Promise<{
+    targetLanguage: string
+    eligible: number
+    alreadySent: number
+    remaining: number
+  }> => {
+    const { data } = await api.get(`/admin/broadcasts/${id}/audience`)
+    return data
+  },
 }

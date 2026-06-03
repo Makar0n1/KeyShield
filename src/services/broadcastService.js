@@ -10,6 +10,7 @@
 
 const User = require('../models/User');
 const Broadcast = require('../models/Broadcast');
+const BroadcastRecipient = require('../models/BroadcastRecipient');
 
 class BroadcastService {
   constructor() {
@@ -65,6 +66,27 @@ class BroadcastService {
    * parallel per user (Promise.allSettled) for speed; outer batch already
    * limits to BATCH_SIZE concurrent users.
    */
+  /**
+   * Upsert a delivery record for (broadcast, user). Idempotent — safe to
+   * call on retries; the unique compound index guarantees one row per pair.
+   *
+   * Used by sendToUser on every outcome path (sent/failed/skipped). On a
+   * re-send, the new outcome overwrites the previous one — so a user who
+   * failed once and succeeds on the second push ends up with status='sent'.
+   */
+  async recordRecipient(broadcastId, telegramId, status, error = null) {
+    try {
+      await BroadcastRecipient.updateOne(
+        { broadcastId, telegramId },
+        { $set: { status, sentAt: new Date(), error } },
+        { upsert: true }
+      );
+    } catch (err) {
+      // Don't let a recording failure (e.g., Mongo blip) break the send loop
+      console.warn(`[broadcast] recordRecipient failed for ${telegramId}:`, err.message);
+    }
+  }
+
   async cleanupOldMessages(userId, newMsgId, depth = 20) {
     if (!newMsgId || newMsgId <= 1) return;
     const ids = [];
@@ -166,81 +188,121 @@ class BroadcastService {
       users = [testUser];
       console.log(`🧪 TEST MODE: Sending broadcast "${broadcast.title}" to user ${broadcast.testUserId}`);
     } else {
-      // Normal mode - get all active users with mainMessageId
-      // Filter: not blacklisted, has mainMessageId, active in last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
+      // Normal mode — every eligible user with an active session.
+      // Filters:
+      //   - not blacklisted
+      //   - has mainMessageId (= bot is reachable, hasn't been blocked)
+      //   - language matches target (if not 'all')
+      //   - NOT already successfully delivered for this broadcast
+      //     (this makes re-sends idempotent: pressing Send again on a
+      //      completed broadcast only targets users who didn't get it
+      //      yet, or whose previous attempt failed/skipped)
       const recipientQuery = {
         blacklisted: { $ne: true },
-        mainMessageId: { $exists: true, $ne: null },
-        lastActivity: { $gte: thirtyDaysAgo }
+        mainMessageId: { $exists: true, $ne: null }
       };
-      // Language targeting — 'all' (or legacy missing) → no filter
       if (broadcast.targetLanguage && broadcast.targetLanguage !== 'all') {
         recipientQuery.languageCode = broadcast.targetLanguage;
       }
+
+      const alreadyDelivered = await BroadcastRecipient.distinct('telegramId', {
+        broadcastId: broadcast._id,
+        status: 'sent'
+      });
+      if (alreadyDelivered.length > 0) {
+        recipientQuery.telegramId = { $nin: alreadyDelivered };
+      }
+
       users = await User.find(recipientQuery).lean();
 
       const langLabel = broadcast.targetLanguage && broadcast.targetLanguage !== 'all'
         ? ` [lang=${broadcast.targetLanguage}]`
         : ' [all langs]';
-      console.log(`📤 Sending broadcast "${broadcast.title}"${langLabel} to ${users.length} users`);
+      const dedupeLabel = alreadyDelivered.length > 0
+        ? ` (re-send, skipping ${alreadyDelivered.length} already-delivered)`
+        : '';
+      console.log(`📤 Sending broadcast "${broadcast.title}"${langLabel}${dedupeLabel} to ${users.length} users`);
     }
 
-    // Update total users
-    broadcast.stats.totalUsers = users.length;
-    await broadcast.save();
+    // For test sends nothing else to dedupe — leave stats as-is below.
+    // For normal sends, the stats are derived from BroadcastRecipient so
+    // they stay correct across re-sends (cumulative across runs).
 
-    let sent = 0;
-    let failed = 0;
-    let skipped = 0;
+    // Run-local counters (just for logging this particular run)
+    let runSent = 0;
+    let runFailed = 0;
+    let runSkipped = 0;
 
-    // Process in batches
     for (let i = 0; i < users.length; i += this.BATCH_SIZE) {
       const batch = users.slice(i, i + this.BATCH_SIZE);
 
-      // Process batch in parallel
       const results = await Promise.allSettled(
         batch.map(user => this.sendToUser(user, broadcast, keyboard))
       );
 
-      // Count results
       for (const result of results) {
         if (result.status === 'fulfilled') {
-          if (result.value === 'sent') sent++;
-          else if (result.value === 'skipped') skipped++;
-          else failed++;
+          if (result.value === 'sent') runSent++;
+          else if (result.value === 'skipped') runSkipped++;
+          else runFailed++;
         } else {
-          failed++;
+          runFailed++;
         }
       }
 
-      // Update stats periodically
-      if ((i + this.BATCH_SIZE) % 100 === 0) {
-        broadcast.stats.sent = sent;
-        broadcast.stats.failed = failed;
-        broadcast.stats.skipped = skipped;
-        await broadcast.save();
+      // Refresh cumulative stats from the recipient collection every 100 sends.
+      // Skipped in test mode (no BroadcastRecipient written for the test user).
+      if (!broadcast.isTest && (i + this.BATCH_SIZE) % 100 === 0) {
+        await this._refreshStats(broadcast);
       }
 
-      // Delay between batches (except for last batch)
       if (i + this.BATCH_SIZE < users.length) {
         await this.sleep(this.BATCH_DELAY);
       }
     }
 
-    // Update final stats
+    // Final stats: derive from recipient collection for cumulative accuracy
     broadcast.status = 'completed';
     broadcast.completedAt = new Date();
+    if (broadcast.isTest) {
+      broadcast.stats.totalUsers = 1;
+      broadcast.stats.sent = runSent;
+      broadcast.stats.failed = runFailed;
+      broadcast.stats.skipped = runSkipped;
+    } else {
+      await this._refreshStats(broadcast);
+    }
+    await broadcast.save();
+
+    console.log(`📤 Broadcast completed (this run): sent=${runSent}, failed=${runFailed}, skipped=${runSkipped}`);
+    if (!broadcast.isTest) {
+      console.log(`   Cumulative: sent=${broadcast.stats.sent}, failed=${broadcast.stats.failed}, skipped=${broadcast.stats.skipped}, totalUsers=${broadcast.stats.totalUsers}`);
+    }
+
+    return {
+      sent: runSent,
+      failed: runFailed,
+      skipped: runSkipped,
+      cumulative: { ...broadcast.stats }
+    };
+  }
+
+  /**
+   * Recompute cumulative stats by counting BroadcastRecipient rows.
+   * Used both periodically during a long send and at the very end so
+   * the numbers reflect every successful run for this broadcast.
+   */
+  async _refreshStats(broadcast) {
+    const [sent, failed, skipped] = await Promise.all([
+      BroadcastRecipient.countDocuments({ broadcastId: broadcast._id, status: 'sent' }),
+      BroadcastRecipient.countDocuments({ broadcastId: broadcast._id, status: 'failed' }),
+      BroadcastRecipient.countDocuments({ broadcastId: broadcast._id, status: 'skipped' })
+    ]);
     broadcast.stats.sent = sent;
     broadcast.stats.failed = failed;
     broadcast.stats.skipped = skipped;
+    broadcast.stats.totalUsers = sent + failed + skipped;
     await broadcast.save();
-
-    console.log(`📤 Broadcast completed: sent=${sent}, failed=${failed}, skipped=${skipped}`);
-
-    return { sent, failed, skipped };
   }
 
   /**
@@ -253,6 +315,7 @@ class BroadcastService {
 
       // Skip users in critical flows
       if (this.shouldSkipUser(user)) {
+        await this.recordRecipient(broadcast._id, user.telegramId, 'skipped', `in flow: ${user.currentScreen}`);
         return 'skipped';
       }
 
@@ -341,6 +404,7 @@ class BroadcastService {
       //    slow / errors, the broadcast is already counted as sent.
       this.cleanupOldMessages(userId, newMsg.message_id, 20).catch(() => {});
 
+      await this.recordRecipient(broadcast._id, user.telegramId, 'sent');
       return 'sent';
     } catch (error) {
       console.error(`Failed to send broadcast to user ${user.telegramId}:`, error.message);
@@ -363,6 +427,7 @@ class BroadcastService {
         );
       }
 
+      await this.recordRecipient(broadcast._id, user.telegramId, 'failed', error.message);
       return 'failed';
     }
   }

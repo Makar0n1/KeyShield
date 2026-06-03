@@ -54,6 +54,7 @@ const Manager = (await import('../src/models/Manager.js')).default;
 const Platform = (await import('../src/models/Platform.js')).default;
 const ExportLog = (await import('../src/models/ExportLog.js')).default;
 const Broadcast = (await import('../src/models/Broadcast.js')).default;
+const BroadcastRecipient = (await import('../src/models/BroadcastRecipient.js')).default;
 
 // Routes
 const partnerRoutes = (await import('../src/web/routes/partner.js')).default;
@@ -2796,13 +2797,18 @@ app.delete('/api/admin/broadcasts/:id', adminAuth, async (req, res) => {
     }
 
     await Broadcast.findByIdAndDelete(req.params.id);
+    // Also drop per-recipient records so they don't linger as orphans
+    await BroadcastRecipient.deleteMany({ broadcastId: req.params.id });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Send broadcast (start sending)
+// Send broadcast (start sending). Works on:
+//   - draft     → initial send (also rewrites imageUrl from relative to absolute)
+//   - completed → re-send (BroadcastRecipient dedupe skips already-delivered users)
+//   - failed    → retry (same as re-send for users who haven't been recorded)
 app.post('/api/admin/broadcasts/:id/send', adminAuth, async (req, res) => {
   try {
     const broadcast = await Broadcast.findById(req.params.id);
@@ -2810,21 +2816,24 @@ app.post('/api/admin/broadcasts/:id/send', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Broadcast not found' });
     }
 
-    if (broadcast.status !== 'draft') {
-      return res.status(400).json({ error: 'Can only send draft broadcasts' });
+    if (broadcast.status === 'sending') {
+      return res.status(400).json({ error: 'Already sending' });
     }
 
-    // Build full image URL for Telegram
-    const WEB_DOMAIN = process.env.WEB_DOMAIN || 'keyshield.me';
-    const SITE_URL = WEB_DOMAIN.includes('localhost')
-      ? `http://${WEB_DOMAIN}`
-      : `https://${WEB_DOMAIN}`;
+    // Only rewrite the imageUrl on first send (when it's still relative).
+    // On re-sends the URL is already absolute from the previous run.
+    if (broadcast.status === 'draft' && broadcast.imageUrl.startsWith('/')) {
+      const WEB_DOMAIN = process.env.WEB_DOMAIN || 'keyshield.me';
+      const SITE_URL = WEB_DOMAIN.includes('localhost')
+        ? `http://${WEB_DOMAIN}`
+        : `https://${WEB_DOMAIN}`;
+      broadcast.imageUrl = `${SITE_URL}${broadcast.imageUrl}`;
+    }
 
-    // Update imageUrl to full URL for Telegram
-    broadcast.imageUrl = `${SITE_URL}${broadcast.imageUrl}`;
+    // Flip back to 'sending' so progress polling sees it
+    broadcast.status = 'sending';
     await broadcast.save();
 
-    // Start sending in background (don't await)
     broadcastService.sendBroadcast(broadcast._id.toString()).catch(err => {
       console.error('[BroadcastService] Error:', err);
       Broadcast.updateOne(
@@ -2837,6 +2846,44 @@ app.post('/api/admin/broadcasts/:id/send', adminAuth, async (req, res) => {
       success: true,
       message: 'Broadcast sending started',
       broadcast
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Audience preview: how many users would the next send actually hit?
+// Useful before pressing "Дослать новым" on a completed broadcast.
+app.get('/api/admin/broadcasts/:id/audience', adminAuth, async (req, res) => {
+  try {
+    const broadcast = await Broadcast.findById(req.params.id).lean();
+    if (!broadcast) return res.status(404).json({ error: 'Broadcast not found' });
+
+    const baseFilter = {
+      blacklisted: { $ne: true },
+      mainMessageId: { $exists: true, $ne: null }
+    };
+    if (broadcast.targetLanguage && broadcast.targetLanguage !== 'all') {
+      baseFilter.languageCode = broadcast.targetLanguage;
+    }
+
+    const eligible = await User.countDocuments(baseFilter);
+
+    const alreadySent = await BroadcastRecipient.distinct('telegramId', {
+      broadcastId: broadcast._id,
+      status: 'sent'
+    });
+    const remainingFilter = { ...baseFilter };
+    if (alreadySent.length > 0) {
+      remainingFilter.telegramId = { $nin: alreadySent };
+    }
+    const remaining = await User.countDocuments(remainingFilter);
+
+    res.json({
+      targetLanguage: broadcast.targetLanguage || 'all',
+      eligible,
+      alreadySent: alreadySent.length,
+      remaining
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -144,9 +144,27 @@ export function BroadcastsPage() {
 
   const handleSend = async (id: string) => {
     const broadcast = broadcasts.find(b => b._id === id)
-    const confirmMsg = broadcast?.isTest
-      ? `Отправить тестовую рассылку пользователю ${broadcast.testUserId}?`
-      : 'Отправить рассылку всем активным пользователям?'
+    const isResend = broadcast && broadcast.status !== 'draft'
+
+    let confirmMsg: string
+    if (broadcast?.isTest) {
+      confirmMsg = `Отправить тестовую рассылку пользователю ${broadcast.testUserId}?`
+    } else if (isResend) {
+      // For re-send, fetch audience preview so admin sees what they're triggering
+      try {
+        const aud = await adminService.getBroadcastAudience(id)
+        if (aud.remaining === 0) {
+          alert(`Все ${aud.eligible} подходящих юзеров уже получили эту рассылку.`)
+          return
+        }
+        confirmMsg = `Дослать ${aud.remaining} пользователям, которые ещё не получили эту рассылку?\n\n` +
+          `(${aud.alreadySent} уже получили, из ${aud.eligible} подходящих в БД)`
+      } catch {
+        confirmMsg = 'Дослать пользователям, которые ещё не получили эту рассылку?'
+      }
+    } else {
+      confirmMsg = 'Отправить рассылку всем подходящим пользователям?'
+    }
 
     if (!confirm(confirmMsg)) return
 
@@ -537,6 +555,15 @@ export function BroadcastsPage() {
                                 <Trash2 size={18} />
                               </button>
                             </>
+                          )}
+                          {(broadcast.status === 'completed' || broadcast.status === 'failed') && !broadcast.isTest && (
+                            <button
+                              onClick={() => handleSend(broadcast._id)}
+                              className="p-2 text-blue-400 hover:text-blue-300 hover:bg-dark-lighter rounded-lg transition-colors"
+                              title="Дослать новым пользователям (которые ещё не получили)"
+                            >
+                              <Send size={18} />
+                            </button>
                           )}
                           {(broadcast.status === 'completed' || broadcast.status === 'failed') && (
                             <button
