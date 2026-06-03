@@ -87,16 +87,36 @@ class BroadcastService {
     }
   }
 
-  async cleanupOldMessages(userId, newMsgId, depth = 20) {
+  async cleanupOldMessages(userId, newMsgId, depth = 100) {
     if (!newMsgId || newMsgId <= 1) return;
+
     const ids = [];
     for (let i = 1; i <= depth; i++) {
       const id = newMsgId - i;
       if (id > 0) ids.push(id);
     }
-    await Promise.allSettled(
-      ids.map(id => this.bot.telegram.deleteMessage(userId, id).catch(() => {}))
-    );
+
+    // Use Telegram's bulk `deleteMessages` API (since Bot API 7.0 / Jan 2024):
+    // accepts up to 100 message_ids per call and silently skips any it can't
+    // delete (user messages older than 48h, already-deleted slots, etc.).
+    // ONE API call per 100 IDs instead of 100 — huge win when sweep depth
+    // is large and there are many concurrent users.
+    const CHUNK = 100;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      try {
+        await this.bot.telegram.callApi('deleteMessages', {
+          chat_id: userId,
+          message_ids: chunk
+        });
+      } catch (bulkErr) {
+        // Some Telegram versions reject the whole call if any ID is
+        // undeletable; fall back to individual deletes for this chunk.
+        await Promise.allSettled(
+          chunk.map(id => this.bot.telegram.deleteMessage(userId, id).catch(() => {}))
+        );
+      }
+    }
   }
 
   /**
@@ -406,7 +426,9 @@ class BroadcastService {
       //    rule from CLAUDE.md. Legacy users with untracked old menus get
       //    cleaned up here. Run AFTER the DB update so even if cleanup is
       //    slow / errors, the broadcast is already counted as sent.
-      this.cleanupOldMessages(userId, newMsg.message_id, 20).catch(() => {});
+      // depth=100 → covers ~100 message_id slots back; for users with huge
+      // gaps to stale menus, the bulk API keeps cost low (1-2 calls per user)
+      this.cleanupOldMessages(userId, newMsg.message_id, 100).catch(() => {});
 
       await this.recordRecipient(broadcast._id, user.telegramId, 'sent');
       return 'sent';
