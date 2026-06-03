@@ -47,6 +47,37 @@ class BroadcastService {
   }
 
   /**
+   * Best-effort sweep of stale bot-sent messages above the freshly sent one.
+   *
+   * Why: legacy users who interacted with the bot before mainMessageId was
+   * tracked (or who hit /start multiple times across deploys) have orphan
+   * old menus / notifications stacked in their chat. They're not in any DB
+   * field — we can only find them by trying to delete ID-by-ID.
+   *
+   * Telegram allows the bot to delete its OWN messages in a private chat
+   * with no time limit. User-sent messages (incl. /start) CANNOT be
+   * deleted by the bot in a private chat — they survive the sweep
+   * automatically, which is exactly the desired "/start + 1 bot screen"
+   * end state.
+   *
+   * Errors are silently swallowed: "message not found" / "not bot-deletable"
+   * are expected for IDs that were user-sent or never existed. Done in
+   * parallel per user (Promise.allSettled) for speed; outer batch already
+   * limits to BATCH_SIZE concurrent users.
+   */
+  async cleanupOldMessages(userId, newMsgId, depth = 20) {
+    if (!newMsgId || newMsgId <= 1) return;
+    const ids = [];
+    for (let i = 1; i <= depth; i++) {
+      const id = newMsgId - i;
+      if (id > 0) ids.push(id);
+    }
+    await Promise.allSettled(
+      ids.map(id => this.bot.telegram.deleteMessage(userId, id).catch(() => {}))
+    );
+  }
+
+  /**
    * Screens to skip - users in middle of critical flows
    */
   shouldSkipUser(user) {
@@ -302,6 +333,13 @@ class BroadcastService {
           }
         }
       );
+
+      // 4. Best-effort: wipe stale bot-sent messages above the new one so the
+      //    chat ends up as "/start (user) + 1 bot screen" — the two-message
+      //    rule from CLAUDE.md. Legacy users with untracked old menus get
+      //    cleaned up here. Run AFTER the DB update so even if cleanup is
+      //    slow / errors, the broadcast is already counted as sent.
+      this.cleanupOldMessages(userId, newMsg.message_id, 20).catch(() => {});
 
       return 'sent';
     } catch (error) {
